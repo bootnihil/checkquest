@@ -1,5 +1,7 @@
 # Regulated QA Automation Demo
 
+![Playwright Tests](https://github.com/bootnihil/regulated-qa-automation-demo/actions/workflows/playwright.yml/badge.svg?branch=main)
+
 This repository demonstrates a practical QA automation framework using Playwright and TypeScript.
 
 The goal is to show how UI and API automation can support risk-based regression testing, repeatable execution, and objective test evidence in a regulated software context.
