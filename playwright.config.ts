@@ -35,7 +35,10 @@ export default defineConfig({
 
     {
       name: 'api',
-      testMatch: /.*\.api\.spec\.ts/
+      testMatch: /.*\.api\.spec\.ts/,
+        use: {
+        baseURL: 'https://jsonplaceholder.typicode.com'
+        }
     }
   ]
 });
