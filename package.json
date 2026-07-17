@@ -14,7 +14,8 @@
     "agent:decide": "tsx agent/first-agent-decision.ts",
     "agent:navigation-check": "tsx agent/navigation-check.ts",
     "agent:navigation-choice": "tsx agent/navigation-choice-check.ts",
-    "agent:navigation-visit": "tsx agent/navigation-visit-check.ts"
+    "agent:navigation-visit": "tsx agent/navigation-visit-check.ts",
+    "agent:run": "tsx agent/run-site-agent.ts"
   },
   "keywords": [
     "qa",

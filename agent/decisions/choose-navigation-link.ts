@@ -1,6 +1,8 @@
 import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
+import { runGeminiRequest } from '../ai/run-gemini-request';
 import type { NavigationLink } from '../browser/inspect-navigation';
+import { aiConfig } from '../config/ai-config';
 import type { SiteConfig } from '../config/site-config';
 
 const chooseLinkArguments = z.object({
@@ -23,7 +25,9 @@ export interface FinishChoice {
   summary: string;
 }
 
-export type NavigationDecision = NavigationChoice | FinishChoice;
+export type NavigationDecision =
+  | NavigationChoice
+  | FinishChoice;
 
 export async function chooseNavigationLink(
   site: SiteConfig,
@@ -87,10 +91,14 @@ export async function chooseNavigationLink(
 
   const ai = new GoogleGenAI({});
 
-  const interaction = await ai.interactions.create({
-    model: 'gemini-3.5-flash',
-    store: false,
-    input: `
+  const interaction = await runGeminiRequest(
+    'choosing a safe navigation target',
+    (requestOptions) =>
+      ai.interactions.create(
+        {
+          model: aiConfig.model,
+          store: false,
+          input: `
 You are a cautious QA agent testing the public website "${site.name}".
 
 Mission:
@@ -106,12 +114,15 @@ Rules:
 Safe navigation links:
 ${JSON.stringify(numberedLinks, null, 2)}
 `,
-    tools: [chooseLinkTool, finishTool],
-    generation_config: {
-      tool_choice: 'any',
-      thinking_level: 'low'
-    }
-  });
+          tools: [chooseLinkTool, finishTool],
+          generation_config: {
+            tool_choice: 'any',
+            thinking_level: 'low'
+          }
+        },
+        requestOptions
+      )
+  );
 
   const functionCalls = interaction.steps.filter(
     (step) => step.type === 'function_call'
@@ -126,7 +137,10 @@ ${JSON.stringify(numberedLinks, null, 2)}
   const decision = functionCalls[0];
 
   if (decision.name === 'choose_navigation_link') {
-    const argumentsResult = chooseLinkArguments.parse(decision.arguments);
+    const argumentsResult = chooseLinkArguments.parse(
+      decision.arguments
+    );
+
     const selectedLink = links[argumentsResult.linkIndex];
 
     if (!selectedLink) {
@@ -143,7 +157,9 @@ ${JSON.stringify(numberedLinks, null, 2)}
   }
 
   if (decision.name === 'finish') {
-    const argumentsResult = finishArguments.parse(decision.arguments);
+    const argumentsResult = finishArguments.parse(
+      decision.arguments
+    );
 
     return {
       type: 'finish',
@@ -151,5 +167,7 @@ ${JSON.stringify(numberedLinks, null, 2)}
     };
   }
 
-  throw new Error(`Unexpected navigation function: ${decision.name}`);
+  throw new Error(
+    `Unexpected navigation function: ${decision.name}`
+  );
 }
