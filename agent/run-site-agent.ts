@@ -9,6 +9,7 @@ import {
 } from './reporting/report-utils';
 import type { SiteAgentReport } from './reporting/report-types';
 import { writeJsonReport } from './reporting/write-json-report';
+import { writeMarkdownReport } from './reporting/write-markdown-report';
 import { getSiteConfig } from './sites';
 
 async function main(): Promise<void> {
@@ -101,9 +102,16 @@ async function main(): Promise<void> {
         }
       };
 
-      const writtenReport = await writeJsonReport(report);
+      const writtenJsonReport = await writeJsonReport(report);
+      const writtenMarkdownReport = await writeMarkdownReport(report);
 
-      console.log(`\nJSON report saved: ${writtenReport.filePath}`);
+      console.log(
+        `\nJSON report saved: ${writtenJsonReport.filePath}`
+      );
+      console.log(
+        `Markdown report saved: ${writtenMarkdownReport.filePath}`
+      );
+
       console.log('\nAgent run complete.');
       return;
     }
@@ -168,9 +176,16 @@ async function main(): Promise<void> {
       }
     };
 
-    const writtenReport = await writeJsonReport(report);
+    const writtenJsonReport = await writeJsonReport(report);
+    const writtenMarkdownReport = await writeMarkdownReport(report);
 
-    console.log(`\nJSON report saved: ${writtenReport.filePath}`);
+    console.log(
+      `\nJSON report saved: ${writtenJsonReport.filePath}`
+    );
+    console.log(
+      `Markdown report saved: ${writtenMarkdownReport.filePath}`
+    );
+
     console.log('\nAgent run complete.');
   } finally {
     await browser.close();
