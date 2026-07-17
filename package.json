@@ -16,7 +16,8 @@
     "agent:navigation-choice": "tsx agent/navigation-choice-check.ts",
     "agent:navigation-visit": "tsx agent/navigation-visit-check.ts",
     "agent:run": "tsx agent/run-site-agent.ts",
-    "agent:evaluation-check": "tsx agent/page-evaluation-check.ts"
+    "agent:evaluation-check": "tsx agent/page-evaluation-check.ts",
+    "agent:visited-links-check": "tsx agent/visited-links-check.ts"
   },
   "keywords": [
     "qa",
