@@ -1,3 +1,4 @@
+import type { ClassifiedDiagnostics } from '../analysis/classify-diagnostics';
 import type { PageFinding } from '../analysis/evaluate-page';
 import type { PageDiagnostics } from '../browser/collect-page-diagnostics';
 import type { NavigationLink } from '../browser/inspect-navigation';
@@ -18,7 +19,18 @@ export interface SelectedNavigationTarget {
 export interface InspectedPageResult {
   selection: SelectedNavigationTarget;
   observation: VisitedPageObservation;
+
+  /*
+   * Raw browser evidence exactly as it was collected.
+   */
   diagnostics: PageDiagnostics;
+
+  /*
+   * The same evidence after generic QA classification.
+   * Nothing is deleted from the raw diagnostics.
+   */
+  classifiedDiagnostics: ClassifiedDiagnostics;
+
   findings: PageFinding[];
 }
 
@@ -46,7 +58,12 @@ export interface SiteAgentReport {
 
   summary: {
     pagesInspected: number;
+
     findingsCount: number;
     highestSeverity: 'high' | 'medium' | 'low' | 'none';
+
+    actionableDiagnosticsCount: number;
+    diagnosticsNeedingReviewCount: number;
+    ignoredDiagnosticNoiseCount: number;
   };
 }

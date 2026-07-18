@@ -1,4 +1,5 @@
 import { chromium } from '@playwright/test';
+import { classifyDiagnostics } from './analysis/classify-diagnostics';
 import { evaluatePageObservation } from './analysis/evaluate-page';
 import { collectPageDiagnostics } from './browser/collect-page-diagnostics';
 import {
@@ -237,10 +238,6 @@ async function main(): Promise<void> {
           decision.link.url
         );
 
-        /*
-         * Remove evidence collected on the previous
-         * page before opening the newly selected page.
-         */
         diagnosticsCollector.reset();
 
         const pageObservation =
@@ -265,6 +262,27 @@ async function main(): Promise<void> {
         const diagnostics =
           diagnosticsCollector.snapshot();
 
+        const classifiedDiagnostics =
+          classifyDiagnostics(diagnostics);
+
+        const actionableRequestCount =
+          classifiedDiagnostics.failedRequests.filter(
+            (item) =>
+              item.disposition === 'actionable'
+          ).length;
+
+        const ignoredNoiseCount =
+          classifiedDiagnostics.failedRequests.filter(
+            (item) =>
+              item.disposition === 'ignored-noise'
+          ).length;
+
+        const needsReviewCount =
+          classifiedDiagnostics.failedRequests.filter(
+            (item) =>
+              item.disposition === 'needs-review'
+          ).length;
+
         console.log(
           '\nSelected page visited successfully:'
         );
@@ -284,6 +302,19 @@ async function main(): Promise<void> {
         );
         console.log(
           `Failed network requests: ${diagnostics.failedRequests.length}`
+        );
+
+        console.log(
+          '\nDiagnostic classification:'
+        );
+        console.log(
+          `Actionable failed requests: ${actionableRequestCount}`
+        );
+        console.log(
+          `Needs review: ${needsReviewCount}`
+        );
+        console.log(
+          `Ignored noise: ${ignoredNoiseCount}`
         );
 
         const findings =
@@ -316,6 +347,7 @@ async function main(): Promise<void> {
           },
           observation: pageObservation,
           diagnostics,
+          classifiedDiagnostics,
           findings
         });
 
@@ -373,6 +405,30 @@ async function main(): Promise<void> {
             pageResult.findings
         );
 
+      const allClassifiedFailedRequests =
+        inspectedPages.flatMap(
+          (pageResult) =>
+            pageResult.classifiedDiagnostics.failedRequests
+        );
+
+      const actionableDiagnosticsCount =
+        allClassifiedFailedRequests.filter(
+          (item) =>
+            item.disposition === 'actionable'
+        ).length;
+
+      const diagnosticsNeedingReviewCount =
+        allClassifiedFailedRequests.filter(
+          (item) =>
+            item.disposition === 'needs-review'
+        ).length;
+
+      const ignoredDiagnosticNoiseCount =
+        allClassifiedFailedRequests.filter(
+          (item) =>
+            item.disposition === 'ignored-noise'
+        ).length;
+
       const report: SiteAgentReport = {
         runId,
         startedAt:
@@ -396,7 +452,10 @@ async function main(): Promise<void> {
           highestSeverity:
             getHighestSeverity(
               allFindings
-            )
+            ),
+          actionableDiagnosticsCount,
+          diagnosticsNeedingReviewCount,
+          ignoredDiagnosticNoiseCount
         }
       };
 

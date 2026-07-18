@@ -35,8 +35,11 @@ export async function writeMarkdownReport(
     '## Summary',
     '',
     `- Pages inspected: ${report.summary.pagesInspected}`,
-    `- Findings: ${report.summary.findingsCount}`,
-    `- Highest severity: ${report.summary.highestSeverity}`,
+    `- Rule-based findings: ${report.summary.findingsCount}`,
+    `- Highest finding severity: ${report.summary.highestSeverity}`,
+    `- Actionable diagnostics: ${report.summary.actionableDiagnosticsCount}`,
+    `- Diagnostics needing review: ${report.summary.diagnosticsNeedingReviewCount}`,
+    `- Ignored diagnostic noise: ${report.summary.ignoredDiagnosticNoiseCount}`,
     `- Outcome: ${report.outcome.type}`,
     `- Outcome summary: ${report.outcome.summary}`,
     '',
@@ -65,8 +68,27 @@ export async function writeMarkdownReport(
       selection,
       observation,
       diagnostics,
+      classifiedDiagnostics,
       findings
     } = pageResult;
+
+    const actionableCount =
+      classifiedDiagnostics.failedRequests.filter(
+        (item) =>
+          item.disposition === 'actionable'
+      ).length;
+
+    const needsReviewCount =
+      classifiedDiagnostics.failedRequests.filter(
+        (item) =>
+          item.disposition === 'needs-review'
+      ).length;
+
+    const ignoredNoiseCount =
+      classifiedDiagnostics.failedRequests.filter(
+        (item) =>
+          item.disposition === 'ignored-noise'
+      ).length;
 
     lines.push(
       `## Inspected Page ${pageNumber}`,
@@ -107,6 +129,12 @@ export async function writeMarkdownReport(
       `- Console errors: ${diagnostics.consoleErrors.length}`,
       `- Failed network requests: ${diagnostics.failedRequests.length}`,
       '',
+      '### Diagnostic Classification',
+      '',
+      `- Actionable failed requests: ${actionableCount}`,
+      `- Needs review: ${needsReviewCount}`,
+      `- Ignored noise: ${ignoredNoiseCount}`,
+      '',
       '#### Console Errors',
       ''
     );
@@ -133,7 +161,43 @@ export async function writeMarkdownReport(
     }
 
     lines.push(
-      '#### Failed Network Requests',
+      '#### Classified Failed Network Requests',
+      ''
+    );
+
+    if (
+      classifiedDiagnostics.failedRequests.length === 0
+    ) {
+      lines.push(
+        'No failed network requests were recorded.',
+        ''
+      );
+    } else {
+      classifiedDiagnostics.failedRequests.forEach(
+        (classifiedRequest, requestIndex) => {
+          const {
+            request,
+            disposition,
+            reason
+          } = classifiedRequest;
+
+          lines.push(
+            `**Failed request ${requestIndex + 1}**`,
+            '',
+            `- Disposition: ${disposition}`,
+            `- Reason: ${reason}`,
+            `- URL: ${request.url}`,
+            `- Method: ${request.method}`,
+            `- Resource type: ${request.resourceType}`,
+            `- Failure: ${request.failureText}`,
+            ''
+          );
+        }
+      );
+    }
+
+    lines.push(
+      '#### Raw Failed Network Requests',
       ''
     );
 
@@ -146,7 +210,7 @@ export async function writeMarkdownReport(
       diagnostics.failedRequests.forEach(
         (failedRequest, requestIndex) => {
           lines.push(
-            `**Failed request ${requestIndex + 1}**`,
+            `**Raw failed request ${requestIndex + 1}**`,
             '',
             `- URL: ${failedRequest.url}`,
             `- Method: ${failedRequest.method}`,
@@ -158,7 +222,10 @@ export async function writeMarkdownReport(
       );
     }
 
-    lines.push('### Rule-Based Findings', '');
+    lines.push(
+      '### Rule-Based Findings',
+      ''
+    );
 
     if (findings.length === 0) {
       lines.push(
