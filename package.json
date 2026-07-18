@@ -18,7 +18,8 @@
     "agent:run": "tsx agent/run-site-agent.ts",
     "agent:evaluation-check": "tsx agent/page-evaluation-check.ts",
     "agent:visited-links-check": "tsx agent/visited-links-check.ts",
-    "agent:page-diagnostics-check": "tsx agent/page-diagnostics-check.ts"
+    "agent:page-diagnostics-check": "tsx agent/page-diagnostics-check.ts",
+    "agent:diagnostics-classification-check": "tsx agent/diagnostics-classification-check.ts"
   },
   "keywords": [
     "qa",
