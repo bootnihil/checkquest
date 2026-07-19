@@ -1,54 +1,55 @@
 # Web QA Agent
 
-An experimental AI-assisted QA agent for safely exploring public websites, collecting browser evidence, identifying candidate issues, and generating structured QA reports.
+An experimental AI-assisted web QA agent built with **TypeScript, Playwright, and Gemini** for safe website exploration, evidence collection, exploratory QA reasoning, and structured issue reporting.
 
-The project combines **Playwright** for deterministic browser interaction with **Gemini** for evidence-grounded exploratory QA reasoning.
+The project explores a simple idea:
 
-The core design principle is simple:
+> **AI can reason creatively about what might be wrong, while browser execution, permissions, and safety boundaries remain deterministic.**
 
-> **AI may reason creatively about what could be wrong. Browser execution and safety boundaries remain deterministic.**
+Rather than relying only on predefined automated test cases, the agent is being designed to independently inspect websites, identify potentially meaningful QA concerns, gather supporting evidence, and present reviewable findings.
 
 ---
 
 ## What It Does
 
-The agent can currently:
+The agent currently supports:
 
-- Open a configured public website with Playwright.
-- Restrict navigation to explicitly approved domains.
-- Discover safe internal navigation links.
-- Use Gemini to choose representative pages to inspect.
-- Track visited URLs and avoid repeatedly revisiting the same page.
-- Perform bounded multi-page exploration.
-- Collect page observations such as:
-  - HTTP status
+- Opening configured public websites using Playwright.
+- Restricting navigation to explicitly approved domains.
+- Discovering safe internal navigation links.
+- Using Gemini to choose representative pages to inspect.
+- Tracking visited URLs to avoid repeatedly revisiting the same page.
+- Performing bounded multi-page exploration.
+- Extracting structured page content including:
   - page title
   - headings
   - visible body text
   - links
   - buttons
-  - select controls and their options
-- Collect browser diagnostics:
+  - select controls
+  - select options
+- Collecting browser diagnostics:
   - console errors
   - failed network requests
-- Classify failed requests as:
+- Classifying failed requests as:
   - actionable
   - needs review
   - expected diagnostic noise
-- Run deterministic page-health checks.
-- Use Gemini for broader evidence-grounded exploratory QA analysis.
-- Produce structured candidate findings with:
+- Running deterministic page-health checks.
+- Using Gemini for broader evidence-grounded exploratory QA analysis.
+- Producing structured candidate findings containing:
   - category
   - severity
   - confidence
   - evidence
   - reasoning
   - suggested verification step
-- Capture screenshots when something requires investigation.
-- Capture targeted evidence for supported UI elements.
-- Generate both JSON and human-readable Markdown reports.
+- Generating machine-readable evidence targets for supported UI elements.
+- Capturing full-page screenshots when needed.
+- Capturing focused evidence for supported UI findings.
+- Generating both JSON and human-readable Markdown reports.
 
-The project is designed to evolve toward a reusable autonomous exploratory testing agent rather than a collection of site-specific automated test cases.
+The project is intended to evolve into a reusable constrained autonomous exploratory testing agent rather than a collection of site-specific automated tests.
 
 ---
 
@@ -58,22 +59,23 @@ During a controlled exploratory run against the Aidoc public website, the agent 
 
 The agent:
 
-1. Extracted the page's visible content and form controls.
-2. Inspected the structured options of the `Country` dropdown.
-3. Detected that the same dropdown contained both:
+1. Loaded the page with Playwright.
+2. Extracted visible content and structured form controls.
+3. Inspected the available options inside the `Country` dropdown.
+4. Detected that the same dropdown contained both:
 
    - `Ecuador`
    - `Equador`
 
-4. Gemini identified `Equador` as a likely additional misspelled country option.
-5. The finding was returned as:
+5. Gemini identified `Equador` as a likely additional misspelled country option.
+6. The finding was returned with:
 
    - **Category:** Content
    - **Severity:** Low
    - **Confidence:** High
 
-6. The AI also returned a machine-readable evidence target identifying the exact dropdown and option.
-7. Playwright located the control, verified that `Equador` existed, selected it locally without submitting the form, and captured focused screenshot evidence.
+7. Gemini also returned a machine-readable evidence target identifying the exact dropdown and option.
+8. Playwright located the control, verified that `Equador` existed, selected it locally without submitting the form, and captured focused screenshot evidence.
 
 The resulting finding was essentially:
 
@@ -81,7 +83,7 @@ The resulting finding was essentially:
 >
 > The Country dropdown contains both `Ecuador` and `Equador`. The presence of `Equador` alongside the correctly spelled `Ecuador` suggests a likely typographical or data-quality issue.
 
-This is an example of the intended workflow:
+This demonstrates the intended workflow:
 
 ```text
 Explore
@@ -92,12 +94,18 @@ Extract structured evidence
    ↓
 Reason about possible QA issues
    ↓
-Validate the evidence target
+Return a machine-readable evidence target
+   ↓
+Verify the target with Playwright
    ↓
 Capture focused evidence
    ↓
-Report a reviewable candidate finding
+Generate a reviewable candidate finding
 ```
+
+The important distinction is that Gemini did not directly control the browser.
+
+The AI identified the likely issue and described where the evidence could be found. Playwright then deterministically verified and interacted with the approved target.
 
 ---
 
@@ -145,6 +153,8 @@ agent/
     └── individual site configurations
 ```
 
+The goal is to keep the agent engine generic.
+
 A website is represented primarily through configuration rather than hardcoded test logic.
 
 For example:
@@ -164,7 +174,28 @@ For example:
 }
 ```
 
-The intention is that additional ordinary public websites can be added without rewriting the agent engine.
+The intention is that additional ordinary public websites can be added without rewriting the core agent.
+
+---
+
+## Technology Stack
+
+The project currently uses:
+
+- **TypeScript**
+- **Node.js**
+- **Playwright**
+- **Gemini API**
+- **Zod**
+- **GitHub Actions**
+
+TypeScript is used throughout the agent architecture for typed site configuration, browser observations, diagnostic evidence, AI response schemas, report models, and machine-readable evidence targets.
+
+Playwright handles deterministic browser execution.
+
+Gemini is used for reasoning tasks where rigid predefined rules are less useful.
+
+Zod validates AI-generated structured responses before they are accepted by the agent.
 
 ---
 
@@ -183,7 +214,7 @@ Current boundaries include:
 - Exploration is bounded by page and step limits.
 - Previously visited URLs are tracked.
 - Form submission is disabled.
-- Potentially destructive actions are not available to the AI.
+- Potentially destructive actions are not exposed to the AI.
 
 Examples of intended safe actions:
 
@@ -196,6 +227,7 @@ Switch tabs               ✓
 Open dropdown             ✓
 Select a local option     ✓
 Fill a field locally      ✓
+Clear a field             ✓
 Trigger client validation ✓
 
 Submit contact form       ✗
@@ -207,14 +239,15 @@ Trigger destructive API   ✗
 
 ### AI reasoning
 
-Gemini is used for tasks where rigid rules are less useful, such as:
+Gemini is used for tasks such as:
 
-- choosing which representative page to inspect;
+- choosing representative pages to inspect;
 - identifying suspicious or inconsistent content;
 - detecting likely typos or placeholder content;
 - reasoning about structured form controls;
 - producing candidate QA findings;
-- suggesting appropriate follow-up verification.
+- suggesting follow-up verification;
+- identifying machine-readable evidence targets.
 
 AI findings are treated as **candidate issues**, not automatically confirmed defects.
 
@@ -224,58 +257,92 @@ Returning zero findings is explicitly considered a valid result.
 
 ---
 
-## Evidence Model
+## Current Exploration Flow
 
-The agent keeps different evidence types separate.
-
-### Rule-based findings
-
-Deterministic checks currently include issues such as:
-
-- HTTP 4xx or 5xx responses;
-- empty page titles;
-- missing primary headings;
-- obvious error-page indicators.
-
-### Browser diagnostics
-
-The agent collects:
-
-- browser console errors;
-- failed network requests.
-
-Known telemetry and tracking noise can be classified separately rather than appearing as user-facing defects.
-
-For example:
+The current multi-page agent approximately follows this process:
 
 ```text
-Cloudflare RUM telemetry      → ignored noise
-DoubleClick tracking          → ignored noise
-YouTube telemetry             → ignored noise
-Failed main JavaScript bundle → actionable
-Unknown failed image          → needs review
+Open configured site
+        ↓
+Collect safe navigation candidates
+        ↓
+Gemini chooses a representative target
+        ↓
+Visit approved page
+        ↓
+Collect browser diagnostics
+        ↓
+Run deterministic checks
+        ↓
+Extract structured page content
+        ↓
+Gemini performs exploratory QA analysis
+        ↓
+Validate structured AI response
+        ↓
+Capture evidence when required
+        ↓
+Discover additional safe links
+        ↓
+Continue until exploration limit
+        ↓
+Generate JSON + Markdown reports
 ```
 
-Raw evidence is preserved even when classified as noise.
+The current exploration loop is primarily **observe-and-analyze**.
 
-### Exploratory QA findings
+The next major phase is adding a planner/action loop so the agent can safely interact with page elements, observe resulting behavior, and decide what to test next.
 
-Gemini receives a compact evidence package rather than raw HTML.
+---
 
-This can include:
+## Evidence-Grounded Exploratory QA
 
-- page metadata;
+Gemini receives a compact structured evidence package rather than raw HTML.
+
+Depending on the page, this may include:
+
+- requested URL;
+- final URL;
+- HTTP status;
+- page title;
 - headings;
 - visible body text;
 - links;
 - buttons;
-- structured select controls;
+- select controls;
+- select options;
 - relevant browser diagnostics;
-- existing rule-based findings.
+- deterministic findings.
 
-The model must return validated structured JSON.
+Known diagnostic noise is filtered out before the exploratory AI analysis.
 
-Example:
+For example, requests involving:
+
+```text
+Cloudflare RUM telemetry
+DoubleClick tracking
+YouTube telemetry
+```
+
+can be preserved in raw evidence while being excluded from the AI's QA reasoning context.
+
+The exploratory model is explicitly instructed to:
+
+- use only supplied evidence;
+- avoid unsupported assumptions;
+- avoid inventing visual issues without visual evidence;
+- distinguish observation from inference;
+- avoid claiming broken behavior without evidence;
+- prefer zero findings over speculative findings;
+- treat results as candidate QA issues rather than confirmed defects.
+
+---
+
+## Structured AI Findings
+
+Gemini must return validated structured JSON.
+
+A candidate finding contains:
 
 ```json
 {
@@ -285,23 +352,38 @@ Example:
   "title": "Possible misspelling in country list",
   "evidence": "The Country dropdown contains both Ecuador and Equador.",
   "reasoning": "Equador appears to be an additional misspelled option.",
-  "suggestedCheck": "Verify the intended country list and correct or remove the misspelled entry."
+  "suggestedCheck": "Verify the intended country list and correct or remove the misspelled entry.",
+  "evidenceTarget": {
+    "kind": "select-option",
+    "controlLabel": "Country",
+    "controlName": "country",
+    "controlId": "country",
+    "optionText": "Equador"
+  }
 }
 ```
 
+Responses are validated with Zod before being accepted.
+
+Unsupported values, malformed objects, or unexpected structures are rejected.
+
 ---
 
-## Targeted Evidence
+## Machine-Readable Evidence Targets
 
-The agent can associate certain AI findings with machine-readable evidence targets.
+Certain findings can contain a machine-readable `evidenceTarget`.
 
-The first implemented target type is:
+This allows the reasoning layer to communicate:
+
+> I think there is an issue here, and this is the specific UI element that contains the evidence.
+
+The first implemented evidence target is:
 
 ```text
 select-option
 ```
 
-For example:
+Example:
 
 ```json
 {
@@ -313,7 +395,7 @@ For example:
 }
 ```
 
-Playwright can then:
+Playwright can then independently:
 
 1. locate the exact select control;
 2. verify that the option exists;
@@ -321,9 +403,110 @@ Playwright can then:
 4. scroll the control into view;
 5. capture a focused screenshot.
 
-This produces much more useful evidence than an arbitrary full-page screenshot.
+The AI does not directly provide arbitrary selectors or execute browser commands.
 
-Additional target types are planned.
+The target is interpreted through deterministic browser tooling.
+
+Additional evidence-target types are planned.
+
+---
+
+## Browser Diagnostics
+
+The agent collects:
+
+- browser console errors;
+- failed network requests.
+
+Failed network requests are classified into:
+
+```text
+actionable
+needs-review
+ignored-noise
+```
+
+For example:
+
+```text
+Cloudflare RUM telemetry      → ignored-noise
+DoubleClick tracking          → ignored-noise
+YouTube telemetry             → ignored-noise
+Failed main JavaScript bundle → actionable
+Unknown failed image          → needs-review
+```
+
+Raw evidence is preserved even when classified as noise.
+
+This allows the report to remain transparent while preventing known telemetry failures from being presented as user-facing bugs.
+
+---
+
+## Deterministic Findings
+
+The project still uses traditional rule-based QA checks where appropriate.
+
+Current examples include:
+
+- HTTP 4xx or 5xx responses;
+- empty page title;
+- missing primary headings;
+- obvious error-page indicators.
+
+AI analysis complements these checks rather than replacing them.
+
+A typical report therefore separates:
+
+```text
+Rule-based findings
+Exploratory AI candidate findings
+Actionable browser diagnostics
+Diagnostics needing review
+Ignored diagnostic noise
+```
+
+---
+
+## Screenshot Evidence
+
+The agent currently supports two screenshot modes.
+
+### Full-page evidence
+
+A full-page screenshot can be captured when a page contains something requiring investigation.
+
+### Targeted evidence
+
+For supported machine-readable targets, Playwright captures a focused screenshot of the relevant UI control.
+
+For the `Equador` example, the agent:
+
+```text
+identified suspicious option
+        ↓
+returned select-option evidence target
+        ↓
+located exact Country dropdown
+        ↓
+verified Equador exists
+        ↓
+selected Equador locally
+        ↓
+captured focused screenshot
+```
+
+This produces much more useful evidence than a generic full-page screenshot.
+
+The current targeted screenshot shows the offending value selected in the field.
+
+Future evidence improvements may also include structured comparison data showing related values such as:
+
+```text
+Ecuador
+Equador
+```
+
+alongside the screenshot.
 
 ---
 
@@ -352,189 +535,48 @@ The Markdown report contains:
 
 - run metadata;
 - inspected pages;
-- agent navigation decisions;
+- navigation decisions;
 - HTTP/page observations;
+- headings;
 - browser diagnostics;
 - diagnostic classifications;
-- deterministic findings;
-- AI exploratory QA candidate findings;
-- severity and confidence;
+- rule-based findings;
+- exploratory QA candidate findings;
+- severity;
+- confidence;
 - supporting evidence;
+- reasoning;
 - suggested verification steps;
 - screenshot paths.
 
-The JSON report preserves the same information in a machine-readable format.
+The JSON report preserves the same information in machine-readable form.
 
 ---
 
-## Current Exploration Flow
+## Adding Another Website
 
-The main multi-page agent currently follows approximately this flow:
-
-```text
-Open configured site
-        ↓
-Collect safe navigation candidates
-        ↓
-Gemini chooses a representative target
-        ↓
-Visit approved page
-        ↓
-Collect browser diagnostics
-        ↓
-Run deterministic checks
-        ↓
-Extract structured page content
-        ↓
-Gemini performs exploratory QA analysis
-        ↓
-Capture evidence when required
-        ↓
-Discover additional links
-        ↓
-Continue until bounded exploration limit
-        ↓
-Generate JSON + Markdown reports
-```
-
----
-
-## Current Limitations
-
-This project is actively being developed.
-
-It does **not yet** perform unrestricted autonomous exploratory testing.
-
-Current limitations include:
-
-- The agent primarily observes pages rather than actively testing many interactive elements.
-- A general planner/action loop has not yet been implemented.
-- Form submissions and backend-changing actions are intentionally disabled.
-- Client-side boundary testing of text fields is not yet implemented.
-- Most targeted evidence types are not yet supported.
-- Native browser dropdown popups are difficult to capture directly in headless mode.
-- Visual AI analysis of screenshots is not yet part of the exploratory reasoning loop.
-- Exploration depth is still limited compared with a human tester.
-- Scheduled CI execution is not yet configured.
-- Reports are not yet compared across runs.
-- Findings are not yet automatically deduplicated between runs.
-
-The current agent is best described as an **AI-assisted autonomous website inspector evolving toward a constrained exploratory tester**.
-
----
-
-## Roadmap
-
-### Safe interaction tools
-
-Add generic Playwright tools for actions such as:
-
-- fill field;
-- clear field;
-- blur field;
-- open dropdown;
-- select option;
-- expand accordion;
-- switch tab;
-- open and close modal;
-- hover;
-- scroll;
-- inspect dynamic validation.
-
-### Planner/action loop
-
-Allow the AI to form and execute bounded test hypotheses:
+Site-specific configuration lives under:
 
 ```text
-Observe page
-    ↓
-Identify test opportunity
-    ↓
-Choose approved action
-    ↓
-Execute through Playwright
-    ↓
-Observe result
-    ↓
-Reason about result
-    ↓
-Continue or finish
+agent/sites/
 ```
 
-Example:
+A new public website can be introduced by defining:
 
-```text
-Observe Email field
-        ↓
-Hypothesis: format validation exists
-        ↓
-Enter invalid value
-        ↓
-Blur field
-        ↓
-Observe validation message
-        ↓
-Enter valid value
-        ↓
-Compare behavior
-```
+- a unique site ID;
+- display name;
+- starting URL;
+- approved hosts;
+- exploration limits;
+- interaction permissions.
 
-### Boundary and validation testing
+The site is then registered in the site registry.
 
-Safely explore client-side rules using:
+The long-term goal is to make adding another ordinary public website close to a configuration-only task.
 
-- empty values;
-- minimum/maximum lengths;
-- long strings;
-- special characters;
-- Unicode;
-- leading/trailing whitespace;
-- malformed email formats;
-- unexpected but non-destructive input.
+The project is not intended to guarantee compatibility with every website on the internet.
 
-### Richer targeted evidence
-
-Support targets such as:
-
-- text fields;
-- buttons;
-- links;
-- validation messages;
-- custom dropdowns;
-- modals;
-- tabs;
-- accordions;
-- page sections.
-
-### Deeper exploration
-
-Improve page discovery beyond top-level navigation and allow the agent to build a richer map of the site.
-
-### Scheduled monitoring
-
-Run automatically through GitHub Actions or another CI environment.
-
-Store reports and screenshots as CI artifacts.
-
-### Historical comparison
-
-Compare new runs with previous runs to identify:
-
-- new findings;
-- unchanged findings;
-- resolved findings;
-- newly failing pages.
-
-### Smarter reporting
-
-Separate:
-
-```text
-Confirmed objective failures
-High-confidence candidate issues
-Needs-human-review observations
-Ignored diagnostic noise
-```
+Sites involving complex authentication, CAPTCHAs, aggressive anti-bot systems, unusual iframe structures, or highly custom UI components may require additional adapters.
 
 ---
 
@@ -560,13 +602,13 @@ Install dependencies:
 npm ci
 ```
 
-Install the Playwright Chromium browser if needed:
+Install Chromium for Playwright if needed:
 
 ```bash
 npx playwright install chromium
 ```
 
-Set the Gemini API key as an environment variable.
+Configure the Gemini API key as an environment variable.
 
 On Windows:
 
@@ -582,11 +624,13 @@ The API key must never be committed to the repository.
 
 ## Running Tests
 
-Run the standard Playwright test suite:
+Run the Playwright test suite:
 
 ```bash
 npm test
 ```
+
+The repository includes deterministic Playwright tests alongside the agent infrastructure.
 
 ---
 
@@ -598,62 +642,315 @@ Run the configured Aidoc site:
 npm run agent:run -- aidoc
 ```
 
-The multi-page agent will remain within configured safety boundaries and exploration limits.
+The agent remains within the site's configured safety boundaries and exploration limits.
 
 ---
 
 ## Development Checks
 
-The repository contains small focused diagnostic programs used while developing individual agent capabilities.
+The repository also contains focused development checks used to verify individual agent capabilities independently.
 
-Examples include checks for:
+These include checks for:
 
 ```text
+Gemini SDK connectivity
+Gemini API connectivity
+safe navigation inspection
+navigation decisions
+approved-link visits
+visited-page tracking
+page evaluation
 browser diagnostics
 diagnostic classification
-URL visit tracking
 page-content extraction
-Gemini connectivity
-navigation decisions
-page evaluation
-screenshot capture
-targeted screenshot evidence
 exploratory QA schema validation
-exploratory QA analysis
+exploratory prompt construction
+AI exploratory QA analysis
+screenshot capture
+screenshot-trigger behavior
+targeted UI evidence capture
+real-site exploratory integration
 ```
 
-These checks allow individual pieces of the agent to be tested independently before being connected to the autonomous workflow.
+These small checks allow components to be validated independently before being integrated into the main autonomous workflow.
 
 ---
 
-## Adding Another Website
+## GitHub Actions
 
-Site-specific configuration lives under:
+The repository currently includes a deterministic Playwright CI workflow.
+
+On pushes and pull requests to `main`, GitHub Actions:
 
 ```text
-agent/sites/
+checks out the repository
+        ↓
+installs Node.js
+        ↓
+runs npm ci
+        ↓
+installs Playwright browsers
+        ↓
+runs the Playwright test suite
+        ↓
+uploads the Playwright report
 ```
 
-A new public website can be introduced by defining:
+A separate scheduled agent workflow is planned for autonomous exploratory runs.
 
-- a unique site ID;
-- display name;
-- starting URL;
-- approved hosts;
-- exploration limits;
-- interaction permissions.
+That workflow will eventually:
 
-The site is then registered in the site registry.
+- run on a schedule;
+- use a protected `GEMINI_API_KEY` GitHub secret;
+- execute configured website exploration;
+- store JSON and Markdown reports;
+- upload screenshot evidence as CI artifacts.
 
-The long-term goal is to keep website-specific logic minimal and make the core agent reusable across ordinary public websites.
+---
+
+## Current Limitations
+
+The project is actively being developed.
+
+The agent does **not yet** perform unrestricted autonomous exploratory testing.
+
+Current limitations include:
+
+- The main agent currently focuses more on observation than active interaction.
+- A general planner/action loop is not yet implemented.
+- Generic text-field boundary testing is not yet implemented.
+- Client-side validation exploration is not yet integrated into autonomous runs.
+- Form submissions and backend-changing actions are intentionally disabled.
+- Only a small number of machine-readable evidence-target types are supported.
+- Targeted evidence currently supports select-option findings as the first implementation.
+- Native browser dropdown popups are difficult to capture directly in headless mode.
+- Visual AI analysis of screenshots is not yet part of the reasoning loop.
+- Exploration depth is still more limited than that of a skilled human exploratory tester.
+- Scheduled autonomous CI execution is not yet configured.
+- Reports are not yet compared across runs.
+- Findings are not yet automatically deduplicated between runs.
+- The agent does not yet remember historical exploration state between scheduled runs.
+
+The current agent is best described as an:
+
+> **AI-assisted autonomous website inspector evolving toward a constrained exploratory testing agent.**
+
+---
+
+## Next Major Development Phase
+
+The next major development phase is a **safe planner/action loop**.
+
+The goal is to move from:
+
+```text
+Observe
+    ↓
+Analyze
+    ↓
+Report
+```
+
+toward:
+
+```text
+Observe
+    ↓
+Form test hypothesis
+    ↓
+Choose approved action
+    ↓
+Execute with Playwright
+    ↓
+Observe resulting behavior
+    ↓
+Reason about result
+    ↓
+Choose next test
+    ↓
+Continue or finish
+```
+
+For example:
+
+```text
+Agent observes Email field
+        ↓
+Hypothesis:
+The field may enforce email-format validation
+        ↓
+Approved action:
+Enter malformed email
+        ↓
+Blur field
+        ↓
+Observe validation response
+        ↓
+Enter valid email
+        ↓
+Compare behavior
+        ↓
+Generate finding only if evidence supports one
+```
+
+The AI will not directly execute browser commands.
+
+Instead, it will choose from a deterministic set of approved tools such as:
+
+```text
+fill field
+clear field
+blur field
+open dropdown
+select option
+expand accordion
+switch tab
+open modal
+close modal
+hover
+scroll
+```
+
+This preserves the project's central safety model:
+
+> **AI decides what is worth investigating. Deterministic code controls what actions are actually allowed.**
+
+---
+
+## Planned Boundary and Validation Testing
+
+Future exploratory capabilities are intended to include safe client-side checks involving:
+
+- empty values;
+- minimum lengths;
+- maximum lengths;
+- unusually long input;
+- special characters;
+- Unicode;
+- leading whitespace;
+- trailing whitespace;
+- malformed email formats;
+- unexpected but non-destructive input.
+
+For public websites, these tests should avoid submitting forms or triggering backend-changing actions.
+
+More aggressive testing could be enabled only when running against explicitly approved test environments.
+
+---
+
+## Roadmap
+
+### Safe interaction tools
+
+Implement reusable Playwright tools for:
+
+- fill field;
+- clear field;
+- blur field;
+- inspect validation state;
+- open dropdown;
+- select option;
+- expand accordion;
+- switch tab;
+- open and close modal;
+- hover;
+- scroll.
+
+### Planner/action loop
+
+Allow Gemini to:
+
+```text
+observe
+→ form hypothesis
+→ request approved action
+→ receive new evidence
+→ reason again
+```
+
+### Boundary testing
+
+Add generic strategies for:
+
+- strings;
+- numeric fields;
+- email fields;
+- required fields;
+- length limits;
+- special characters;
+- Unicode;
+- whitespace.
+
+### Richer evidence targets
+
+Extend machine-readable evidence targets to include:
+
+- text fields;
+- validation messages;
+- buttons;
+- links;
+- custom dropdowns;
+- tabs;
+- accordions;
+- modals;
+- page sections.
+
+### Smarter targeted screenshots
+
+Capture evidence that more directly demonstrates the complete finding rather than only the affected control state.
+
+### Deeper site exploration
+
+Improve discovery beyond top-level navigation.
+
+Build a richer map of:
+
+```text
+pages
+interactive elements
+forms
+states
+previously tested behaviors
+```
+
+### Scheduled monitoring
+
+Run exploratory agent jobs through GitHub Actions or another CI environment.
+
+Store reports and screenshot evidence as artifacts.
+
+### Historical comparison
+
+Compare runs to identify:
+
+```text
+new findings
+unchanged findings
+resolved findings
+newly failing pages
+```
+
+### Finding deduplication
+
+Avoid repeatedly reporting the same known issue across runs.
+
+### Smarter reporting
+
+Clearly separate:
+
+```text
+Confirmed objective failures
+High-confidence candidate issues
+Lower-confidence observations
+Diagnostics requiring review
+Ignored diagnostic noise
+```
 
 ---
 
 ## Project Philosophy
 
-The goal of this project is not to replace deterministic automated testing with an LLM.
-
-Traditional automated tests are excellent when expected behavior is known:
+Traditional automated testing works extremely well when expected behavior is known:
 
 ```text
 Given X
@@ -663,9 +960,9 @@ Then Z
 
 Exploratory testing addresses a different question:
 
-> What might be wrong here that nobody explicitly wrote a test for?
+> **What might be wrong here that nobody explicitly wrote a test for?**
 
-This project explores how the two approaches can complement each other:
+This project explores how several approaches can complement one another:
 
 ```text
 Deterministic automation
@@ -674,12 +971,16 @@ Controlled browser exploration
         +
 AI-assisted reasoning
         +
-Evidence requirements
+Structured evidence
+        +
+Targeted verification
         +
 Strict safety boundaries
 ```
 
-The intended result is an agent that can independently investigate a website, notice potentially meaningful problems, gather useful evidence, and present findings for human review — without giving an LLM unrestricted control over browser actions.
+The goal is not to replace deterministic automation with an LLM.
+
+The goal is to build an agent that can independently investigate a website, notice potentially meaningful problems, gather useful evidence, and present findings for human review—without giving an AI model unrestricted control over browser actions.
 
 ---
 
@@ -687,6 +988,18 @@ The intended result is an agent that can independently investigate a website, no
 
 **Experimental / active development**
 
-The agent already supports real browser exploration, structured evidence collection, AI-assisted QA analysis, and targeted evidence capture.
+The agent currently supports:
 
-The next major development phase is a **safe planner/action loop** that will allow the agent to actively test interactive page behavior and client-side boundaries rather than only inspecting existing page state.
+- bounded multi-page browser exploration;
+- safe approved-domain navigation;
+- structured page and form-control extraction;
+- browser diagnostic collection and classification;
+- deterministic page-health checks;
+- evidence-grounded Gemini exploratory QA analysis;
+- validated structured AI findings;
+- machine-readable evidence targets;
+- conditional screenshot evidence;
+- targeted screenshot capture for supported UI elements;
+- JSON and Markdown reporting.
+
+The next major development phase is a safe planner/action loop that will allow the agent to form test hypotheses, interact with approved page elements, test client-side validation and boundary conditions, observe resulting behavior, and iteratively decide what to test next.
