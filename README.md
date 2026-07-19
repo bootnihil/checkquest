@@ -78,7 +78,7 @@ Every AI-requested browser action must pass a strict Zod schema and a determinis
 
 ---
 
-## A Real Issue It Found
+## 🔍 A Real Issue It Found
 
 During a controlled run against the Aidoc public website, the agent inspected a Country dropdown and noticed that it contained both:
 
@@ -175,7 +175,7 @@ Unsupported or ambiguous actions are rejected rather than guessed.
 
 ---
 
-## Tech Stack
+## 🛠️ Tech Stack
 
 - **TypeScript**
 - **Playwright**
@@ -188,7 +188,7 @@ The project is designed so the core agent remains generic while individual websi
 
 ---
 
-## Try It
+## 🧪 Try It
 
 Clone the repository:
 
@@ -226,7 +226,7 @@ The repository also contains focused development checks for the individual agent
 
 ---
 
-## Where It Is Now
+## 🗺️ Where It Is Now
 
 The project has evolved from:
 
@@ -258,7 +258,7 @@ From there, the focus will move toward:
 
 ---
 
-## The Idea
+## 💡 The Idea
 
 This project is ultimately an experiment in combining:
 
