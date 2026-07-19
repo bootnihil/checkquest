@@ -2,6 +2,12 @@
 
 An experimental **AI-powered exploratory web testing agent** built with **TypeScript, Playwright, and Gemini**.
 
+![Playwright Tests](https://github.com/bootnihil/web-qa-agent/actions/workflows/playwright.yml/badge.svg)
+![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue?logo=typescript)
+![Playwright](https://img.shields.io/badge/Playwright-Automation-green?logo=playwright)
+![Gemini](https://img.shields.io/badge/Gemini-AI%20Reasoning-blueviolet)
+![Status](https://img.shields.io/badge/status-active%20development-orange)
+
 Instead of following only predefined test cases, the agent can inspect a website, form its own testing hypotheses, perform controlled browser interactions, observe what happens, and decide what to test next.
 
 > **AI decides what is worth investigating. Deterministic code controls what the browser is actually allowed to do.**
@@ -46,7 +52,7 @@ Reason again
 
 ---
 
-## What Can It Do Today?
+## 🚀 What Can It Do Today?
 
 The agent can already:
 
@@ -104,7 +110,7 @@ Evidence is captured for review
 
 ---
 
-## Autonomous Exploration
+## 🧠 Autonomous Exploration
 
 The first bounded autonomous planner loop is now working.
 
@@ -134,7 +140,7 @@ The loop is always bounded by deterministic safety rules and a hard maximum numb
 
 ---
 
-## Safety by Design
+## 🔒 Safety by Design
 
 The AI does not directly control Playwright.
 
