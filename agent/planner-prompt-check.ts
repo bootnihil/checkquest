@@ -18,7 +18,7 @@ function main(): void {
         },
 
         result:
-          'Scrolled down by 1 viewport and discovered a contact form.'
+          'Scrolled down by 1 viewport and discovered dynamically loaded content.'
       }
     ],
 
@@ -66,6 +66,9 @@ function main(): void {
           id: 'country',
           required: true,
           disabled: false,
+
+          totalOptions: 260,
+          optionsTruncated: true,
 
           options: [
             {
@@ -119,6 +122,9 @@ function main(): void {
     '"inputType": "email"',
     '"required": true',
 
+    '"totalOptions": 260',
+    '"optionsTruncated": true',
+
     'Ecuador',
     'Equador',
 
@@ -131,7 +137,14 @@ function main(): void {
     'form submission',
     'arbitrary clicks',
 
+    'ONE-ACTION CONSISTENCY RULE',
+
+    'The structured evidence already includes ordinary visible DOM elements even when they are below the current viewport.',
+
+    'Observed buttons are evidence only.',
+
     'Choose only the NEXT action.',
+
     'Prefer stop over meaningless activity.'
   ];
 

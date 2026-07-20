@@ -19,7 +19,8 @@ export interface AnalyzePageForQaInput {
 }
 
 function getGeminiApiKey(): string {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey =
+    process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
     throw new Error(
@@ -33,7 +34,8 @@ function getGeminiApiKey(): string {
 function cleanJsonResponse(
   rawText: string
 ): string {
-  const trimmed = rawText.trim();
+  const trimmed =
+    rawText.trim();
 
   if (
     trimmed.startsWith('```json') &&
@@ -59,34 +61,57 @@ function cleanJsonResponse(
 export async function analyzePageForQa(
   input: AnalyzePageForQaInput
 ): Promise<ExploratoryQaAnalysis> {
-  const ai = new GoogleGenAI({
-    apiKey: getGeminiApiKey()
-  });
+  const ai =
+    new GoogleGenAI({
+      apiKey:
+        getGeminiApiKey()
+    });
 
   const prompt =
-    buildExploratoryQaPrompt(input);
+    buildExploratoryQaPrompt(
+      input
+    );
 
   const response =
     await runGeminiRequest(
       'performing exploratory QA analysis',
-      async (requestOptions) => {
-        return ai.models.generateContent({
-          model: aiConfig.model,
 
-          contents: prompt,
+      async (
+        requestOptions
+      ) => {
+        return ai.models.generateContent({
+          model:
+            aiConfig.model,
+
+          contents:
+            prompt,
 
           config: {
             responseMimeType:
-              'application/json'
-          },
+              'application/json',
 
-          httpOptions:
-            requestOptions
+            httpOptions: {
+              timeout:
+                requestOptions.timeout_ms,
+
+              /*
+               * Disable SDK-level retries.
+               *
+               * runGeminiRequest() owns retry behavior so that retries,
+               * delays, logging, and final error messages remain
+               * centralized and predictable.
+               */
+              retryOptions: {
+                attempts: 1
+              }
+            }
+          }
         });
       }
     );
 
-  const rawText = response.text;
+  const rawText =
+    response.text;
 
   if (!rawText) {
     throw new Error(
@@ -95,14 +120,20 @@ export async function analyzePageForQa(
   }
 
   const cleanedText =
-    cleanJsonResponse(rawText);
+    cleanJsonResponse(
+      rawText
+    );
 
   let parsedJson: unknown;
 
   try {
     parsedJson =
-      JSON.parse(cleanedText);
-  } catch (error: unknown) {
+      JSON.parse(
+        cleanedText
+      );
+  } catch (
+    error: unknown
+  ) {
     throw new Error(
       `Gemini returned invalid JSON during exploratory QA analysis: ${cleanedText}`,
       {
@@ -116,7 +147,9 @@ export async function analyzePageForQa(
       parsedJson
     );
 
-  if (!validationResult.success) {
+  if (
+    !validationResult.success
+  ) {
     throw new Error(
       `Gemini returned an invalid exploratory QA response: ${validationResult.error.message}`
     );

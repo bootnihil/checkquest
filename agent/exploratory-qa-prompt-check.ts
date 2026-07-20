@@ -1,61 +1,85 @@
 import { buildExploratoryQaPrompt } from './analysis/build-exploratory-qa-prompt';
 
-const prompt = buildExploratoryQaPrompt({
-  observation: {
-    requestedUrl: 'https://example.com/product',
-    finalUrl: 'https://example.com/product',
-    title: 'Example Product',
-    httpStatus: 200,
-    headings: [
-      'Example Product',
-      'Built for Modern Teams'
-    ]
-  },
+const prompt =
+  buildExploratoryQaPrompt({
+    observation: {
+      requestedUrl:
+        'https://example.com/product',
 
-  content: {
-    title: 'Example Product',
+      finalUrl:
+        'https://example.com/product',
 
-    headings: [
-      'Example Product',
-      'Built for Modern Teams'
-    ],
+      title:
+        'Example Product',
 
-    bodyText:
-      'Example Product Built for Modern Teams Lorem ipsum dolor sit amet. Learn more about our platform.',
+      httpStatus: 200,
 
-    links: [
-      {
-        text: 'Learn more',
-        url: 'https://example.com/platform'
-      }
-    ],
+      headings: [
+        'Example Product',
+        'Built for Modern Teams'
+      ]
+    },
 
-    buttons: [
-      'Request a Demo'
-    ]
-  },
+    content: {
+      title:
+        'Example Product',
 
-  classifiedDiagnostics: {
-    consoleErrors: [],
+      headings: [
+        'Example Product',
+        'Built for Modern Teams'
+      ],
 
-    failedRequests: [
-      {
-        request: {
-          url: 'https://example.com/cdn-cgi/rum?',
-          method: 'POST',
-          resourceType: 'ping',
-          failureText: 'net::ERR_ABORTED'
-        },
+      bodyText:
+        'Example Product Built for Modern Teams Lorem ipsum dolor sit amet. Learn more about our platform.',
 
-        disposition: 'ignored-noise',
+      links: [
+        {
+          text:
+            'Learn more',
 
-        reason:
-          'Known telemetry, analytics, advertising, or embedded-media tracking request.'
-      }
-    ]
-  },
+          url:
+            'https://example.com/platform'
+        }
+      ],
 
-  ruleBasedFindings: []
-});
+      buttons: [
+        'Request a Demo'
+      ],
+
+      textFields: [],
+
+      selects: []
+    },
+
+    classifiedDiagnostics: {
+      consoleErrors: [],
+
+      failedRequests: [
+        {
+          request: {
+            url:
+              'https://example.com/cdn-cgi/rum?',
+
+            method:
+              'POST',
+
+            resourceType:
+              'ping',
+
+            failureText:
+              'net::ERR_ABORTED'
+          },
+
+          disposition:
+            'ignored-noise',
+
+          reason:
+            'Known telemetry, analytics, advertising, or embedded-media tracking request.'
+        }
+      ]
+    },
+
+    ruleBasedFindings: []
+  });
 
 console.log(prompt);

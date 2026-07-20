@@ -1,20 +1,49 @@
 import { chromium } from '@playwright/test';
-import { classifyDiagnostics } from './analysis/classify-diagnostics';
-import { capturePageScreenshot } from './browser/capture-page-screenshot';
-import type { PageDiagnostics } from './browser/collect-page-diagnostics';
-import type { SiteAgentReport } from './reporting/report-types';
-import { writeJsonReport } from './reporting/write-json-report';
-import { writeMarkdownReport } from './reporting/write-markdown-report';
+
+import type {
+  ExploratoryQaAnalysis
+} from './analysis/exploratory-qa-schema';
+
+import type {
+  PageFinding
+} from './analysis/evaluate-page';
+
+import {
+  classifyDiagnostics
+} from './analysis/classify-diagnostics';
+
+import {
+  capturePageScreenshot
+} from './browser/capture-page-screenshot';
+
+import type {
+  PageDiagnostics
+} from './browser/collect-page-diagnostics';
+
+import type {
+  SiteAgentReport
+} from './reporting/report-types';
+
+import {
+  writeJsonReport
+} from './reporting/write-json-report';
+
+import {
+  writeMarkdownReport
+} from './reporting/write-markdown-report';
 
 async function main(): Promise<void> {
-  const runId = 'screenshot-trigger-check';
+  const runId =
+    'screenshot-trigger-check';
 
-  const browser = await chromium.launch({
-    headless: true
-  });
+  const browser =
+    await chromium.launch({
+      headless: true
+    });
 
   try {
-    const page = await browser.newPage();
+    const page =
+      await browser.newPage();
 
     await page.setContent(`
       <!doctype html>
@@ -35,49 +64,95 @@ async function main(): Promise<void> {
       </html>
     `);
 
-    const diagnostics: PageDiagnostics = {
-      consoleErrors: [],
-      failedRequests: [
-        {
-          url: 'https://example.com/images/suspicious-image.jpg',
-          method: 'GET',
-          resourceType: 'image',
-          failureText: 'net::ERR_FAILED'
-        }
-      ]
-    };
+    const diagnostics:
+      PageDiagnostics = {
+        consoleErrors: [],
+
+        failedRequests: [
+          {
+            url:
+              'https://example.com/images/suspicious-image.jpg',
+
+            method:
+              'GET',
+
+            resourceType:
+              'image',
+
+            failureText:
+              'net::ERR_FAILED'
+          }
+        ]
+      };
 
     const classifiedDiagnostics =
-      classifyDiagnostics(diagnostics);
+      classifyDiagnostics(
+        diagnostics
+      );
 
     const actionableRequestCount =
-      classifiedDiagnostics.failedRequests.filter(
-        (item) =>
-          item.disposition === 'actionable'
-      ).length;
+      classifiedDiagnostics
+        .failedRequests
+        .filter(
+          item =>
+            item.disposition ===
+            'actionable'
+        )
+        .length;
 
     const needsReviewCount =
-      classifiedDiagnostics.failedRequests.filter(
-        (item) =>
-          item.disposition === 'needs-review'
-      ).length;
+      classifiedDiagnostics
+        .failedRequests
+        .filter(
+          item =>
+            item.disposition ===
+            'needs-review'
+        )
+        .length;
 
     const ignoredNoiseCount =
-      classifiedDiagnostics.failedRequests.filter(
-        (item) =>
-          item.disposition === 'ignored-noise'
-      ).length;
+      classifiedDiagnostics
+        .failedRequests
+        .filter(
+          item =>
+            item.disposition ===
+            'ignored-noise'
+        )
+        .length;
 
-    const findings = [];
+    /*
+     * This check is focused specifically on diagnostic-triggered
+     * screenshot capture, so no rule-based page findings are needed.
+     */
+    const findings:
+      PageFinding[] = [];
+
+    /*
+     * The current report format also expects exploratory QA analysis
+     * results for every inspected page.
+     *
+     * This synthetic check does not call Gemini, so we provide a valid
+     * empty analysis result instead.
+     */
+    const exploratoryQaAnalysis:
+      ExploratoryQaAnalysis = {
+        findings: [],
+
+        summary:
+          'No exploratory QA analysis was performed for this synthetic screenshot trigger check.'
+      };
 
     const shouldCaptureScreenshot =
       findings.length > 0 ||
       actionableRequestCount > 0 ||
       needsReviewCount > 0;
 
-    let screenshotPath: string | null = null;
+    let screenshotPath:
+      string | null = null;
 
-    if (shouldCaptureScreenshot) {
+    if (
+      shouldCaptureScreenshot
+    ) {
       const screenshot =
         await capturePageScreenshot(
           page,
@@ -85,101 +160,164 @@ async function main(): Promise<void> {
           1
         );
 
-      screenshotPath = screenshot.filePath;
+      screenshotPath =
+        screenshot.filePath;
     }
 
-    const startedAt = new Date();
+    const startedAt =
+      new Date();
 
-    const report: SiteAgentReport = {
-      runId,
-      startedAt: startedAt.toISOString(),
-      finishedAt: new Date().toISOString(),
+    const report:
+      SiteAgentReport = {
+        runId,
 
-      site: {
-        id: 'synthetic',
-        name: 'Synthetic screenshot trigger test',
-        startUrl: 'https://example.com/'
-      },
+        startedAt:
+          startedAt.toISOString(),
 
-      homepage: {
-        requestedUrl: 'https://example.com/',
-        finalUrl: 'https://example.com/',
-        title: 'Synthetic Homepage',
-        httpStatus: 200
-      },
+        finishedAt:
+          new Date().toISOString(),
 
-      outcome: {
-        type: 'completed',
-        summary:
-          'Completed controlled screenshot trigger integration test.'
-      },
+        site: {
+          id:
+            'synthetic',
 
-      inspectedPages: [
-        {
-          selection: {
-            link: {
-              text: 'Synthetic review page',
-              url: 'https://example.com/review-page'
+          name:
+            'Synthetic screenshot trigger test',
+
+          startUrl:
+            'https://example.com/'
+        },
+
+        homepage: {
+          requestedUrl:
+            'https://example.com/',
+
+          finalUrl:
+            'https://example.com/',
+
+          title:
+            'Synthetic Homepage',
+
+          httpStatus:
+            200
+        },
+
+        outcome: {
+          type:
+            'completed',
+
+          summary:
+            'Completed controlled screenshot trigger integration test.'
+        },
+
+        inspectedPages: [
+          {
+            selection: {
+              link: {
+                text:
+                  'Synthetic review page',
+
+                url:
+                  'https://example.com/review-page'
+              },
+
+              reason:
+                'Controlled integration test page.'
             },
-            reason:
-              'Controlled integration test page.'
-          },
 
-          observation: {
-            requestedUrl:
-              'https://example.com/review-page',
-            finalUrl:
-              'https://example.com/review-page',
-            title:
-              'Review-Worthy Diagnostics Test',
-            httpStatus: 200,
-            headings: [
-              'Review-Worthy Diagnostics Test'
-            ]
-          },
+            observation: {
+              requestedUrl:
+                'https://example.com/review-page',
 
-          diagnostics,
-          classifiedDiagnostics,
-          screenshotPath,
-          findings
+              finalUrl:
+                'https://example.com/review-page',
+
+              title:
+                'Review-Worthy Diagnostics Test',
+
+              httpStatus:
+                200,
+
+              headings: [
+                'Review-Worthy Diagnostics Test'
+              ]
+            },
+
+            diagnostics,
+
+            classifiedDiagnostics,
+
+            screenshotPath,
+
+            findings,
+
+            exploratoryQaAnalysis
+          }
+        ],
+
+        summary: {
+          pagesInspected:
+            1,
+
+          findingsCount:
+            findings.length,
+
+          highestSeverity:
+            'none',
+
+          exploratoryQaFindingsCount:
+            exploratoryQaAnalysis
+              .findings
+              .length,
+
+          highestExploratoryQaSeverity:
+            'none',
+
+          actionableDiagnosticsCount:
+            actionableRequestCount,
+
+          diagnosticsNeedingReviewCount:
+            needsReviewCount,
+
+          ignoredDiagnosticNoiseCount:
+            ignoredNoiseCount
         }
-      ],
-
-      summary: {
-        pagesInspected: 1,
-        findingsCount: 0,
-        highestSeverity: 'none',
-        actionableDiagnosticsCount:
-          actionableRequestCount,
-        diagnosticsNeedingReviewCount:
-          needsReviewCount,
-        ignoredDiagnosticNoiseCount:
-          ignoredNoiseCount
-      }
-    };
+      };
 
     const jsonReport =
-      await writeJsonReport(report);
+      await writeJsonReport(
+        report
+      );
 
     const markdownReport =
-      await writeMarkdownReport(report);
+      await writeMarkdownReport(
+        report
+      );
 
-    console.log('Integration test complete.');
+    console.log(
+      'Integration test complete.'
+    );
+
     console.log(
       `Actionable diagnostics: ${actionableRequestCount}`
     );
+
     console.log(
       `Diagnostics needing review: ${needsReviewCount}`
     );
+
     console.log(
       `Ignored diagnostic noise: ${ignoredNoiseCount}`
     );
+
     console.log(
       `Screenshot: ${screenshotPath ?? 'not captured'}`
     );
+
     console.log(
       `JSON report: ${jsonReport.filePath}`
     );
+
     console.log(
       `Markdown report: ${markdownReport.filePath}`
     );
@@ -188,11 +326,13 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((error: unknown) => {
-  console.error(
-    'Screenshot trigger check failed:',
-    error
-  );
+main().catch(
+  (error: unknown) => {
+    console.error(
+      'Screenshot trigger check failed:',
+      error
+    );
 
-  process.exitCode = 1;
-});
+    process.exitCode = 1;
+  }
+);

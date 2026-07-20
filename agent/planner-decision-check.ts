@@ -11,6 +11,7 @@ async function main(): Promise<void> {
         'https://example.com/contact',
 
       currentStep: 1,
+
       maxSteps: 6,
 
       history: [
@@ -18,18 +19,24 @@ async function main(): Promise<void> {
           step: 1,
 
           action: {
-            kind: 'scroll',
-            direction: 'down',
-            viewportCount: 1
+            kind:
+              'scroll',
+
+            direction:
+              'down',
+
+            viewportCount:
+              1
           },
 
           result:
-            'Scrolled down by 1 viewport and discovered a contact form.'
+            'Scrolled down by 1 viewport and discovered dynamically loaded content.'
         }
       ],
 
       pageContent: {
-        title: 'Contact Us',
+        title:
+          'Contact Us',
 
         headings: [
           'Contact Us',
@@ -47,63 +54,120 @@ async function main(): Promise<void> {
 
         textFields: [
           {
-            tagName: 'input',
-            inputType: 'email',
-            label: 'Work Email',
-            name: 'email',
-            id: 'email',
+            tagName:
+              'input',
+
+            inputType:
+              'email',
+
+            label:
+              'Work Email',
+
+            name:
+              'email',
+
+            id:
+              'email',
+
             placeholder:
               'Enter your work email',
 
-            required: true,
-            disabled: false,
-            readOnly: false,
+            required:
+              true,
 
-            value: '',
+            disabled:
+              false,
 
-            valid: false,
+            readOnly:
+              false,
+
+            value:
+              '',
+
+            valid:
+              false,
 
             validationMessage:
               'Please fill out this field.',
 
-            ariaInvalid: null
+            ariaInvalid:
+              null
           }
         ],
 
         selects: [
           {
-            label: 'Country',
-            name: 'country',
-            id: 'country',
+            label:
+              'Country',
 
-            required: true,
-            disabled: false,
+            name:
+              'country',
+
+            id:
+              'country',
+
+            required:
+              true,
+
+            disabled:
+              false,
+
+            totalOptions:
+              5,
+
+            optionsTruncated:
+              false,
 
             options: [
               {
-                text: 'Please Select',
-                value: '',
-                selected: true
+                text:
+                  'Please Select',
+
+                value:
+                  '',
+
+                selected:
+                  true
               },
               {
-                text: 'Ecuador',
-                value: 'Ecuador',
-                selected: false
+                text:
+                  'Ecuador',
+
+                value:
+                  'Ecuador',
+
+                selected:
+                  false
               },
               {
-                text: 'Egypt',
-                value: 'Egypt',
-                selected: false
+                text:
+                  'Egypt',
+
+                value:
+                  'Egypt',
+
+                selected:
+                  false
               },
               {
-                text: 'Zimbabwe',
-                value: 'Zimbabwe',
-                selected: false
+                text:
+                  'Zimbabwe',
+
+                value:
+                  'Zimbabwe',
+
+                selected:
+                  false
               },
               {
-                text: 'Equador',
-                value: 'Equador',
-                selected: false
+                text:
+                  'Equador',
+
+                value:
+                  'Equador',
+
+                selected:
+                  false
               }
             ]
           }
@@ -132,16 +196,24 @@ async function main(): Promise<void> {
   );
 }
 
-main().catch(error => {
-  console.error(
-    '\nGemini planner decision check failed.'
-  );
+main().catch(
+  (error: unknown) => {
+    console.error(
+      '\nGemini planner decision check failed.'
+    );
 
-  if (error instanceof Error) {
-    console.error(error.message);
-  } else {
-    console.error(error);
+    if (
+      error instanceof Error
+    ) {
+      console.error(
+        error.message
+      );
+    } else {
+      console.error(
+        error
+      );
+    }
+
+    process.exitCode = 1;
   }
-
-  process.exitCode = 1;
-});
+);

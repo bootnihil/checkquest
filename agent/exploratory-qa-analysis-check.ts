@@ -1,54 +1,65 @@
 import { analyzePageForQa } from './analysis/analyze-page-for-qa';
 
 async function main(): Promise<void> {
-  const analysis = await analyzePageForQa({
-    observation: {
-      requestedUrl:
-        'https://example.com/product',
-      finalUrl:
-        'https://example.com/product',
-      title:
-        'Example Product',
-      httpStatus: 200,
-      headings: [
-        'Example Product',
-        'Built for Modern Teams'
-      ]
-    },
+  const analysis =
+    await analyzePageForQa({
+      observation: {
+        requestedUrl:
+          'https://example.com/product',
 
-    content: {
-      title:
-        'Example Product',
+        finalUrl:
+          'https://example.com/product',
 
-      headings: [
-        'Example Product',
-        'Built for Modern Teams'
-      ],
+        title:
+          'Example Product',
 
-      bodyText:
-        'Example Product Built for Modern Teams. Lorem ipsum dolor sit amet. TODO: replace this placeholder copy before launch. Learn more about our platform.',
+        httpStatus: 200,
 
-      links: [
-        {
-          text: 'Learn more',
-          url:
-            'https://example.com/platform'
-        }
-      ],
+        headings: [
+          'Example Product',
+          'Built for Modern Teams'
+        ]
+      },
 
-      buttons: [
-        'Request a Demo'
-      ]
-    },
+      content: {
+        title:
+          'Example Product',
 
-    classifiedDiagnostics: {
-      consoleErrors: [],
+        headings: [
+          'Example Product',
+          'Built for Modern Teams'
+        ],
 
-      failedRequests: []
-    },
+        bodyText:
+          'Example Product Built for Modern Teams. Lorem ipsum dolor sit amet. TODO: replace this placeholder copy before launch. Learn more about our platform.',
 
-    ruleBasedFindings: []
-  });
+        links: [
+          {
+            text:
+              'Learn more',
+
+            url:
+              'https://example.com/platform'
+          }
+        ],
+
+        buttons: [
+          'Request a Demo'
+        ],
+
+        textFields: [],
+
+        selects: []
+      },
+
+      classifiedDiagnostics: {
+        consoleErrors: [],
+
+        failedRequests: []
+      },
+
+      ruleBasedFindings: []
+    });
 
   console.log(
     'Exploratory QA analysis:'
@@ -62,13 +73,17 @@ async function main(): Promise<void> {
     )
   );
 
-  console.log('\nSummary:');
+  console.log(
+    '\nSummary:'
+  );
+
   console.log(
     `Candidate findings: ${analysis.findings.length}`
   );
 
   for (
-    const finding of analysis.findings
+    const finding of
+    analysis.findings
   ) {
     console.log(
       `- [${finding.severity}/${finding.confidence}] ${finding.title}`
@@ -76,11 +91,13 @@ async function main(): Promise<void> {
   }
 }
 
-main().catch((error: unknown) => {
-  console.error(
-    'Exploratory QA analysis check failed:',
-    error
-  );
+main().catch(
+  (error: unknown) => {
+    console.error(
+      'Exploratory QA analysis check failed:',
+      error
+    );
 
-  process.exitCode = 1;
-});
+    process.exitCode = 1;
+  }
+);
