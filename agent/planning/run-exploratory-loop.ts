@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 
 import type { AgentAction } from '../actions/agent-action-schema';
+import type { ExploratoryQaFinding } from '../analysis/exploratory-qa-schema';
 import {
   executeAgentAction,
   type ExecutedAgentActionResult
@@ -9,15 +10,15 @@ import {
   extractPageContent,
   type ExtractedPageContent
 } from '../browser/extract-page-content';
+import type {
+  PlannerHistoryEntry
+} from './build-planner-prompt';
 import {
   planNextAction
 } from './plan-next-action';
 import type {
   PlannerDecision
 } from './planner-decision-schema';
-import type {
-  PlannerHistoryEntry
-} from './build-planner-prompt';
 
 export interface ExploratoryLoopStep {
   step: number;
@@ -66,7 +67,11 @@ function buildHistoryResult(
 ): string {
   if (
     action.kind ===
-    'fill-text-field'
+      'fill-text-field' ||
+    action.kind ===
+      'clear-field' ||
+    action.kind ===
+      'blur-field'
   ) {
     const field =
       after.textFields.find(
@@ -99,64 +104,17 @@ function buildHistoryResult(
     if (field !== undefined) {
       return [
         executionResult.detail,
+
         `Observed value: ${JSON.stringify(
           field.value
         )}.`,
+
         `Browser-valid: ${field.valid}.`,
+
         `Validation message: ${JSON.stringify(
           field.validationMessage
         )}.`,
-        `aria-invalid: ${JSON.stringify(
-          field.ariaInvalid
-        )}.`
-      ].join(' ');
-    }
-  }
 
-  if (
-    action.kind ===
-    'clear-field' ||
-    action.kind ===
-    'blur-field'
-  ) {
-    const field =
-      after.textFields.find(
-        candidate =>
-          (
-            action.target.id !== null &&
-            candidate.id ===
-              action.target.id
-          ) ||
-          (
-            action.target.name !==
-              null &&
-            candidate.name ===
-              action.target.name
-          ) ||
-          (
-            action.target.label !==
-              null &&
-            candidate.label ===
-              action.target.label
-          ) ||
-          (
-            action.target
-              .placeholder !== null &&
-            candidate.placeholder ===
-              action.target.placeholder
-          )
-      );
-
-    if (field !== undefined) {
-      return [
-        executionResult.detail,
-        `Observed value: ${JSON.stringify(
-          field.value
-        )}.`,
-        `Browser-valid: ${field.valid}.`,
-        `Validation message: ${JSON.stringify(
-          field.validationMessage
-        )}.`,
         `aria-invalid: ${JSON.stringify(
           field.ariaInvalid
         )}.`
@@ -204,6 +162,7 @@ function buildHistoryResult(
 
       return [
         executionResult.detail,
+
         `Selected option(s): ${JSON.stringify(
           selectedOptions
         )}.`
@@ -216,6 +175,9 @@ function buildHistoryResult(
 
 /**
  * Runs a bounded exploratory planner/action loop on one already-open page.
+ *
+ * Candidate findings from the separate exploratory QA analysis layer may
+ * be supplied as prioritized investigation leads.
  *
  * Gemini decides what is worth testing.
  *
@@ -231,7 +193,9 @@ function buildHistoryResult(
 export async function runExploratoryLoop(
   page: Page,
   pageUrl: string,
-  maxSteps: number
+  maxSteps: number,
+  candidateFindings:
+    ExploratoryQaFinding[] = []
 ): Promise<ExploratoryLoopResult> {
   const steps:
     ExploratoryLoopStep[] = [];
@@ -263,7 +227,9 @@ export async function runExploratoryLoop(
         currentStep:
           stepNumber,
 
-        maxSteps
+        maxSteps,
+
+        candidateFindings
       });
 
     console.log(
@@ -284,7 +250,8 @@ export async function runExploratoryLoop(
       await extractPageContent(page);
 
     steps.push({
-      step: stepNumber,
+      step:
+        stepNumber,
 
       observationBefore,
 
@@ -303,7 +270,8 @@ export async function runExploratoryLoop(
       );
 
     history.push({
-      step: stepNumber,
+      step:
+        stepNumber,
 
       action:
         decision.action,

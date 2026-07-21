@@ -17,6 +17,18 @@ export interface PageSelectControl {
   id: string | null;
   required: boolean;
   disabled: boolean;
+
+  /**
+   * Total number of options present in the real DOM.
+   */
+  totalOptions: number;
+
+  /**
+   * True when the options array contains a bounded sample rather than
+   * every option from the control.
+   */
+  optionsTruncated: boolean;
+
   options: PageSelectOption[];
 }
 
@@ -157,9 +169,18 @@ export async function extractPageContent(
       )
       .slice(0, 50);
 
+    /*
+     * Observe both real <button> elements and input controls that act
+     * as buttons.
+     *
+     * These are observation-only. Their presence does NOT grant the AI
+     * permission to click or submit them.
+     */
     const buttons = Array.from(
-      document.querySelectorAll<HTMLButtonElement>(
-        'button'
+      document.querySelectorAll<
+        HTMLButtonElement | HTMLInputElement
+      >(
+        'button, input[type="submit"], input[type="button"], input[type="reset"]'
       )
     )
       .filter(element => {
@@ -176,15 +197,38 @@ export async function extractPageContent(
           rectangle.height > 0
         );
       })
-      .map(button => {
+      .map(element => {
+        if (
+          element instanceof
+          HTMLInputElement
+        ) {
+          const value =
+            element.value
+              .replace(/\s+/g, ' ')
+              .trim();
+
+          const ariaLabel =
+            (
+              element.getAttribute(
+                'aria-label'
+              ) ?? ''
+            )
+              .replace(/\s+/g, ' ')
+              .trim();
+
+          return value.length > 0
+            ? value
+            : ariaLabel;
+        }
+
         const visibleText =
-          button.innerText
+          element.innerText
             .replace(/\s+/g, ' ')
             .trim();
 
         const ariaLabel =
           (
-            button.getAttribute(
+            element.getAttribute(
               'aria-label'
             ) ?? ''
           )
@@ -474,23 +518,8 @@ export async function extractPageContent(
             .replace(/\s+/g, ' ')
             .trim();
 
-        return {
-          label,
-
-          name:
-            name.length > 0
-              ? name
-              : null,
-
-          id:
-            id.length > 0
-              ? id
-              : null,
-
-          required: select.required,
-          disabled: select.disabled,
-
-          options: Array.from(
+        const allOptions =
+          Array.from(
             select.options
           )
             .map(option => ({
@@ -505,11 +534,61 @@ export async function extractPageContent(
                   )
                   .trim(),
 
-              value: option.value,
+              value:
+                option.value,
+
               selected:
                 option.selected
-            }))
-            .slice(0, 250)
+            }));
+
+        /*
+         * Keep normal dropdowns complete.
+         *
+         * For unusually large dropdowns, preserve both the beginning
+         * and the end of the list. This keeps planner prompts bounded
+         * while avoiding the previous bug where suspicious values
+         * appended near the end of a country list were invisible.
+         */
+        const options =
+          allOptions.length <= 250
+            ? allOptions
+            : [
+                ...allOptions.slice(
+                  0,
+                  200
+                ),
+                ...allOptions.slice(
+                  -50
+                )
+              ];
+
+        return {
+          label,
+
+          name:
+            name.length > 0
+              ? name
+              : null,
+
+          id:
+            id.length > 0
+              ? id
+              : null,
+
+          required:
+            select.required,
+
+          disabled:
+            select.disabled,
+
+          totalOptions:
+            allOptions.length,
+
+          optionsTruncated:
+            allOptions.length >
+            options.length,
+
+          options
         };
       })
       .slice(0, 20);
