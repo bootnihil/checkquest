@@ -1,6 +1,6 @@
 # Web QA Agent
 
-An experimental **AI-powered exploratory web testing agent** built with **TypeScript, Playwright, and Gemini**.
+An experimental **AI-powered exploratory web testing agent** built with **TypeScript, Playwright, Gemini, and Zod**.
 
 ![Playwright Tests](https://github.com/bootnihil/web-qa-agent/actions/workflows/playwright.yml/badge.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue?logo=typescript)
@@ -8,15 +8,15 @@ An experimental **AI-powered exploratory web testing agent** built with **TypeSc
 ![Gemini](https://img.shields.io/badge/Gemini-AI%20Reasoning-blueviolet)
 ![Status](https://img.shields.io/badge/status-active%20development-orange)
 
-Instead of following only predefined test cases, the agent can inspect a website, form its own testing hypotheses, perform controlled browser interactions, observe what happens, and decide what to test next.
+Give it a public URL and it can choose pages to inspect, identify suspicious content or behavior, perform constrained browser interactions, collect evidence, and generate structured QA reports.
 
-> **AI decides what is worth investigating. Deterministic code controls what the browser is actually allowed to do.**
+> **AI decides what is worth investigating. Deterministic code controls what the browser is allowed to do.**
 
 ---
 
-## Why This Project?
+## 💡 Why This Project?
 
-Traditional test automation is excellent at checking known expectations:
+Traditional automation is excellent at checking known expectations:
 
 ```text
 Given X
@@ -24,15 +24,11 @@ When Y
 Then Z
 ```
 
-But exploratory testing asks a different question:
+Exploratory testing asks something different:
 
 > **What might be wrong here that nobody explicitly wrote a test for?**
 
-This project explores whether an AI agent can help answer that question safely.
-
-The goal is not to give an LLM unrestricted control over a browser.
-
-Instead:
+This project explores whether an AI agent can help answer that question without giving an LLM unrestricted control over a browser.
 
 ```text
 Observe
@@ -45,42 +41,59 @@ Validate it
    ↓
 Execute with Playwright
    ↓
-Observe what actually happened
+Observe again
    ↓
-Reason again
+Decide what to do next
 ```
 
 ---
 
 ## 🚀 What Can It Do Today?
 
-The agent can already:
+The agent can:
 
-- explore approved public websites;
-- navigate within configured domains;
-- inspect page content and form controls;
+- accept a public URL directly from the command line;
+- explore multiple pages within an approved hostname;
+- let Gemini choose representative pages to inspect;
+- extract headings, links, buttons, fields, dropdowns, and visible text;
 - collect console and network diagnostics;
-- reason about potential QA issues using Gemini;
-- generate structured candidate findings;
-- capture screenshot evidence;
+- identify evidence-grounded candidate findings;
+- perform bounded autonomous investigations;
 - interact safely with supported UI controls;
-- test text-field and browser validation behavior;
-- select native dropdown options;
-- maintain history between exploratory steps;
-- run a bounded autonomous **observe → plan → act → observe** loop.
+- capture screenshot evidence;
+- preserve page-level investigation history;
+- deduplicate repeated findings into a site-wide view;
+- generate JSON and Markdown reports.
 
-Every AI-requested browser action must pass a strict Zod schema and a deterministic TypeScript executor before Playwright performs it.
+A typical run looks like:
 
-- No arbitrary selectors.
-- No arbitrary JavaScript.
-- No form submission.
-- No destructive actions.
+```text
+Public URL
+    ↓
+Safe runtime configuration
+    ↓
+AI chooses a page
+    ↓
+Playwright opens and observes it
+    ↓
+AI identifies candidate findings
+    ↓
+Planner requests a supported action
+    ↓
+Deterministic code executes it
+    ↓
+Evidence is collected
+    ↓
+Repeated findings are grouped
+    ↓
+Reports are generated
+```
 
 ---
 
 ## 🔍 A Real Issue It Found
 
-During a controlled run against the Aidoc public website, the agent inspected a Country dropdown and noticed that it contained both:
+During autonomous runs against the Aidoc public website, the agent inspected a country dropdown and noticed both:
 
 ```text
 Ecuador
@@ -89,67 +102,55 @@ Equador
 
 Gemini identified `Equador` as a likely misspelled duplicate.
 
-The agent then returned a machine-readable evidence target, and Playwright independently:
+The agent then safely:
 
-1. located the correct dropdown;
-2. verified that `Equador` actually existed;
-3. selected it locally without submitting anything;
-4. captured focused screenshot evidence.
+1. located the observed dropdown;
+2. selected `Equador`;
+3. selected the correctly spelled `Ecuador`;
+4. confirmed that both values were available;
+5. captured screenshot evidence;
+6. stopped once sufficient evidence had been collected.
 
-This is the kind of workflow the project is aiming for:
+The same form appeared on several pages. Instead of reporting three separate defects, the final report grouped them into one site-wide finding:
 
 ```text
-AI notices something suspicious
-        ↓
-Structured evidence identifies where
-        ↓
-Playwright independently verifies it
-        ↓
-Evidence is captured for review
+Unique finding:
+Misspelled country option
+
+Occurrences:
+3
+
+Affected pages:
+3
 ```
+
+The original page-level findings and screenshots remain preserved for traceability.
 
 ---
 
 ## 🧠 Autonomous Exploration
 
-The first bounded autonomous planner loop is now working.
-
-In a controlled test, the agent independently decided to:
+The agent supports a bounded:
 
 ```text
-Test malformed email
-        ↓
-Observe invalid browser state
-        ↓
-Blur the field
-        ↓
-Observe again
-        ↓
-Try a valid email
-        ↓
-Observe validation recovery
-        ↓
-Move on to another form control
+observe → plan → act → observe
 ```
 
-Those steps were **not predefined as a test case**.
+loop.
 
-Gemini chose each next action based on the browser state produced by the previous one.
+For every step, Gemini must provide:
 
-The loop is always bounded by deterministic safety rules and a hard maximum number of steps.
+- a QA hypothesis;
+- reasoning;
+- one supported action;
+- the expected observation.
 
----
-
-## 🔒 Safety by Design
-
-The AI does not directly control Playwright.
-
-The current architecture looks roughly like this:
+The request then passes through:
 
 ```text
 Gemini planner
       ↓
-Structured action request
+Structured action
       ↓
 Zod validation
       ↓
@@ -160,7 +161,20 @@ Playwright
 Browser
 ```
 
-Currently approved actions include:
+The planner may stop when:
+
+- the finding is sufficiently evidenced;
+- no useful supported action remains;
+- the investigation cannot be performed safely;
+- additional steps would add no meaningful evidence.
+
+---
+
+## 🔒 Safety by Design
+
+Gemini never receives direct Playwright access.
+
+Currently supported actions include:
 
 ```text
 fill text field
@@ -171,7 +185,96 @@ bounded scroll
 stop exploration
 ```
 
-Unsupported or ambiguous actions are rejected rather than guessed.
+Current restrictions include:
+
+- no arbitrary selectors;
+- no arbitrary JavaScript;
+- no unrestricted clicking;
+- no form submission;
+- no destructive actions;
+- no autonomous interaction with password fields;
+- no navigation outside the approved hostname;
+- strict page and action budgets;
+- ambiguous or missing targets are rejected.
+
+For raw-URL runs, only the exact supplied hostname is approved automatically.
+
+---
+
+## 🧩 Site-Wide Deduplication
+
+AI wording can vary between pages:
+
+```text
+Misspelled country name in selection list
+Misspelled country name in registration form
+Misspelled country option in dropdown
+```
+
+These may describe the same underlying issue.
+
+Where possible, the agent creates a deterministic fingerprint from structured evidence:
+
+```text
+category
++
+target type
++
+control identity
++
+target value
+```
+
+For the country issue:
+
+```text
+target|content|select-option|country|equador
+```
+
+The report can therefore show:
+
+```text
+Original occurrences: 3
+Unique site-wide findings: 1
+```
+
+Findings without a machine-readable target use a conservative fallback. It is safer to leave some duplicates unmerged than to merge unrelated issues incorrectly.
+
+---
+
+## 🎛️ Runtime Controls
+
+Explore a public website using safe defaults:
+
+```bash
+npm run agent:explore -- https://www.example.com/
+```
+
+Choose custom limits:
+
+```bash
+npm run agent:explore -- https://www.example.com/ --pages 5 --steps-per-page 4
+```
+
+Available options:
+
+```text
+--pages
+Pages to inspect
+Allowed range: 1–20
+
+--steps-per-page
+Autonomous investigation steps per page
+Allowed range: 0–10
+```
+
+Run analysis without autonomous interaction:
+
+```bash
+npm run agent:explore -- https://www.example.com/ --pages 3 --steps-per-page 0
+```
+
+Invalid values are rejected before Chromium launches or Gemini is called.
 
 ---
 
@@ -184,7 +287,10 @@ Unsupported or ambiguous actions are rejected rather than guessed.
 - **Node.js**
 - **GitHub Actions**
 
-The project is designed so the core agent remains generic while individual websites are primarily represented through configuration.
+The core agent remains generic. Websites can be provided through either:
+
+- saved site configurations;
+- arbitrary public URLs resolved into conservative runtime configurations.
 
 ---
 
@@ -204,63 +310,82 @@ npm ci
 npx playwright install chromium
 ```
 
-Configure a Gemini API key:
+Configure a Gemini API key on Windows:
 
 ```cmd
 setx GEMINI_API_KEY "your-api-key"
 ```
 
-Run the deterministic Playwright tests:
+Open a new terminal after running `setx`.
+
+Run the deterministic Playwright suite:
 
 ```bash
 npm test
 ```
 
-Run the existing site agent:
+Run project-wide TypeScript checking:
+
+```bash
+npx tsc --noEmit
+```
+
+Explore a public website:
+
+```bash
+npm run agent:explore -- https://www.example.com/
+```
+
+Run a saved site configuration:
 
 ```bash
 npm run agent:run -- aidoc
 ```
 
-The repository also contains focused development checks for the individual agent capabilities.
-
----
-
-## 🗺️ Where It Is Now
-
-The project has evolved from:
+Reports are written to:
 
 ```text
-Playwright automation
-        ↓
-AI-assisted website inspection
-        ↓
-Evidence-grounded QA reasoning
-        ↓
-Safe AI-requested browser actions
-        ↓
-Bounded autonomous exploratory loop
+agent-results/<run-id>/report.json
+agent-results/<run-id>/report.md
+agent-results/<run-id>/evidence/
 ```
-
-### Next
-
-The next major milestone is running the autonomous planner/action loop against a carefully constrained real public webpage.
-
-From there, the focus will move toward:
-
-- richer safe browser interactions;
-- systematic boundary and validation testing;
-- better autonomous stopping decisions;
-- integrating autonomous exploration into multi-page runs;
-- richer evidence and reports;
-- scheduled monitoring;
-- comparing findings across runs.
 
 ---
 
-## 💡 The Idea
+## ⚠️ Current Limitations
 
-This project is ultimately an experiment in combining:
+The project is still experimental.
+
+Current limitations include:
+
+- public, unauthenticated websites are the primary target;
+- autonomous browser actions remain intentionally limited;
+- custom JavaScript controls are not yet handled as broadly as native controls;
+- raw-URL mode permits only the exact supplied hostname;
+- findings still require human review;
+- navigation can become more coverage-aware;
+- the supplied start URL currently acts mainly as a launch point rather than a fully investigated page.
+
+These limits are deliberate. New capabilities are added only when the corresponding safety and deterministic execution layers are ready.
+
+---
+
+## 🗺️ Roadmap
+
+Next areas of work:
+
+- explicit outcomes: **Verified**, **Not Verified**, and **Inconclusive**;
+- full inspection of the supplied start URL;
+- safe support for checkboxes, radio buttons, tabs, and accordions;
+- smarter navigation and broader link discovery;
+- stronger deterministic checks in CI;
+- scheduled monitoring and comparison across runs.
+
+---
+
+## ✨ The Idea
+
+This project combines:
 
 ```text
 Deterministic automation
