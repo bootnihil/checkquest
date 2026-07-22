@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-labelledby="title desc">
+  <title id="title">CheckQuest icon</title>
+  <desc id="desc">Magnifying glass with checkmark.</desc>
+  <defs>
+    <linearGradient id="cqGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="48%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+  </defs>
+  <circle cx="135" cy="125" r="88" fill="none" stroke="url(#cqGradient)" stroke-width="30"/>
+  <path d="M198 188 L270 260" fill="none" stroke="url(#cqGradient)" stroke-width="32" stroke-linecap="round"/>
+  <path d="M88 125 L121 158 L178 96" fill="none" stroke="url(#cqGradient)" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

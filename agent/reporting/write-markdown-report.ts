@@ -40,7 +40,7 @@ export async function writeMarkdownReport(
     );
 
   const lines: string[] = [
-    '# Web QA Agent Report',
+    '# CheckQuest Report',
     '',
     `**Site:** ${report.site.name}`,
     `**Run ID:** ${report.runId}`,

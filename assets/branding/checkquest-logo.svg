@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" role="img" aria-labelledby="title desc">
+  <title id="title">CheckQuest logo</title>
+  <desc id="desc">Magnifying glass with checkmark beside the CheckQuest wordmark and Explore. Check. Prove. tagline.</desc>
+  <defs>
+    <linearGradient id="cqGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="48%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Transparent background by design. -->
+  <g transform="translate(30 32)">
+    <circle cx="118" cy="105" r="82" fill="none" stroke="url(#cqGradient)" stroke-width="28"/>
+    <path d="M177 164 L235 222" fill="none" stroke="url(#cqGradient)" stroke-width="30" stroke-linecap="round"/>
+    <path d="M78 104 L107 133 L158 78" fill="none" stroke="url(#cqGradient)" stroke-width="27" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <text x="300" y="162" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="128" font-weight="750" letter-spacing="-5">
+    <tspan fill="#0b132b">Check</tspan><tspan fill="url(#cqGradient)">Quest</tspan>
+  </text>
+
+  <text x="309" y="229" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="32" font-weight="650" letter-spacing="8" fill="#596274">EXPLORE. CHECK. PROVE.</text>
+</svg>

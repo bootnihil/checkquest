@@ -20,8 +20,8 @@ async function main(): Promise<void> {
         <body>
           <h1>Screenshot Evidence Test</h1>
           <p>
-            This page exists only to verify that the
-            web QA agent can save screenshot evidence.
+            This page exists only to verify that
+            CheckQuest can save screenshot evidence.
           </p>
         </body>
       </html>

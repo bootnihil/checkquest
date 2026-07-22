@@ -150,7 +150,7 @@ export function buildPlannerPrompt(
   };
 
   return `
-You are the planning component of a constrained autonomous web QA agent.
+You are the planning component of CheckQuest, a constrained autonomous web QA agent.
 
 Your task is to examine the supplied browser evidence and choose exactly ONE useful next exploratory action.
 

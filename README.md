@@ -1,14 +1,18 @@
-# Web QA Agent
+<p align="center">
+  <img src="assets/branding/checkquest-banner.png" alt="CheckQuest — Explore. Check. Prove." width="100%">
+</p>
+
+# CheckQuest
 
 An experimental **AI-powered exploratory web testing agent** built with **TypeScript, Playwright, Gemini, and Zod**.
 
-![Playwright Tests](https://github.com/bootnihil/web-qa-agent/actions/workflows/playwright.yml/badge.svg)
+![Playwright Tests](https://github.com/bootnihil/checkquest/actions/workflows/playwright.yml/badge.svg)
 ![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue?logo=typescript)
 ![Playwright](https://img.shields.io/badge/Playwright-Automation-green?logo=playwright)
 ![Gemini](https://img.shields.io/badge/Gemini-AI%20Reasoning-blueviolet)
 ![Status](https://img.shields.io/badge/status-active%20development-orange)
 
-Give it a public URL and it can choose pages to inspect, identify suspicious content or behavior, perform constrained browser interactions, collect evidence, and generate structured QA reports.
+Give CheckQuest a public URL and it can choose pages to inspect, identify suspicious content or behavior, perform constrained browser interactions, collect evidence, and generate structured QA reports.
 
 > **AI decides what is worth investigating. Deterministic code controls what the browser is allowed to do.**
 
@@ -28,7 +32,7 @@ Exploratory testing asks something different:
 
 > **What might be wrong here that nobody explicitly wrote a test for?**
 
-This project explores whether an AI agent can help answer that question without giving an LLM unrestricted control over a browser.
+CheckQuest explores whether an AI agent can help answer that question without giving an LLM unrestricted control over a browser.
 
 ```text
 Observe
@@ -50,7 +54,7 @@ Decide what to do next
 
 ## 🚀 What Can It Do Today?
 
-The agent can:
+CheckQuest can:
 
 - accept a public URL directly from the command line;
 - explore multiple pages within an approved hostname;
@@ -93,7 +97,7 @@ Reports are generated
 
 ## 🔍 A Real Issue It Found
 
-During autonomous runs against the Aidoc public website, the agent inspected a country dropdown and noticed both:
+During autonomous runs against the Aidoc public website, CheckQuest inspected a country dropdown and noticed both:
 
 ```text
 Ecuador
@@ -130,7 +134,7 @@ The original page-level findings and screenshots remain preserved for traceabili
 
 ## 🧠 Autonomous Exploration
 
-The agent supports a bounded:
+CheckQuest supports a bounded:
 
 ```text
 observe → plan → act → observe
@@ -213,7 +217,7 @@ Misspelled country option in dropdown
 
 These may describe the same underlying issue.
 
-Where possible, the agent creates a deterministic fingerprint from structured evidence:
+Where possible, CheckQuest creates a deterministic fingerprint from structured evidence:
 
 ```text
 category
@@ -299,8 +303,8 @@ The core agent remains generic. Websites can be provided through either:
 Clone the repository:
 
 ```bash
-git clone https://github.com/bootnihil/web-qa-agent.git
-cd web-qa-agent
+git clone https://github.com/bootnihil/checkquest.git
+cd checkquest
 ```
 
 Install dependencies:
@@ -354,7 +358,7 @@ agent-results/<run-id>/evidence/
 
 ## ⚠️ Current Limitations
 
-The project is still experimental.
+CheckQuest is still experimental.
 
 Current limitations include:
 
@@ -376,6 +380,7 @@ Next areas of work:
 
 - explicit outcomes: **Verified**, **Not Verified**, and **Inconclusive**;
 - full inspection of the supplied start URL;
+- passive **security & infrastructure posture** checks such as HTTP security headers, TLS, cookies, and DNS;
 - safe support for checkboxes, radio buttons, tabs, and accordions;
 - smarter navigation and broader link discovery;
 - stronger deterministic checks in CI;
@@ -385,7 +390,7 @@ Next areas of work:
 
 ## ✨ The Idea
 
-This project combines:
+CheckQuest combines:
 
 ```text
 Deterministic automation
@@ -404,5 +409,7 @@ The goal is an agent that can independently look at a website and ask:
 Then safely go find out.
 
 ---
+
+**CheckQuest — Explore. Check. Prove.**
 
 **Status:** Experimental / Active Development

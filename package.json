@@ -1,7 +1,7 @@
 {
-  "name": "web-qa-agent",
+  "name": "checkquest",
   "version": "1.0.0",
-  "description": "AI-assisted web QA agent for safe exploratory testing, evidence collection, and structured issue reporting using TypeScript, Playwright, and Gemini.",
+  "description": "Autonomous exploratory QA agent for safe web testing, evidence collection, and structured reporting using TypeScript, Playwright, Gemini, and Zod.",
   "main": "index.js",
   "scripts": {
     "test": "playwright test",
@@ -44,7 +44,9 @@
     "playwright",
     "typescript",
     "testing",
-    "ci"
+    "ai-agent",
+    "exploratory-testing",
+    "browser-automation"
   ],
   "author": "",
   "license": "ISC",
