@@ -35,7 +35,8 @@
     "agent:planner-execution-check": "tsx agent/planner-execution-check.ts",
     "agent:exploratory-loop-check": "tsx agent/exploratory-loop-check.ts",
     "agent:site-wide-findings-check": "tsx agent/site-wide-findings-check.ts",
-    "agent:site-wide-report-check": "tsx agent/site-wide-report-check.ts"
+    "agent:site-wide-report-check": "tsx agent/site-wide-report-check.ts",
+    "agent:run-options-check": "tsx agent/agent-run-options-check.ts"
   },
   "keywords": [
     "qa",

@@ -18,6 +18,12 @@ import {
 } from './browser/inspect-navigation';
 
 import { visitApprovedLink } from './browser/visit-approved-link';
+
+import {
+  applyAgentRunOptions,
+  parseAgentRunOptions
+} from './config/agent-run-options';
+
 import { chooseNavigationLink } from './decisions/choose-navigation-link';
 
 import {
@@ -126,13 +132,38 @@ async function main(): Promise<void> {
       startedAt
     );
 
-  const siteId =
-    process.argv[2] ??
-    'aidoc';
+  /*
+   * Parse and validate all command-line input before opening
+   * a browser or making any Gemini request.
+   *
+   * Examples:
+   *
+   *   npm run agent:explore -- https://example.com/
+   *
+   *   npm run agent:explore -- https://example.com/ \
+   *     --pages 5 \
+   *     --steps-per-page 4
+   */
+  const runOptions =
+    parseAgentRunOptions(
+      process.argv.slice(
+        2
+      )
+    );
 
-  const site =
+  const baseSite =
     getSiteConfig(
-      siteId
+      runOptions.siteIdOrUrl
+    );
+
+  /*
+   * Apply per-run exploration limits without mutating the
+   * configured or temporary base site definition.
+   */
+  const site =
+    applyAgentRunOptions(
+      baseSite,
+      runOptions
     );
 
   const configuredStartUrl =
