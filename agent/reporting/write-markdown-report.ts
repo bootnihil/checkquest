@@ -128,8 +128,16 @@ function createScreenshotLink(
 function getOccurrenceOutcome(
   report: SiteAgentReport,
   pageNumber: number,
-  findingNumber: number
+  findingNumber:
+    number | null
 ) {
+  if (
+    findingNumber ===
+    null
+  ) {
+    return null;
+  }
+
   const page =
     report.inspectedPages[
       pageNumber - 1
@@ -318,6 +326,10 @@ export async function writeMarkdownReport(
     `| Pages inspected | ${report.summary.pagesInspected} |`,
     `| Unique exploratory findings | ${report.summary.siteWideExploratoryFindingsCount} |`,
     `| Finding occurrences | ${report.summary.exploratoryQaFindingsCount} |`,
+    `| New candidate findings | ${report.summary.newCandidateFindingsCount} |`,
+    `| Known finding occurrences | ${report.summary.knownFindingOccurrencesCount} |`,
+    `| Known context items supplied | ${report.summary.knownFindingsSuppliedToAnalysisCount} |`,
+    `| Redundant investigations skipped | ${report.summary.redundantInvestigationsSkippedCount} |`,
     `| Highest exploratory severity | ${formatSeverity(report.summary.highestExploratoryQaSeverity)} |`,
     `| Rule-based findings | ${report.summary.findingsCount} |`,
     `| Actionable diagnostics | ${report.summary.actionableDiagnosticsCount} |`,
@@ -367,6 +379,8 @@ export async function writeMarkdownReport(
             occurrences
               .map(
                 occurrence =>
+                  occurrence
+                    .verificationOutcome ??
                   getOccurrenceOutcome(
                     report,
                     occurrence.pageNumber,
@@ -429,6 +443,8 @@ export async function writeMarkdownReport(
           occurrences.forEach(
             occurrence => {
               const outcome =
+                occurrence
+                  .verificationOutcome ??
                 getOccurrenceOutcome(
                   report,
                   occurrence.pageNumber,
@@ -436,12 +452,15 @@ export async function writeMarkdownReport(
                 );
 
               const status =
-                outcome ===
-                null
-                  ? 'NOT INVESTIGATED'
-                  : formatInvestigationStatus(
-                    outcome.status
-                  );
+                occurrence
+                  .redundantInvestigationSkipped
+                  ? 'KNOWN — NOT REINVESTIGATED'
+                  : outcome ===
+                      null
+                    ? 'NOT INVESTIGATED'
+                    : formatInvestigationStatus(
+                        outcome.status
+                      );
 
               lines.push(
                 `| ${createPageLink(occurrence.pageTitle, occurrence.pageUrl)} | ${status} | ${createScreenshotLink(occurrence.screenshotPath)} |`
@@ -485,7 +504,7 @@ export async function writeMarkdownReport(
   lines.push(
     '## Pages Inspected',
     '',
-    '| Page | Predicted area / route family | Observed template | HTTP | Exploratory findings | Rule-based findings | Technical health |',
+    '| Page | Predicted area / route family | Observed template | HTTP | Exploratory occurrences | Rule-based findings | Technical health |',
     '| --- | --- | --- | ---: | ---: | ---: | --- |'
   );
 
@@ -512,7 +531,7 @@ export async function writeMarkdownReport(
         );
 
       lines.push(
-        `| ${createPageLink(pageResult.observation.title, pageResult.observation.finalUrl)} | ${predictedIdentityLabel} | ${observedTemplateKey} | ${formatHttpStatus(pageResult.observation.httpStatus)} | ${pageResult.exploratoryQaAnalysis.findings.length} | ${pageResult.findings.length} | ${getPageTechnicalStatus(report, pageIndex)} |`
+        `| ${createPageLink(pageResult.observation.title, pageResult.observation.finalUrl)} | ${predictedIdentityLabel} | ${observedTemplateKey} | ${formatHttpStatus(pageResult.observation.httpStatus)} | ${pageResult.exploratoryQaAnalysis.findings.length + pageResult.knownFindingOccurrences.length} | ${pageResult.findings.length} | ${getPageTechnicalStatus(report, pageIndex)} |`
       );
     }
   );

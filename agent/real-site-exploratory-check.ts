@@ -614,7 +614,9 @@ async function main(): Promise<void> {
 
             exploratoryInvestigation,
 
-            exploratoryFindingResults
+            exploratoryFindingResults,
+
+            knownFindingOccurrences: []
           }
         ],
 
@@ -640,6 +642,20 @@ async function main(): Promise<void> {
           siteWideExploratoryFindingsCount:
             siteWideExploratoryFindings
               .length,
+
+          knownFindingOccurrencesCount:
+            0,
+
+          knownFindingsSuppliedToAnalysisCount:
+            0,
+
+          newCandidateFindingsCount:
+            exploratoryQaAnalysis
+              .findings
+              .length,
+
+          redundantInvestigationsSkippedCount:
+            0,
 
           highestExploratoryQaSeverity:
             getHighestExploratoryQaSeverity(

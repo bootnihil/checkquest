@@ -44,8 +44,17 @@ import {
   evaluateFindingInvestigationOutcome
 } from './investigation/evaluate-finding-investigation-outcome';
 import {
+  buildKnownFindingPromptContext,
+  createKnownFindingState,
+  detectStructuredKnownFindingOccurrences,
+  reconcilePageFindings,
+  registerKnownFindingOccurrence,
+  registerNewFinding
+} from './investigation/known-findings';
+import {
   assignPageCandidateReferences,
-  isInvestigablePageCandidate
+  isInvestigablePageCandidate,
+  type PageCandidateReference
 } from './investigation/page-candidates';
 
 import { runExploratoryLoop } from './planning/run-exploratory-loop';
@@ -303,6 +312,18 @@ async function main(): Promise<void> {
 
       const pageNoveltyState =
         createPageNoveltyState();
+
+      const knownFindingState =
+        createKnownFindingState();
+
+      let knownFindingsSuppliedToAnalysisCount =
+        0;
+
+      let newCandidateFindingsCount =
+        0;
+
+      let redundantInvestigationsSkippedCount =
+        0;
 
       const homepageLinks =
         await inspectNavigation(
@@ -635,7 +656,29 @@ async function main(): Promise<void> {
               'password'
           );
 
-        const exploratoryQaAnalysis =
+        const deterministicKnownOccurrenceDrafts =
+          detectStructuredKnownFindingOccurrences(
+            knownFindingState,
+            pageContent
+          );
+
+        const knownFindingContext =
+          buildKnownFindingPromptContext(
+            knownFindingState,
+            deterministicKnownOccurrenceDrafts.map(
+              draft =>
+                draft.fingerprint
+            )
+          );
+
+        knownFindingsSuppliedToAnalysisCount +=
+          knownFindingContext.length;
+
+        console.log(
+          `Known findings supplied to analysis: ${knownFindingContext.length}`
+        );
+
+        const rawExploratoryQaAnalysis =
           await analyzePageForQa({
             observation:
               pageObservation,
@@ -646,21 +689,142 @@ async function main(): Promise<void> {
             classifiedDiagnostics,
 
             ruleBasedFindings:
-              findings
+              findings,
+
+            knownFindings:
+              knownFindingContext
           });
+
+        const reconciledPageFindings =
+          reconcilePageFindings(
+            knownFindingState,
+            rawExploratoryQaAnalysis
+              .findings,
+            deterministicKnownOccurrenceDrafts
+          );
+
+        const exploratoryQaAnalysis = {
+          ...rawExploratoryQaAnalysis,
+
+          /*
+           * Keep page-local analysis findings limited to genuinely
+           * new findings. Known occurrences are recorded separately.
+           */
+          findings:
+            reconciledPageFindings
+              .newFindings
+        };
+
+        newCandidateFindingsCount +=
+          reconciledPageFindings
+            .newFindings
+            .length;
+
+        const candidateInputs = [
+          ...reconciledPageFindings
+            .newFindings
+            .map(
+              finding => ({
+                finding,
+                knownFingerprint:
+                  null as string | null
+              })
+            ),
+
+          ...reconciledPageFindings
+            .reinvestigationFindings
+            .map(
+              item => ({
+                finding:
+                  item.finding,
+
+                knownFingerprint:
+                  item.fingerprint
+              })
+            )
+        ];
 
         const pageCandidates =
           assignPageCandidateReferences(
-            exploratoryQaAnalysis.findings
+            candidateInputs.map(
+              item =>
+                item.finding
+            )
           );
+
+        const knownFingerprintByCandidateReference =
+          new Map<
+            PageCandidateReference,
+            string
+          >();
+
+        pageCandidates.forEach(
+          (
+            candidate,
+            index
+          ) => {
+            const knownFingerprint =
+              candidateInputs[
+                index
+              ]
+                .knownFingerprint;
+
+            if (
+              knownFingerprint !==
+              null
+            ) {
+              knownFingerprintByCandidateReference
+                .set(
+                  candidate.reference,
+                  knownFingerprint
+                );
+            }
+          }
+        );
 
         console.log(
           '\nExploratory QA analysis:'
         );
 
         console.log(
-          `Candidate findings: ${exploratoryQaAnalysis.findings.length}`
+          `New candidate findings: ${reconciledPageFindings.newFindings.length}`
         );
+
+        console.log(
+          `Known finding occurrences: ${reconciledPageFindings.knownOccurrenceDrafts.length}`
+        );
+
+        const pageRedundantInvestigationsSkipped =
+          reconciledPageFindings
+            .knownOccurrenceDrafts
+            .filter(
+              draft =>
+                draft
+                  .redundantInvestigationSkipped
+            )
+            .length;
+
+        redundantInvestigationsSkippedCount +=
+          pageRedundantInvestigationsSkipped;
+
+        console.log(
+          `Redundant investigations skipped: ${pageRedundantInvestigationsSkipped}`
+        );
+
+        for (
+          const draft of
+            reconciledPageFindings
+              .knownOccurrenceDrafts
+        ) {
+          if (
+            draft
+              .redundantInvestigationSkipped
+          ) {
+            console.log(
+              `- ${draft.knownFindingReference}: known verified occurrence recorded; redundant investigation skipped.`
+            );
+          }
+        }
 
         console.log(
           `Summary: ${exploratoryQaAnalysis.summary}`
@@ -687,7 +851,9 @@ async function main(): Promise<void> {
           );
         } else if (
           site.maxExploratoryStepsPerPage >
-          0
+            0 &&
+          pageCandidates.length >
+            0
         ) {
           console.log(
             '\nStarting autonomous page investigation...'
@@ -811,6 +977,10 @@ async function main(): Promise<void> {
             .findings
             .length >
             0 ||
+          reconciledPageFindings
+            .knownOccurrenceDrafts
+            .length >
+            0 ||
           investigationPerformedAction;
 
         let screenshotPath:
@@ -847,6 +1017,142 @@ async function main(): Promise<void> {
           );
         }
 
+        const findingResultByCandidateReference =
+          new Map(
+            exploratoryFindingResults.map(
+              result => [
+                result
+                  .candidateReference,
+                result
+              ]
+            )
+          );
+
+        const knownFindingOccurrences =
+          reconciledPageFindings
+            .knownOccurrenceDrafts
+            .map(
+              draft => {
+                const reinvestigationCandidateReference =
+                  Array.from(
+                    knownFingerprintByCandidateReference
+                      .entries()
+                  )
+                    .find(
+                      (
+                        [
+                          ,
+                          fingerprint
+                        ]
+                      ) =>
+                        fingerprint ===
+                        draft.fingerprint
+                    )
+                    ?.[0];
+
+                const verificationOutcome =
+                  reinvestigationCandidateReference ===
+                    undefined
+                    ? null
+                    : findingResultByCandidateReference
+                        .get(
+                          reinvestigationCandidateReference
+                        )
+                        ?.outcome ??
+                      null;
+
+                return registerKnownFindingOccurrence(
+                  knownFindingState,
+                  {
+                    fingerprint:
+                      draft.fingerprint,
+
+                    finding:
+                      draft.finding,
+
+                    pageUrl:
+                      pageObservation.finalUrl,
+
+                    pageTitle:
+                      pageObservation.title,
+
+                    screenshotPath,
+
+                    occurrenceEvidence:
+                      draft
+                        .occurrenceEvidence,
+
+                    evidenceTarget:
+                      draft
+                        .evidenceTarget,
+
+                    matchingBases:
+                      draft
+                        .matchingBases,
+
+                    modelKnownFindingReference:
+                      draft
+                        .modelKnownFindingReference,
+
+                    modelReferenceMatched:
+                      draft
+                        .modelReferenceMatched,
+
+                    redundantInvestigationSkipped:
+                      draft
+                        .redundantInvestigationSkipped,
+
+                    verificationOutcome
+                  }
+                );
+              }
+            );
+
+        for (
+          let findingIndex = 0;
+          findingIndex <
+            reconciledPageFindings
+              .newFindings
+              .length;
+          findingIndex +=
+            1
+        ) {
+          const result =
+            exploratoryFindingResults[
+              findingIndex
+            ];
+
+          if (
+            result ===
+            undefined
+          ) {
+            throw new Error(
+              'A new exploratory finding is missing its page-local investigation result.'
+            );
+          }
+
+          registerNewFinding(
+            knownFindingState,
+            {
+              finding:
+                result.finding,
+
+              pageUrl:
+                pageObservation
+                  .finalUrl,
+
+              pageTitle:
+                pageObservation
+                  .title,
+
+              screenshotPath,
+
+              verificationOutcome:
+                result.outcome
+            }
+          );
+        }
+
         inspectedPages.push({
           selection: {
             link:
@@ -873,7 +1179,9 @@ async function main(): Promise<void> {
 
           exploratoryInvestigation,
 
-          exploratoryFindingResults
+          exploratoryFindingResults,
+
+          knownFindingOccurrences
         });
 
         const discoveredLinks =
@@ -969,9 +1277,20 @@ async function main(): Promise<void> {
               findings:
                 pageResult
                   .exploratoryQaAnalysis
-                  .findings
+                  .findings,
+
+              knownFindingOccurrences:
+                pageResult
+                  .knownFindingOccurrences
             })
           )
+        );
+
+      const allKnownFindingOccurrences =
+        inspectedPages.flatMap(
+          pageResult =>
+            pageResult
+              .knownFindingOccurrences
         );
 
       const allClassifiedFailedRequests =
@@ -1052,10 +1371,28 @@ async function main(): Promise<void> {
             ),
 
           exploratoryQaFindingsCount:
-            allExploratoryQaFindings.length,
+            siteWideExploratoryFindings
+              .reduce(
+                (
+                  total,
+                  finding
+                ) =>
+                  total +
+                  finding.occurrenceCount,
+                0
+              ),
 
           siteWideExploratoryFindingsCount:
             siteWideExploratoryFindings.length,
+
+          knownFindingOccurrencesCount:
+            allKnownFindingOccurrences.length,
+
+          knownFindingsSuppliedToAnalysisCount,
+
+          newCandidateFindingsCount,
+
+          redundantInvestigationsSkippedCount,
 
           highestExploratoryQaSeverity:
             getHighestExploratoryQaSeverity(

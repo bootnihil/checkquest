@@ -309,7 +309,9 @@ async function main(): Promise<void> {
             exploratoryInvestigation:
               null,
 
-            exploratoryFindingResults
+            exploratoryFindingResults,
+
+            knownFindingOccurrences: []
           }
         ],
 
@@ -333,6 +335,18 @@ async function main(): Promise<void> {
           siteWideExploratoryFindingsCount:
             siteWideExploratoryFindings
               .length,
+
+          knownFindingOccurrencesCount:
+            0,
+
+          knownFindingsSuppliedToAnalysisCount:
+            0,
+
+          newCandidateFindingsCount:
+            0,
+
+          redundantInvestigationsSkippedCount:
+            0,
 
           highestExploratoryQaSeverity:
             'none',

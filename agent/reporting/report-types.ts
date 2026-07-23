@@ -29,6 +29,9 @@ import type {
 import type {
   PageCandidateReference
 } from '../investigation/page-candidates';
+import type {
+  KnownFindingOccurrence
+} from '../investigation/known-findings';
 
 import type {
   InspectedPageNovelty
@@ -138,6 +141,17 @@ export interface InspectedPageResult {
    */
   exploratoryFindingResults:
     ExploratoryFindingResult[];
+
+  /*
+   * Occurrences reconciled to findings already known earlier
+   * in this run.
+   *
+   * These do not receive page-local candidate references
+   * unless an unresolved known finding is deliberately
+   * reinvestigated.
+   */
+  knownFindingOccurrences:
+    KnownFindingOccurrence[];
 }
 
 export interface AgentRunOutcome {
@@ -203,6 +217,30 @@ export interface SiteAgentReport {
      * after deterministic deduplication.
      */
     siteWideExploratoryFindingsCount:
+      number;
+
+    /*
+     * Occurrences reconciled to findings discovered earlier
+     * in the same run.
+     */
+    knownFindingOccurrencesCount:
+      number;
+
+    /*
+     * Total compact known-finding entries supplied across all
+     * page-analysis calls.
+     */
+    knownFindingsSuppliedToAnalysisCount:
+      number;
+
+    /*
+     * Findings that remained genuinely new after runtime
+     * fingerprint reconciliation.
+     */
+    newCandidateFindingsCount:
+      number;
+
+    redundantInvestigationsSkippedCount:
       number;
 
     highestExploratoryQaSeverity:

@@ -6,6 +6,9 @@ import { aiConfig } from '../config/ai-config';
 import type { ClassifiedDiagnostics } from './classify-diagnostics';
 import { buildExploratoryQaPrompt } from './build-exploratory-qa-prompt';
 import type { PageFinding } from './evaluate-page';
+import type {
+  KnownFindingPromptContext
+} from '../investigation/known-findings';
 import {
   exploratoryQaAnalysisSchema,
   type ExploratoryQaAnalysis
@@ -16,6 +19,8 @@ export interface AnalyzePageForQaInput {
   content: ExtractedPageContent;
   classifiedDiagnostics: ClassifiedDiagnostics;
   ruleBasedFindings: PageFinding[];
+  knownFindings?:
+    KnownFindingPromptContext[];
 }
 
 function getGeminiApiKey(): string {

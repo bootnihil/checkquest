@@ -38,6 +38,7 @@
     "agent:exploratory-loop-check": "tsx agent/exploratory-loop-check.ts",
     "agent:site-wide-findings-check": "tsx agent/site-wide-findings-check.ts",
     "agent:site-wide-report-check": "tsx agent/site-wide-report-check.ts",
+    "agent:known-findings-check": "tsx agent/known-findings-check.ts",
     "agent:run-options-check": "tsx agent/agent-run-options-check.ts"
   },
   "keywords": [

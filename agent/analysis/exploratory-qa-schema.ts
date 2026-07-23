@@ -29,6 +29,22 @@ export const selectOptionEvidenceTargetSchema =
   });
 
 export const exploratoryQaFindingSchema = z.object({
+  /*
+   * Optional model-supplied relationship to a run-local
+   * known finding.
+   *
+   * This is advisory only. Runtime fingerprint reconciliation
+   * remains authoritative.
+   */
+  knownFindingReference: z
+    .string()
+    .regex(
+      /^known-\d+$/
+    )
+    .max(100)
+    .nullable()
+    .optional(),
+
   category: z.enum([
     'content',
     'navigation',

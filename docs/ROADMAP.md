@@ -2,7 +2,7 @@
 
 **Roadmap version:** 1.0  
 **Frozen on:** 2026-07-23  
-**Current stage:** Stage 3 — Known-finding context
+**Current stage:** Stage 4 — Broaden the safe action vocabulary
 
 ## How this roadmap is used
 
@@ -66,6 +66,8 @@ Examples include repeatedly inspecting similar blog posts, article pages, or oth
 ---
 
 # Stage 3 — Known-finding context
+
+**Completed:** 2026-07-23
 
 ## Goal
 
@@ -310,6 +312,7 @@ Before moving to the next stage:
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-07-23 | 1.0 | Stage 3 passed deterministic checks, a five-page real-site Aidoc acceptance run, report/JSON acceptance review, and the final Playwright regression suite; acceptance produced one logical Equador finding with four affected-page occurrences, one actual verification, and three redundant investigations skipped. One Playwright test initially hit a transient timeout, then passed in isolation, and the full suite subsequently passed 3/3; advanced the current stage to Stage 4. |
 | 2026-07-23 | 1.0 | Stage 2 passed deterministic checks, navigation-choice integration, a five-page real-site Aidoc acceptance run, and the existing 3-test Playwright regression suite; advanced the current stage to Stage 3. |
 | 2026-07-23 | 1.0 | Stage 1 passed deterministic checks, real-site acceptance, and the existing Playwright regression suite; advanced the current stage to Stage 2. |
 | 2026-07-23 | 1.0 | Established the canonical 10-stage roadmap and backlog-first planning rule. |

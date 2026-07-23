@@ -1,6 +1,16 @@
 import type {
   ExploratoryQaFinding
 } from '../analysis/exploratory-qa-schema';
+import {
+  createExploratoryFindingFingerprint
+} from '../investigation/finding-fingerprint';
+import type {
+  KnownFindingMatchingBasis,
+  KnownFindingOccurrence
+} from '../investigation/known-findings';
+import type {
+  FindingInvestigationOutcome
+} from '../investigation/evaluate-finding-investigation-outcome';
 
 export interface ExploratoryFindingPageInput {
   pageUrl: string;
@@ -12,6 +22,9 @@ export interface ExploratoryFindingPageInput {
 
   findings:
     ExploratoryQaFinding[];
+
+  knownFindingOccurrences?:
+    KnownFindingOccurrence[];
 }
 
 export interface SiteWideFindingOccurrence {
@@ -23,7 +36,8 @@ export interface SiteWideFindingOccurrence {
    */
   pageNumber: number;
 
-  findingNumber: number;
+  findingNumber:
+    number | null;
 
   pageUrl: string;
 
@@ -31,6 +45,21 @@ export interface SiteWideFindingOccurrence {
 
   screenshotPath:
     string | null;
+
+  knownFindingReference:
+    string | null;
+
+  occurrenceEvidence:
+    string[];
+
+  matchingBases:
+    KnownFindingMatchingBasis[];
+
+  redundantInvestigationSkipped:
+    boolean;
+
+  verificationOutcome:
+    FindingInvestigationOutcome | null;
 }
 
 export interface SiteWideExploratoryFinding {
@@ -56,163 +85,6 @@ export interface SiteWideExploratoryFinding {
 
   occurrences:
     SiteWideFindingOccurrence[];
-}
-
-/*
- * Normalize AI-produced and browser-extracted text so that
- * harmless differences in capitalization, punctuation, and
- * whitespace do not prevent deterministic matching.
- *
- * Examples:
- *
- *   "COUNTRY*"  -> "country"
- *   " Equador " -> "equador"
- */
-function normalizeFingerprintText(
-  value:
-    string | null
-): string {
-  if (
-    value === null
-  ) {
-    return '';
-  }
-
-  return value
-    .normalize('NFKC')
-    .toLocaleLowerCase()
-    .replace(
-      /[^\p{L}\p{N}]+/gu,
-      ' '
-    )
-    .trim()
-    .replace(
-      /\s+/g,
-      ' '
-    );
-}
-
-/*
- * Choose the most meaningful available identity for a
- * supported select control.
- *
- * Labels are preferred because they are normally the most
- * human-readable and stable across pages. The field name and
- * element ID are used only when no label is available.
- */
-function getSelectControlIdentity(
-  finding:
-    ExploratoryQaFinding
-): string {
-  const target =
-    finding.evidenceTarget;
-
-  if (
-    target === null
-  ) {
-    return '';
-  }
-
-  const candidates = [
-    target.controlLabel,
-    target.controlName,
-    target.controlId
-  ];
-
-  for (
-    const candidate
-    of candidates
-  ) {
-    const normalizedCandidate =
-      normalizeFingerprintText(
-        candidate
-      );
-
-    if (
-      normalizedCandidate.length >
-      0
-    ) {
-      return normalizedCandidate;
-    }
-  }
-
-  return 'unknown control';
-}
-
-/*
- * Machine-readable evidence targets provide the strongest
- * available basis for cross-page deduplication.
- *
- * The real Aidoc issue, for example, becomes approximately:
- *
- *   target|select-option|country|equador
- *
- * AI-generated titles and categories may differ between
- * pages, but the underlying machine-readable target remains
- * stable.
- */
-export function createExploratoryFindingFingerprint(
-  finding:
-    ExploratoryQaFinding
-): string {
-  const normalizedCategory =
-    normalizeFingerprintText(
-      finding.category
-    );
-
-  const target =
-    finding.evidenceTarget;
-
-  if (
-    target !== null
-  ) {
-    const controlIdentity =
-      getSelectControlIdentity(
-        finding
-      );
-
-    const optionText =
-      normalizeFingerprintText(
-        target.optionText
-      );
-
-    /*
-     * Do not include the AI-generated category here.
-     *
-     * When a finding has a machine-readable target, the
-     * target itself is the stronger identity signal.
-     * Gemini may describe the same defect as "content" on
-     * one page and "consistency" on another.
-     */
-    return [
-      'target',
-      target.kind,
-      controlIdentity,
-      optionText
-    ].join('|');
-  }
-
-  /*
-   * Findings without a machine-readable target use a
-   * deliberately conservative fallback.
-   *
-   * Category is retained here because, without structured
-   * target information, it helps prevent unrelated findings
-   * from being incorrectly merged.
-   *
-   * This may leave some semantic duplicates unmerged, but
-   * that is safer than incorrectly merging unrelated issues.
-   */
-  return [
-    'fallback',
-    normalizedCategory,
-    normalizeFingerprintText(
-      finding.title
-    ),
-    normalizeFingerprintText(
-      finding.evidence
-    )
-  ].join('|');
 }
 
 export function buildSiteWideExploratoryFindings(
@@ -261,7 +133,24 @@ export function buildSiteWideExploratoryFindings(
               page.pageTitle,
 
             screenshotPath:
-              page.screenshotPath
+              page.screenshotPath,
+
+            knownFindingReference:
+              null,
+
+            occurrenceEvidence: [
+              finding.evidence
+            ],
+
+            matchingBases: [
+              'initial-finding'
+            ],
+
+            redundantInvestigationSkipped:
+              false,
+
+            verificationOutcome:
+              null
           };
 
           const existingGroup =
@@ -294,6 +183,99 @@ export function buildSiteWideExploratoryFindings(
           );
         }
       );
+
+      for (
+        const knownOccurrence of
+          page.knownFindingOccurrences ??
+          []
+      ) {
+        const fingerprint =
+          knownOccurrence.fingerprint;
+
+        const occurrence:
+          SiteWideFindingOccurrence = {
+          pageNumber:
+            pageIndex + 1,
+
+          findingNumber:
+            null,
+
+          pageUrl:
+            knownOccurrence.pageUrl,
+
+          pageTitle:
+            knownOccurrence.pageTitle,
+
+          screenshotPath:
+            knownOccurrence.screenshotPath,
+
+          knownFindingReference:
+            knownOccurrence
+              .knownFindingReference,
+
+          occurrenceEvidence: [
+            ...knownOccurrence
+              .occurrenceEvidence
+          ],
+
+          matchingBases: [
+            ...knownOccurrence
+              .matchingBases
+          ],
+
+          redundantInvestigationSkipped:
+            knownOccurrence
+              .redundantInvestigationSkipped,
+
+          verificationOutcome:
+            knownOccurrence
+              .verificationOutcome
+        };
+
+        const existingGroup =
+          groupedOccurrences.get(
+            fingerprint
+          );
+
+        if (
+          existingGroup
+        ) {
+          const existingPageOccurrence =
+            existingGroup
+              .occurrences
+              .find(
+                item =>
+                  item.pageUrl ===
+                  occurrence.pageUrl
+              );
+
+          if (
+            existingPageOccurrence ===
+            undefined
+          ) {
+            existingGroup
+              .occurrences
+              .push(
+                occurrence
+              );
+          }
+
+          continue;
+        }
+
+        groupedOccurrences.set(
+          fingerprint,
+          {
+            representativeFinding:
+              knownOccurrence
+                .representativeFinding,
+
+            occurrences: [
+              occurrence
+            ]
+          }
+        );
+      }
     }
   );
 

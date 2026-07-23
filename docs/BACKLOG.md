@@ -2,7 +2,7 @@
 
 **Backlog version:** 1.0  
 **Established:** 2026-07-23  
-**Current roadmap stage:** Stage 3 — Known-finding context
+**Current roadmap stage:** Stage 4 — Broaden the safe action vocabulary
 
 This file is the parking place for work that should not silently interrupt the current roadmap stage.
 
@@ -28,10 +28,7 @@ A newly added backlog item does **not** become immediate work merely because it 
 
 | ID | Item | Target stage | Status | Notes |
 |---|---|---:|---|---|
-| CQ-006 | Pass known-finding context into later analysis | 3 | NOW | Gemini should know what has already been found. |
-| CQ-007 | Prioritize new findings over rediscovery | 3 | NOW | Reduce duplicate findings across pages/steps. |
-| CQ-008 | Allow useful evidence to strengthen an existing finding | 3 | NOW | Novel evidence should not be discarded just because the finding already exists. |
-| CQ-009 | Expand the safe action vocabulary | 4 | QUEUED | Only after Stages 1–3 make action selection smarter. |
+| CQ-009 | Expand the safe action vocabulary | 4 | NOW | Only after Stages 1–3 make action selection smarter. |
 | CQ-010 | Define a unified finding model | 5 | QUEUED | Browser, model, and deterministic evidence should converge on one finding. |
 | CQ-011 | Add explicit verification state to findings | 5 | QUEUED | Verified / Not Verified / Inconclusive or equivalent. |
 | CQ-012 | Allow deterministic/static evidence to confirm or contradict model observations | 5 | QUEUED | Prevent unsupported model claims from being presented as confirmed defects. |
@@ -62,6 +59,8 @@ These are valid future possibilities, but they are **not commitments to build th
 | CQ-P001 | Windows/Desktop UI | PARKED | Architecture should permit it; implementation waits until the core/product direction is mature. |
 | CQ-P002 | Web/SaaS frontend | PARKED | Architecture should permit it; no decision yet between desktop, SaaS, or both. |
 | CQ-P003 | Review observedTemplateKey sensitivity across multiple real sites before tuning the structural-template algorithm | PARKED | The Stage 2 Aidoc run produced distinct observed template keys for all five selected pages. This may be legitimate, but the structural fingerprint may also be somewhat sensitive. Do not tune it based on one site/run; this was not a Stage 2 blocker. |
+| CQ-P004 | Normalize first-occurrence verification representation in site-wide JSON | PARKED | Stage 3 reporting is correct in Markdown. Later known occurrences carry occurrence state directly. The first investigated occurrence currently has `verificationOutcome: null` in the site-wide occurrence object and refers indirectly to the page-level finding result. This is a reporting-model consistency cleanup only and was not a Stage 3 blocker. |
+| CQ-P005 | Improve planner behavior after sufficient candidate evidence is already gathered | PARKED | In real-site runs Gemini sometimes proposes a second comparison action such as selecting "Ecuador" after "Equador" has already been verified. Stage 1 correctly rejects that off-target action before browser execution. This is not a safety defect. A future refinement could encourage the planner to stop immediately once the candidate has sufficient evidence rather than proposing an action the relevance gate will reject. |
 
 ---
 
@@ -107,3 +106,6 @@ Move completed backlog entries here during stage-closeout reviews.
 | CQ-003 | Track novelty across the full run | Stage 2 — Page-type diversity and run-level novelty (DONE — 2026-07-23) |
 | CQ-004 | Detect/represent page-type or template similarity | Stage 2 — Page-type diversity and run-level novelty (DONE — 2026-07-23) |
 | CQ-005 | Prefer unexplored page types and functional areas | Stage 2 — Page-type diversity and run-level novelty (DONE — 2026-07-23) |
+| CQ-006 | Pass known-finding context into later analysis | Stage 3 — Known-finding context (DONE — 2026-07-23) |
+| CQ-007 | Prioritize new findings over rediscovery | Stage 3 — Known-finding context (DONE — 2026-07-23) |
+| CQ-008 | Allow useful evidence to strengthen an existing finding | Stage 3 — Known-finding context (DONE — 2026-07-23) |

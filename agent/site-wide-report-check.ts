@@ -18,6 +18,9 @@ import {
   evaluateFindingInvestigationOutcome
 } from './investigation/evaluate-finding-investigation-outcome';
 import {
+  createExploratoryFindingFingerprint
+} from './investigation/finding-fingerprint';
+import {
   assignPageCandidateReferences
 } from './investigation/page-candidates';
 
@@ -188,7 +191,9 @@ function createPageResult(
             exploratoryInvestigation
           )
       }
-    ]
+    ],
+
+    knownFindingOccurrences: []
   };
 }
 
@@ -242,6 +247,107 @@ async function main(): Promise<void> {
       )
     ];
 
+  const representativeFinding =
+    inspectedPages[0]
+      .exploratoryQaAnalysis
+      .findings[0];
+
+  const fingerprint =
+    createExploratoryFindingFingerprint(
+      representativeFinding
+    );
+
+  inspectedPages[0]
+    .exploratoryFindingResults[0]
+    .outcome = {
+      status:
+        'verified',
+
+      summary:
+        'The first occurrence verified that Equador can be selected.',
+
+      evidence: [
+        'Deterministic selected-state evidence.'
+      ]
+    };
+
+  for (
+    const pageResult of
+      inspectedPages.slice(
+        1
+      )
+  ) {
+    const emittedFinding =
+      pageResult
+        .exploratoryQaAnalysis
+        .findings[0];
+
+    pageResult.knownFindingOccurrences = [
+      {
+        knownFindingReference:
+          'known-1',
+
+        fingerprint,
+
+        representativeFinding: {
+          ...representativeFinding,
+
+          knownFindingReference:
+            'known-1'
+        },
+
+        pageUrl:
+          pageResult
+            .observation
+            .finalUrl,
+
+        pageTitle:
+          pageResult
+            .observation
+            .title,
+
+        screenshotPath:
+          pageResult
+            .screenshotPath,
+
+        occurrenceEvidence: [
+          emittedFinding.evidence
+        ],
+
+        evidenceTarget:
+          emittedFinding
+            .evidenceTarget,
+
+        matchingBases: [
+          'structured-target',
+          'finding-fingerprint'
+        ],
+
+        modelKnownFindingReference:
+          'known-1',
+
+        modelReferenceMatched:
+          true,
+
+        redundantInvestigationSkipped:
+          true,
+
+        verificationOutcome:
+          null
+      }
+    ];
+
+    pageResult.exploratoryQaAnalysis = {
+      ...pageResult
+        .exploratoryQaAnalysis,
+
+      findings: []
+    };
+
+    pageResult.exploratoryFindingResults =
+      [];
+  }
+
   const siteWideExploratoryFindings =
     buildSiteWideExploratoryFindings(
       inspectedPages.map(
@@ -263,7 +369,11 @@ async function main(): Promise<void> {
           findings:
             pageResult
               .exploratoryQaAnalysis
-              .findings
+              .findings,
+
+          knownFindingOccurrences:
+            pageResult
+              .knownFindingOccurrences
         })
       )
     );
@@ -332,6 +442,18 @@ async function main(): Promise<void> {
       siteWideExploratoryFindingsCount:
         siteWideExploratoryFindings
           .length,
+
+      knownFindingOccurrencesCount:
+        2,
+
+      knownFindingsSuppliedToAnalysisCount:
+        2,
+
+      newCandidateFindingsCount:
+        1,
+
+      redundantInvestigationsSkippedCount:
+        2,
 
       highestExploratoryQaSeverity:
         'low',
@@ -445,7 +567,7 @@ async function main(): Promise<void> {
 
   if (
     !markdown.includes(
-      '**Status:** INCONCLUSIVE'
+      '**Status:** VERIFIED'
     )
   ) {
     throw new Error(
@@ -455,7 +577,7 @@ async function main(): Promise<void> {
 
   if (
     !markdown.includes(
-      '| [Radiology](https://example.com/radiology) | INCONCLUSIVE | [page-01.png](evidence/page-01.png) |'
+      '| [Radiology](https://example.com/radiology) | VERIFIED | [page-01.png](evidence/page-01.png) |'
     )
   ) {
     throw new Error(
@@ -530,35 +652,31 @@ async function main(): Promise<void> {
   );
 
   /*
-   * Each synthetic candidate had no autonomous
-   * investigation.
-   *
-   * JSON remains the exhaustive execution record, so all
-   * three deterministic inconclusive outcomes must still be
-   * preserved there even though the Markdown report presents
-   * them once at site level.
+   * JSON remains the exhaustive execution record. Only the
+   * first occurrence was investigated; later known occurrences
+   * must not be represented as independently verified.
    */
   if (
     countOccurrences(
       json,
-      '"status": "inconclusive"'
+      '"status": "verified"'
     ) !==
-    3
+    1
   ) {
     throw new Error(
-      'JSON report does not contain the expected 3 inconclusive finding outcomes.'
+      'JSON report does not contain the expected single verified finding outcome.'
     );
   }
 
   if (
     countOccurrences(
       markdown,
-      'INCONCLUSIVE'
+      'KNOWN — NOT REINVESTIGATED'
     ) <
-    4
+    2
   ) {
     throw new Error(
-      'Markdown report does not present the site-wide and occurrence-level investigation statuses.'
+      'Markdown report does not distinguish skipped known occurrences from independent verification.'
     );
   }
 
@@ -585,7 +703,7 @@ async function main(): Promise<void> {
   );
 
   console.log(
-    'Synthetic finding outcomes: 3 inconclusive'
+    'Synthetic finding outcomes: 1 verified, 2 known and not reinvestigated'
   );
 
   console.log(
