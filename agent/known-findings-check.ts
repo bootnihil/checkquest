@@ -132,6 +132,38 @@ function createSelectFinding(
   };
 }
 
+function createDisclosureFinding():
+  ExploratoryQaFinding {
+  return {
+    category:
+      'interaction',
+    severity:
+      'low',
+    confidence:
+      'medium',
+    title:
+      'FAQ disclosure state issue',
+    evidence:
+      'The FAQ disclosure has a structured state target.',
+    reasoning:
+      'The informational disclosure requires deterministic state verification.',
+    suggestedCheck:
+      'Expand the disclosure and verify its controlled region.',
+    evidenceTarget: {
+      kind:
+        'disclosure-state',
+      controlId:
+        'faq-control',
+      accessibleName:
+        'What does CheckQuest test?',
+      controlledRegionId:
+        'faq-answer',
+      desiredState:
+        'expanded'
+    }
+  };
+}
+
 function createPageContent(
   optionText = 'Equador'
 ): ExtractedPageContent {
@@ -199,7 +231,9 @@ function createPageContent(
           }
         ]
       }
-    ]
+    ],
+
+    disclosures: []
   };
 }
 
@@ -1015,6 +1049,116 @@ async function main():
     ])[0]
       .reference,
     'candidate-1'
+  );
+
+  /*
+   * Stage 4A disclosure targets use the same authoritative
+   * fingerprint and structured-occurrence pipeline as select targets.
+   */
+  const disclosureState =
+    createKnownFindingState();
+  const disclosureFinding =
+    createDisclosureFinding();
+  const disclosureOccurrence =
+    registerNewFinding(
+      disclosureState,
+      {
+        finding:
+          disclosureFinding,
+        pageUrl:
+          'https://example.com/faq',
+        pageTitle:
+          'FAQ',
+        screenshotPath:
+          null,
+        verificationOutcome:
+          verifiedOutcome
+      }
+    );
+  const disclosureContent:
+    ExtractedPageContent = {
+    title: 'FAQ',
+    headings: [
+      'Frequently Asked Questions'
+    ],
+    bodyText:
+      'What does CheckQuest test?',
+    links: [],
+    buttons: [
+      'What does CheckQuest test?'
+    ],
+    textFields: [],
+    selects: [],
+    disclosures: [
+      {
+        tagName:
+          'button',
+        role:
+          null,
+        buttonType:
+          'button',
+        controlId:
+          'faq-control',
+        accessibleName:
+          'What does CheckQuest test?',
+        ariaExpanded:
+          'false',
+        ariaControls:
+          'faq-answer',
+        disabled:
+          false,
+        ariaDisabled:
+          false,
+        href:
+          null,
+        hasLinkSemantics:
+          false,
+        ariaHasPopup:
+          null,
+        formAssociated:
+          false,
+        formAncestor:
+          false,
+        hasSubmitOrResetSemantics:
+          false,
+        controlledRegionExists:
+          true,
+        controlledRegionVisible:
+          false,
+        controlledRegionHasEditableOrSubmissionControls:
+          false,
+        eligibleForDisclosureAction:
+          true,
+        eligibilityRejectionReasons:
+          []
+      }
+    ]
+  };
+  const detectedDisclosure =
+    detectStructuredKnownFindingOccurrences(
+      disclosureState,
+      disclosureContent
+    );
+
+  assert.equal(
+    detectedDisclosure.length,
+    1
+  );
+  assert.equal(
+    detectedDisclosure[0]
+      .fingerprint,
+    disclosureOccurrence
+      .fingerprint
+  );
+  assert.equal(
+    detectedDisclosure[0]
+      .redundantInvestigationSkipped,
+    true
+  );
+  assert.equal(
+    detectedDisclosure[0]
+      .reinvestigationEligible,
+    false
   );
 
   console.log(

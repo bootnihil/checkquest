@@ -51,7 +51,14 @@ export function buildExploratoryQaPrompt(
        * Select controls are supplied separately so
        * relationships between options are preserved.
        */
-      selects: content.selects
+      selects: content.selects,
+
+      /*
+       * Informational disclosures retain their deterministic ARIA,
+       * safety, ownership, and controlled-region relationships.
+       */
+      disclosures:
+        content.disclosures
     },
 
     browserDiagnostics: {
@@ -134,7 +141,7 @@ Materially useful additional evidence includes a new affected page, direct struc
 
 Use evidenceTarget only when the supplied structured evidence identifies a UI element precisely enough for automated evidence capture.
 
-Currently, the only supported machine-readable evidence target is:
+Supported machine-readable evidence targets are:
 
 {
   "kind": "select-option",
@@ -151,6 +158,25 @@ For a select-option target:
 - Use null when a particular identifier is unavailable.
 - optionText must exactly match the relevant option text in the supplied evidence.
 - Use this target only when the finding concerns a specific option inside a specific select control.
+
+For an eligible informational disclosure:
+
+{
+  "kind": "disclosure-state",
+  "controlId": "Exact observed control id",
+  "accessibleName": "Exact observed accessible name",
+  "controlledRegionId": "Exact observed aria-controls region id",
+  "desiredState": "expanded" | "collapsed"
+}
+
+For a disclosure-state target:
+
+- Use it only when the supplied structured disclosure has eligibleForDisclosureAction=true.
+- Copy controlId, accessibleName, and ariaControls exactly.
+- Set controlledRegionId to the exact single ariaControls value.
+- Use the smallest state change that can investigate the candidate.
+- Do not use this target for a generic button, link, menu, dialog, tab, form control, filter, or ineligible disclosure.
+- Do not claim the interaction failed before deterministic investigation has run.
 
 Example:
 

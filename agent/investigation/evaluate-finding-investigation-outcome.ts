@@ -1,4 +1,5 @@
 import type {
+  DisclosureStateEvidenceTarget,
   SelectOptionEvidenceTarget,
   ExploratoryQaFinding
 } from '../analysis/exploratory-qa-schema';
@@ -69,7 +70,142 @@ export function evaluateFindingInvestigationOutcome(
         investigation,
         candidateReference
       );
+
+    case 'disclosure-state':
+      return evaluateDisclosureStateFinding(
+        finding.evidenceTarget,
+        investigation,
+        candidateReference
+      );
   }
+}
+
+function evaluateDisclosureStateFinding(
+  target:
+    DisclosureStateEvidenceTarget,
+  investigation:
+    ExploratoryLoopResult,
+  candidateReference:
+    string
+): FindingInvestigationOutcome {
+  const relevantStep =
+    investigation.steps.find(
+      step =>
+        step.decision
+          .candidateReference ===
+          candidateReference &&
+        step.decision.action
+          .kind ===
+          'set-disclosure-state' &&
+        step.decision.action
+          .target.controlId ===
+          target.controlId &&
+        step.decision.action
+          .target.accessibleName ===
+          target.accessibleName &&
+        step.decision.action
+          .target
+          .controlledRegionId ===
+          target.controlledRegionId &&
+        step.decision.action
+          .desiredState ===
+          target.desiredState
+    );
+
+  if (
+    relevantStep === undefined
+  ) {
+    return inconclusive(
+      `The investigation did not execute the candidate-linked disclosure action for "${target.accessibleName}".`
+    );
+  }
+
+  if (
+    relevantStep.executionResult
+      .status === 'unsafe'
+  ) {
+    return inconclusive(
+      `The disclosure interaction was blocked or aborted by the safety boundary: ${relevantStep.executionResult.detail}`,
+      [
+        relevantStep.executionResult
+          .detail
+      ]
+    );
+  }
+
+  if (
+    relevantStep.executionResult
+      .status !== 'executed'
+  ) {
+    return inconclusive(
+      'The disclosure interaction did not execute successfully.'
+    );
+  }
+
+  const evidence =
+    relevantStep.executionResult
+      .disclosureEvidence;
+
+  if (evidence == null) {
+    return inconclusive(
+      'The disclosure interaction is missing deterministic before, after, or rollback evidence.'
+    );
+  }
+
+  if (
+    (
+      relevantStep.executionResult
+        .safetyEvents?.length ??
+      0
+    ) > 0
+  ) {
+    return inconclusive(
+      'The disclosure interaction produced a safety event and cannot verify the finding.',
+      relevantStep.executionResult
+        .safetyEvents
+        ?.map(
+          event =>
+            event.detail
+        ) ??
+        []
+    );
+  }
+
+  if (
+    !evidence.rollbackSucceeded
+  ) {
+    return inconclusive(
+      'The disclosure interaction did not restore and verify the original state.'
+    );
+  }
+
+  if (
+    evidence
+      .stateTransitionObserved &&
+    evidence
+      .controlledRegionChangedConsistently
+  ) {
+    return {
+      status: 'verified',
+      summary:
+        `The investigation verified that disclosure "${target.accessibleName}" reached the requested ${target.desiredState} state and was restored afterward.`,
+      evidence: [
+        `Observed aria-expanded and controlled-region visibility change to ${target.desiredState}.`,
+        'Verified mandatory rollback to the original disclosure state.'
+      ]
+    };
+  }
+
+  return {
+    status: 'not-verified',
+    summary:
+      `The safe disclosure interaction did not produce the requested ${target.desiredState} state transition.`,
+    evidence: [
+      relevantStep.executionResult
+        .detail,
+      'The original disclosure state was restored successfully.'
+    ]
+  };
 }
 
 /**

@@ -238,7 +238,9 @@ function main(): void {
               }
             ]
           }
-        ]
+        ],
+
+        disclosures: []
       }
     });
 
@@ -263,6 +265,7 @@ function main(): void {
     'clear-field',
     'blur-field',
     'select-option',
+    'set-disclosure-state',
     'scroll',
     'stop',
 
@@ -285,6 +288,7 @@ function main(): void {
     'Possible typo in country selection list',
     'Verify whether Equador is a genuinely selectable option.',
     '"kind": "select-option"',
+    '"kind": "set-disclosure-state"',
 
     /*
      * Candidate-priority policy.

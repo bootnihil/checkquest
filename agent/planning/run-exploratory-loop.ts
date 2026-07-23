@@ -61,7 +61,8 @@ export interface ExploratoryLoopResult {
     | 'planner-stop'
     | 'max-planner-decisions-reached'
     | 'no-investigable-candidates'
-    | 'invalid-planner-decision';
+    | 'invalid-planner-decision'
+    | 'unsafe-interaction-detected';
 
   rejectionReason?: string;
 
@@ -346,6 +347,27 @@ export async function runExploratoryLoop(
       observationAfter
     });
 
+    if (
+      executionResult.status ===
+      'unsafe'
+    ) {
+      return {
+        pageUrl,
+        maxPlannerDecisions,
+        plannerDecisionCount:
+          steps.length,
+        executedInvestigationActionCount:
+          countExecutedInvestigationActions(
+            steps
+          ),
+        stopReason:
+          'unsafe-interaction-detected',
+        rejectionReason:
+          executionResult.detail,
+        steps
+      };
+    }
+
     const historyResult =
       buildHistoryResult(
         decision.action,
@@ -433,29 +455,82 @@ export function validateDecisionCandidateRelevance(
   const target = candidate.finding.evidenceTarget;
 
   if (
-    target.kind !== 'select-option' ||
-    decision.action.kind !== 'select-option'
+    target.kind ===
+      'select-option' &&
+    decision.action.kind ===
+      'select-option'
   ) {
-    return `Action "${decision.action.kind}" does not match candidate "${candidate.reference}" evidence target "${target.kind}".`;
-  }
+    const actionTarget =
+      decision.action.target;
+    const identities = [
+      [
+        target.controlLabel,
+        actionTarget.label
+      ],
+      [
+        target.controlName,
+        actionTarget.name
+      ],
+      [
+        target.controlId,
+        actionTarget.id
+      ]
+    ];
 
-  const actionTarget = decision.action.target;
-  const identities = [
-    [target.controlLabel, actionTarget.label],
-    [target.controlName, actionTarget.name],
-    [target.controlId, actionTarget.id]
-  ];
+    if (
+      !identities.some(
+        ([expected]) =>
+          expected !== null
+      ) ||
+      !identities.every(
+        (
+          [
+            expected,
+            actual
+          ]
+        ) =>
+          expected === actual
+      ) ||
+      actionTarget.placeholder !==
+        null ||
+      decision.action
+        .optionText !==
+        target.optionText
+    ) {
+      return `Select-option action does not match candidate "${candidate.reference}" evidence target.`;
+    }
+
+    return null;
+  }
 
   if (
-    !identities.some(([expected]) => expected !== null) ||
-    !identities.every(([expected, actual]) => expected === actual) ||
-    actionTarget.placeholder !== null ||
-    decision.action.optionText !== target.optionText
+    target.kind ===
+      'disclosure-state' &&
+    decision.action.kind ===
+      'set-disclosure-state'
   ) {
-    return `Select-option action does not match candidate "${candidate.reference}" evidence target.`;
+    if (
+      decision.action
+        .target.controlId !==
+        target.controlId ||
+      decision.action
+        .target.accessibleName !==
+        target.accessibleName ||
+      decision.action
+        .target
+        .controlledRegionId !==
+        target.controlledRegionId ||
+      decision.action
+        .desiredState !==
+        target.desiredState
+    ) {
+      return `Set-disclosure-state action does not match candidate "${candidate.reference}" evidence target.`;
+    }
+
+    return null;
   }
 
-  return null;
+  return `Action "${decision.action.kind}" does not match candidate "${candidate.reference}" evidence target "${target.kind}".`;
 }
 
 function countExecutedInvestigationActions(

@@ -49,7 +49,9 @@ async function main(): Promise<void> {
 
         textFields: [],
 
-        selects: []
+        selects: [],
+
+        disclosures: []
       },
 
       classifiedDiagnostics: {

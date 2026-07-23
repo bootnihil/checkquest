@@ -1,9 +1,11 @@
 import type {
+  DisclosureStateEvidenceTarget,
   ExploratoryQaFinding,
   SelectOptionEvidenceTarget
 } from '../analysis/exploratory-qa-schema';
 import type {
   ExtractedPageContent,
+  PageDisclosureControl,
   PageSelectControl
 } from '../browser/extract-page-content';
 import type {
@@ -12,6 +14,7 @@ import type {
 } from './evaluate-finding-investigation-outcome';
 import {
   createExploratoryFindingFingerprint,
+  createDisclosureStateTargetFingerprint,
   createSelectOptionTargetFingerprint,
   normalizeFingerprintText
 } from './finding-fingerprint';
@@ -333,36 +336,117 @@ export function detectStructuredKnownFindingOccurrences(
       continue;
     }
 
+    if (
+      knownTarget.kind ===
+      'select-option'
+    ) {
+      const match =
+        findSelectOptionMatch(
+          entry.fingerprint,
+          knownTarget,
+          content.selects
+        );
+
+      if (match === null) {
+        continue;
+      }
+
+      const currentTarget:
+        SelectOptionEvidenceTarget = {
+        kind:
+          'select-option',
+
+        controlLabel:
+          match.select.label,
+
+        controlName:
+          match.select.name,
+
+        controlId:
+          match.select.id,
+
+        optionText:
+          match.optionText
+      };
+
+      const isVerified =
+        entry
+          .effectiveVerificationStatus ===
+        'verified';
+
+      detected.push({
+        knownFindingReference:
+          entry
+            .knownFindingReference,
+
+        fingerprint:
+          entry.fingerprint,
+
+        finding: {
+          ...entry
+            .representativeFinding,
+
+          knownFindingReference:
+            entry
+              .knownFindingReference,
+
+          evidenceTarget:
+            currentTarget
+        },
+
+        occurrenceEvidence: [
+          `Current structured page evidence contains option "${match.optionText}" in the matched select control.`
+        ],
+
+        evidenceTarget:
+          currentTarget,
+
+        matchingBases: [
+          'structured-target'
+        ],
+
+        modelKnownFindingReference:
+          null,
+
+        modelReferenceMatched:
+          null,
+
+        redundantInvestigationSkipped:
+          isVerified,
+
+        reinvestigationEligible:
+          !isVerified &&
+          !match.select.disabled
+      });
+
+      continue;
+    }
+
     const match =
-      findSelectOptionMatch(
+      findDisclosureMatch(
         entry.fingerprint,
         knownTarget,
-        content.selects
+        content.disclosures
       );
 
-    if (
-      match ===
-      null
-    ) {
+    if (match === null) {
       continue;
     }
 
     const currentTarget:
-      SelectOptionEvidenceTarget = {
+      DisclosureStateEvidenceTarget = {
       kind:
-        'select-option',
-
-      controlLabel:
-        match.select.label,
-
-      controlName:
-        match.select.name,
-
+        'disclosure-state',
       controlId:
-        match.select.id,
-
-      optionText:
-        match.optionText
+        match.control.controlId!,
+      accessibleName:
+        match.control
+          .accessibleName!,
+      controlledRegionId:
+        match.control
+          .ariaControls!,
+      desiredState:
+        knownTarget.desiredState
     };
 
     const isVerified =
@@ -374,45 +458,35 @@ export function detectStructuredKnownFindingOccurrences(
       knownFindingReference:
         entry
           .knownFindingReference,
-
       fingerprint:
         entry.fingerprint,
-
       finding: {
         ...entry
           .representativeFinding,
-
         knownFindingReference:
           entry
             .knownFindingReference,
-
         evidenceTarget:
           currentTarget
       },
-
       occurrenceEvidence: [
-        `Current structured page evidence contains option "${match.optionText}" in the matched select control.`
+        `Current structured page evidence contains eligible disclosure "${currentTarget.accessibleName}" controlling "${currentTarget.controlledRegionId}".`
       ],
-
       evidenceTarget:
         currentTarget,
-
       matchingBases: [
         'structured-target'
       ],
-
       modelKnownFindingReference:
         null,
-
       modelReferenceMatched:
         null,
-
       redundantInvestigationSkipped:
         isVerified,
-
       reinvestigationEligible:
         !isVerified &&
-        !match.select.disabled
+        match.control
+          .eligibleForDisclosureAction
     });
   }
 
@@ -941,6 +1015,60 @@ function findSelectOptionMatch(
             option.text
         };
       }
+    }
+  }
+
+  return null;
+}
+
+function findDisclosureMatch(
+  knownFingerprint: string,
+  knownTarget:
+    DisclosureStateEvidenceTarget,
+  disclosures:
+    PageDisclosureControl[]
+): {
+  control:
+    PageDisclosureControl;
+} | null {
+  for (
+    const control of
+      disclosures
+  ) {
+    if (
+      !control
+        .eligibleForDisclosureAction ||
+      control.controlId === null ||
+      control.accessibleName ===
+        null ||
+      control.ariaControls ===
+        null
+    ) {
+      continue;
+    }
+
+    const currentTarget:
+      DisclosureStateEvidenceTarget = {
+      kind:
+        'disclosure-state',
+      controlId:
+        control.controlId,
+      accessibleName:
+        control.accessibleName,
+      controlledRegionId:
+        control.ariaControls,
+      desiredState:
+        knownTarget.desiredState
+    };
+
+    if (
+      createDisclosureStateTargetFingerprint(
+        currentTarget
+      ) === knownFingerprint
+    ) {
+      return {
+        control
+      };
     }
   }
 

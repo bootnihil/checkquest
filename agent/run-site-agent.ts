@@ -10,6 +10,7 @@ import type {
 
 import { capturePageScreenshot } from './browser/capture-page-screenshot';
 import { collectPageDiagnostics } from './browser/collect-page-diagnostics';
+import { preparePageForGuardedInteractions } from './browser/execute-guarded-disclosure-action';
 import { extractPageContent } from './browser/extract-page-content';
 
 import {
@@ -225,7 +226,14 @@ async function main(): Promise<void> {
 
   try {
     const page =
-      await browser.newPage();
+      await browser.newPage({
+        serviceWorkers:
+          'block'
+      });
+
+    await preparePageForGuardedInteractions(
+      page
+    );
 
     const diagnosticsCollector =
       collectPageDiagnostics(

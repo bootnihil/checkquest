@@ -4,11 +4,20 @@ import type {
   AgentAction,
   FormControlTarget
 } from '../actions/agent-action-schema';
+import {
+  executeGuardedDisclosureAction,
+  type DisclosureActionEvidence,
+  type DisclosureSafetyEvent
+} from './execute-guarded-disclosure-action';
 
 export interface ExecutedAgentActionResult {
   kind: AgentAction['kind'];
-  status: 'executed' | 'stopped';
+  status: 'executed' | 'stopped' | 'unsafe';
   detail: string;
+  safetyEvents?: DisclosureSafetyEvent[];
+  hardBreach?: boolean;
+  disclosureEvidence?:
+    DisclosureActionEvidence | null;
 }
 
 /**
@@ -31,6 +40,10 @@ async function resolveFormControl(
     const match = await findUniqueControlByAttribute(page, 'id', target.id);
 
     if (match !== null) {
+      await assertFormControlIdentityConsistency(
+        match,
+        target
+      );
       return match;
     }
   }
@@ -39,6 +52,10 @@ async function resolveFormControl(
     const match = await findUniqueControlByAttribute(page, 'name', target.name);
 
     if (match !== null) {
+      await assertFormControlIdentityConsistency(
+        match,
+        target
+      );
       return match;
     }
   }
@@ -51,6 +68,10 @@ async function resolveFormControl(
 
     if (match !== null) {
       await assertSupportedFormControl(match);
+      await assertFormControlIdentityConsistency(
+        match,
+        target
+      );
       return match;
     }
   }
@@ -63,6 +84,10 @@ async function resolveFormControl(
 
     if (match !== null) {
       await assertSupportedFormControl(match);
+      await assertFormControlIdentityConsistency(
+        match,
+        target
+      );
       return match;
     }
   }
@@ -70,6 +95,176 @@ async function resolveFormControl(
   throw new Error(
     `Unable to locate form control. Target: ${JSON.stringify(target)}`
   );
+}
+
+async function assertFormControlIdentityConsistency(
+  locator: Locator,
+  target: FormControlTarget
+): Promise<void> {
+  const observed =
+    await locator.evaluate(
+      element => {
+        let label:
+          string | null = null;
+
+        if (
+          (
+            element instanceof
+              HTMLInputElement ||
+            element instanceof
+              HTMLTextAreaElement ||
+            element instanceof
+              HTMLSelectElement
+          ) &&
+          element.labels !== null &&
+          element.labels.length > 0
+        ) {
+          const labelText =
+            Array.from(
+              element.labels
+            )
+              .map(
+                labelElement =>
+                  (
+                    labelElement.innerText ||
+                    labelElement.textContent ||
+                    ''
+                  )
+                    .replace(
+                      /\s+/g,
+                      ' '
+                    )
+                    .trim()
+              )
+              .filter(
+                value =>
+                  value.length > 0
+              )
+              .join(' ')
+              .replace(/\s+/g, ' ')
+              .trim();
+
+          if (
+            labelText.length > 0
+          ) {
+            label =
+              labelText;
+          }
+        }
+
+        if (label === null) {
+          const ariaLabel =
+            (
+              element.getAttribute(
+                'aria-label'
+              ) ??
+              ''
+            )
+              .replace(/\s+/g, ' ')
+              .trim();
+
+          if (
+            ariaLabel.length > 0
+          ) {
+            label =
+              ariaLabel;
+          }
+        }
+
+        const rawName =
+          (
+            element.getAttribute(
+              'name'
+            ) ??
+            ''
+          )
+            .replace(/\s+/g, ' ')
+            .trim();
+        const rawId =
+          (
+            element.getAttribute(
+              'id'
+            ) ??
+            ''
+          )
+            .replace(/\s+/g, ' ')
+            .trim();
+        const rawPlaceholder =
+          (
+            element.getAttribute(
+              'placeholder'
+            ) ??
+            ''
+          )
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        return {
+          label,
+          name:
+            rawName.length > 0
+              ? rawName
+              : null,
+          id:
+            rawId.length > 0
+              ? rawId
+              : null,
+          placeholder:
+            rawPlaceholder.length >
+            0
+              ? rawPlaceholder
+              : null
+        };
+      }
+    );
+
+  const mismatch =
+    [
+      {
+        field: 'label',
+        expected:
+          target.label,
+        actual:
+          observed.label
+      },
+      {
+        field: 'name',
+        expected:
+          target.name,
+        actual:
+          observed.name
+      },
+      {
+        field: 'id',
+        expected:
+          target.id,
+        actual:
+          observed.id
+      },
+      {
+        field:
+          'placeholder',
+        expected:
+          target.placeholder,
+        actual:
+          observed.placeholder
+      }
+    ]
+      .filter(
+        item =>
+          item.expected !== null
+      )
+      .find(
+        item =>
+          item.expected !==
+          item.actual
+      );
+
+  if (mismatch !== undefined) {
+    throw new Error(
+      `Conflicting form-control identity: target ${mismatch.field}=${JSON.stringify(mismatch.expected)} does not match the resolved element value ${JSON.stringify(mismatch.actual)}.`
+    );
+  }
 }
 
 async function findUniqueControlByAttribute(
@@ -316,6 +511,29 @@ export async function executeAgentAction(
 
     case 'select-option':
       return executeSelectOption(page, action);
+
+    case 'set-disclosure-state': {
+      const result =
+        await executeGuardedDisclosureAction(
+          page,
+          action
+        );
+
+      return {
+        kind:
+          action.kind,
+        status:
+          result.status,
+        detail:
+          result.detail,
+        safetyEvents:
+          result.safetyEvents,
+        hardBreach:
+          result.hardBreach,
+        disclosureEvidence:
+          result.evidence
+      };
+    }
 
     case 'scroll':
       return executeScroll(page, action);

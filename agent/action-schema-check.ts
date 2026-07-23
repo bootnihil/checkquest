@@ -49,6 +49,18 @@ expectValid('Select a country option', {
   optionText: 'Ecuador'
 });
 
+expectValid('Expand an informational disclosure', {
+  kind: 'set-disclosure-state',
+  target: {
+    controlId: 'faq-control',
+    accessibleName:
+      'What does CheckQuest test?',
+    controlledRegionId:
+      'faq-answer'
+  },
+  desiredState: 'expanded'
+});
+
 expectValid('Scroll down two viewports', {
   kind: 'scroll',
   direction: 'down',
@@ -86,6 +98,18 @@ expectInvalid('Arbitrary CSS selector injected as target', {
   target: {
     selector: '#dangerous-button'
   }
+});
+
+expectInvalid('Disclosure target missing stable identity', {
+  kind: 'set-disclosure-state',
+  target: {
+    accessibleName:
+      'Question',
+    controlledRegionId:
+      'answer'
+  },
+  desiredState:
+    'expanded'
 });
 
 console.log('\nAll agent action schema checks passed.');

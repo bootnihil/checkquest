@@ -153,7 +153,10 @@ function createPageContent(
             options:
               []
           })
-        )
+        ),
+
+    disclosures:
+      []
   };
 }
 

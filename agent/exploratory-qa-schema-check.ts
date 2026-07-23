@@ -49,6 +49,41 @@ const targetedResponse = {
     'One dropdown content issue was identified.'
 };
 
+const disclosureTargetedResponse = {
+  findings: [
+    {
+      category:
+        'interaction',
+      severity:
+        'low',
+      confidence:
+        'medium',
+      title:
+        'Informational disclosure requires state verification',
+      evidence:
+        'Structured evidence identifies an eligible disclosure control.',
+      reasoning:
+        'The control can be safely investigated through a reversible state transition.',
+      suggestedCheck:
+        'Expand the disclosure and verify its controlled region.',
+      evidenceTarget: {
+        kind:
+          'disclosure-state',
+        controlId:
+          'faq-control',
+        accessibleName:
+          'What does CheckQuest test?',
+        controlledRegionId:
+          'faq-answer',
+        desiredState:
+          'expanded'
+      }
+    }
+  ],
+  summary:
+    'One disclosure candidate was identified.'
+};
+
 const emptyResponse = {
   findings: [],
   summary:
@@ -94,6 +129,19 @@ const parsedTargeted =
   exploratoryQaAnalysisSchema.safeParse(
     targetedResponse
   );
+
+const parsedDisclosureTargeted =
+  exploratoryQaAnalysisSchema.safeParse(
+    disclosureTargetedResponse
+  );
+
+if (
+  !parsedDisclosureTargeted.success
+) {
+  throw new Error(
+    `Disclosure target should be accepted: ${parsedDisclosureTargeted.error.message}`
+  );
+}
 
 console.log(
   JSON.stringify(

@@ -1,4 +1,5 @@
 import type {
+  DisclosureStateEvidenceTarget,
   ExploratoryQaFinding,
   SelectOptionEvidenceTarget
 } from '../analysis/exploratory-qa-schema';
@@ -89,6 +90,26 @@ export function createSelectOptionTargetFingerprint(
   ].join('|');
 }
 
+export function createDisclosureStateTargetFingerprint(
+  target:
+    DisclosureStateEvidenceTarget
+): string {
+  return [
+    'target',
+    target.kind,
+    normalizeFingerprintText(
+      target.controlId
+    ),
+    normalizeFingerprintText(
+      target.accessibleName
+    ),
+    normalizeFingerprintText(
+      target.controlledRegionId
+    ),
+    target.desiredState
+  ].join('|');
+}
+
 /*
  * Machine-readable evidence targets provide the strongest
  * available basis for run-level and cross-page identity.
@@ -104,9 +125,17 @@ export function createExploratoryFindingFingerprint(
     finding.evidenceTarget;
 
   if (target !== null) {
-    return createSelectOptionTargetFingerprint(
-      target
-    );
+    switch (target.kind) {
+      case 'select-option':
+        return createSelectOptionTargetFingerprint(
+          target
+        );
+
+      case 'disclosure-state':
+        return createDisclosureStateTargetFingerprint(
+          target
+        );
+    }
   }
 
   /*

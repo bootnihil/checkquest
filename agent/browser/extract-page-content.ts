@@ -59,6 +59,29 @@ export interface PageTextFieldControl {
   ariaInvalid: string | null;
 }
 
+export interface PageDisclosureControl {
+  tagName: string;
+  role: string | null;
+  buttonType: string | null;
+  controlId: string | null;
+  accessibleName: string | null;
+  ariaExpanded: 'true' | 'false' | null;
+  ariaControls: string | null;
+  disabled: boolean;
+  ariaDisabled: boolean;
+  href: string | null;
+  hasLinkSemantics: boolean;
+  ariaHasPopup: string | null;
+  formAssociated: boolean;
+  formAncestor: boolean;
+  hasSubmitOrResetSemantics: boolean;
+  controlledRegionExists: boolean;
+  controlledRegionVisible: boolean | null;
+  controlledRegionHasEditableOrSubmissionControls: boolean | null;
+  eligibleForDisclosureAction: boolean;
+  eligibilityRejectionReasons: string[];
+}
+
 export interface ExtractedPageContent {
   title: string;
   headings: string[];
@@ -67,6 +90,7 @@ export interface ExtractedPageContent {
   buttons: string[];
   textFields: PageTextFieldControl[];
   selects: PageSelectControl[];
+  disclosures: PageDisclosureControl[];
 }
 
 export async function extractPageContent(
@@ -593,6 +617,411 @@ export async function extractPageContent(
       })
       .slice(0, 20);
 
+    const disclosures = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[aria-expanded][aria-controls]'
+      )
+    )
+      .slice(0, 30)
+      .map(element => {
+        const tagName =
+          element.tagName.toLowerCase();
+
+        const role =
+          (
+            element.getAttribute('role') ??
+            ''
+          )
+            .replace(/\s+/g, ' ')
+            .trim()
+            .toLowerCase() ||
+          null;
+
+        const rawButtonType =
+          (
+            element.getAttribute('type') ??
+            ''
+          )
+            .trim()
+            .toLowerCase();
+
+        const buttonType =
+          rawButtonType.length > 0
+            ? rawButtonType
+            : null;
+
+        const controlId =
+          (
+            element.getAttribute('id') ??
+            ''
+          )
+            .replace(/\s+/g, ' ')
+            .trim() ||
+          null;
+
+        const ariaLabel =
+          (
+            element.getAttribute(
+              'aria-label'
+            ) ??
+            ''
+          )
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const labelledByIds =
+          (
+            element.getAttribute(
+              'aria-labelledby'
+            ) ??
+            ''
+          )
+            .split(/\s+/)
+            .filter(value => value.length > 0);
+
+        const labelledByText =
+          labelledByIds
+            .map(id =>
+              (
+                document.getElementById(id)
+                  ?.textContent ??
+                ''
+              )
+                .replace(/\s+/g, ' ')
+                .trim()
+            )
+            .filter(value => value.length > 0)
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const visibleText =
+          (
+            element.innerText ||
+            element.textContent ||
+            ''
+          )
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const inputValue =
+          element instanceof
+          HTMLInputElement
+            ? element.value
+                .replace(/\s+/g, ' ')
+                .trim()
+            : '';
+
+        const accessibleName =
+          ariaLabel ||
+          labelledByText ||
+          visibleText ||
+          inputValue ||
+          (
+            element.getAttribute(
+              'title'
+            ) ??
+            ''
+          )
+            .replace(/\s+/g, ' ')
+            .trim() ||
+          null;
+
+        const rawExpanded =
+          (
+            element.getAttribute(
+              'aria-expanded'
+            ) ??
+            ''
+          )
+            .trim()
+            .toLowerCase();
+
+        const ariaExpanded =
+          rawExpanded === 'true' ||
+          rawExpanded === 'false'
+            ? (
+                rawExpanded as
+                  'true' | 'false'
+              )
+            : null;
+
+        const rawControls =
+          (
+            element.getAttribute(
+              'aria-controls'
+            ) ??
+            ''
+          )
+            .trim();
+
+        const controlledIds =
+          rawControls
+            .split(/\s+/)
+            .filter(value => value.length > 0);
+
+        const ariaControls =
+          controlledIds.length === 1
+            ? controlledIds[0]
+            : rawControls.length > 0
+              ? rawControls
+              : null;
+
+        const controlledRegion =
+          controlledIds.length === 1
+            ? document.getElementById(
+                controlledIds[0]
+              )
+            : null;
+
+        const controlledRegionVisible =
+          controlledRegion === null
+            ? null
+            : (() => {
+                const style =
+                  window.getComputedStyle(
+                    controlledRegion
+                  );
+
+                const rectangle =
+                  controlledRegion
+                    .getBoundingClientRect();
+
+                return (
+                  !controlledRegion.hidden &&
+                  controlledRegion.getAttribute(
+                    'aria-hidden'
+                  ) !== 'true' &&
+                  style.display !== 'none' &&
+                  style.visibility !==
+                    'hidden' &&
+                  rectangle.width > 0 &&
+                  rectangle.height > 0
+                );
+              })();
+
+        const controlledRegionHasEditableOrSubmissionControls =
+          controlledRegion === null
+            ? null
+            : controlledRegion.querySelector(
+                [
+                  'form',
+                  'input',
+                  'textarea',
+                  'select',
+                  'button[type="submit"]',
+                  'button[type="reset"]',
+                  'button:not([type])',
+                  '[contenteditable]:not([contenteditable="false"])'
+                ].join(', ')
+              ) !== null;
+
+        const nativeDisabled =
+          (
+            element instanceof
+              HTMLButtonElement ||
+            element instanceof
+              HTMLInputElement
+          )
+            ? element.disabled
+            : false;
+
+        const ariaDisabled =
+          (
+            element.getAttribute(
+              'aria-disabled'
+            ) ??
+            ''
+          )
+            .trim()
+            .toLowerCase() ===
+          'true';
+
+        const closestLink =
+          element.closest<HTMLAnchorElement>(
+            'a[href]'
+          );
+
+        const href =
+          (
+            element.getAttribute('href') ??
+            closestLink?.getAttribute(
+              'href'
+            ) ??
+            ''
+          )
+            .trim() ||
+          null;
+
+        const hasLinkSemantics =
+          tagName === 'a' ||
+          role === 'link' ||
+          href !== null ||
+          closestLink !== null;
+
+        const ariaHasPopup =
+          element.hasAttribute(
+            'aria-haspopup'
+          )
+            ? (
+                element.getAttribute(
+                  'aria-haspopup'
+                ) ??
+                ''
+              )
+                .trim()
+            : null;
+
+        const formAssociated =
+          (
+            element instanceof
+              HTMLButtonElement ||
+            element instanceof
+              HTMLInputElement
+          )
+            ? element.form !== null
+            : false;
+
+        const formAncestor =
+          element.closest('form') !==
+          null;
+
+        const hasSubmitOrResetSemantics =
+          (
+            element instanceof
+            HTMLButtonElement
+          )
+            ? buttonType !== 'button'
+            : (
+                element instanceof
+                HTMLInputElement
+              )
+              ? ![
+                  'button'
+                ].includes(
+                  element.type
+                    .toLowerCase()
+                )
+              : false;
+
+        const isApprovedControl =
+          (
+            element instanceof
+            HTMLButtonElement &&
+            buttonType === 'button'
+          ) ||
+          role === 'button';
+
+        const rejectionReasons:
+          string[] = [];
+
+        if (ariaExpanded === null) {
+          rejectionReasons.push(
+            'aria-expanded must be explicitly true or false'
+          );
+        }
+
+        if (
+          controlledIds.length !== 1 ||
+          controlledRegion === null
+        ) {
+          rejectionReasons.push(
+            'aria-controls must identify one existing same-document region'
+          );
+        }
+
+        if (controlId === null) {
+          rejectionReasons.push(
+            'a stable control id is required'
+          );
+        }
+
+        if (accessibleName === null) {
+          rejectionReasons.push(
+            'an accessible name is required'
+          );
+        }
+
+        if (
+          nativeDisabled ||
+          ariaDisabled
+        ) {
+          rejectionReasons.push(
+            'the disclosure control is disabled'
+          );
+        }
+
+        if (hasLinkSemantics) {
+          rejectionReasons.push(
+            'link or href semantics are not permitted'
+          );
+        }
+
+        if (ariaHasPopup !== null) {
+          rejectionReasons.push(
+            'aria-haspopup disclosures are not permitted'
+          );
+        }
+
+        if (
+          formAssociated ||
+          formAncestor
+        ) {
+          rejectionReasons.push(
+            'form-associated disclosures are not permitted'
+          );
+        }
+
+        if (hasSubmitOrResetSemantics) {
+          rejectionReasons.push(
+            'submit, reset, or default-submit semantics are not permitted'
+          );
+        }
+
+        if (!isApprovedControl) {
+          rejectionReasons.push(
+            'only explicit type=button or role=button controls are permitted'
+          );
+        }
+
+        if (
+          controlledRegionHasEditableOrSubmissionControls ===
+          true
+        ) {
+          rejectionReasons.push(
+            'the controlled region contains editable or submission controls'
+          );
+        }
+
+        return {
+          tagName,
+          role,
+          buttonType,
+          controlId,
+          accessibleName,
+          ariaExpanded,
+          ariaControls,
+          disabled:
+            nativeDisabled,
+          ariaDisabled,
+          href,
+          hasLinkSemantics,
+          ariaHasPopup,
+          formAssociated,
+          formAncestor,
+          hasSubmitOrResetSemantics,
+          controlledRegionExists:
+            controlledRegion !== null,
+          controlledRegionVisible,
+          controlledRegionHasEditableOrSubmissionControls,
+          eligibleForDisclosureAction:
+            rejectionReasons.length ===
+            0,
+          eligibilityRejectionReasons:
+            rejectionReasons
+        };
+      });
+
     return {
       title,
       headings,
@@ -600,7 +1029,8 @@ export async function extractPageContent(
       links,
       buttons,
       textFields,
-      selects
+      selects,
+      disclosures
     };
   });
 }

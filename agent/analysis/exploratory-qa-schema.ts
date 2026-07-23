@@ -28,6 +28,21 @@ export const selectOptionEvidenceTargetSchema =
       .max(500)
   });
 
+export const disclosureStateEvidenceTargetSchema =
+  z.object({
+    kind: z.literal('disclosure-state'),
+    controlId: z.string().min(1).max(500),
+    accessibleName: z.string().min(1).max(500),
+    controlledRegionId: z.string().min(1).max(500),
+    desiredState: z.enum(['expanded', 'collapsed'])
+  });
+
+export const exploratoryQaEvidenceTargetSchema =
+  z.discriminatedUnion('kind', [
+    selectOptionEvidenceTargetSchema,
+    disclosureStateEvidenceTargetSchema
+  ]);
+
 export const exploratoryQaFindingSchema = z.object({
   /*
    * Optional model-supplied relationship to a run-local
@@ -98,7 +113,7 @@ export const exploratoryQaFindingSchema = z.object({
    * inside a select dropdown.
    */
   evidenceTarget:
-    selectOptionEvidenceTargetSchema
+    exploratoryQaEvidenceTargetSchema
       .nullable()
 });
 
@@ -116,6 +131,11 @@ export const exploratoryQaAnalysisSchema = z.object({
 export type SelectOptionEvidenceTarget =
   z.infer<
     typeof selectOptionEvidenceTargetSchema
+  >;
+
+export type DisclosureStateEvidenceTarget =
+  z.infer<
+    typeof disclosureStateEvidenceTargetSchema
   >;
 
 export type ExploratoryQaFinding =

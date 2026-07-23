@@ -84,6 +84,9 @@ async function main(): Promise<void> {
           [],
 
         selects:
+          [],
+
+        disclosures:
           []
       }
     });

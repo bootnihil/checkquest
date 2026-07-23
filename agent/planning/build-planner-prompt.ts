@@ -100,7 +100,10 @@ export function buildPlannerPrompt(
         pageContent.textFields,
 
       selects:
-        pageContent.selects
+        pageContent.selects,
+
+      disclosures:
+        pageContent.disclosures
     },
 
     investigableCandidates:
@@ -236,7 +239,7 @@ Candidate:
 "Possible typo in body text."
 
 Available actions:
-fill-text-field, clear-field, blur-field, select-option, scroll, stop.
+fill-text-field, clear-field, blur-field, select-option, set-disclosure-state, scroll, stop.
 
 If none of those actions can meaningfully add evidence about the body-text typo:
 
@@ -423,7 +426,25 @@ Shape:
   "optionText": string
 }
 
-5. scroll
+5. set-disclosure-state
+
+Use this only for an observed disclosure whose structured evidence has eligibleForDisclosureAction=true and only when the action exactly matches the referenced disclosure-state candidate.
+
+Shape:
+
+{
+  "kind": "set-disclosure-state",
+  "target": {
+    "controlId": string,
+    "accessibleName": string,
+    "controlledRegionId": string
+  },
+  "desiredState": "expanded" | "collapsed"
+}
+
+The action runs inside a deterministic safety transaction and is rolled back to its original state. Never use it for generic buttons, links, menus, dialogs, tabs, filters, forms, or controls with any disclosure eligibility rejection reason.
+
+6. scroll
 
 Use this ONLY when scrolling itself is the experiment.
 
@@ -450,7 +471,7 @@ Shape:
   "viewportCount": 1 | 2 | 3
 }
 
-6. stop
+7. stop
 
 Use stop when no additional permitted action is likely to produce meaningful new QA evidence.
 
@@ -502,6 +523,11 @@ For form-control targets:
 For select-option:
 - copy optionText EXACTLY from an observed option;
 - never invent an option.
+
+For set-disclosure-state:
+- copy controlId, accessibleName, and controlledRegionId EXACTLY from one eligible observed disclosure;
+- desiredState must exactly match the referenced candidate evidence target;
+- never use an ineligible disclosure or another disclosure as a substitute.
 
 ==================================================
 SELECT OPTION EVIDENCE

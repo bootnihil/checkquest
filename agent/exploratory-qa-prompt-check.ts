@@ -48,7 +48,9 @@ const prompt =
 
       textFields: [],
 
-      selects: []
+      selects: [],
+
+      disclosures: []
     },
 
     classifiedDiagnostics: {

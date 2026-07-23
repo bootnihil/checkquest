@@ -48,6 +48,18 @@ export const selectOptionActionSchema = z.object({
   optionText: z.string().min(1).max(500)
 });
 
+export const disclosureControlTargetSchema = z.object({
+  controlId: z.string().min(1).max(500),
+  accessibleName: z.string().min(1).max(500),
+  controlledRegionId: z.string().min(1).max(500)
+});
+
+export const setDisclosureStateActionSchema = z.object({
+  kind: z.literal('set-disclosure-state'),
+  target: disclosureControlTargetSchema,
+  desiredState: z.enum(['expanded', 'collapsed'])
+});
+
 export const scrollActionSchema = z.object({
   kind: z.literal('scroll'),
   direction: z.enum(['up', 'down']),
@@ -71,9 +83,13 @@ export const agentActionSchema = z.discriminatedUnion('kind', [
   clearFieldActionSchema,
   blurFieldActionSchema,
   selectOptionActionSchema,
+  setDisclosureStateActionSchema,
   scrollActionSchema,
   stopActionSchema
 ]);
 
 export type FormControlTarget = z.infer<typeof formControlTargetSchema>;
+export type DisclosureControlTarget = z.infer<
+  typeof disclosureControlTargetSchema
+>;
 export type AgentAction = z.infer<typeof agentActionSchema>;

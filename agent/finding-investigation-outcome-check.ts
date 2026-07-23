@@ -134,7 +134,9 @@ function buildPageContent(
           }
         ]
       }
-    ]
+    ],
+
+    disclosures: []
   };
 }
 

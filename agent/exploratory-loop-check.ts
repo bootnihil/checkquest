@@ -218,6 +218,7 @@ async function main(): Promise<void> {
         'clear-field',
         'blur-field',
         'select-option',
+        'set-disclosure-state',
         'scroll',
         'stop'
       ]);
