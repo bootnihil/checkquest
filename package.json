@@ -31,6 +31,7 @@
     "agent:action-schema-check": "tsx agent/action-schema-check.ts",
     "agent:action-executor-check": "tsx agent/action-executor-check.ts",
     "agent:stage4a-disclosure-check": "tsx agent/stage4a-disclosure-check.ts",
+    "agent:stage4a-browser-acceptance-check": "tsx agent/stage4a-browser-acceptance-check.ts",
     "agent:planner-schema-check": "tsx agent/planner-decision-schema-check.ts",
     "agent:planner-prompt-check": "tsx agent/planner-prompt-check.ts",
     "agent:planner-decision-check": "tsx agent/planner-decision-check.ts",
