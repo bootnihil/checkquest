@@ -1,11 +1,37 @@
 import {
   planNextAction
 } from './planning/plan-next-action';
+import {
+  assignPageCandidateReferences,
+  isInvestigablePageCandidate
+} from './investigation/page-candidates';
 
 async function main(): Promise<void> {
   console.log(
     'Asking Gemini to handle a non-interactive candidate finding safely...\n'
   );
+
+  const investigableCandidates =
+    assignPageCandidateReferences([
+      {
+        category: 'content',
+        severity: 'low',
+        confidence: 'high',
+        title: 'Suspicious country option',
+        evidence: 'Analysis reported an Equador option.',
+        reasoning: 'Equador may be a misspelling.',
+        suggestedCheck: 'Verify the option in the current browser evidence.',
+        evidenceTarget: {
+          kind: 'select-option',
+          controlLabel: 'Country',
+          controlName: 'country',
+          controlId: 'country',
+          optionText: 'Equador'
+        }
+      }
+    ]).filter(
+      isInvestigablePageCandidate
+    );
 
   const decision =
     await planNextAction({
@@ -21,33 +47,7 @@ async function main(): Promise<void> {
       history:
         [],
 
-      candidateFindings: [
-        {
-          category:
-            'content',
-
-          severity:
-            'low',
-
-          confidence:
-            'high',
-
-          title:
-            'Possible typo in body text',
-
-          evidence:
-            'The page text contains the duplicated phrase "clinical clinical workflow".',
-
-          reasoning:
-            'The duplicated adjacent word appears to be a content error and is directly observable in the extracted page text.',
-
-          suggestedCheck:
-            'Confirm the duplicated wording in the rendered page content.',
-
-          evidenceTarget:
-            null
-        }
-      ],
+      investigableCandidates,
 
       pageContent: {
         title:
@@ -111,9 +111,9 @@ async function main(): Promise<void> {
   /*
    * This is the actual regression assertion.
    *
-   * The candidate finding is already directly observable in the page
-   * evidence, and none of the permitted interactive actions can add
-   * meaningful evidence.
+   * The supported evidence target is absent from the current browser
+   * evidence, so real orchestration must stop rather than substitute
+   * an unrelated action.
    *
    * The planner should therefore stop rather than drifting into an
    * unrelated cookie-banner test or meaningless scroll action.
@@ -123,7 +123,7 @@ async function main(): Promise<void> {
     'stop'
   ) {
     throw new Error(
-      `Expected planner to stop for a non-interactive content candidate, but it requested "${decision.action.kind}".`
+      `Expected planner to stop when the candidate target is absent, but it requested "${decision.action.kind}".`
     );
   }
 

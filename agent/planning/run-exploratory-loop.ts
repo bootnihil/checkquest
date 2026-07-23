@@ -1,7 +1,6 @@
 import type { Page } from '@playwright/test';
 
 import type { AgentAction } from '../actions/agent-action-schema';
-import type { ExploratoryQaFinding } from '../analysis/exploratory-qa-schema';
 import {
   executeAgentAction,
   type ExecutedAgentActionResult
@@ -19,6 +18,17 @@ import {
 import type {
   PlannerDecision
 } from './planner-decision-schema';
+import {
+  isInvestigablePageCandidate,
+  type InvestigablePageCandidate,
+  type PageCandidate
+} from '../investigation/page-candidates';
+
+export interface RejectedAgentActionResult {
+  kind: AgentAction['kind'];
+  status: 'rejected';
+  detail: string;
+}
 
 export interface ExploratoryLoopStep {
   step: number;
@@ -30,7 +40,8 @@ export interface ExploratoryLoopStep {
     PlannerDecision;
 
   executionResult:
-    ExecutedAgentActionResult;
+    | ExecutedAgentActionResult
+    | RejectedAgentActionResult;
 
   observationAfter:
     ExtractedPageContent;
@@ -39,13 +50,20 @@ export interface ExploratoryLoopStep {
 export interface ExploratoryLoopResult {
   pageUrl: string;
 
-  maxSteps: number;
+  maxPlannerDecisions: number;
 
-  completedSteps: number;
+  plannerDecisionCount: number;
+
+  executedInvestigationActionCount:
+    number;
 
   stopReason:
     | 'planner-stop'
-    | 'max-steps-reached';
+    | 'max-planner-decisions-reached'
+    | 'no-investigable-candidates'
+    | 'invalid-planner-decision';
+
+  rejectionReason?: string;
 
   steps:
     ExploratoryLoopStep[];
@@ -193,9 +211,13 @@ function buildHistoryResult(
 export async function runExploratoryLoop(
   page: Page,
   pageUrl: string,
-  maxSteps: number,
-  candidateFindings:
-    ExploratoryQaFinding[] = []
+  maxPlannerDecisions: number,
+  pageCandidates:
+    PageCandidate[],
+  dependencies: {
+    plan?: typeof planNextAction;
+    execute?: typeof executeAgentAction;
+  } = {}
 ): Promise<ExploratoryLoopResult> {
   const steps:
     ExploratoryLoopStep[] = [];
@@ -203,20 +225,43 @@ export async function runExploratoryLoop(
   const history:
     PlannerHistoryEntry[] = [];
 
+  const investigableCandidates =
+    pageCandidates.filter(
+      isInvestigablePageCandidate
+    );
+
+  if (investigableCandidates.length === 0) {
+    console.log(
+      'Autonomous investigation skipped: no candidates have a supported machine-readable evidence target.'
+    );
+
+    return {
+      pageUrl,
+      maxPlannerDecisions,
+      plannerDecisionCount: 0,
+      executedInvestigationActionCount: 0,
+      stopReason: 'no-investigable-candidates',
+      steps
+    };
+  }
+
+  const planner = dependencies.plan ?? planNextAction;
+  const executor = dependencies.execute ?? executeAgentAction;
+
   for (
     let stepNumber = 1;
-    stepNumber <= maxSteps;
+    stepNumber <= maxPlannerDecisions;
     stepNumber += 1
   ) {
     console.log(
-      `\nExploratory planner step ${stepNumber}/${maxSteps}`
+      `\nExploratory planner decision ${stepNumber}/${maxPlannerDecisions}`
     );
 
     const observationBefore =
       await extractPageContent(page);
 
     const decision =
-      await planNextAction({
+      await planner({
         pageUrl,
 
         pageContent:
@@ -227,9 +272,10 @@ export async function runExploratoryLoop(
         currentStep:
           stepNumber,
 
-        maxSteps,
+        maxSteps:
+          maxPlannerDecisions,
 
-        candidateFindings
+        investigableCandidates
       });
 
     console.log(
@@ -240,8 +286,46 @@ export async function runExploratoryLoop(
       `Requested action: ${decision.action.kind}`
     );
 
+    const rejectionReason =
+      validateDecisionCandidateRelevance(
+        decision,
+        investigableCandidates
+      );
+
+    if (rejectionReason !== null) {
+      console.log(
+        `Investigation decision rejected before browser execution: ${rejectionReason}`
+      );
+
+      const executionResult: RejectedAgentActionResult = {
+        kind: decision.action.kind,
+        status: 'rejected',
+        detail: rejectionReason
+      };
+
+      steps.push({
+        step: stepNumber,
+        observationBefore,
+        decision,
+        executionResult,
+        observationAfter: observationBefore
+      });
+
+      return {
+        pageUrl,
+        maxPlannerDecisions,
+        plannerDecisionCount:
+          steps.length,
+        executedInvestigationActionCount:
+          countExecutedInvestigationActions(steps),
+        stopReason: 'invalid-planner-decision',
+        rejectionReason,
+        steps
+      };
+    }
+
     const executionResult =
-      await executeAgentAction(
+      await executor(
         page,
         decision.action
       );
@@ -269,17 +353,6 @@ export async function runExploratoryLoop(
         observationAfter
       );
 
-    history.push({
-      step:
-        stepNumber,
-
-      action:
-        decision.action,
-
-      result:
-        historyResult
-    });
-
     console.log(
       `Execution result: ${historyResult}`
     );
@@ -291,10 +364,13 @@ export async function runExploratoryLoop(
       return {
         pageUrl,
 
-        maxSteps,
+        maxPlannerDecisions,
 
-        completedSteps:
+        plannerDecisionCount:
           steps.length,
+
+        executedInvestigationActionCount:
+          countExecutedInvestigationActions(steps),
 
         stopReason:
           'planner-stop',
@@ -302,19 +378,104 @@ export async function runExploratoryLoop(
         steps
       };
     }
+
+    history.push({
+      step:
+        stepNumber,
+
+      action:
+        decision.action,
+
+      candidateReference:
+        requireCandidateReference(
+          decision
+        ),
+
+      result:
+        historyResult
+    });
   }
 
   return {
     pageUrl,
 
-    maxSteps,
+    maxPlannerDecisions,
 
-    completedSteps:
+    plannerDecisionCount:
       steps.length,
 
+    executedInvestigationActionCount:
+      countExecutedInvestigationActions(steps),
+
     stopReason:
-      'max-steps-reached',
+      'max-planner-decisions-reached',
 
     steps
   };
+}
+
+export function validateDecisionCandidateRelevance(
+  decision: PlannerDecision,
+  candidates: InvestigablePageCandidate[]
+): string | null {
+  if (decision.action.kind === 'stop') {
+    return null;
+  }
+
+  const candidate = candidates.find(
+    item => item.reference === decision.candidateReference
+  );
+
+  if (candidate === undefined) {
+    return `Candidate reference "${decision.candidateReference}" is not an investigable candidate on this page.`;
+  }
+
+  const target = candidate.finding.evidenceTarget;
+
+  if (
+    target.kind !== 'select-option' ||
+    decision.action.kind !== 'select-option'
+  ) {
+    return `Action "${decision.action.kind}" does not match candidate "${candidate.reference}" evidence target "${target.kind}".`;
+  }
+
+  const actionTarget = decision.action.target;
+  const identities = [
+    [target.controlLabel, actionTarget.label],
+    [target.controlName, actionTarget.name],
+    [target.controlId, actionTarget.id]
+  ];
+
+  if (
+    !identities.some(([expected]) => expected !== null) ||
+    !identities.every(([expected, actual]) => expected === actual) ||
+    actionTarget.placeholder !== null ||
+    decision.action.optionText !== target.optionText
+  ) {
+    return `Select-option action does not match candidate "${candidate.reference}" evidence target.`;
+  }
+
+  return null;
+}
+
+function countExecutedInvestigationActions(
+  steps: ExploratoryLoopStep[]
+): number {
+  return steps.filter(
+    step =>
+      step.decision.action.kind !== 'stop' &&
+      step.executionResult.status === 'executed'
+  ).length;
+}
+
+function requireCandidateReference(
+  decision: PlannerDecision
+): string {
+  if (decision.candidateReference == null) {
+    throw new Error(
+      'A validated non-stop investigation decision unexpectedly lacks a candidate reference.'
+    );
+  }
+
+  return decision.candidateReference;
 }

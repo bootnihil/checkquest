@@ -5,6 +5,9 @@ import type {
 import type {
   ExploratoryQaFinding
 } from '../analysis/exploratory-qa-schema';
+import type {
+  InvestigablePageCandidate
+} from '../investigation/page-candidates';
 
 import type {
   ExtractedPageContent
@@ -13,6 +16,7 @@ import type {
 export interface PlannerHistoryEntry {
   step: number;
   action: AgentAction;
+  candidateReference: string;
   result: string;
 }
 
@@ -37,8 +41,8 @@ export interface BuildPlannerPromptInput {
    *
    * These are investigation leads, not automatically confirmed defects.
    */
-  candidateFindings?:
-    ExploratoryQaFinding[];
+  investigableCandidates:
+    InvestigablePageCandidate[];
 }
 
 /**
@@ -57,7 +61,7 @@ export function buildPlannerPrompt(
     history,
     currentStep,
     maxSteps,
-    candidateFindings = []
+    investigableCandidates
   } =
     input;
 
@@ -99,32 +103,35 @@ export function buildPlannerPrompt(
         pageContent.selects
     },
 
-    candidateFindings:
-      candidateFindings.map(
-        finding => ({
+    investigableCandidates:
+      investigableCandidates.map(
+        candidate => ({
+          candidateReference:
+            candidate.reference,
+
           category:
-            finding.category,
+            candidate.finding.category,
 
           severity:
-            finding.severity,
+            candidate.finding.severity,
 
           confidence:
-            finding.confidence,
+            candidate.finding.confidence,
 
           title:
-            finding.title,
+            candidate.finding.title,
 
           evidence:
-            finding.evidence,
+            candidate.finding.evidence,
 
           reasoning:
-            finding.reasoning,
+            candidate.finding.reasoning,
 
           suggestedCheck:
-            finding.suggestedCheck,
+            candidate.finding.suggestedCheck,
 
           evidenceTarget:
-            finding.evidenceTarget
+            candidate.finding.evidenceTarget
         })
       ),
 
@@ -141,6 +148,9 @@ export function buildPlannerPrompt(
 
             action:
               entry.action,
+
+            candidateReference:
+              entry.candidateReference,
 
             result:
               entry.result
@@ -187,13 +197,17 @@ The result will be observed after execution.
 CANDIDATE FINDING PRIORITY
 ==================================================
 
-The evidence may contain candidateFindings produced by a separate exploratory QA analysis layer.
+The evidence contains investigableCandidates produced by a separate exploratory QA analysis layer.
 
 These findings are NOT automatically confirmed defects.
 
 They are prioritized investigation leads.
 
-WHEN ONE OR MORE CANDIDATE FINDINGS ARE PRESENT:
+Every supplied candidate has a page-local candidateReference and a supported machine-readable evidence target.
+
+For every non-stop action, return the exact candidateReference of the ONE candidate being investigated.
+
+WHEN ONE OR MORE INVESTIGABLE CANDIDATES ARE PRESENT:
 
 You MUST first determine whether one of those candidate findings can be meaningfully investigated using the currently permitted action vocabulary.
 
@@ -210,7 +224,7 @@ OR
    - the relevant target is not present in current browser evidence;
    - previous actions already gathered sufficient evidence.
 
-DO NOT begin an unrelated exploratory test while candidate findings are present.
+DO NOT begin an unrelated exploratory test while investigable candidates are present.
 
 DO NOT abandon the candidate findings and investigate some unrelated control.
 
@@ -241,16 +255,9 @@ Test an unrelated email field.
 INCORRECT:
 Describe clicking a button but output a scroll action.
 
-WHEN NO CANDIDATE FINDINGS ARE PRESENT:
+WHEN NO INVESTIGABLE CANDIDATES ARE PRESENT:
 
-You may independently select a meaningful, safe exploratory hypothesis based on the current browser evidence.
-
-For example:
-- test malformed email input;
-- investigate required-field validation;
-- try safe Unicode input;
-- select an unusual dropdown value;
-- compare field behavior before and after blur.
+No planner call should be made. If this prompt is nevertheless supplied without candidates, choose stop.
 
 ==================================================
 INVESTIGATING A CANDIDATE
@@ -296,9 +303,7 @@ A useful next action may be:
 
 That action directly tests whether the suspicious value is genuinely selectable.
 
-After that action succeeds, a second planner step may choose "Ecuador" for comparison if doing so provides meaningful additional evidence.
-
-Once both values are confirmed selectable, stop.
+After that action succeeds, stop unless another explicitly supplied candidate has its own supported evidence target.
 
 ==================================================
 ONE-ACTION CONSISTENCY RULE
@@ -515,22 +520,6 @@ Do not claim that an option is absent from the real dropdown when optionsTruncat
 
 You may still investigate suspicious options that are explicitly present in the supplied sample.
 
-==================================================
-EXPLORATORY TESTING GUIDANCE
-==================================================
-
-When no candidate findings are present, prefer actions that test meaningful hypotheses rather than random interactions.
-
-Useful examples may include:
-- malformed email input;
-- empty required-field behavior;
-- whitespace handling;
-- safe special characters;
-- safe Unicode input;
-- selecting unusual or suspicious dropdown values;
-- comparing behavior before and after blur;
-- checking whether local validation state changes.
-
 Work incrementally.
 
 Do NOT describe an entire multi-step test as one action.
@@ -578,6 +567,7 @@ Return ONLY valid JSON.
 Return exactly this structure:
 
 {
+  "candidateReference": "the exact page-local candidate reference",
   "hypothesis": "What specific behavior or risk the single next action is investigating",
   "reasoning": "Why this one next action is useful based only on the supplied evidence",
   "action": {
@@ -585,6 +575,8 @@ Return exactly this structure:
   },
   "expectedObservation": "What new evidence this one action may reveal, without referring to later actions or claiming the outcome in advance"
 }
+
+For stop, candidateReference may be null or omitted.
 
 Do not include Markdown.
 

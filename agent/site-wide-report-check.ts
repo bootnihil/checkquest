@@ -17,6 +17,9 @@ import type {
 import {
   evaluateFindingInvestigationOutcome
 } from './investigation/evaluate-finding-investigation-outcome';
+import {
+  assignPageCandidateReferences
+} from './investigation/page-candidates';
 
 import {
   buildSiteWideExploratoryFindings
@@ -87,6 +90,11 @@ function createPageResult(
   finding:
     ExploratoryQaFinding
 ): InspectedPageResult {
+  const candidate =
+    assignPageCandidateReferences([
+      finding
+    ])[0];
+
   const pageUrl =
     `https://example.com/${slug}`;
 
@@ -155,11 +163,15 @@ function createPageResult(
 
     exploratoryFindingResults: [
       {
-        finding,
+        candidateReference:
+          candidate.reference,
+
+        finding:
+          candidate.finding,
 
         outcome:
           evaluateFindingInvestigationOutcome(
-            finding,
+            candidate,
             exploratoryInvestigation
           )
       }

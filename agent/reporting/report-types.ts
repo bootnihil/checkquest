@@ -26,6 +26,9 @@ import type {
 import type {
   FindingInvestigationOutcome
 } from '../investigation/evaluate-finding-investigation-outcome';
+import type {
+  PageCandidateReference
+} from '../investigation/page-candidates';
 
 import type {
   ExploratoryLoopResult
@@ -57,6 +60,9 @@ export interface SelectedNavigationTarget {
  * CLI, JSON, desktop, and web presentation layers.
  */
 export interface ExploratoryFindingResult {
+  candidateReference:
+    PageCandidateReference;
+
   finding:
     ExploratoryQaFinding;
 

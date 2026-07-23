@@ -2,7 +2,7 @@
 
 **Backlog version:** 1.0  
 **Established:** 2026-07-23  
-**Current roadmap stage:** Stage 1 — Candidate-driven investigation
+**Current roadmap stage:** Stage 2 — Page-type diversity and run-level novelty
 
 This file is the parking place for work that should not silently interrupt the current roadmap stage.
 
@@ -28,11 +28,9 @@ A newly added backlog item does **not** become immediate work merely because it 
 
 | ID | Item | Target stage | Status | Notes |
 |---|---|---:|---|---|
-| CQ-001 | Tie autonomous investigation actions directly to candidate findings | 1 | NOW | Actions should exist to gather evidence, not merely explore available UI. |
-| CQ-002 | Prevent irrelevant investigation from consuming the investigation budget | 1 | NOW | Candidate relevance should gate autonomous investigation. |
-| CQ-003 | Track novelty across the full run | 2 | QUEUED | Avoid repeatedly spending budget on equivalent content. |
-| CQ-004 | Detect/represent page-type or template similarity | 2 | QUEUED | Near-identical pages should not receive equal exploration priority. |
-| CQ-005 | Prefer unexplored page types and functional areas | 2 | QUEUED | Use limited page budgets for broader meaningful coverage. |
+| CQ-003 | Track novelty across the full run | 2 | NOW | Avoid repeatedly spending budget on equivalent content. |
+| CQ-004 | Detect/represent page-type or template similarity | 2 | NOW | Near-identical pages should not receive equal exploration priority. |
+| CQ-005 | Prefer unexplored page types and functional areas | 2 | NOW | Use limited page budgets for broader meaningful coverage. |
 | CQ-006 | Pass known-finding context into later analysis | 3 | QUEUED | Gemini should know what has already been found. |
 | CQ-007 | Prioritize new findings over rediscovery | 3 | QUEUED | Reduce duplicate findings across pages/steps. |
 | CQ-008 | Allow useful evidence to strengthen an existing finding | 3 | QUEUED | Novel evidence should not be discarded just because the finding already exists. |
@@ -106,4 +104,5 @@ Move completed backlog entries here during stage-closeout reviews.
 
 | ID | Item | Completed in |
 |---|---|---|
-| — | — | — |
+| CQ-001 | Tie autonomous investigation actions directly to candidate findings | Stage 1 — Candidate-driven investigation (2026-07-23) |
+| CQ-002 | Prevent irrelevant investigation from consuming the investigation budget | Stage 1 — Candidate-driven investigation (2026-07-23) |

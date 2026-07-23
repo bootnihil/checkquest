@@ -7,6 +7,9 @@ import type {
   ExploratoryLoopResult,
   ExploratoryLoopStep
 } from '../planning/run-exploratory-loop';
+import type {
+  PageCandidate
+} from './page-candidates';
 
 export type FindingInvestigationStatus =
   | 'verified'
@@ -36,12 +39,17 @@ export interface FindingInvestigationOutcome {
  * final verification status.
  */
 export function evaluateFindingInvestigationOutcome(
-  finding:
-    ExploratoryQaFinding,
+  candidate:
+    PageCandidate,
 
   investigation:
     ExploratoryLoopResult | null
 ): FindingInvestigationOutcome {
+  const {
+    finding,
+    reference: candidateReference
+  } = candidate;
+
   if (investigation === null) {
     return inconclusive(
       'No autonomous investigation was performed for this finding.'
@@ -58,7 +66,8 @@ export function evaluateFindingInvestigationOutcome(
     case 'select-option':
       return evaluateSelectOptionFinding(
         finding.evidenceTarget,
-        investigation
+        investigation,
+        candidateReference
       );
   }
 }
@@ -81,14 +90,18 @@ function evaluateSelectOptionFinding(
     SelectOptionEvidenceTarget,
 
   investigation:
-    ExploratoryLoopResult
+    ExploratoryLoopResult,
+
+  candidateReference:
+    string
 ): FindingInvestigationOutcome {
   const relevantStep =
     investigation.steps.find(
       step =>
         isMatchingSelectOptionStep(
           step,
-          target
+          target,
+          candidateReference
         )
     );
 
@@ -180,8 +193,18 @@ function isMatchingSelectOptionStep(
     ExploratoryLoopStep,
 
   target:
-    SelectOptionEvidenceTarget
+    SelectOptionEvidenceTarget,
+
+  candidateReference:
+    string
 ): boolean {
+  if (
+    step.decision.candidateReference !==
+    candidateReference
+  ) {
+    return false;
+  }
+
   if (
     step.decision.action.kind !==
     'select-option'

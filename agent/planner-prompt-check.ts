@@ -21,22 +21,40 @@ function main(): void {
 
           action: {
             kind:
-              'scroll',
+              'select-option',
 
-            direction:
-              'down',
+            target: {
+              label:
+                'Country',
 
-            viewportCount:
-              1
+              name:
+                'country',
+
+              id:
+                'country',
+
+              placeholder:
+                null
+            },
+
+            optionText:
+              'Equador'
           },
 
+          candidateReference:
+            'candidate-1',
+
           result:
-            'Scrolled down by 1 viewport and discovered dynamically loaded content.'
+            'Selected option "Equador" from the approved Country select.'
         }
       ],
 
-      candidateFindings: [
+      investigableCandidates: [
         {
+          reference:
+            'candidate-1',
+
+          finding: {
           category:
             'content',
 
@@ -73,6 +91,7 @@ function main(): void {
 
             optionText:
               'Equador'
+          }
           }
         }
       ],
@@ -272,7 +291,7 @@ function main(): void {
      */
     'CANDIDATE FINDING PRIORITY',
     'Perform ONE safe action that directly investigates a candidate finding.',
-    'DO NOT begin an unrelated exploratory test while candidate findings are present.',
+    'DO NOT begin an unrelated exploratory test while investigable candidates are present.',
     'DO NOT substitute an unrelated permitted action merely because the action you actually want is prohibited.',
 
     /*
@@ -354,6 +373,16 @@ function main(): void {
         `Planner prompt must not expose forbidden action: ${forbiddenAction}`
       );
     }
+  }
+
+  if (
+    prompt.includes(
+      'a second planner step may choose "Ecuador"'
+    )
+  ) {
+    throw new Error(
+      'Planner prompt must not recommend a comparison option outside the candidate evidence target.'
+    );
   }
 
   console.log(

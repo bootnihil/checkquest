@@ -2,7 +2,7 @@
 
 **Roadmap version:** 1.0  
 **Frozen on:** 2026-07-23  
-**Current stage:** Stage 1 — Candidate-driven investigation
+**Current stage:** Stage 2 — Page-type diversity and run-level novelty
 
 ## How this roadmap is used
 
@@ -28,6 +28,8 @@ Otherwise:
 ---
 
 # Stage 1 — Candidate-driven investigation
+
+**Completed:** 2026-07-23
 
 ## Goal
 
@@ -306,4 +308,5 @@ Before moving to the next stage:
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-07-23 | 1.0 | Stage 1 passed deterministic checks, real-site acceptance, and the existing Playwright regression suite; advanced the current stage to Stage 2. |
 | 2026-07-23 | 1.0 | Established the canonical 10-stage roadmap and backlog-first planning rule. |

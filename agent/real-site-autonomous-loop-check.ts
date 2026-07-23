@@ -7,6 +7,7 @@ import { collectPageDiagnostics } from './browser/collect-page-diagnostics';
 import { extractPageContent } from './browser/extract-page-content';
 import { inspectNavigation } from './browser/inspect-navigation';
 import { visitApprovedLink } from './browser/visit-approved-link';
+import { assignPageCandidateReferences } from './investigation/page-candidates';
 import { runExploratoryLoop } from './planning/run-exploratory-loop';
 import { getSiteConfig } from './sites';
 
@@ -258,6 +259,11 @@ const maxSteps =
           ruleBasedFindings
         });
 
+      const pageCandidates =
+        assignPageCandidateReferences(
+          exploratoryQaAnalysis.findings
+        );
+
       console.log(
         '\nCandidate QA findings:'
       );
@@ -368,7 +374,7 @@ const maxSteps =
           page,
           pageObservation.finalUrl,
           maxSteps,
-          exploratoryQaAnalysis.findings
+          pageCandidates
         );
 
       /*
@@ -399,7 +405,11 @@ const maxSteps =
       );
 
       console.log(
-        `Completed steps: ${result.completedSteps}/${result.maxSteps}`
+        `Planner decisions: ${result.plannerDecisionCount}/${result.maxPlannerDecisions}`
+      );
+
+      console.log(
+        `Executed candidate-investigation actions: ${result.executedInvestigationActionCount}`
       );
 
       console.log(
@@ -468,7 +478,7 @@ const maxSteps =
       );
 
       if (
-        result.completedSteps >
+        result.plannerDecisionCount >
         maxSteps
       ) {
         throw new Error(

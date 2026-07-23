@@ -1,6 +1,7 @@
 import { chromium } from '@playwright/test';
 
 import { extractPageContent } from './browser/extract-page-content';
+import { assignPageCandidateReferences } from './investigation/page-candidates';
 import { runExploratoryLoop } from './planning/run-exploratory-loop';
 
 async function main(): Promise<void> {
@@ -87,10 +88,8 @@ async function main(): Promise<void> {
     `);
 
     /*
-     * Give the autonomous loop a small hard limit.
-     *
-     * This means Gemini can make at most four planning decisions,
-     * regardless of what it wants to do.
+     * Even with a positive hard planner limit, Stage 1 must not call
+     * Gemini or execute browser actions without an investigable candidate.
      */
     const maxSteps = 4;
 
@@ -98,7 +97,8 @@ async function main(): Promise<void> {
       await runExploratoryLoop(
         page,
         'https://example.com/request-demo',
-        maxSteps
+        maxSteps,
+        assignPageCandidateReferences([])
       );
 
     console.log(
@@ -110,7 +110,11 @@ async function main(): Promise<void> {
     );
 
     console.log(
-      `Completed steps: ${result.completedSteps}/${result.maxSteps}`
+      `Planner decisions: ${result.plannerDecisionCount}/${result.maxPlannerDecisions}`
+    );
+
+    console.log(
+      `Executed candidate-investigation actions: ${result.executedInvestigationActionCount}`
     );
 
     console.log(
@@ -181,7 +185,7 @@ async function main(): Promise<void> {
      * boundaries we care about.
      */
     if (
-      result.completedSteps >
+      result.plannerDecisionCount >
       maxSteps
     ) {
       throw new Error(
@@ -190,10 +194,21 @@ async function main(): Promise<void> {
     }
 
     if (
-      result.completedSteps < 1
+      result.plannerDecisionCount !== 0 ||
+      result.executedInvestigationActionCount !== 0 ||
+      result.steps.length !== 0
     ) {
       throw new Error(
-        'Expected the exploratory loop to produce at least one planner decision.'
+        'Expected no planner decisions or browser actions when no investigable candidates exist.'
+      );
+    }
+
+    if (
+      result.stopReason !==
+      'no-investigable-candidates'
+    ) {
+      throw new Error(
+        `Expected no-investigable-candidates stop reason, received "${result.stopReason}".`
       );
     }
 
@@ -228,7 +243,7 @@ async function main(): Promise<void> {
     );
 
     console.log(
-      'Observe → Plan → Validate → Execute → Observe → Repeat'
+      'No investigable candidate → Stop before Observe/Plan/Execute'
     );
   } finally {
     await browser.close();

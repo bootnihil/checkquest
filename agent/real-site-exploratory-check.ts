@@ -18,6 +18,9 @@ import { visitApprovedLink } from './browser/visit-approved-link';
 import {
   evaluateFindingInvestigationOutcome
 } from './investigation/evaluate-finding-investigation-outcome';
+import {
+  assignPageCandidateReferences
+} from './investigation/page-candidates';
 
 import {
   buildSiteWideExploratoryFindings
@@ -271,6 +274,11 @@ async function main(): Promise<void> {
             findings
         });
 
+      const pageCandidates =
+        assignPageCandidateReferences(
+          exploratoryQaAnalysis.findings
+        );
+
       console.log(
         '\nExploratory QA analysis:'
       );
@@ -488,13 +496,17 @@ async function main(): Promise<void> {
         null;
 
       const exploratoryFindingResults =
-        exploratoryQaAnalysis.findings.map(
-          finding => ({
-            finding,
+        pageCandidates.map(
+          candidate => ({
+            candidateReference:
+              candidate.reference,
+
+            finding:
+              candidate.finding,
 
             outcome:
               evaluateFindingInvestigationOutcome(
-                finding,
+                candidate,
                 exploratoryInvestigation
               )
           })

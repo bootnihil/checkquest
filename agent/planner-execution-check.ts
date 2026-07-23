@@ -3,6 +3,13 @@ import { chromium } from '@playwright/test';
 import { executeAgentAction } from './browser/execute-agent-action';
 import { extractPageContent } from './browser/extract-page-content';
 import { planNextAction } from './planning/plan-next-action';
+import {
+  validateDecisionCandidateRelevance
+} from './planning/run-exploratory-loop';
+import {
+  assignPageCandidateReferences,
+  isInvestigablePageCandidate
+} from './investigation/page-candidates';
 
 async function main(): Promise<void> {
   console.log(
@@ -90,6 +97,28 @@ async function main(): Promise<void> {
     const before =
       await extractPageContent(page);
 
+    const investigableCandidates =
+      assignPageCandidateReferences([
+        {
+          category: 'content',
+          severity: 'low',
+          confidence: 'high',
+          title: 'Suspicious country option',
+          evidence: 'The Country select contains Equador.',
+          reasoning: 'Equador may be a misspelling.',
+          suggestedCheck: 'Verify whether Equador is selectable.',
+          evidenceTarget: {
+            kind: 'select-option',
+            controlLabel: 'Country',
+            controlName: 'country',
+            controlId: 'country',
+            optionText: 'Equador'
+          }
+        }
+      ]).filter(
+        isInvestigablePageCandidate
+      );
+
     console.log('Initial browser observation:\n');
 
     console.log(
@@ -119,20 +148,9 @@ async function main(): Promise<void> {
         currentStep: 1,
         maxSteps: 6,
 
-        history: [
-          {
-            step: 1,
+        history: [],
 
-            action: {
-              kind: 'scroll',
-              direction: 'down',
-              viewportCount: 1
-            },
-
-            result:
-              'Scrolled down by 1 viewport and discovered a contact form.'
-          }
-        ]
+        investigableCandidates
       });
 
     console.log(
@@ -151,6 +169,27 @@ async function main(): Promise<void> {
      * Step 3: Execute only the validated AgentAction through the
      * deterministic Playwright executor.
      */
+    if (
+      decision.action.kind !== 'stop' &&
+      decision.candidateReference !== 'candidate-1'
+    ) {
+      throw new Error(
+        'Planner returned a non-stop action for an unexpected candidate.'
+      );
+    }
+
+    const rejectionReason =
+      validateDecisionCandidateRelevance(
+        decision,
+        investigableCandidates
+      );
+
+    if (rejectionReason !== null) {
+      throw new Error(
+        `Planner decision failed candidate relevance validation: ${rejectionReason}`
+      );
+    }
+
     const executionResult =
       await executeAgentAction(
         page,

@@ -35,6 +35,10 @@ import {
 import {
   evaluateFindingInvestigationOutcome
 } from './investigation/evaluate-finding-investigation-outcome';
+import {
+  assignPageCandidateReferences,
+  isInvestigablePageCandidate
+} from './investigation/page-candidates';
 
 import { runExploratoryLoop } from './planning/run-exploratory-loop';
 
@@ -598,6 +602,11 @@ async function main(): Promise<void> {
               findings
           });
 
+        const pageCandidates =
+          assignPageCandidateReferences(
+            exploratoryQaAnalysis.findings
+          );
+
         console.log(
           '\nExploratory QA analysis:'
         );
@@ -642,7 +651,7 @@ async function main(): Promise<void> {
           );
 
           console.log(
-            `Candidate findings supplied to planner: ${exploratoryQaAnalysis.findings.length}`
+            `Investigable candidates supplied to planner: ${pageCandidates.filter(isInvestigablePageCandidate).length}`
           );
 
           exploratoryInvestigation =
@@ -650,7 +659,7 @@ async function main(): Promise<void> {
               page,
               pageObservation.finalUrl,
               site.maxExploratoryStepsPerPage,
-              exploratoryQaAnalysis.findings
+              pageCandidates
             );
 
           const postInvestigationUrl =
@@ -673,7 +682,11 @@ async function main(): Promise<void> {
           );
 
           console.log(
-            `Completed steps: ${exploratoryInvestigation.completedSteps}/${exploratoryInvestigation.maxSteps}`
+            `Planner decisions: ${exploratoryInvestigation.plannerDecisionCount}/${exploratoryInvestigation.maxPlannerDecisions}`
+          );
+
+          console.log(
+            `Executed candidate-investigation actions: ${exploratoryInvestigation.executedInvestigationActionCount}`
           );
 
           console.log(
@@ -690,14 +703,18 @@ async function main(): Promise<void> {
          * CLI, Windows UI, SaaS UI, JSON, or Markdown.
          */
         const exploratoryFindingResults =
-          exploratoryQaAnalysis.findings.map(
-            finding => ({
-              finding,
+          pageCandidates.map(
+            candidate => ({
+              candidateReference:
+                candidate.reference,
+
+              finding:
+                candidate.finding,
 
               outcome:
                 evaluateFindingInvestigationOutcome(
-                  finding,
-                  exploratoryInvestigation
+                  candidate,
+                  exploratoryInvestigation,
                 )
             })
           );

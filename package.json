@@ -33,6 +33,7 @@
     "agent:planner-prompt-check": "tsx agent/planner-prompt-check.ts",
     "agent:planner-decision-check": "tsx agent/planner-decision-check.ts",
     "agent:planner-execution-check": "tsx agent/planner-execution-check.ts",
+    "agent:candidate-investigation-check": "tsx agent/candidate-driven-investigation-check.ts",
     "agent:exploratory-loop-check": "tsx agent/exploratory-loop-check.ts",
     "agent:site-wide-findings-check": "tsx agent/site-wide-findings-check.ts",
     "agent:site-wide-report-check": "tsx agent/site-wide-report-check.ts",

@@ -28,6 +28,9 @@ function expectInvalid(name: string, input: unknown): void {
 console.log('Checking exploratory planner decision schema...\n');
 
 expectValid('Test malformed email input', {
+  candidateReference:
+    'candidate-1',
+
   hypothesis:
     'The Email field may validate malformed email addresses after losing focus.',
 
@@ -63,6 +66,28 @@ expectValid('Stop exploration', {
 
   expectedObservation:
     'Exploration should end without performing another browser interaction.'
+});
+
+expectInvalid('Non-stop action without candidate reference', {
+  hypothesis:
+    'Test a field without associating the action with a candidate.',
+
+  reasoning:
+    'The action is otherwise schema-valid.',
+
+  action: {
+    kind: 'fill-text-field',
+    target: {
+      label: 'Email',
+      name: 'email',
+      id: 'email',
+      placeholder: 'Enter your email'
+    },
+    value: 'not-an-email'
+  },
+
+  expectedObservation:
+    'The action would modify the local field value.'
 });
 
 expectInvalid('Attempt forbidden form submission', {

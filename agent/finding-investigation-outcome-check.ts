@@ -11,6 +11,9 @@ import type {
 import {
   evaluateFindingInvestigationOutcome
 } from './investigation/evaluate-finding-investigation-outcome';
+import {
+  assignPageCandidateReferences
+} from './investigation/page-candidates';
 
 import type {
   ExploratoryLoopResult
@@ -55,6 +58,11 @@ const finding: ExploratoryQaFinding = {
       'Equador'
   }
 };
+
+const candidate =
+  assignPageCandidateReferences([
+    finding
+  ])[0];
 
 function buildPageContent(
   selectedOption:
@@ -138,14 +146,17 @@ function buildSelectInvestigation(
     pageUrl:
       'https://example.com/contact',
 
-    maxSteps:
+    maxPlannerDecisions:
       1,
 
-    completedSteps:
+    plannerDecisionCount:
+      1,
+
+    executedInvestigationActionCount:
       1,
 
     stopReason:
-      'max-steps-reached',
+      'max-planner-decisions-reached',
 
     steps: [
       {
@@ -158,6 +169,9 @@ function buildSelectInvestigation(
           ),
 
         decision: {
+          candidateReference:
+            'candidate-1',
+
           hypothesis:
             'Verify whether the suspicious Equador option can actually be selected.',
 
@@ -220,7 +234,7 @@ function buildSelectInvestigation(
  */
 const verified =
   evaluateFindingInvestigationOutcome(
-    finding,
+    candidate,
     buildSelectInvestigation(
       'Equador'
     )
@@ -254,7 +268,7 @@ console.log(
  */
 const notVerified =
   evaluateFindingInvestigationOutcome(
-    finding,
+    candidate,
     buildSelectInvestigation(
       'Ecuador'
     )
@@ -289,7 +303,7 @@ console.log(
  */
 const inconclusive =
   evaluateFindingInvestigationOutcome(
-    finding,
+    candidate,
     null
   );
 
@@ -319,11 +333,14 @@ const unrelatedInvestigation:
     pageUrl:
       'https://example.com/contact',
 
-    maxSteps:
+    maxPlannerDecisions:
       1,
 
-    completedSteps:
+    plannerDecisionCount:
       1,
+
+    executedInvestigationActionCount:
+      0,
 
     stopReason:
       'planner-stop',
@@ -378,7 +395,7 @@ const unrelatedInvestigation:
 
 const unrelatedOutcome =
   evaluateFindingInvestigationOutcome(
-    finding,
+    candidate,
     unrelatedInvestigation
   );
 

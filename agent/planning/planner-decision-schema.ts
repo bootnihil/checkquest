@@ -10,6 +10,13 @@ import { agentActionSchema } from '../actions/agent-action-schema';
  * vocabulary.
  */
 export const plannerDecisionSchema = z.object({
+  candidateReference: z
+    .string()
+    .min(1)
+    .max(200)
+    .nullable()
+    .optional(),
+
   hypothesis: z
     .string()
     .min(1)
@@ -26,6 +33,20 @@ export const plannerDecisionSchema = z.object({
     .string()
     .min(1)
     .max(2_000)
-});
+}).superRefine(
+  (decision, context) => {
+    if (
+      decision.action.kind !== 'stop' &&
+      decision.candidateReference == null
+    ) {
+      context.addIssue({
+        code: 'custom',
+        path: ['candidateReference'],
+        message:
+          'A non-stop planner decision must identify the page-local candidate it investigates.'
+      });
+    }
+  }
+);
 
 export type PlannerDecision = z.infer<typeof plannerDecisionSchema>;
