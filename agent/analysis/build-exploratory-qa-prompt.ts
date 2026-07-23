@@ -58,7 +58,14 @@ export function buildExploratoryQaPrompt(
        * safety, ownership, and controlled-region relationships.
        */
       disclosures:
-        content.disclosures
+        content.disclosures,
+
+      /*
+       * Conventional tabs retain exact control, tablist, and panel
+       * identity plus their strict action eligibility.
+       */
+      tabs:
+        content.tabs
     },
 
     browserDiagnostics: {
@@ -176,6 +183,27 @@ For a disclosure-state target:
 - Set controlledRegionId to the exact single ariaControls value.
 - Use the smallest state change that can investigate the candidate.
 - Do not use this target for a generic button, link, menu, dialog, tab, form control, filter, or ineligible disclosure.
+- Do not claim the interaction failed before deterministic investigation has run.
+
+For an eligible conventional tab:
+
+{
+  "kind": "tab-state",
+  "controlId": "Exact observed tab control id",
+  "accessibleName": "Exact observed accessible name",
+  "tabListId": "Exact observed role=tablist id",
+  "controlledPanelId": "Exact observed aria-controls panel id",
+  "desiredState": "selected"
+}
+
+For a tab-state target:
+
+- Use it only when the supplied structured tab has eligibleForTabAction=true.
+- Copy controlId, accessibleName, tabListId, and ariaControls exactly.
+- Set controlledPanelId to the exact single ariaControls value.
+- desiredState must be "selected".
+- Use it only to investigate the content revealed by one exact conventional tab.
+- Do not use this target for links, navigation, menus, accordions, generic buttons, forms, or ineligible tabs.
 - Do not claim the interaction failed before deterministic investigation has run.
 
 Example:

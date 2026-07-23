@@ -87,6 +87,8 @@ async function main(): Promise<void> {
           [],
 
         disclosures:
+          [],
+        tabs:
           []
       }
     });

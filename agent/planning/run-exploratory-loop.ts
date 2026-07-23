@@ -530,6 +530,36 @@ export function validateDecisionCandidateRelevance(
     return null;
   }
 
+  if (
+    target.kind ===
+      'tab-state' &&
+    decision.action.kind ===
+      'select-tab'
+  ) {
+    if (
+      decision.action
+        .target.controlId !==
+        target.controlId ||
+      decision.action
+        .target.accessibleName !==
+        target.accessibleName ||
+      decision.action
+        .target.tabListId !==
+        target.tabListId ||
+      decision.action
+        .target
+        .controlledPanelId !==
+        target.controlledPanelId ||
+      decision.action
+        .desiredState !==
+        target.desiredState
+    ) {
+      return `Select-tab action does not match candidate "${candidate.reference}" evidence target.`;
+    }
+
+    return null;
+  }
+
   return `Action "${decision.action.kind}" does not match candidate "${candidate.reference}" evidence target "${target.kind}".`;
 }
 

@@ -51,7 +51,8 @@ async function main(): Promise<void> {
 
         selects: [],
 
-        disclosures: []
+        disclosures: [],
+        tabs: []
       },
 
       classifiedDiagnostics: {

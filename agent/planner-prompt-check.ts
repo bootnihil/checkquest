@@ -240,7 +240,8 @@ function main(): void {
           }
         ],
 
-        disclosures: []
+        disclosures: [],
+        tabs: []
       }
     });
 

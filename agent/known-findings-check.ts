@@ -164,6 +164,39 @@ function createDisclosureFinding():
   };
 }
 
+function createTabFinding():
+  ExploratoryQaFinding {
+  return {
+    category:
+      'interaction',
+    severity:
+      'low',
+    confidence:
+      'medium',
+    title:
+      'Details tab requires verification',
+    evidence:
+      'The Details tab has a structured panel target.',
+    reasoning:
+      'The conventional tab requires deterministic selected-state verification.',
+    suggestedCheck:
+      'Select the tab and verify its controlled panel.',
+    evidenceTarget: {
+      kind: 'tab-state',
+      controlId:
+        'details-tab',
+      accessibleName:
+        'Details',
+      tabListId:
+        'product-tabs',
+      controlledPanelId:
+        'details-panel',
+      desiredState:
+        'selected'
+    }
+  };
+}
+
 function createPageContent(
   optionText = 'Equador'
 ): ExtractedPageContent {
@@ -233,7 +266,8 @@ function createPageContent(
       }
     ],
 
-    disclosures: []
+    disclosures: [],
+    tabs: []
   };
 }
 
@@ -1132,7 +1166,8 @@ async function main():
         eligibilityRejectionReasons:
           []
       }
-    ]
+    ],
+    tabs: []
   };
   const detectedDisclosure =
     detectStructuredKnownFindingOccurrences(
@@ -1157,6 +1192,114 @@ async function main():
   );
   assert.equal(
     detectedDisclosure[0]
+      .reinvestigationEligible,
+      false
+  );
+
+  /*
+   * Stage 4B tab targets use the same authoritative fingerprint and
+   * verified-occurrence suppression pipeline without weakening the
+   * disclosure or select-option paths above.
+   */
+  const tabState =
+    createKnownFindingState();
+  const tabFinding =
+    createTabFinding();
+  const tabOccurrence =
+    registerNewFinding(
+      tabState,
+      {
+        finding:
+          tabFinding,
+        pageUrl:
+          'https://example.com/product',
+        pageTitle:
+          'Product',
+        screenshotPath:
+          null,
+        verificationOutcome:
+          verifiedOutcome
+      }
+    );
+  const tabContent:
+    ExtractedPageContent = {
+    title: 'Product',
+    headings: [
+      'Product information'
+    ],
+    bodyText:
+      'Overview Details',
+    links: [],
+    buttons: [
+      'Overview',
+      'Details'
+    ],
+    textFields: [],
+    selects: [],
+    disclosures: [],
+    tabs: [
+      {
+        tagName: 'button',
+        role: 'tab',
+        controlId:
+          'details-tab',
+        accessibleName:
+          'Details',
+        tabListId:
+          'product-tabs',
+        ariaSelected:
+          'false',
+        ariaControls:
+          'details-panel',
+        disabled: false,
+        ariaDisabled: false,
+        href: null,
+        hasLinkSemantics:
+          false,
+        ariaHasPopup: null,
+        formAssociated:
+          false,
+        formAncestor:
+          false,
+        hasSubmitOrResetSemantics:
+          false,
+        controlledPanelExists:
+          true,
+        controlledPanelRole:
+          'tabpanel',
+        controlledPanelVisible:
+          false,
+        controlledPanelHasEditableOrSubmissionControls:
+          false,
+        eligibleForTabAction:
+          true,
+        eligibilityRejectionReasons:
+          []
+      }
+    ]
+  };
+  const detectedTab =
+    detectStructuredKnownFindingOccurrences(
+      tabState,
+      tabContent
+    );
+
+  assert.equal(
+    detectedTab.length,
+    1
+  );
+  assert.equal(
+    detectedTab[0]
+      .fingerprint,
+    tabOccurrence.fingerprint
+  );
+  assert.equal(
+    detectedTab[0]
+      .redundantInvestigationSkipped,
+    true
+  );
+  assert.equal(
+    detectedTab[0]
       .reinvestigationEligible,
     false
   );

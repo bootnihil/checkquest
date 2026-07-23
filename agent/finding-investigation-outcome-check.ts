@@ -136,7 +136,8 @@ function buildPageContent(
       }
     ],
 
-    disclosures: []
+    disclosures: [],
+    tabs: []
   };
 }
 

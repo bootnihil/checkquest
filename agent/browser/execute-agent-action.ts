@@ -9,6 +9,10 @@ import {
   type DisclosureActionEvidence,
   type DisclosureSafetyEvent
 } from './execute-guarded-disclosure-action';
+import {
+  executeGuardedTabAction,
+  type TabActionEvidence
+} from './execute-guarded-tab-action';
 
 export interface ExecutedAgentActionResult {
   kind: AgentAction['kind'];
@@ -18,6 +22,8 @@ export interface ExecutedAgentActionResult {
   hardBreach?: boolean;
   disclosureEvidence?:
     DisclosureActionEvidence | null;
+  tabEvidence?:
+    TabActionEvidence | null;
 }
 
 /**
@@ -531,6 +537,29 @@ export async function executeAgentAction(
         hardBreach:
           result.hardBreach,
         disclosureEvidence:
+          result.evidence
+      };
+    }
+
+    case 'select-tab': {
+      const result =
+        await executeGuardedTabAction(
+          page,
+          action
+        );
+
+      return {
+        kind:
+          action.kind,
+        status:
+          result.status,
+        detail:
+          result.detail,
+        safetyEvents:
+          result.safetyEvents,
+        hardBreach:
+          result.hardBreach,
+        tabEvidence:
           result.evidence
       };
     }

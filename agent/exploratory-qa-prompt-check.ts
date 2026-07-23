@@ -50,7 +50,8 @@ const prompt =
 
       selects: [],
 
-      disclosures: []
+      disclosures: [],
+      tabs: []
     },
 
     classifiedDiagnostics: {

@@ -103,7 +103,10 @@ export function buildPlannerPrompt(
         pageContent.selects,
 
       disclosures:
-        pageContent.disclosures
+        pageContent.disclosures,
+
+      tabs:
+        pageContent.tabs
     },
 
     investigableCandidates:
@@ -239,7 +242,7 @@ Candidate:
 "Possible typo in body text."
 
 Available actions:
-fill-text-field, clear-field, blur-field, select-option, set-disclosure-state, scroll, stop.
+fill-text-field, clear-field, blur-field, select-option, set-disclosure-state, select-tab, scroll, stop.
 
 If none of those actions can meaningfully add evidence about the body-text typo:
 
@@ -444,7 +447,26 @@ Shape:
 
 The action runs inside a deterministic safety transaction and is rolled back to its original state. Never use it for generic buttons, links, menus, dialogs, tabs, filters, forms, or controls with any disclosure eligibility rejection reason.
 
-6. scroll
+6. select-tab
+
+Use this only for an observed conventional ARIA tab whose structured evidence has eligibleForTabAction=true and only when the action exactly matches the referenced tab-state candidate.
+
+Shape:
+
+{
+  "kind": "select-tab",
+  "target": {
+    "controlId": string,
+    "accessibleName": string,
+    "tabListId": string,
+    "controlledPanelId": string
+  },
+  "desiredState": "selected"
+}
+
+The action runs inside the guarded click-like safety transaction and is rolled back to the exact originally selected tab. Never use it for links, navigation, menus, accordions, generic buttons, forms, or tabs with any eligibility rejection reason.
+
+7. scroll
 
 Use this ONLY when scrolling itself is the experiment.
 
@@ -471,7 +493,7 @@ Shape:
   "viewportCount": 1 | 2 | 3
 }
 
-7. stop
+8. stop
 
 Use stop when no additional permitted action is likely to produce meaningful new QA evidence.
 
@@ -528,6 +550,11 @@ For set-disclosure-state:
 - copy controlId, accessibleName, and controlledRegionId EXACTLY from one eligible observed disclosure;
 - desiredState must exactly match the referenced candidate evidence target;
 - never use an ineligible disclosure or another disclosure as a substitute.
+
+For select-tab:
+- copy controlId, accessibleName, tabListId, and controlledPanelId EXACTLY from one eligible observed tab;
+- desiredState must be "selected" and exactly match the referenced candidate evidence target;
+- never use an ineligible tab, a tab from another tablist, or another tab as a substitute.
 
 ==================================================
 SELECT OPTION EVIDENCE

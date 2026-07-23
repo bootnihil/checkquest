@@ -82,6 +82,30 @@ export interface PageDisclosureControl {
   eligibilityRejectionReasons: string[];
 }
 
+export interface PageTabControl {
+  tagName: string;
+  role: 'tab';
+  controlId: string | null;
+  accessibleName: string | null;
+  tabListId: string | null;
+  ariaSelected: 'true' | 'false' | null;
+  ariaControls: string | null;
+  disabled: boolean;
+  ariaDisabled: boolean;
+  href: string | null;
+  hasLinkSemantics: boolean;
+  ariaHasPopup: string | null;
+  formAssociated: boolean;
+  formAncestor: boolean;
+  hasSubmitOrResetSemantics: boolean;
+  controlledPanelExists: boolean;
+  controlledPanelRole: string | null;
+  controlledPanelVisible: boolean | null;
+  controlledPanelHasEditableOrSubmissionControls: boolean | null;
+  eligibleForTabAction: boolean;
+  eligibilityRejectionReasons: string[];
+}
+
 export interface ExtractedPageContent {
   title: string;
   headings: string[];
@@ -91,6 +115,7 @@ export interface ExtractedPageContent {
   textFields: PageTextFieldControl[];
   selects: PageSelectControl[];
   disclosures: PageDisclosureControl[];
+  tabs: PageTabControl[];
 }
 
 export async function extractPageContent(
@@ -1022,6 +1047,601 @@ export async function extractPageContent(
         };
       });
 
+    const allTabElements = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[role="tab"]'
+      )
+    );
+
+    const tabs = allTabElements
+      .slice(0, 30)
+      .map(element => {
+        const tagName =
+          element.tagName.toLowerCase();
+        const controlId =
+          (
+            element.getAttribute('id') ??
+            ''
+          )
+            .replace(/\s+/g, ' ')
+            .trim() ||
+          null;
+        const ariaLabel =
+          (
+            element.getAttribute(
+              'aria-label'
+            ) ??
+            ''
+          )
+            .replace(/\s+/g, ' ')
+            .trim();
+        const labelledByText =
+          (
+            element.getAttribute(
+              'aria-labelledby'
+            ) ??
+            ''
+          )
+            .split(/\s+/)
+            .filter(value => value.length > 0)
+            .map(id =>
+              (
+                document.getElementById(id)
+                  ?.textContent ??
+                ''
+              )
+                .replace(/\s+/g, ' ')
+                .trim()
+            )
+            .filter(value => value.length > 0)
+            .join(' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+        const visibleText =
+          (
+            element.innerText ||
+            element.textContent ||
+            ''
+          )
+            .replace(/\s+/g, ' ')
+            .trim();
+        const accessibleName =
+          ariaLabel ||
+          labelledByText ||
+          visibleText ||
+          (
+            element.getAttribute(
+              'title'
+            ) ??
+            ''
+          )
+            .replace(/\s+/g, ' ')
+            .trim() ||
+          null;
+        const rawSelected =
+          (
+            element.getAttribute(
+              'aria-selected'
+            ) ??
+            ''
+          )
+            .trim()
+            .toLowerCase();
+        const ariaSelected =
+          rawSelected === 'true' ||
+          rawSelected === 'false'
+            ? (
+                rawSelected as
+                  'true' | 'false'
+              )
+            : null;
+        const rawControls =
+          (
+            element.getAttribute(
+              'aria-controls'
+            ) ??
+            ''
+          )
+            .trim();
+        const controlledIds =
+          rawControls
+            .split(/\s+/)
+            .filter(value => value.length > 0);
+        const ariaControls =
+          controlledIds.length === 1
+            ? controlledIds[0]
+            : rawControls.length > 0
+              ? rawControls
+              : null;
+        const controlledPanel =
+          controlledIds.length === 1
+            ? document.getElementById(
+                controlledIds[0]
+              )
+            : null;
+        const controlledPanelRole =
+          controlledPanel === null
+            ? null
+            : (
+                controlledPanel.getAttribute(
+                  'role'
+                ) ??
+                ''
+              )
+                .trim()
+                .toLowerCase() ||
+              null;
+        const controlledPanelVisible =
+          controlledPanel === null
+            ? null
+            : (() => {
+                const style =
+                  window.getComputedStyle(
+                    controlledPanel
+                  );
+                const rectangle =
+                  controlledPanel
+                    .getBoundingClientRect();
+
+                return (
+                  !controlledPanel.hidden &&
+                  controlledPanel.getAttribute(
+                    'aria-hidden'
+                  ) !== 'true' &&
+                  style.display !== 'none' &&
+                  style.visibility !==
+                    'hidden' &&
+                  rectangle.width > 0 &&
+                  rectangle.height > 0
+                );
+              })();
+        const controlledPanelHasEditableOrSubmissionControls =
+          controlledPanel === null
+            ? null
+            : controlledPanel.querySelector(
+                [
+                  'form',
+                  'input',
+                  'textarea',
+                  'select',
+                  'button[type="submit"]',
+                  'button[type="reset"]',
+                  'button:not([type])',
+                  '[contenteditable]:not([contenteditable="false"])'
+                ].join(', ')
+              ) !== null;
+        const tabList =
+          element.closest<HTMLElement>(
+            '[role="tablist"]'
+          );
+        const tabListId =
+          (
+            tabList?.getAttribute('id') ??
+            ''
+          )
+            .replace(/\s+/g, ' ')
+            .trim() ||
+          null;
+        const nativeDisabled =
+          (
+            element instanceof
+              HTMLButtonElement ||
+            element instanceof
+              HTMLInputElement
+          )
+            ? element.disabled
+            : false;
+        const ariaDisabled =
+          (
+            element.getAttribute(
+              'aria-disabled'
+            ) ??
+            ''
+          )
+            .trim()
+            .toLowerCase() ===
+          'true';
+        const closestLink =
+          element.closest<HTMLAnchorElement>(
+            'a[href]'
+          );
+        const href =
+          (
+            element.getAttribute('href') ??
+            closestLink?.getAttribute(
+              'href'
+            ) ??
+            ''
+          )
+            .trim() ||
+          null;
+        const hasLinkSemantics =
+          tagName === 'a' ||
+          href !== null ||
+          closestLink !== null;
+        const ariaHasPopup =
+          element.hasAttribute(
+            'aria-haspopup'
+          )
+            ? (
+                element.getAttribute(
+                  'aria-haspopup'
+                ) ??
+                ''
+              )
+                .trim()
+            : null;
+        const formAssociated =
+          (
+            element instanceof
+              HTMLButtonElement ||
+            element instanceof
+              HTMLInputElement
+          )
+            ? element.form !== null
+            : false;
+        const formAncestor =
+          element.closest('form') !==
+          null;
+        const rawType =
+          (
+            element.getAttribute('type') ??
+            ''
+          )
+            .trim()
+            .toLowerCase();
+        const hasSubmitOrResetSemantics =
+          element instanceof
+            HTMLButtonElement
+            ? rawType !== 'button'
+            : element instanceof
+                HTMLInputElement
+              ? element.type
+                  .toLowerCase() !==
+                'button'
+              : false;
+        const sameNameTabs =
+          accessibleName === null
+            ? []
+            : allTabElements.filter(
+                candidate => {
+                  const candidateAriaLabel =
+                    (
+                      candidate.getAttribute(
+                        'aria-label'
+                      ) ??
+                      ''
+                    )
+                      .replace(/\s+/g, ' ')
+                      .trim();
+                  const candidateLabelledByText =
+                    (
+                      candidate.getAttribute(
+                        'aria-labelledby'
+                      ) ??
+                      ''
+                    )
+                      .split(/\s+/)
+                      .filter(
+                        value =>
+                          value.length > 0
+                      )
+                      .map(id =>
+                        (
+                          document.getElementById(
+                            id
+                          )
+                            ?.textContent ??
+                          ''
+                        )
+                          .replace(/\s+/g, ' ')
+                          .trim()
+                      )
+                      .filter(
+                        value =>
+                          value.length > 0
+                      )
+                      .join(' ')
+                      .replace(/\s+/g, ' ')
+                      .trim();
+                  const candidateName =
+                    candidateAriaLabel ||
+                    candidateLabelledByText ||
+                    (
+                      candidate.innerText ||
+                      candidate.textContent ||
+                      ''
+                    )
+                      .replace(/\s+/g, ' ')
+                      .trim() ||
+                    (
+                      candidate.getAttribute(
+                        'title'
+                      ) ??
+                      ''
+                    )
+                      .replace(/\s+/g, ' ')
+                      .trim();
+
+                  return (
+                    candidateName ===
+                    accessibleName
+                  );
+                }
+              );
+        const tabListTabs =
+          tabList === null
+            ? []
+            : Array.from(
+                tabList.querySelectorAll<HTMLElement>(
+                  '[role="tab"]'
+                )
+              );
+        const selectedTabs =
+          tabListTabs.filter(
+            candidate =>
+              (
+                candidate.getAttribute(
+                  'aria-selected'
+                ) ??
+                ''
+              )
+                .trim()
+                .toLowerCase() ===
+              'true'
+          );
+        const originalSelectedTab =
+          selectedTabs[0] ??
+          null;
+        const originalSelectedId =
+          (
+            originalSelectedTab
+              ?.getAttribute('id') ??
+            ''
+          )
+            .trim();
+        const originalSelectedControls =
+          (
+            originalSelectedTab
+              ?.getAttribute(
+                'aria-controls'
+              ) ??
+            ''
+          )
+            .trim()
+            .split(/\s+/)
+            .filter(
+              value =>
+                value.length > 0
+            );
+        const originalSelectedPanel =
+          originalSelectedControls
+            .length === 1
+            ? document.getElementById(
+                originalSelectedControls[0]
+              )
+            : null;
+        const rejectionReasons:
+          string[] = [];
+
+        if (controlId === null) {
+          rejectionReasons.push(
+            'a stable control id is required'
+          );
+        } else if (
+          document.querySelectorAll(
+            `[id="${CSS.escape(
+              controlId
+            )}"]`
+          ).length !== 1
+        ) {
+          rejectionReasons.push(
+            'the control id is not unique'
+          );
+        }
+
+        if (accessibleName === null) {
+          rejectionReasons.push(
+            'an accessible name is required'
+          );
+        } else if (
+          sameNameTabs.length !== 1 ||
+          sameNameTabs[0] !== element
+        ) {
+          rejectionReasons.push(
+            'the accessible tab identity is ambiguous'
+          );
+        }
+
+        if (ariaSelected === null) {
+          rejectionReasons.push(
+            'aria-selected must be explicitly true or false'
+          );
+        }
+
+        if (
+          controlledIds.length !== 1
+        ) {
+          rejectionReasons.push(
+            'aria-controls must identify exactly one panel'
+          );
+        } else if (
+          controlledPanel === null
+        ) {
+          rejectionReasons.push(
+            'the controlled same-document panel does not exist'
+          );
+        } else if (
+          document.querySelectorAll(
+            `[id="${CSS.escape(
+              controlledIds[0]
+            )}"]`
+          ).length !== 1
+        ) {
+          rejectionReasons.push(
+            'the controlled panel id is not unique'
+          );
+        } else if (
+          controlledPanelRole !==
+          'tabpanel'
+        ) {
+          rejectionReasons.push(
+            'the controlled element must have role=tabpanel'
+          );
+        }
+
+        if (tabList === null) {
+          rejectionReasons.push(
+            'the tab must belong to a role=tablist'
+          );
+        } else if (
+          tabListId === null
+        ) {
+          rejectionReasons.push(
+            'a stable tablist id is required'
+          );
+        } else if (
+          document.querySelectorAll(
+            `[id="${CSS.escape(
+              tabListId
+            )}"]`
+          ).length !== 1
+        ) {
+          rejectionReasons.push(
+            'the tablist id is not unique'
+          );
+        }
+
+        if (
+          nativeDisabled ||
+          ariaDisabled
+        ) {
+          rejectionReasons.push(
+            'the tab control is disabled'
+          );
+        }
+
+        if (hasLinkSemantics) {
+          rejectionReasons.push(
+            'link or href semantics are not permitted'
+          );
+        }
+
+        if (ariaHasPopup !== null) {
+          rejectionReasons.push(
+            'aria-haspopup tabs are not permitted'
+          );
+        }
+
+        if (
+          formAssociated ||
+          formAncestor
+        ) {
+          rejectionReasons.push(
+            'form-associated tabs are not permitted'
+          );
+        }
+
+        if (hasSubmitOrResetSemantics) {
+          rejectionReasons.push(
+            'submit, reset, or default-submit semantics are not permitted'
+          );
+        }
+
+        if (
+          controlledPanelHasEditableOrSubmissionControls ===
+          true
+        ) {
+          rejectionReasons.push(
+            'the controlled panel contains editable or submission controls'
+          );
+        }
+
+        if (
+          selectedTabs.length !== 1
+        ) {
+          rejectionReasons.push(
+            'the tablist must have exactly one explicitly selected tab'
+          );
+        } else if (
+          originalSelectedId.length ===
+            0 ||
+          document.querySelectorAll(
+            `[id="${CSS.escape(
+              originalSelectedId
+            )}"]`
+          ).length !== 1 ||
+          originalSelectedControls
+            .length !== 1 ||
+          originalSelectedPanel ===
+            null ||
+          document.querySelectorAll(
+            `[id="${CSS.escape(
+              originalSelectedControls[0]
+            )}"]`
+          ).length !== 1 ||
+          (
+            originalSelectedPanel
+              .getAttribute('role') ??
+            ''
+          )
+            .trim()
+            .toLowerCase() !==
+            'tabpanel'
+        ) {
+          rejectionReasons.push(
+            'the originally selected tab lacks an exact rollback identity'
+          );
+        } else if (
+          originalSelectedPanel
+            .querySelector(
+              [
+                'form',
+                'input',
+                'textarea',
+                'select',
+                'button[type="submit"]',
+                'button[type="reset"]',
+                'button:not([type])',
+                '[contenteditable]:not([contenteditable="false"])'
+              ].join(', ')
+            ) !== null
+        ) {
+          rejectionReasons.push(
+            'the originally selected panel contains editable or submission controls'
+          );
+        }
+
+        return {
+          tagName,
+          role: 'tab' as const,
+          controlId,
+          accessibleName,
+          tabListId,
+          ariaSelected,
+          ariaControls,
+          disabled:
+            nativeDisabled,
+          ariaDisabled,
+          href,
+          hasLinkSemantics,
+          ariaHasPopup,
+          formAssociated,
+          formAncestor,
+          hasSubmitOrResetSemantics,
+          controlledPanelExists:
+            controlledPanel !== null,
+          controlledPanelRole,
+          controlledPanelVisible,
+          controlledPanelHasEditableOrSubmissionControls,
+          eligibleForTabAction:
+            rejectionReasons.length ===
+            0,
+          eligibilityRejectionReasons:
+            rejectionReasons
+        };
+      });
+
     return {
       title,
       headings,
@@ -1030,7 +1650,8 @@ export async function extractPageContent(
       buttons,
       textFields,
       selects,
-      disclosures
+      disclosures,
+      tabs
     };
   });
 }

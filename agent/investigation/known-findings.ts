@@ -1,12 +1,14 @@
 import type {
   DisclosureStateEvidenceTarget,
   ExploratoryQaFinding,
-  SelectOptionEvidenceTarget
+  SelectOptionEvidenceTarget,
+  TabStateEvidenceTarget
 } from '../analysis/exploratory-qa-schema';
 import type {
   ExtractedPageContent,
   PageDisclosureControl,
-  PageSelectControl
+  PageSelectControl,
+  PageTabControl
 } from '../browser/extract-page-content';
 import type {
   FindingInvestigationOutcome,
@@ -16,6 +18,7 @@ import {
   createExploratoryFindingFingerprint,
   createDisclosureStateTargetFingerprint,
   createSelectOptionTargetFingerprint,
+  createTabStateTargetFingerprint,
   normalizeFingerprintText
 } from './finding-fingerprint';
 
@@ -417,6 +420,78 @@ export function detectStructuredKnownFindingOccurrences(
         reinvestigationEligible:
           !isVerified &&
           !match.select.disabled
+      });
+
+      continue;
+    }
+
+    if (
+      knownTarget.kind ===
+      'tab-state'
+    ) {
+      const match =
+        findTabMatch(
+          entry.fingerprint,
+          knownTarget,
+          content.tabs
+        );
+
+      if (match === null) {
+        continue;
+      }
+
+      const currentTarget:
+        TabStateEvidenceTarget = {
+        kind: 'tab-state',
+        controlId:
+          match.control.controlId!,
+        accessibleName:
+          match.control
+            .accessibleName!,
+        tabListId:
+          match.control.tabListId!,
+        controlledPanelId:
+          match.control
+            .ariaControls!,
+        desiredState: 'selected'
+      };
+      const isVerified =
+        entry
+          .effectiveVerificationStatus ===
+        'verified';
+
+      detected.push({
+        knownFindingReference:
+          entry.knownFindingReference,
+        fingerprint:
+          entry.fingerprint,
+        finding: {
+          ...entry
+            .representativeFinding,
+          knownFindingReference:
+            entry
+              .knownFindingReference,
+          evidenceTarget:
+            currentTarget
+        },
+        occurrenceEvidence: [
+          `Current structured page evidence contains eligible tab "${currentTarget.accessibleName}" controlling panel "${currentTarget.controlledPanelId}" in tablist "${currentTarget.tabListId}".`
+        ],
+        evidenceTarget:
+          currentTarget,
+        matchingBases: [
+          'structured-target'
+        ],
+        modelKnownFindingReference:
+          null,
+        modelReferenceMatched:
+          null,
+        redundantInvestigationSkipped:
+          isVerified,
+        reinvestigationEligible:
+          !isVerified &&
+          match.control
+            .eligibleForTabAction
       });
 
       continue;
@@ -1063,6 +1138,59 @@ function findDisclosureMatch(
 
     if (
       createDisclosureStateTargetFingerprint(
+        currentTarget
+      ) === knownFingerprint
+    ) {
+      return {
+        control
+      };
+    }
+  }
+
+  return null;
+}
+
+function findTabMatch(
+  knownFingerprint: string,
+  knownTarget:
+    TabStateEvidenceTarget,
+  tabs:
+    PageTabControl[]
+): {
+  control:
+    PageTabControl;
+} | null {
+  for (const control of tabs) {
+    if (
+      !control
+        .eligibleForTabAction ||
+      control.controlId === null ||
+      control.accessibleName ===
+        null ||
+      control.tabListId === null ||
+      control.ariaControls ===
+        null
+    ) {
+      continue;
+    }
+
+    const currentTarget:
+      TabStateEvidenceTarget = {
+      kind: 'tab-state',
+      controlId:
+        control.controlId,
+      accessibleName:
+        control.accessibleName,
+      tabListId:
+        control.tabListId,
+      controlledPanelId:
+        control.ariaControls,
+      desiredState:
+        knownTarget.desiredState
+    };
+
+    if (
+      createTabStateTargetFingerprint(
         currentTarget
       ) === knownFingerprint
     ) {

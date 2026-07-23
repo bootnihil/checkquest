@@ -1,7 +1,8 @@
 import type {
   DisclosureStateEvidenceTarget,
   SelectOptionEvidenceTarget,
-  ExploratoryQaFinding
+  ExploratoryQaFinding,
+  TabStateEvidenceTarget
 } from '../analysis/exploratory-qa-schema';
 
 import type {
@@ -77,7 +78,149 @@ export function evaluateFindingInvestigationOutcome(
         investigation,
         candidateReference
       );
+
+    case 'tab-state':
+      return evaluateTabStateFinding(
+        finding.evidenceTarget,
+        investigation,
+        candidateReference
+      );
   }
+}
+
+function evaluateTabStateFinding(
+  target:
+    TabStateEvidenceTarget,
+  investigation:
+    ExploratoryLoopResult,
+  candidateReference:
+    string
+): FindingInvestigationOutcome {
+  const relevantStep =
+    investigation.steps.find(
+      step =>
+        step.decision
+          .candidateReference ===
+          candidateReference &&
+        step.decision.action
+          .kind ===
+          'select-tab' &&
+        step.decision.action
+          .target.controlId ===
+          target.controlId &&
+        step.decision.action
+          .target.accessibleName ===
+          target.accessibleName &&
+        step.decision.action
+          .target.tabListId ===
+          target.tabListId &&
+        step.decision.action
+          .target
+          .controlledPanelId ===
+          target.controlledPanelId &&
+        step.decision.action
+          .desiredState ===
+          target.desiredState
+    );
+
+  if (
+    relevantStep === undefined
+  ) {
+    return inconclusive(
+      `The investigation did not execute the candidate-linked tab action for "${target.accessibleName}".`
+    );
+  }
+
+  if (
+    relevantStep.executionResult
+      .status === 'unsafe'
+  ) {
+    return inconclusive(
+      `The tab interaction was blocked or aborted by the safety boundary: ${relevantStep.executionResult.detail}`,
+      [
+        relevantStep.executionResult
+          .detail
+      ]
+    );
+  }
+
+  if (
+    relevantStep.executionResult
+      .status !== 'executed'
+  ) {
+    return inconclusive(
+      'The tab interaction did not execute successfully.'
+    );
+  }
+
+  const evidence =
+    relevantStep.executionResult
+      .tabEvidence;
+
+  if (evidence == null) {
+    return inconclusive(
+      'The tab interaction is missing deterministic before, after, or rollback evidence.'
+    );
+  }
+
+  if (
+    (
+      relevantStep.executionResult
+        .safetyEvents?.length ??
+      0
+    ) > 0
+  ) {
+    return inconclusive(
+      'The tab interaction produced a safety event and cannot verify the finding.',
+      relevantStep.executionResult
+        .safetyEvents
+        ?.map(
+          event =>
+            event.detail
+        ) ??
+        []
+    );
+  }
+
+  if (
+    !evidence.rollbackSucceeded
+  ) {
+    return inconclusive(
+      'The tab interaction did not restore and verify the exact original tab and panel state.'
+    );
+  }
+
+  if (
+    evidence
+      .selectedTabTransitionObserved &&
+    evidence
+      .previousTabDeselected &&
+    evidence
+      .targetPanelChangedConsistently &&
+    evidence
+      .previousPanelChangedConsistently
+  ) {
+    return {
+      status: 'verified',
+      summary:
+        `The investigation verified that tab "${target.accessibleName}" became selected, revealed its corresponding panel, and restored the original tab afterward.`,
+      evidence: [
+        `Observed exact aria-selected transition and panel "${target.controlledPanelId}" becoming visible.`,
+        'Verified mandatory rollback to the exact original tab and both original panel visibility states.'
+      ]
+    };
+  }
+
+  return {
+    status: 'not-verified',
+    summary:
+      `The safe tab interaction did not produce the requested selected-tab and corresponding-panel transition for "${target.accessibleName}".`,
+    evidence: [
+      relevantStep.executionResult
+        .detail,
+      'The exact original tab and panel state was restored successfully.'
+    ]
+  };
 }
 
 function evaluateDisclosureStateFinding(

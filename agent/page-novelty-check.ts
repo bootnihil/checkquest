@@ -156,6 +156,8 @@ function createPageContent(
         ),
 
     disclosures:
+      [],
+    tabs:
       []
   };
 }

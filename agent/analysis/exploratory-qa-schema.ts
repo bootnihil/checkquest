@@ -37,10 +37,21 @@ export const disclosureStateEvidenceTargetSchema =
     desiredState: z.enum(['expanded', 'collapsed'])
   });
 
+export const tabStateEvidenceTargetSchema =
+  z.object({
+    kind: z.literal('tab-state'),
+    controlId: z.string().min(1).max(500),
+    accessibleName: z.string().min(1).max(500),
+    tabListId: z.string().min(1).max(500),
+    controlledPanelId: z.string().min(1).max(500),
+    desiredState: z.literal('selected')
+  }).strict();
+
 export const exploratoryQaEvidenceTargetSchema =
   z.discriminatedUnion('kind', [
     selectOptionEvidenceTargetSchema,
-    disclosureStateEvidenceTargetSchema
+    disclosureStateEvidenceTargetSchema,
+    tabStateEvidenceTargetSchema
   ]);
 
 export const exploratoryQaFindingSchema = z.object({
@@ -136,6 +147,11 @@ export type SelectOptionEvidenceTarget =
 export type DisclosureStateEvidenceTarget =
   z.infer<
     typeof disclosureStateEvidenceTargetSchema
+  >;
+
+export type TabStateEvidenceTarget =
+  z.infer<
+    typeof tabStateEvidenceTargetSchema
   >;
 
 export type ExploratoryQaFinding =

@@ -61,6 +61,22 @@ expectValid('Expand an informational disclosure', {
   desiredState: 'expanded'
 });
 
+expectValid('Select an exact conventional tab', {
+  kind: 'select-tab',
+  target: {
+    controlId:
+      'details-tab',
+    accessibleName:
+      'Details',
+    tabListId:
+      'product-tabs',
+    controlledPanelId:
+      'details-panel'
+  },
+  desiredState:
+    'selected'
+});
+
 expectValid('Scroll down two viewports', {
   kind: 'scroll',
   direction: 'down',
@@ -110,6 +126,54 @@ expectInvalid('Disclosure target missing stable identity', {
   },
   desiredState:
     'expanded'
+});
+
+expectInvalid('Tab target missing exact tablist identity', {
+  kind: 'select-tab',
+  target: {
+    controlId:
+      'details-tab',
+    accessibleName:
+      'Details',
+    controlledPanelId:
+      'details-panel'
+  },
+  desiredState:
+    'selected'
+});
+
+expectInvalid('Tab action cannot request an expanded state', {
+  kind: 'select-tab',
+  target: {
+    controlId:
+      'details-tab',
+    accessibleName:
+      'Details',
+    tabListId:
+      'product-tabs',
+    controlledPanelId:
+      'details-panel'
+  },
+  desiredState:
+    'expanded'
+});
+
+expectInvalid('Tab action rejects a planner-controlled selector', {
+  kind: 'select-tab',
+  target: {
+    controlId:
+      'details-tab',
+    accessibleName:
+      'Details',
+    tabListId:
+      'product-tabs',
+    controlledPanelId:
+      'details-panel',
+    selector:
+      '#dangerous-tab'
+  },
+  desiredState:
+    'selected'
 });
 
 console.log('\nAll agent action schema checks passed.');

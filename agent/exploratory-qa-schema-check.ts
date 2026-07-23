@@ -84,6 +84,43 @@ const disclosureTargetedResponse = {
     'One disclosure candidate was identified.'
 };
 
+const tabTargetedResponse = {
+  findings: [
+    {
+      category:
+        'interaction',
+      severity:
+        'low',
+      confidence:
+        'medium',
+      title:
+        'Tab content requires state verification',
+      evidence:
+        'Structured evidence identifies an eligible conventional tab.',
+      reasoning:
+        'The tab can be safely investigated through a reversible selection.',
+      suggestedCheck:
+        'Select the exact tab and verify its panel.',
+      evidenceTarget: {
+        kind:
+          'tab-state',
+        controlId:
+          'details-tab',
+        accessibleName:
+          'Details',
+        tabListId:
+          'product-tabs',
+        controlledPanelId:
+          'details-panel',
+        desiredState:
+          'selected'
+      }
+    }
+  ],
+  summary:
+    'One tab candidate was identified.'
+};
+
 const emptyResponse = {
   findings: [],
   summary:
@@ -140,6 +177,17 @@ if (
 ) {
   throw new Error(
     `Disclosure target should be accepted: ${parsedDisclosureTargeted.error.message}`
+  );
+}
+
+const parsedTabTargeted =
+  exploratoryQaAnalysisSchema.safeParse(
+    tabTargetedResponse
+  );
+
+if (!parsedTabTargeted.success) {
+  throw new Error(
+    `Tab target should be accepted: ${parsedTabTargeted.error.message}`
   );
 }
 
