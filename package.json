@@ -45,6 +45,7 @@
     "agent:exploratory-loop-check": "tsx agent/exploratory-loop-check.ts",
     "agent:site-wide-findings-check": "tsx agent/site-wide-findings-check.ts",
     "agent:site-wide-report-check": "tsx agent/site-wide-report-check.ts",
+    "agent:run-site-api-check": "tsx agent/run-site-api-check.ts",
     "agent:known-findings-check": "tsx agent/known-findings-check.ts",
     "agent:unified-findings-check": "tsx agent/unified-findings-check.ts",
     "agent:finding-reconciliation-check": "tsx agent/finding-reconciliation-check.ts",
