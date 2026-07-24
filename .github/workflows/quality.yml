@@ -30,3 +30,27 @@ jobs:
 
       - name: Run repository quality gate
         run: npm run check
+
+  browser:
+    name: Local browser regression checks
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run local browser regression gate
+        run: npm run test:browser:ci

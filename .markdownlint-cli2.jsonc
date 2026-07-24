@@ -1,0 +1,34 @@
+{
+  "config": {
+    // Canonical planning tables and command/reference lines are intentionally
+    // kept intact instead of being wrapped for an arbitrary display width.
+    "MD013": false,
+
+    // Roadmap stages deliberately reuse labels such as "Goal" and
+    // "Completion criteria" beneath distinct parent sections.
+    "MD024": {
+      "siblings_only": true
+    },
+
+    // ROADMAP.md and BACKLOG.md use top-level headings for independently
+    // addressable stage/status sections, not a single-title article layout.
+    "MD025": false,
+
+    // The README's centered brand banner uses only these two HTML elements.
+    "MD033": {
+      "allowed_elements": [
+        "p",
+        "img"
+      ]
+    },
+
+    // A deliberate README brand banner may precede the first H1.
+    "MD041": false,
+
+    // Canonical planning/status tables deliberately use compact pipe rows.
+    "MD060": false
+  },
+  "ignores": [
+    "agent-results/**"
+  ]
+}
