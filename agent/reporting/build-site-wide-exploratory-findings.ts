@@ -100,13 +100,31 @@ function getInvestigationOutcome(
  */
 export function buildSiteWideExploratoryFindings(
   findings:
-    readonly UnifiedFinding[]
+    readonly UnifiedFinding[],
+  inspectedPageUrls:
+    readonly string[]
 ): SiteWideExploratoryFinding[] {
   const pageNumbers =
     new Map<string, number>();
 
-  let nextPageNumber =
-    1;
+  inspectedPageUrls.forEach(
+    (
+      pageUrl,
+      pageIndex
+    ) => {
+      if (
+        !pageNumbers.has(
+          pageUrl
+        )
+      ) {
+        pageNumbers.set(
+          pageUrl,
+          pageIndex +
+            1
+        );
+      }
+    }
+  );
 
   return findings.flatMap(
     finding => {
@@ -125,7 +143,7 @@ export function buildSiteWideExploratoryFindings(
       const occurrences =
         finding.occurrences.map(
           occurrence => {
-            let pageNumber =
+            const pageNumber =
               pageNumbers.get(
                 occurrence.pageUrl
               );
@@ -134,15 +152,8 @@ export function buildSiteWideExploratoryFindings(
               pageNumber ===
               undefined
             ) {
-              pageNumber =
-                nextPageNumber;
-
-              nextPageNumber +=
-                1;
-
-              pageNumbers.set(
-                occurrence.pageUrl,
-                pageNumber
+              throw new Error(
+                `Cannot project occurrence for uninspected page URL "${occurrence.pageUrl}".`
               );
             }
 

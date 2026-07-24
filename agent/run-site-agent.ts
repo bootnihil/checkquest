@@ -14,8 +14,7 @@ import { preparePageForGuardedInteractions } from './browser/execute-guarded-dis
 import { extractPageContent } from './browser/extract-page-content';
 
 import {
-  inspectNavigation,
-  type NavigationLink
+  inspectNavigation
 } from './browser/inspect-navigation';
 
 import { visitApprovedLink } from './browser/visit-approved-link';
@@ -28,17 +27,25 @@ import {
 import { chooseNavigationLink } from './decisions/choose-navigation-link';
 
 import {
-  getUnvisitedLinks,
-  markUrlVisited,
-  normalizeUrlForComparison
+  createNavigationUrlState,
+  markFinalUrlInspected,
+  markNavigationUrlAttempted,
+  recordNavigationResolution
 } from './exploration/visited-links';
 
 import {
-  buildNoveltyCandidateWindow,
   createPageNoveltyState,
   predictPageIdentity,
   registerInspectedPageNovelty
 } from './exploration/page-novelty';
+import {
+  buildNavigationPolicyWindow,
+  consumeNavigationDecision,
+  createNavigationBudgetContext,
+  createNavigationFrontier,
+  getNavigationFrontierEntries,
+  registerDiscoveredNavigationLinks
+} from './exploration/navigation-policy';
 import {
   runPageInspectionSequence
 } from './exploration/run-page-inspection-sequence';
@@ -102,41 +109,8 @@ interface OpenPageInspectionInput {
   observation:
     InspectedPageResult['observation'];
 
-  predictedIdentity:
-    InspectedPageResult[
-      'pageNovelty'
-    ]['predictedIdentity'];
-}
-
-function addLinksToPool(
-  linkPool: Map<string, NavigationLink>,
-  links: NavigationLink[]
-): number {
-  let addedCount = 0;
-
-  for (const link of links) {
-    const normalizedUrl =
-      normalizeUrlForComparison(
-        link.url
-      );
-
-    if (
-      linkPool.has(
-        normalizedUrl
-      )
-    ) {
-      continue;
-    }
-
-    linkPool.set(
-      normalizedUrl,
-      link
-    );
-
-    addedCount += 1;
-  }
-
-  return addedCount;
+  traversalDepth:
+    number;
 }
 
 function getHighestExploratoryQaSeverity(
@@ -329,24 +303,22 @@ async function main(): Promise<void> {
         `Title: ${homepageObservation.title}`
       );
 
-      const visitedUrls =
-        new Set<string>();
+      const navigationUrlState =
+        createNavigationUrlState();
 
-      markUrlVisited(
-        visitedUrls,
+      markNavigationUrlAttempted(
+        navigationUrlState,
         homepageObservation.requestedUrl
       );
 
-      markUrlVisited(
-        visitedUrls,
+      recordNavigationResolution(
+        navigationUrlState,
+        homepageObservation.requestedUrl,
         homepageObservation.finalUrl
       );
 
-      const linkPool =
-        new Map<
-          string,
-          NavigationLink
-        >();
+      const navigationFrontier =
+        createNavigationFrontier();
 
       const pageNoveltyState =
         createPageNoveltyState();
@@ -423,17 +395,38 @@ async function main(): Promise<void> {
               type:
                 'start-url',
               url:
-                site.startUrl
+                site.startUrl,
+              navigationAudit: {
+                traversalDepth:
+                  0,
+                requestedUrl:
+                  site.startUrl,
+                policyBand:
+                  'start-page',
+                predictedAreaKey:
+                  predictPageIdentity(
+                    homepageObservation
+                      .finalUrl
+                  ).areaKey,
+                predictedRouteFamilyKey:
+                  predictPageIdentity(
+                    homepageObservation
+                      .finalUrl
+                  ).routeFamilyKey,
+                firstDiscoveredFromUrl:
+                  null,
+                minimumDepthDiscoveredFromUrl:
+                  null,
+                budgetAtDecision:
+                  null
+              }
             },
 
             observation:
               startPageObservation,
 
-            predictedIdentity:
-              predictPageIdentity(
-                homepageObservation
-                  .finalUrl
-              )
+            traversalDepth:
+              0
           },
 
           maxPages:
@@ -441,155 +434,252 @@ async function main(): Promise<void> {
 
           getNextPage:
             async completedPages => {
-              if (
-                agentSteps >=
-                site.maxAgentSteps
+              while (
+                true
               ) {
-                return null;
-              }
+                const navigationBudget =
+                  createNavigationBudgetContext(
+                    site.maxPages,
+                    completedPages.length,
+                    site.maxAgentSteps,
+                    agentSteps
+                  );
 
-              const unvisitedLinks =
-                getUnvisitedLinks(
-                  Array.from(
-                    linkPool.values()
-                  ),
-                  visitedUrls
-                );
+                if (
+                  navigationBudget
+                    .remainingPageSlots ===
+                    0 ||
+                  navigationBudget
+                    .remainingNavigationDecisionSlots ===
+                    0
+                ) {
+                  return null;
+                }
 
-              const candidateLinks =
-                buildNoveltyCandidateWindow(
-                  unvisitedLinks,
-                  Array.from(
-                    linkPool.values()
-                  ),
-                  pageNoveltyState,
-                  20
-                );
-
-              console.log(
-                `\nNavigation step ${agentSteps + 1}/${site.maxAgentSteps}`
-              );
-
-              console.log(
-                `Pages inspected: ${completedPages.length}/${site.maxPages}`
-              );
-
-              console.log(
-                `Unvisited safe candidates available: ${unvisitedLinks.length}`
-              );
-
-              console.log(
-                `Diversified candidates supplied to Gemini: ${candidateLinks.length}`
-              );
-
-              if (
-                candidateLinks.length ===
-                0
-              ) {
-                outcome = {
-                  type:
-                    'finished',
-
-                  summary:
-                    'No unvisited safe navigation links remained.'
-                };
+                const policyWindow =
+                  buildNavigationPolicyWindow({
+                    frontier:
+                      navigationFrontier,
+                    urlState:
+                      navigationUrlState,
+                    pageNoveltyState,
+                    budget:
+                      navigationBudget
+                  });
 
                 console.log(
-                  '\nAgent exploration finished:'
+                  `\nNavigation step ${agentSteps + 1}/${site.maxAgentSteps}`
                 );
 
                 console.log(
-                  outcome.summary
-                );
-
-                return null;
-              }
-
-              agentSteps += 1;
-
-              const decision =
-                await chooseNavigationLink(
-                  site,
-                  candidateLinks
-                );
-
-              if (
-                decision.type ===
-                'finish'
-              ) {
-                outcome = {
-                  type:
-                    'finished',
-
-                  summary:
-                    decision.summary
-                };
-
-                console.log(
-                  '\nAgent decision: FINISH'
+                  `Pages inspected: ${completedPages.length}/${site.maxPages}`
                 );
 
                 console.log(
-                  `Summary: ${decision.summary}`
+                  `Safe frontier entries discovered: ${navigationFrontier.entries.size}`
                 );
 
-                return null;
-              }
-
-              console.log(
-                '\nAgent selected a navigation target:'
-              );
-
-              console.log(
-                `Text: ${decision.link.text}`
-              );
-
-              console.log(
-                `URL: ${decision.link.url}`
-              );
-
-              console.log(
-                `Reason: ${decision.reason}`
-              );
-
-              markUrlVisited(
-                visitedUrls,
-                decision.link.url
-              );
-
-              diagnosticsCollector
-                .reset();
-
-              const pageObservation =
-                await visitApprovedLink(
-                  page,
-                  decision.link,
-                  site.allowedHosts
+                console.log(
+                  `Stage 6.1 policy band: ${policyWindow.policyBand ?? 'none'}`
                 );
 
-              markUrlVisited(
-                visitedUrls,
-                pageObservation
-                  .finalUrl
-              );
+                console.log(
+                  `Area-diversified candidates supplied to Gemini: ${policyWindow.candidates.length}`
+                );
 
-              return {
-                selection: {
-                  type:
-                    'agent-navigation',
-                  link:
+                console.log(
+                  `Remaining page slots: ${navigationBudget.remainingPageSlots}`
+                );
+
+                console.log(
+                  `Remaining navigation-decision slots: ${navigationBudget.remainingNavigationDecisionSlots}`
+                );
+
+                if (
+                  policyWindow
+                    .candidates
+                    .length ===
+                    0
+                ) {
+                  outcome = {
+                    type:
+                      'finished',
+
+                    summary:
+                      'No unattempted safe navigation links remained.'
+                  };
+
+                  console.log(
+                    '\nAgent exploration finished:'
+                  );
+
+                  console.log(
+                    outcome.summary
+                  );
+
+                  return null;
+                }
+
+                /*
+                 * Preserve the historical budget definition exactly:
+                 * every Gemini navigation decision consumes one agent step,
+                 * including FINISH and redirect aliases.
+                 */
+                agentSteps =
+                  consumeNavigationDecision(
+                    site.maxAgentSteps,
+                    agentSteps
+                  );
+
+                const decision =
+                  await chooseNavigationLink(
+                    site,
+                    policyWindow.candidates,
+                    navigationBudget
+                  );
+
+                if (
+                  decision.type ===
+                  'finish'
+                ) {
+                  outcome = {
+                    type:
+                      'finished',
+
+                    summary:
+                      decision.summary
+                  };
+
+                  console.log(
+                    '\nAgent decision: FINISH'
+                  );
+
+                  console.log(
+                    `Summary: ${decision.summary}`
+                  );
+
+                  return null;
+                }
+
+                console.log(
+                  '\nAgent selected a navigation target:'
+                );
+
+                console.log(
+                  `Text: ${decision.link.text}`
+                );
+
+                console.log(
+                  `URL: ${decision.link.url}`
+                );
+
+                console.log(
+                  `Traversal depth: ${decision.policyCandidate.minimumDiscoveryDepth}`
+                );
+
+                console.log(
+                  `Policy band: ${decision.policyCandidate.policyBand}`
+                );
+
+                console.log(
+                  `Reason: ${decision.reason}`
+                );
+
+                markNavigationUrlAttempted(
+                  navigationUrlState,
+                  decision.link.url
+                );
+
+                diagnosticsCollector
+                  .reset();
+
+                const pageObservation =
+                  await visitApprovedLink(
+                    page,
                     decision.link,
-                  reason:
-                    decision.reason
-                },
+                    site.allowedHosts
+                  );
 
-                observation:
-                  pageObservation,
+                const navigationResolution =
+                  recordNavigationResolution(
+                    navigationUrlState,
+                    decision.link.url,
+                    pageObservation
+                      .finalUrl
+                  );
 
-                predictedIdentity:
-                  decision
-                    .predictedIdentity
-              };
+                if (
+                  navigationResolution
+                    .finalUrlAlreadyInspected
+                ) {
+                  console.log(
+                    '\nNavigation resolved to an already-inspected final URL.'
+                  );
+
+                  console.log(
+                    `Requested URL: ${navigationResolution.requestedUrl}`
+                  );
+
+                  console.log(
+                    `Final URL: ${navigationResolution.finalUrl}`
+                  );
+
+                  console.log(
+                    'No duplicate full inspection or page-novelty registration was performed.'
+                  );
+
+                  continue;
+                }
+
+                return {
+                  selection: {
+                    type:
+                      'agent-navigation',
+                    link:
+                      decision.link,
+                    reason:
+                      decision.reason,
+                    navigationAudit: {
+                      traversalDepth:
+                        decision
+                          .policyCandidate
+                          .minimumDiscoveryDepth,
+                      requestedUrl:
+                        decision.link.url,
+                      policyBand:
+                        decision
+                          .policyCandidate
+                          .policyBand,
+                      predictedAreaKey:
+                        decision
+                          .predictedIdentity
+                          .areaKey,
+                      predictedRouteFamilyKey:
+                        decision
+                          .predictedIdentity
+                          .routeFamilyKey,
+                      firstDiscoveredFromUrl:
+                        decision
+                          .policyCandidate
+                          .firstDiscoveredFromUrl,
+                      minimumDepthDiscoveredFromUrl:
+                        decision
+                          .policyCandidate
+                          .minimumDepthDiscoveredFromUrl,
+                      budgetAtDecision:
+                        navigationBudget
+                    }
+                  },
+
+                  observation:
+                    pageObservation,
+
+                  traversalDepth:
+                    decision
+                      .policyCandidate
+                      .minimumDiscoveryDepth
+                };
+              }
             },
 
           inspectPage:
@@ -600,8 +690,8 @@ async function main(): Promise<void> {
               const {
                 observation:
                   pageObservation,
-                predictedIdentity,
-                selection
+                selection,
+                traversalDepth
               } = currentPage;
 
               console.log(
@@ -720,25 +810,45 @@ async function main(): Promise<void> {
             page
           );
 
-        const startPageLinksForNovelty =
-          selection.type ===
-            'start-url'
-            ? await inspectNavigation(
-                page,
-                site.allowedHosts
-              )
-            : null;
+        const discoveredLinks =
+          await inspectNavigation(
+            page,
+            site.allowedHosts
+          );
 
         const effectivePredictedIdentity =
+          predictPageIdentity(
+            pageObservation
+              .finalUrl,
+            [
+              ...getNavigationFrontierEntries(
+                navigationFrontier
+              ).map(
+                entry =>
+                  entry.link
+              ),
+              ...discoveredLinks
+            ]
+          );
+
+        if (
           selection.type ===
-            'start-url'
-            ? predictPageIdentity(
-                pageObservation
-                  .finalUrl,
-                startPageLinksForNovelty ??
-                  []
-              )
-            : predictedIdentity;
+            'start-url' &&
+          selection
+            .navigationAudit
+        ) {
+          selection
+            .navigationAudit
+            .predictedAreaKey =
+              effectivePredictedIdentity
+                .areaKey;
+
+          selection
+            .navigationAudit
+            .predictedRouteFamilyKey =
+              effectivePredictedIdentity
+                .routeFamilyKey;
+        }
 
         const pageNovelty =
           registerInspectedPageNovelty(
@@ -1499,17 +1609,13 @@ async function main(): Promise<void> {
           );
         }
 
-        const discoveredLinks =
-          startPageLinksForNovelty ??
-          await inspectNavigation(
-            page,
-            site.allowedHosts
-          );
-
         const newlyAddedLinks =
-          addLinksToPool(
-            linkPool,
-            discoveredLinks
+          registerDiscoveredNavigationLinks(
+            navigationFrontier,
+            discoveredLinks,
+            pageObservation
+              .finalUrl,
+            traversalDepth
           );
 
         console.log(
@@ -1520,7 +1626,13 @@ async function main(): Promise<void> {
         );
 
         console.log(
-          `Total unique safe links in pool: ${linkPool.size}`
+          `Total unique safe links in frontier: ${navigationFrontier.entries.size}`
+        );
+
+        markFinalUrlInspected(
+          navigationUrlState,
+          pageObservation
+            .finalUrl
         );
 
               return {
@@ -1608,7 +1720,13 @@ async function main(): Promise<void> {
 
       const siteWideExploratoryFindings =
         buildSiteWideExploratoryFindings(
-          canonicalFindings
+          canonicalFindings,
+          inspectedPages.map(
+            pageResult =>
+              pageResult
+                .observation
+                .finalUrl
+          )
         );
 
       const allKnownFindingOccurrences =

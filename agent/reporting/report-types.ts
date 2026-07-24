@@ -34,8 +34,12 @@ import type {
 } from '../investigation/known-findings';
 
 import type {
-  InspectedPageNovelty
+  InspectedPageNovelty,
+  NavigationNoveltyTier
 } from '../exploration/page-novelty';
+import type {
+  NavigationBudgetContext
+} from '../exploration/navigation-policy';
 import type {
   UnifiedFinding
 } from '../findings/finding-model';
@@ -55,15 +59,32 @@ export interface HomepageObservation {
   httpStatus: number | null;
 }
 
+export interface NavigationSelectionAudit {
+  traversalDepth: number;
+  requestedUrl: string;
+  policyBand:
+    | 'start-page'
+    | NavigationNoveltyTier;
+  predictedAreaKey: string;
+  predictedRouteFamilyKey: string;
+  firstDiscoveredFromUrl: string | null;
+  minimumDepthDiscoveredFromUrl: string | null;
+  budgetAtDecision: NavigationBudgetContext | null;
+}
+
 export interface SelectedNavigationTarget {
   type: 'agent-navigation';
   link: NavigationLink;
   reason: string;
+  navigationAudit?:
+    NavigationSelectionAudit;
 }
 
 export interface StartUrlInspectionTarget {
   type: 'start-url';
   url: string;
+  navigationAudit?:
+    NavigationSelectionAudit;
 }
 
 export type PageInspectionSelection =

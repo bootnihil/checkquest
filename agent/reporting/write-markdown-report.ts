@@ -377,7 +377,11 @@ export async function writeMarkdownReport(
         pageResult.selection.type ===
           'start-url'
           ? 'Configured start URL'
-          : 'Agent-selected navigation';
+          : pageResult
+              .selection
+              .navigationAudit
+            ? `Agent-selected navigation (depth ${pageResult.selection.navigationAudit.traversalDepth}, ${pageResult.selection.navigationAudit.policyBand})`
+            : 'Agent-selected navigation';
 
       lines.push(
         `| ${createPageLink(pageResult.observation.title, pageResult.observation.finalUrl)} | ${inspectionSource} | ${predictedIdentityLabel} | ${observedTemplateKey} | ${formatHttpStatus(pageResult.observation.httpStatus)} | ${pageResult.exploratoryQaAnalysis.findings.length + pageResult.knownFindingOccurrences.length} | ${pageResult.findings.length} | ${getPageTechnicalStatus(report, pageIndex)} |`

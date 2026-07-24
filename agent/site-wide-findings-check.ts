@@ -190,9 +190,33 @@ function main(): void {
       registry
     );
 
+  /*
+   * Deliberately change both finding order and occurrence order.
+   *
+   * Compatibility page numbers must still come from the authoritative
+   * inspected-page sequence rather than first occurrence traversal.
+   */
+  const reorderedCanonicalFindings =
+    [
+      ...canonicalFindings
+    ]
+      .reverse()
+      .map(
+        finding => ({
+          ...finding,
+          occurrences: [
+            ...finding.occurrences
+          ].reverse()
+        })
+      );
+
   const siteWideFindings =
     buildSiteWideExploratoryFindings(
-      canonicalFindings
+      reorderedCanonicalFindings,
+      pages.map(
+        page =>
+          page.pageUrl
+      )
     );
 
   if (
@@ -237,17 +261,52 @@ function main(): void {
     );
   }
 
+  const pageNumberByUrl =
+    new Map(
+      countryFinding
+        .occurrences
+        .map(
+          occurrence => [
+            occurrence.pageUrl,
+            occurrence.pageNumber
+          ]
+        )
+    );
+
   if (
-    countryFinding.occurrences
-      .map(
-        occurrence =>
-          occurrence.pageNumber
-      )
-      .join(',') !==
-    '1,2,3'
+    pageNumberByUrl.get(
+      'https://example.com/radiology'
+    ) !==
+      1 ||
+    pageNumberByUrl.get(
+      'https://example.com/platform'
+    ) !==
+      2 ||
+    pageNumberByUrl.get(
+      'https://example.com/solutions'
+    ) !==
+      3
   ) {
     throw new Error(
-      'The grouped occurrences do not point back to the expected inspected pages.'
+      'Compatibility page numbers became detached from the authoritative inspected-page sequence.'
+    );
+  }
+
+  const brokenHeadingFinding =
+    siteWideFindings.find(
+      finding =>
+        finding.fingerprint !==
+        countryFinding.fingerprint
+    );
+
+  if (
+    brokenHeadingFinding
+      ?.occurrences[0]
+      ?.pageNumber !==
+    3
+  ) {
+    throw new Error(
+      'A finding encountered first during aggregation incorrectly renumbered its inspected page.'
     );
   }
 

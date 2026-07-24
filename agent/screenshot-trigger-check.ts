@@ -212,7 +212,10 @@ async function main(): Promise<void> {
 
     const siteWideExploratoryFindings =
       buildSiteWideExploratoryFindings(
-        canonicalFindings
+        canonicalFindings,
+        [
+          'https://example.com/review-page'
+        ]
       );
 
     const startedAt =

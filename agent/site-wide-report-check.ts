@@ -466,7 +466,13 @@ async function main(): Promise<void> {
 
   const siteWideExploratoryFindings =
     buildSiteWideExploratoryFindings(
-      canonicalFindings
+      canonicalFindings,
+      inspectedPages.map(
+        pageResult =>
+          pageResult
+            .observation
+            .finalUrl
+      )
     );
 
   const report:

@@ -25,6 +25,8 @@
     "agent:screenshot-trigger-check": "tsx agent/screenshot-trigger-check.ts",
     "agent:page-content-check": "tsx agent/page-content-check.ts",
     "agent:page-novelty-check": "tsx agent/page-novelty-check.ts",
+    "agent:navigation-policy-check": "tsx agent/navigation-policy-check.ts",
+    "agent:navigation-policy-browser-check": "tsx agent/navigation-policy-browser-check.ts",
     "agent:exploratory-qa-schema-check": "tsx agent/exploratory-qa-schema-check.ts",
     "agent:exploratory-qa-prompt-check": "tsx agent/exploratory-qa-prompt-check.ts",
     "agent:exploratory-qa-analysis-check": "tsx agent/exploratory-qa-analysis-check.ts",

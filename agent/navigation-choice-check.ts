@@ -2,9 +2,17 @@ import { chromium } from '@playwright/test';
 import { inspectNavigation } from './browser/inspect-navigation';
 import { chooseNavigationLink } from './decisions/choose-navigation-link';
 import {
-  buildNoveltyCandidateWindow,
   createPageNoveltyState
 } from './exploration/page-novelty';
+import {
+  buildNavigationPolicyWindow,
+  createNavigationBudgetContext,
+  createNavigationFrontier,
+  registerDiscoveredNavigationLinks
+} from './exploration/navigation-policy';
+import {
+  createNavigationUrlState
+} from './exploration/visited-links';
 import { getSiteConfig } from './sites';
 
 async function main(): Promise<void> {
@@ -31,13 +39,38 @@ async function main(): Promise<void> {
       `Safe navigation candidates found: ${navigationLinks.length}`
     );
 
+    const frontier =
+      createNavigationFrontier();
+
+    registerDiscoveredNavigationLinks(
+      frontier,
+      navigationLinks,
+      page.url(),
+      0
+    );
+
+    const budget =
+      createNavigationBudgetContext(
+        site.maxPages,
+        1,
+        site.maxAgentSteps,
+        0
+      );
+
+    const policyWindow =
+      buildNavigationPolicyWindow({
+        frontier,
+        urlState:
+          createNavigationUrlState(),
+        pageNoveltyState:
+          createPageNoveltyState(),
+        budget
+      });
+
     const decision = await chooseNavigationLink(
       site,
-      buildNoveltyCandidateWindow(
-        navigationLinks,
-        navigationLinks,
-        createPageNoveltyState()
-      )
+      policyWindow.candidates,
+      budget
     );
 
     if (decision.type === 'finish') {

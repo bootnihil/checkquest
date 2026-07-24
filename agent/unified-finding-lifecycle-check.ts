@@ -999,7 +999,20 @@ async function main():
 
   const siteWideProjection =
     buildSiteWideExploratoryFindings(
-      findings
+      findings,
+      Array.from(
+        new Set(
+          findings.flatMap(
+            finding =>
+              finding
+                .occurrences
+                .map(
+                  occurrence =>
+                    occurrence.pageUrl
+                )
+          )
+        )
+      )
     );
 
   const report:
