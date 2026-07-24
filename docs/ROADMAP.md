@@ -2,7 +2,7 @@
 
 **Roadmap version:** 1.0  
 **Frozen on:** 2026-07-23  
-**Current stage:** Stage 6 — Exploration coverage and smarter navigation
+**Current stage:** Stage 7 — Passive security and infrastructure posture
 
 ## How this roadmap is used
 
@@ -153,6 +153,31 @@ Stage 4 established target-specific deterministic outcomes for guarded disclosur
 
 # Stage 6 — Exploration coverage and smarter navigation
 
+**Completed:** 2026-07-24
+
+Stage 6.1 added traversal-depth and discovery-provenance tracking, a bounded
+run-level frontier, deterministic breadth/depth and page-budget strategy,
+area-level diversification above Stage 2 novelty, requested/attempted versus
+inspected-final URL accounting, redirect-alias and duplicate-final suppression,
+final-URL-based novelty accounting, and additive navigation auditability.
+
+Stage 6.2 added deterministic `neutral`, `weak-low-value`, and
+`strong-low-value` route classification using conservative pagination and exact
+route-role signals. Weak and strong routes receive distinct priority treatment
+but remain eligible, and Gemini chooses only within the deterministic best
+policy band. Adaptive dead-end or observed-yield learning was not introduced.
+
+Acceptance included the external Playwright regression suite passing 3/3 and
+bounded five-page Aidoc runs `2026-07-24T09-49-24-953Z` (`/`, `/solutions/`,
+`/platform/`, `/healthcare-ai/`, `/strategy/`) and
+`2026-07-24T10-37-15-126Z` (`/`, `/solutions/`, `/platform/`,
+`/healthcare-ai/`, `/learn/`). Stage 5 canonical finding and verification
+semantics were preserved: the four-occurrence `Equador` logical finding
+remained inconclusive with no verification-capable evidence despite raw
+select-option investigation results. The compatibility page-number projection
+defect found during Stage 6.1 acceptance was corrected and verified in the
+Stage 6.2 report.
+
 ## Goal
 
 Improve where CheckQuest goes after the investigation engine itself is mature.
@@ -164,6 +189,12 @@ Improve where CheckQuest goes after the investigation engine itself is mature.
 - Navigation-depth and page-budget strategy.
 - Avoidance of dead ends and low-value routes.
 - Better prioritization of routes likely to expose new functionality.
+
+Stage 6 establishes bounded, run-local navigation over conservatively
+discovered visible navigation links using deterministic novelty and route-value
+prioritization. Its completed scope does not require exhaustive or body-wide
+crawling, adaptive yield learning, semantic page-value authority, or persisted
+cross-run exploration history.
 
 ## Completion criteria
 
@@ -341,6 +372,7 @@ Before moving to the next stage:
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-07-24 | 1.0 | Stage 6 completed bounded, auditable breadth/depth navigation and conservative deterministic route-value prioritization, with successful deterministic, browser, Playwright, and five-page Aidoc acceptance. Completed CQ-013 through CQ-015 and advanced the current stage to Stage 7. |
 | 2026-07-24 | 1.0 | Stage 5 added the canonical unified finding lifecycle, explicit occurrence and logical verification, conservative rule/model reconciliation, traceable evidence semantics, Stage 3 compatibility projection, and authoritative schema-v2 JSON/Markdown reporting. External Playwright regression passed 3/3. The five-page Aidoc acceptance run `2026-07-24T07-02-21-200Z` passed canonical JSON/Markdown review, validated the assertion-specific verification boundary, and confirmed that the inconclusive Equador typo did not trigger verified suppression. Completed CQ-010 through CQ-012 and advanced the current stage to Stage 6. |
 | 2026-07-23 | 1.0 | Stage 4 added candidate-linked guarded disclosure and conventional ARIA tab investigation with exact identities, fail-closed browser containment, deterministic transition evidence, mandatory rollback, known-finding integration, deterministic coverage, and real Chromium localhost acceptance. Real-site trials also confirmed conservative ineligibility rejection and zero-new-request fail-closed behavior. A start-page defect found during acceptance was corrected so the configured start URL is inspected through the same authoritative page-inspection path and consumes the page budget. Advanced the current stage to Stage 5. |
 | 2026-07-23 | 1.0 | Stage 3 passed deterministic checks, a five-page real-site Aidoc acceptance run, report/JSON acceptance review, and the final Playwright regression suite; acceptance produced one logical Equador finding with four affected-page occurrences, one actual verification, and three redundant investigations skipped. One Playwright test initially hit a transient timeout, then passed in isolation, and the full suite subsequently passed 3/3; advanced the current stage to Stage 4. |
