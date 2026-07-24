@@ -3,9 +3,6 @@ import type {
 } from '../actions/agent-action-schema';
 
 import type {
-  ExploratoryQaFinding
-} from '../analysis/exploratory-qa-schema';
-import type {
   InvestigablePageCandidate
 } from '../investigation/page-candidates';
 

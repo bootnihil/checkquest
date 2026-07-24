@@ -1,7 +1,6 @@
 import type {
   DisclosureStateEvidenceTarget,
   SelectOptionEvidenceTarget,
-  ExploratoryQaFinding,
   TabStateEvidenceTarget
 } from '../analysis/exploratory-qa-schema';
 

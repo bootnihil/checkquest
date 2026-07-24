@@ -31,7 +31,10 @@ function expectError(
       )
     ) {
       throw new Error(
-        `${label}: expected an error containing "${expectedMessagePart}", received "${message}".`
+        `${label}: expected an error containing "${expectedMessagePart}", received "${message}".`,
+        {
+          cause: error
+        }
       );
     }
 
