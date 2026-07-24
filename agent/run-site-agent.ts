@@ -10,7 +10,7 @@ import type {
 
 import { capturePageScreenshot } from './browser/capture-page-screenshot';
 import { collectPageDiagnostics } from './browser/collect-page-diagnostics';
-import { preparePageForGuardedInteractions } from './browser/execute-guarded-disclosure-action';
+import { preparePageForGuardedInteractions } from './browser/guarded-interaction-safety-boundary';
 import { extractPageContent } from './browser/extract-page-content';
 
 import {

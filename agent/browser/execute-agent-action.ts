@@ -6,9 +6,11 @@ import type {
 } from '../actions/agent-action-schema';
 import {
   executeGuardedDisclosureAction,
-  type DisclosureActionEvidence,
-  type DisclosureSafetyEvent
+  type DisclosureActionEvidence
 } from './execute-guarded-disclosure-action';
+import type {
+  GuardedInteractionSafetyEvent
+} from './guarded-interaction-safety-boundary';
 import {
   executeGuardedTabAction,
   type TabActionEvidence
@@ -18,7 +20,7 @@ export interface ExecutedAgentActionResult {
   kind: AgentAction['kind'];
   status: 'executed' | 'stopped' | 'unsafe';
   detail: string;
-  safetyEvents?: DisclosureSafetyEvent[];
+  safetyEvents?: GuardedInteractionSafetyEvent[];
   hardBreach?: boolean;
   disclosureEvidence?:
     DisclosureActionEvidence | null;

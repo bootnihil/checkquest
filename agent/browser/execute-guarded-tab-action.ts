@@ -8,8 +8,8 @@ import type {
 } from '../actions/agent-action-schema';
 import {
   runGuardedInteractionSafetyBoundary,
-  type DisclosureSafetyEvent
-} from './execute-guarded-disclosure-action';
+  type GuardedInteractionSafetyEvent
+} from './guarded-interaction-safety-boundary';
 
 type SelectTabAction =
   Extract<
@@ -50,7 +50,7 @@ export interface TabActionEvidence {
 export interface GuardedTabActionResult {
   status: 'executed' | 'unsafe';
   detail: string;
-  safetyEvents: DisclosureSafetyEvent[];
+  safetyEvents: GuardedInteractionSafetyEvent[];
   hardBreach: boolean;
   evidence: TabActionEvidence | null;
 }

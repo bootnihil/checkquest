@@ -14,7 +14,7 @@ import {
 } from './browser/execute-agent-action';
 import {
   preparePageForGuardedInteractions
-} from './browser/execute-guarded-disclosure-action';
+} from './browser/guarded-interaction-safety-boundary';
 import {
   extractPageContent
 } from './browser/extract-page-content';

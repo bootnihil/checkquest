@@ -13,7 +13,7 @@ import type {
 } from './analysis/exploratory-qa-schema';
 import {
   preparePageForGuardedInteractions
-} from './browser/execute-guarded-disclosure-action';
+} from './browser/guarded-interaction-safety-boundary';
 import {
   extractPageContent,
   type PageTabControl
