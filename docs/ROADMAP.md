@@ -2,7 +2,7 @@
 
 **Roadmap version:** 1.0  
 **Frozen on:** 2026-07-23  
-**Current stage:** Stage 8 — Engineering hardening
+**Current stage:** Stage 8B — Static quality/tooling
 
 ## How this roadmap is used
 
@@ -309,11 +309,57 @@ This stage intentionally incorporates the legitimate takeaways from the 2026-07-
 
 ## 8A — Code organization
 
+**Completed:** 2026-07-24
+
+Stage 8A completed CQ-017 through three targeted responsibility extractions
+without changing Stage 1–7 product behavior:
+
+- Stage 8A.1 moved generic guarded click-like containment into a shared neutral
+  browser safety boundary while leaving disclosure- and tab-specific
+  eligibility, transition verification, rollback, and evidence semantics in
+  their respective executors.
+- Stage 8A.2 moved run-level canonical/compatibility finding choreography,
+  fingerprint aliases, known-finding context, candidate mappings, occurrence
+  registration, investigation outcomes, and suppression into a dedicated
+  lifecycle coordinator. `KnownFindingState` and `UnifiedFindingRegistry`
+  remain intentionally separate.
+- Stage 8A.3 decomposed the former approximately 1,576-line
+  `run-site-agent.ts` into an approximately 100-line CLI adapter, reusable
+  `runSite(...)` coordinator, cohesive `inspectPage(...)` workflow, and pure
+  report-model builder. The coordinator returns a structured
+  `SiteAgentReport`, establishing a presentation-agnostic boundary for current
+  CLI and future desktop or web callers.
+
+TypeScript and the relevant finding, candidate, navigation, novelty,
+route-value, Stage 4A/4B, passive-security, browser-acceptance, and
+programmatic run-site/report-builder checks passed. `git diff --check` passed.
+The timing-sensitive Stage 4A WebSocket assertion passed on isolated rerun,
+consistent with its pre-refactor behavior. Gemini and Aidoc checks remained
+environment-blocked by `fetch failed` and `ERR_NETWORK_ACCESS_DENIED`;
+Stage 8A did not claim those checks succeeded or introduce a workaround.
+
+Representative JSON and Markdown output remained byte-for-byte equivalent
+under report schema version 3. The canonical
+`target|select-option|country|equador` finding preserved its legacy boundary:
+a successful raw deterministic select interaction may be `VERIFIED`, while
+the semantic finding remains `INCONCLUSIVE` without semantic proof.
+Occurrence aggregation, evidence, and suppression remained unchanged.
+
+Non-blocking debt remains intentionally deferred: existing direct console
+progress output belongs to CQ-020; the coordinator still uses the current
+concrete Chromium/model implementations; the positional candidate/result
+contract remains; some operational types remain under reporting; and
+start-page navigation remains intentionally separate from approved-link
+navigation. Shared finding-identity extraction was unnecessary, and no further
+line-count-driven decomposition is required for CQ-017.
+
 - Review oversized files and blurred responsibilities.
 - Split components only where doing so improves maintainability or clarity.
 - Preserve clean boundaries between reusable engine logic and presentation/transport layers.
 
 ## 8B — Static quality
+
+**Current focus:** CQ-018
 
 - Add or strengthen ESLint.
 - Keep TypeScript checking explicit.
@@ -451,6 +497,7 @@ Before moving to the next stage:
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-07-24 | 1.0 | Stage 8A completed CQ-017 through the shared guarded-interaction safety boundary, run-level finding lifecycle coordinator, reusable site-run coordinator, extracted page-inspection workflow, thin CLI adapter, and pure report-model builder. Deterministic/local verification and exact schema-v3 report equivalence passed while external Gemini/Aidoc checks remained environment-blocked. Advanced the active Stage 8 focus to Stage 8B / CQ-018. |
 | 2026-07-24 | 1.0 | Stage 7 added a separate deterministic passive security/infrastructure posture layer over normal main-document responses, with safe capture/redaction, origin aggregation, schema-v3 JSON/Markdown reporting, zero probe traffic, and successful local-browser, regression, and five-page Aidoc acceptance. Completed CQ-016 and advanced the current stage to Stage 8. |
 | 2026-07-24 | 1.0 | Stage 6 completed bounded, auditable breadth/depth navigation and conservative deterministic route-value prioritization, with successful deterministic, browser, Playwright, and five-page Aidoc acceptance. Completed CQ-013 through CQ-015 and advanced the current stage to Stage 7. |
 | 2026-07-24 | 1.0 | Stage 5 added the canonical unified finding lifecycle, explicit occurrence and logical verification, conservative rule/model reconciliation, traceable evidence semantics, Stage 3 compatibility projection, and authoritative schema-v2 JSON/Markdown reporting. External Playwright regression passed 3/3. The five-page Aidoc acceptance run `2026-07-24T07-02-21-200Z` passed canonical JSON/Markdown review, validated the assertion-specific verification boundary, and confirmed that the inconclusive Equador typo did not trigger verified suppression. Completed CQ-010 through CQ-012 and advanced the current stage to Stage 6. |

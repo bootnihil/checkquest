@@ -2,7 +2,7 @@
 
 **Backlog version:** 1.0  
 **Established:** 2026-07-23  
-**Current roadmap stage:** Stage 8 — Engineering hardening
+**Current roadmap stage:** Stage 8B — Static quality/tooling
 
 This file is the parking place for work that should not silently interrupt the current roadmap stage.
 
@@ -28,8 +28,7 @@ A newly added backlog item does **not** become immediate work merely because it 
 
 | ID | Item | Target stage | Status | Notes |
 |---|---|---:|---|---|
-| CQ-017 | Review large files and responsibility boundaries | 8 | NOW | Stage 8A. DevAnalyzer takeaway; refactor only where it materially improves the codebase. Consider moving the shared guarded-interaction safety boundary out of the disclosure executor if that improves ownership and maintainability; this is not a current blocker. |
-| CQ-018 | Add/strengthen ESLint and static-quality checks | 8 | QUEUED | Include appropriate CI enforcement. |
+| CQ-018 | Add/strengthen ESLint and static-quality checks | 8 | NOW | Active Stage 8B focus. Include appropriate CI enforcement. |
 | CQ-019 | Expand unit/integration test depth around agent logic | 8 | QUEUED | Candidate handling, schemas, novelty, context, dedupe, verification, decision logic. |
 | CQ-020 | Harden error handling, retries, and observability | 8 | QUEUED | Include model, browser, navigation-visit, configuration, logging, and progress failures, including conservative retry/recovery behavior. |
 | CQ-021 | Expand setup and architecture documentation | 8 | QUEUED | Document the architecture after it stabilizes rather than continuously rewriting it. |
@@ -113,3 +112,4 @@ Move completed backlog entries here during stage-closeout reviews.
 | CQ-014 | Add traversal depth/provenance, deterministic breadth/depth and budget policy, area/family diversification, bounded candidate windows, and redirect/final-URL accounting | Stage 6 — Exploration coverage and smarter navigation (DONE — 2026-07-24) |
 | CQ-015 | Add conservative deterministic weak/strong low-value prioritization that defers rather than excludes low-value routes; adaptive observed-yield learning is not required | Stage 6 — Exploration coverage and smarter navigation (DONE — 2026-07-24) |
 | CQ-016 | Add a separate passive security/infrastructure posture layer | Stage 7 — Passive security and infrastructure posture (DONE — 2026-07-24) |
+| CQ-017 | Review large files and responsibility boundaries | Stage 8A — Code organization and responsibility hardening (DONE — 2026-07-24) |
