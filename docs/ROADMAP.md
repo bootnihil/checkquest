@@ -1,8 +1,9 @@
 # CheckQuest Roadmap
 
-**Roadmap version:** 1.0  
+**Roadmap version:** 1.9
+
 **Frozen on:** 2026-07-23  
-**Current stage:** Stage 8B — Static quality/tooling
+**Current stage:** Stage 8C — Test depth and coverage
 
 ## How this roadmap is used
 
@@ -359,12 +360,53 @@ line-count-driven decomposition is required for CQ-017.
 
 ## 8B — Static quality
 
-**Current focus:** CQ-018
+**Completed:** 2026-07-24
 
-- Add or strengthen ESLint.
-- Keep TypeScript checking explicit.
-- Add useful formatting/static-quality gates.
-- Enforce appropriate checks in CI.
+Stage 8B completed CQ-018 through three bounded tooling slices without
+changing Stage 1–7 runtime behavior:
+
+- Stage 8B.1 established strict, no-emit `npm run typecheck` coverage,
+  including `pages/**/*.ts` and additional zero-diagnostic compiler
+  safeguards, plus a minimal TypeScript-aware `npm run lint` gate. Native
+  TypeScript 7 remains authoritative for typechecking while TypeScript-ESLint
+  uses its supported TypeScript 6 compatibility API.
+- Stage 8B.2 added the sequential, browser-free, network-free 21-check
+  `npm run test:deterministic` regression gate and the unified
+  `npm run check` command. Mandatory push/pull-request CI now gates repository
+  correctness independently of public Aidoc availability.
+- Stage 8B.3 added repository-specific `npm run lint:md` coverage for all four
+  authored Markdown files, with zero final issues and no broad documentation
+  rewrite. It also added a sequential four-check loopback Chromium gate through
+  `npm run test:browser:ci`, split mandatory CI into browser-free and local
+  browser jobs, and removed the unused empty API Playwright project and
+  `test:api` script.
+
+Final verification passed for `npm ci`, typechecking, ESLint, Markdown lint,
+all 21 deterministic checks, the unified quality gate, all four selected
+browser checks, workflow YAML parsing, and `git diff --check`. The browser
+aggregate passed three consecutive stability repetitions. The known
+timing-sensitive grouped Stage 4A disclosure/safety check remains deliberately
+outside mandatory CI and was not treated as a Stage 8B regression.
+
+Mandatory CI has no public-site dependency, Gemini invocation, repository API
+key, or CheckQuest-owned Gemini credential. The three external Aidoc tests
+remain preserved in a manual-only workflow, and Gemini-dependent checks remain
+outside mandatory CI under the existing BYOK architecture. Stage 8B did not
+claim external Aidoc or Gemini execution succeeded.
+
+The representative schema-v3 fixture remained unchanged: one logical
+`target|select-option|country|equador` finding across three occurrences, one
+raw verified deterministic interaction, canonical semantic verification
+`INCONCLUSIVE`, two redundant known-finding investigations suppressed, and
+unchanged JSON/Markdown agreement.
+
+Non-blocking tooling debt remains intentionally deferred: Prettier and
+repository-wide source formatting would create disproportionate churn; broad
+ESLint unsafe-type families remain too noisy for the current value;
+`no-console` belongs with CQ-020 observability/progress design; the
+timing-sensitive grouped Stage 4A check remains outside mandatory CI; and
+external Aidoc/Gemini acceptance remains deliberately non-mandatory. None of
+these items blocks CQ-018 completion.
 
 ## 8C — Test depth
 
@@ -497,12 +539,13 @@ Before moving to the next stage:
 
 | Date | Version | Change |
 |---|---|---|
-| 2026-07-24 | 1.0 | Stage 8A completed CQ-017 through the shared guarded-interaction safety boundary, run-level finding lifecycle coordinator, reusable site-run coordinator, extracted page-inspection workflow, thin CLI adapter, and pure report-model builder. Deterministic/local verification and exact schema-v3 report equivalence passed while external Gemini/Aidoc checks remained environment-blocked. Advanced the active Stage 8 focus to Stage 8B / CQ-018. |
-| 2026-07-24 | 1.0 | Stage 7 added a separate deterministic passive security/infrastructure posture layer over normal main-document responses, with safe capture/redaction, origin aggregation, schema-v3 JSON/Markdown reporting, zero probe traffic, and successful local-browser, regression, and five-page Aidoc acceptance. Completed CQ-016 and advanced the current stage to Stage 8. |
-| 2026-07-24 | 1.0 | Stage 6 completed bounded, auditable breadth/depth navigation and conservative deterministic route-value prioritization, with successful deterministic, browser, Playwright, and five-page Aidoc acceptance. Completed CQ-013 through CQ-015 and advanced the current stage to Stage 7. |
-| 2026-07-24 | 1.0 | Stage 5 added the canonical unified finding lifecycle, explicit occurrence and logical verification, conservative rule/model reconciliation, traceable evidence semantics, Stage 3 compatibility projection, and authoritative schema-v2 JSON/Markdown reporting. External Playwright regression passed 3/3. The five-page Aidoc acceptance run `2026-07-24T07-02-21-200Z` passed canonical JSON/Markdown review, validated the assertion-specific verification boundary, and confirmed that the inconclusive Equador typo did not trigger verified suppression. Completed CQ-010 through CQ-012 and advanced the current stage to Stage 6. |
-| 2026-07-23 | 1.0 | Stage 4 added candidate-linked guarded disclosure and conventional ARIA tab investigation with exact identities, fail-closed browser containment, deterministic transition evidence, mandatory rollback, known-finding integration, deterministic coverage, and real Chromium localhost acceptance. Real-site trials also confirmed conservative ineligibility rejection and zero-new-request fail-closed behavior. A start-page defect found during acceptance was corrected so the configured start URL is inspected through the same authoritative page-inspection path and consumes the page budget. Advanced the current stage to Stage 5. |
-| 2026-07-23 | 1.0 | Stage 3 passed deterministic checks, a five-page real-site Aidoc acceptance run, report/JSON acceptance review, and the final Playwright regression suite; acceptance produced one logical Equador finding with four affected-page occurrences, one actual verification, and three redundant investigations skipped. One Playwright test initially hit a transient timeout, then passed in isolation, and the full suite subsequently passed 3/3; advanced the current stage to Stage 4. |
-| 2026-07-23 | 1.0 | Stage 2 passed deterministic checks, navigation-choice integration, a five-page real-site Aidoc acceptance run, and the existing 3-test Playwright regression suite; advanced the current stage to Stage 3. |
-| 2026-07-23 | 1.0 | Stage 1 passed deterministic checks, real-site acceptance, and the existing Playwright regression suite; advanced the current stage to Stage 2. |
+| 2026-07-24 | 1.9 | Stage 8B completed CQ-018 with strict no-emit TypeScript and typed ESLint gates, authored-document Markdown lint, a 21-check deterministic regression gate, a stable four-check loopback Chromium gate, separate mandatory browser-free/browser CI jobs, manual-only external Aidoc acceptance, and removal of the unused API Playwright project. All local quality, workflow, and schema-v3 Equador regression sentinels passed; no external Aidoc/Gemini execution was claimed. Advanced the active Stage 8 focus to Stage 8C / CQ-019. |
+| 2026-07-24 | 1.8 | Stage 8A completed CQ-017 through the shared guarded-interaction safety boundary, run-level finding lifecycle coordinator, reusable site-run coordinator, extracted page-inspection workflow, thin CLI adapter, and pure report-model builder. Deterministic/local verification and exact schema-v3 report equivalence passed while external Gemini/Aidoc checks remained environment-blocked. Advanced the active Stage 8 focus to Stage 8B / CQ-018. |
+| 2026-07-24 | 1.7 | Stage 7 added a separate deterministic passive security/infrastructure posture layer over normal main-document responses, with safe capture/redaction, origin aggregation, schema-v3 JSON/Markdown reporting, zero probe traffic, and successful local-browser, regression, and five-page Aidoc acceptance. Completed CQ-016 and advanced the current stage to Stage 8. |
+| 2026-07-24 | 1.6 | Stage 6 completed bounded, auditable breadth/depth navigation and conservative deterministic route-value prioritization, with successful deterministic, browser, Playwright, and five-page Aidoc acceptance. Completed CQ-013 through CQ-015 and advanced the current stage to Stage 7. |
+| 2026-07-24 | 1.5 | Stage 5 added the canonical unified finding lifecycle, explicit occurrence and logical verification, conservative rule/model reconciliation, traceable evidence semantics, Stage 3 compatibility projection, and authoritative schema-v2 JSON/Markdown reporting. External Playwright regression passed 3/3. The five-page Aidoc acceptance run `2026-07-24T07-02-21-200Z` passed canonical JSON/Markdown review, validated the assertion-specific verification boundary, and confirmed that the inconclusive Equador typo did not trigger verified suppression. Completed CQ-010 through CQ-012 and advanced the current stage to Stage 6. |
+| 2026-07-23 | 1.4 | Stage 4 added candidate-linked guarded disclosure and conventional ARIA tab investigation with exact identities, fail-closed browser containment, deterministic transition evidence, mandatory rollback, known-finding integration, deterministic coverage, and real Chromium localhost acceptance. Real-site trials also confirmed conservative ineligibility rejection and zero-new-request fail-closed behavior. A start-page defect found during acceptance was corrected so the configured start URL is inspected through the same authoritative page-inspection path and consumes the page budget. Advanced the current stage to Stage 5. |
+| 2026-07-23 | 1.3 | Stage 3 passed deterministic checks, a five-page real-site Aidoc acceptance run, report/JSON acceptance review, and the final Playwright regression suite; acceptance produced one logical Equador finding with four affected-page occurrences, one actual verification, and three redundant investigations skipped. One Playwright test initially hit a transient timeout, then passed in isolation, and the full suite subsequently passed 3/3; advanced the current stage to Stage 4. |
+| 2026-07-23 | 1.2 | Stage 2 passed deterministic checks, navigation-choice integration, a five-page real-site Aidoc acceptance run, and the existing 3-test Playwright regression suite; advanced the current stage to Stage 3. |
+| 2026-07-23 | 1.1 | Stage 1 passed deterministic checks, real-site acceptance, and the existing Playwright regression suite; advanced the current stage to Stage 2. |
 | 2026-07-23 | 1.0 | Established the canonical 10-stage roadmap and backlog-first planning rule. |
