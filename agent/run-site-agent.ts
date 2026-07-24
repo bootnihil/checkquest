@@ -403,6 +403,14 @@ async function main(): Promise<void> {
                   site.startUrl,
                 policyBand:
                   'start-page',
+                valueClass:
+                  null,
+                valueReasons:
+                  [],
+                eligibleValueClassCounts:
+                  null,
+                deferredValueReasonCounts:
+                  {},
                 predictedAreaKey:
                   predictPageIdentity(
                     homepageObservation
@@ -480,11 +488,15 @@ async function main(): Promise<void> {
                 );
 
                 console.log(
-                  `Stage 6.1 policy band: ${policyWindow.policyBand ?? 'none'}`
+                  `Stage 6.2 policy band: ${policyWindow.policyBand ?? 'none'}`
                 );
 
                 console.log(
                   `Area-diversified candidates supplied to Gemini: ${policyWindow.candidates.length}`
+                );
+
+                console.log(
+                  `Eligible route values: neutral=${policyWindow.eligibleValueClassCounts.neutral}, weak-low-value=${policyWindow.eligibleValueClassCounts['weak-low-value']}, strong-low-value=${policyWindow.eligibleValueClassCounts['strong-low-value']}`
                 );
 
                 console.log(
@@ -650,6 +662,20 @@ async function main(): Promise<void> {
                         decision
                           .policyCandidate
                           .policyBand,
+                      valueClass:
+                        decision
+                          .policyCandidate
+                          .valueClass,
+                      valueReasons:
+                        decision
+                          .policyCandidate
+                          .valueReasons,
+                      eligibleValueClassCounts:
+                        policyWindow
+                          .eligibleValueClassCounts,
+                      deferredValueReasonCounts:
+                        policyWindow
+                          .deferredValueReasonCounts,
                       predictedAreaKey:
                         decision
                           .predictedIdentity

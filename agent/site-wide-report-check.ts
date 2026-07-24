@@ -141,7 +141,50 @@ function createPageResult(
             },
 
             reason:
-              'Synthetic site-wide report check.'
+              'Synthetic site-wide report check.',
+
+            navigationAudit: {
+              traversalDepth:
+                1,
+              requestedUrl:
+                pageUrl,
+              policyBand:
+                'neutral-unseen-area',
+              valueClass:
+                'neutral',
+              valueReasons:
+                [],
+              eligibleValueClassCounts: {
+                neutral:
+                  3,
+                'weak-low-value':
+                  1,
+                'strong-low-value':
+                  1
+              },
+              deferredValueReasonCounts: {
+                'content-route-segment':
+                  1,
+                'administrative-document-segment':
+                  1
+              },
+              predictedAreaKey:
+                slug,
+              predictedRouteFamilyKey:
+                `/${slug}`,
+              firstDiscoveredFromUrl:
+                'https://example.com/radiology',
+              minimumDepthDiscoveredFromUrl:
+                'https://example.com/radiology',
+              budgetAtDecision: {
+                remainingPageSlots:
+                  2,
+                remainingNavigationDecisionSlots:
+                  2,
+                remainingPotentialInspections:
+                  2
+              }
+            }
           },
 
     observation: {
@@ -622,6 +665,34 @@ async function main(): Promise<void> {
     );
   }
 
+  const selectedNavigationAudit =
+    parsedJsonReport
+      .inspectedPages[1]
+      ?.selection
+      .navigationAudit;
+
+  if (
+    selectedNavigationAudit
+      ?.valueClass !==
+      'neutral' ||
+    selectedNavigationAudit
+      .policyBand !==
+      'neutral-unseen-area' ||
+    selectedNavigationAudit
+      .eligibleValueClassCounts
+      ?.['weak-low-value'] !==
+      1 ||
+    selectedNavigationAudit
+      .deferredValueReasonCounts[
+        'administrative-document-segment'
+      ] !==
+      1
+  ) {
+    throw new Error(
+      'JSON navigation audit does not preserve Stage 6.2 route-value selection metadata.'
+    );
+  }
+
   if (
     siteWideExploratoryFindings.length !==
     1
@@ -777,11 +848,11 @@ async function main(): Promise<void> {
       '| [Radiology](https://example.com/radiology) | Configured start URL |'
     ) ||
     !markdown.includes(
-      '| [Platform](https://example.com/platform) | Agent-selected navigation |'
+      '| [Platform](https://example.com/platform) | Agent-selected navigation (depth 1, value neutral, neutral-unseen-area) |'
     )
   ) {
     throw new Error(
-      'Markdown page reporting does not distinguish start-page inspection from agent-selected navigation.'
+      'Markdown page reporting does not distinguish the start page or expose selected Stage 6.2 navigation value.'
     );
   }
 

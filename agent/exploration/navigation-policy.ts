@@ -10,6 +10,12 @@ import {
 } from './page-novelty';
 
 import {
+  assessRouteValue,
+  type RouteValueClass,
+  type RouteValueReason
+} from './route-value';
+
+import {
   isNavigationUrlEligible,
   normalizeUrlForComparison,
   type NavigationUrlState
@@ -37,21 +43,52 @@ export interface NavigationBudgetContext {
   remainingPotentialInspections: number;
 }
 
+export type NavigationPolicyBand =
+  | 'neutral-unseen-area'
+  | 'weak-low-value-unseen-area'
+  | 'neutral-unseen-route-family'
+  | 'weak-low-value-unseen-route-family'
+  | 'neutral-seen-route-family'
+  | 'weak-low-value-seen-route-family'
+  | 'strong-low-value-unseen-area'
+  | 'strong-low-value-unseen-route-family'
+  | 'strong-low-value-seen-route-family';
+
+export interface RouteValueClassCounts {
+  neutral: number;
+  'weak-low-value': number;
+  'strong-low-value': number;
+}
+
+export type RouteValueReasonCounts =
+  Partial<
+    Record<
+      RouteValueReason,
+      number
+    >
+  >;
+
 export interface NavigationPolicyCandidate
   extends NoveltyNavigationCandidate {
   firstDiscoveryOrder: number;
   firstDiscoveredFromUrl: string;
   minimumDiscoveryDepth: number;
   minimumDepthDiscoveredFromUrl: string;
-  policyBand: NavigationNoveltyTier;
+  valueClass: RouteValueClass;
+  valueReasons: RouteValueReason[];
+  policyBand: NavigationPolicyBand;
   policyReason: string;
 }
 
 export interface NavigationPolicyWindow {
-  policyBand: NavigationNoveltyTier | null;
+  policyBand: NavigationPolicyBand | null;
   candidates: NavigationPolicyCandidate[];
   budget: NavigationBudgetContext;
   areaBreadthConstrained: boolean;
+  eligibleValueClassCounts:
+    RouteValueClassCounts;
+  deferredValueReasonCounts:
+    RouteValueReasonCounts;
 }
 
 export interface BuildNavigationPolicyWindowInput {
@@ -60,6 +97,41 @@ export interface BuildNavigationPolicyWindowInput {
   pageNoveltyState: PageNoveltyState;
   budget: NavigationBudgetContext;
   maximumCandidates?: number;
+}
+
+const navigationPolicyBandOrder:
+  readonly NavigationPolicyBand[] = [
+    'neutral-unseen-area',
+    'weak-low-value-unseen-area',
+    'neutral-unseen-route-family',
+    'weak-low-value-unseen-route-family',
+    'neutral-seen-route-family',
+    'weak-low-value-seen-route-family',
+    'strong-low-value-unseen-area',
+    'strong-low-value-unseen-route-family',
+    'strong-low-value-seen-route-family'
+  ];
+
+function createEmptyRouteValueClassCounts():
+  RouteValueClassCounts {
+  return {
+    neutral:
+      0,
+    'weak-low-value':
+      0,
+    'strong-low-value':
+      0
+  };
+}
+
+function getNavigationPolicyBand(
+  valueClass: RouteValueClass,
+  noveltyTier: NavigationNoveltyTier
+): NavigationPolicyBand {
+  return (
+    `${valueClass}-${noveltyTier}` as
+      NavigationPolicyBand
+  );
 }
 
 export function createNavigationFrontier():
@@ -454,7 +526,11 @@ export function buildNavigationPolicyWindow(
       budget:
         input.budget,
       areaBreadthConstrained:
-        false
+        false,
+      eligibleValueClassCounts:
+        createEmptyRouteValueClassCounts(),
+      deferredValueReasonCounts:
+        {}
     };
   }
 
@@ -484,7 +560,11 @@ export function buildNavigationPolicyWindow(
       budget:
         input.budget,
       areaBreadthConstrained:
-        false
+        false,
+      eligibleValueClassCounts:
+        createEmptyRouteValueClassCounts(),
+      deferredValueReasonCounts:
+        {}
     };
   }
 
@@ -507,26 +587,6 @@ export function buildNavigationPolicyWindow(
       eligibleEntries.length
     );
 
-  const policyBand =
-    noveltyCandidates[0]
-      ?.noveltyTier ??
-    null;
-
-  if (
-    policyBand ===
-    null
-  ) {
-    return {
-      policyBand,
-      candidates:
-        [],
-      budget:
-        input.budget,
-      areaBreadthConstrained:
-        false
-    };
-  }
-
   const entriesByUrl =
     new Map(
       eligibleEntries.map(
@@ -539,13 +599,9 @@ export function buildNavigationPolicyWindow(
       )
     );
 
-  const bandCandidates =
+  const policyCandidates:
+    NavigationPolicyCandidate[] =
     noveltyCandidates
-      .filter(
-        candidate =>
-          candidate.noveltyTier ===
-          policyBand
-      )
       .map(
         candidate => {
           const frontierEntry =
@@ -563,6 +619,19 @@ export function buildNavigationPolicyWindow(
             );
           }
 
+          const routeValue =
+            assessRouteValue(
+              candidate.link.url
+            );
+
+          const policyBand =
+            getNavigationPolicyBand(
+              routeValue
+                .valueClass,
+              candidate
+                .noveltyTier
+            );
+
           return {
             ...candidate,
             firstDiscoveryOrder:
@@ -577,12 +646,99 @@ export function buildNavigationPolicyWindow(
             minimumDepthDiscoveredFromUrl:
               frontierEntry
                 .minimumDepthDiscoveredFromUrl,
+            valueClass:
+              routeValue
+                .valueClass,
+            valueReasons:
+              routeValue
+                .reasons,
             policyBand,
             policyReason:
-              `Highest eligible Stage 6.1 novelty band: ${policyBand}; area-diversified before route-family repetition.`
+              `Highest eligible Stage 6.2 policy band: ${policyBand} (route value: ${routeValue.valueClass}; novelty: ${candidate.noveltyTier}); area-diversified before route-family repetition.`
           };
         }
       );
+
+  const eligibleValueClassCounts =
+    createEmptyRouteValueClassCounts();
+
+  for (
+    const candidate of
+      policyCandidates
+  ) {
+    eligibleValueClassCounts[
+      candidate.valueClass
+    ] +=
+      1;
+  }
+
+  const policyBand =
+    navigationPolicyBandOrder.find(
+      band =>
+        policyCandidates.some(
+          candidate =>
+            candidate.policyBand ===
+            band
+        )
+    ) ??
+    null;
+
+  if (
+    policyBand ===
+    null
+  ) {
+    return {
+      policyBand,
+      candidates:
+        [],
+      budget:
+        input.budget,
+      areaBreadthConstrained:
+        false,
+      eligibleValueClassCounts,
+      deferredValueReasonCounts:
+        {}
+    };
+  }
+
+  const bandCandidates =
+    policyCandidates.filter(
+      candidate =>
+        candidate.policyBand ===
+        policyBand
+    );
+
+  const deferredValueReasonCounts:
+    RouteValueReasonCounts =
+      {};
+
+  for (
+    const candidate of
+      policyCandidates
+  ) {
+    if (
+      candidate.policyBand ===
+      policyBand
+    ) {
+      continue;
+    }
+
+    for (
+      const reason of
+        candidate.valueReasons
+    ) {
+      deferredValueReasonCounts[
+        reason
+      ] =
+        (
+          deferredValueReasonCounts[
+            reason
+          ] ??
+          0
+        ) +
+        1;
+    }
+  }
 
   const candidatesByArea =
     new Map<
@@ -709,6 +865,8 @@ export function buildNavigationPolicyWindow(
       selected,
     budget:
       input.budget,
-    areaBreadthConstrained
+    areaBreadthConstrained,
+    eligibleValueClassCounts,
+    deferredValueReasonCounts
   };
 }

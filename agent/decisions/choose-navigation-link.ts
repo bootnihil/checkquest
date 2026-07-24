@@ -204,6 +204,12 @@ export async function chooseNavigationLink(
         policyBand:
           candidate.policyBand,
 
+        valueClass:
+          candidate.valueClass,
+
+        valueReasons:
+          candidate.valueReasons,
+
         policyReason:
           candidate.policyReason,
 
@@ -251,9 +257,11 @@ Choose one useful, representative internal navigation link for the next page ins
 
 Rules:
 - Choose only from the supplied numbered list.
-- Deterministic policy has already restricted the list to the strongest currently eligible novelty band.
+- Deterministic policy has already restricted the list to the strongest currently eligible Stage 6.2 route-value and novelty band.
 - Choose within this list; do not invent or request a candidate outside it.
-- Treat novelty, traversal depth and policy metadata as prioritization guidance, never as permission to bypass safety.
+- Treat route value, novelty, traversal depth and policy metadata as prioritization guidance, never as permission to bypass safety.
+- Weak-low-value and strong-low-value mean lower exploration priority, not unsafe or ineligible.
+- Low-value routes remain valid targets when they are in the current best band. Do not finish merely because the current band is low-value.
 - Prefer an informative content or product page.
 - Do not choose a form, demo-booking page, search page or destructive action.
 - Do not invent a URL.

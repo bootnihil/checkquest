@@ -151,6 +151,43 @@ function createPolicyWindow(
   };
 }
 
+function assertBestPolicyBand(
+  name: string,
+  links: NavigationLink[],
+  inspectedUrls: string[],
+  expectedPolicyBand:
+    ReturnType<
+      typeof buildNavigationPolicyWindow
+    >['policyBand'],
+  expectedPath: string
+): ReturnType<
+  typeof buildNavigationPolicyWindow
+> {
+  const policyWindow =
+    createPolicyWindow(
+      links,
+      {
+        inspectedUrls
+      }
+    ).window;
+
+  assert.equal(
+    policyWindow.policyBand,
+    expectedPolicyBand,
+    name
+  );
+
+  assert.equal(
+    candidatePaths(
+      policyWindow.candidates
+    )[0],
+    expectedPath,
+    name
+  );
+
+  return policyWindow;
+}
+
 async function main():
   Promise<void> {
   const breadthLinks = [
@@ -213,7 +250,7 @@ async function main():
 
   assert.equal(
     breadthWindow.policyBand,
-    'unseen-area'
+    'neutral-unseen-area'
   );
   assert.deepEqual(
     candidatePaths(
@@ -251,7 +288,7 @@ async function main():
 
   assert.equal(
     depthWindow.policyBand,
-    'unseen-route-family'
+    'neutral-unseen-route-family'
   );
   assert.ok(
     candidatePaths(
@@ -387,7 +424,7 @@ async function main():
 
   assert.equal(
     unseenArea.policyBand,
-    'unseen-area'
+    'neutral-unseen-area'
   );
   assert.deepEqual(
     candidatePaths(
@@ -413,7 +450,7 @@ async function main():
 
   assert.equal(
     unseenFamily.policyBand,
-    'unseen-route-family'
+    'neutral-unseen-route-family'
   );
   assert.deepEqual(
     candidatePaths(
@@ -440,7 +477,370 @@ async function main():
 
   assert.equal(
     seenFamily.policyBand,
-    'seen-route-family'
+    'neutral-seen-route-family'
+  );
+
+  const neutralBeforeWeakUnseenArea =
+    assertBestPolicyBand(
+      'Neutral unseen area must beat weak unseen area.',
+      [
+        createLink(
+          '/platform'
+        ),
+        createLink(
+          '/blog'
+        )
+      ],
+      [],
+      'neutral-unseen-area',
+      '/platform'
+    );
+
+  assert.deepEqual(
+    neutralBeforeWeakUnseenArea
+      .eligibleValueClassCounts,
+    {
+      neutral:
+        1,
+      'weak-low-value':
+        1,
+      'strong-low-value':
+        0
+    }
+  );
+  assert.equal(
+    neutralBeforeWeakUnseenArea
+      .deferredValueReasonCounts[
+        'content-route-segment'
+      ],
+    1
+  );
+
+  assertBestPolicyBand(
+    'Weak unseen area must beat neutral unseen route family.',
+    [
+      createLink(
+        '/blog'
+      ),
+      createLink(
+        '/known/new'
+      )
+    ],
+    [
+      'https://example.com/known/existing'
+    ],
+    'weak-low-value-unseen-area',
+    '/blog'
+  );
+
+  assertBestPolicyBand(
+    'Neutral unseen route family must beat weak unseen route family.',
+    [
+      createLink(
+        '/known/new'
+      ),
+      createLink(
+        '/known/blog'
+      )
+    ],
+    [
+      'https://example.com/known/existing'
+    ],
+    'neutral-unseen-route-family',
+    '/known/new'
+  );
+
+  assertBestPolicyBand(
+    'Weak unseen route family must beat neutral seen route family.',
+    [
+      createLink(
+        '/known/blog'
+      ),
+      createLink(
+        '/known/existing'
+      )
+    ],
+    [
+      'https://example.com/known/existing'
+    ],
+    'weak-low-value-unseen-route-family',
+    '/known/blog'
+  );
+
+  assertBestPolicyBand(
+    'Neutral seen route family must beat weak seen route family.',
+    [
+      createLink(
+        '/known/existing'
+      ),
+      createLink(
+        '/blog'
+      )
+    ],
+    [
+      'https://example.com/known/existing',
+      'https://example.com/blog'
+    ],
+    'neutral-seen-route-family',
+    '/known/existing'
+  );
+
+  const nonStrongBands = [
+    {
+      name:
+        'neutral unseen area',
+      links: [
+        createLink(
+          '/platform'
+        ),
+        createLink(
+          '/privacy-policy'
+        )
+      ],
+      inspectedUrls:
+        [],
+      expectedBand:
+        'neutral-unseen-area' as const,
+      expectedPath:
+        '/platform'
+    },
+    {
+      name:
+        'weak unseen area',
+      links: [
+        createLink(
+          '/blog'
+        ),
+        createLink(
+          '/privacy-policy'
+        )
+      ],
+      inspectedUrls:
+        [],
+      expectedBand:
+        'weak-low-value-unseen-area' as const,
+      expectedPath:
+        '/blog'
+    },
+    {
+      name:
+        'neutral unseen route family',
+      links: [
+        createLink(
+          '/known/new'
+        ),
+        createLink(
+          '/privacy-policy'
+        )
+      ],
+      inspectedUrls: [
+        'https://example.com/known/existing'
+      ],
+      expectedBand:
+        'neutral-unseen-route-family' as const,
+      expectedPath:
+        '/known/new'
+    },
+    {
+      name:
+        'weak unseen route family',
+      links: [
+        createLink(
+          '/known/blog'
+        ),
+        createLink(
+          '/privacy-policy'
+        )
+      ],
+      inspectedUrls: [
+        'https://example.com/known/existing'
+      ],
+      expectedBand:
+        'weak-low-value-unseen-route-family' as const,
+      expectedPath:
+        '/known/blog'
+    },
+    {
+      name:
+        'neutral seen route family',
+      links: [
+        createLink(
+          '/known/existing'
+        ),
+        createLink(
+          '/privacy-policy'
+        )
+      ],
+      inspectedUrls: [
+        'https://example.com/known/existing'
+      ],
+      expectedBand:
+        'neutral-seen-route-family' as const,
+      expectedPath:
+        '/known/existing'
+    },
+    {
+      name:
+        'weak seen route family',
+      links: [
+        createLink(
+          '/blog'
+        ),
+        createLink(
+          '/privacy-policy'
+        )
+      ],
+      inspectedUrls: [
+        'https://example.com/blog'
+      ],
+      expectedBand:
+        'weak-low-value-seen-route-family' as const,
+      expectedPath:
+        '/blog'
+    }
+  ];
+
+  for (
+    const testCase of
+      nonStrongBands
+  ) {
+    assertBestPolicyBand(
+      `${testCase.name} must beat a strong-low-value unseen area.`,
+      testCase.links,
+      testCase.inspectedUrls,
+      testCase.expectedBand,
+      testCase.expectedPath
+    );
+  }
+
+  assertBestPolicyBand(
+    'Strong unseen area must beat strong unseen route family.',
+    [
+      createLink(
+        '/privacy-policy'
+      ),
+      createLink(
+        '/known/terms-of-use'
+      )
+    ],
+    [
+      'https://example.com/known/existing'
+    ],
+    'strong-low-value-unseen-area',
+    '/privacy-policy'
+  );
+
+  assertBestPolicyBand(
+    'Strong unseen route family must beat strong seen route family.',
+    [
+      createLink(
+        '/known/terms-of-use'
+      ),
+      createLink(
+        '/cookie-policy'
+      )
+    ],
+    [
+      'https://example.com/known/existing',
+      'https://example.com/cookie-policy'
+    ],
+    'strong-low-value-unseen-route-family',
+    '/known/terms-of-use'
+  );
+
+  const strongOnlyWindow =
+    assertBestPolicyBand(
+      'Strong-low-value routes must remain selectable when nothing better remains.',
+      [
+        createLink(
+          '/privacy-policy'
+        )
+      ],
+      [],
+      'strong-low-value-unseen-area',
+      '/privacy-policy'
+    );
+
+  assert.equal(
+    strongOnlyWindow
+      .candidates
+      .length,
+    1
+  );
+  assert.equal(
+    strongOnlyWindow
+      .candidates[0]
+      .valueClass,
+    'strong-low-value'
+  );
+  assert.deepEqual(
+    strongOnlyWindow
+      .candidates[0]
+      .valueReasons,
+    [
+      'administrative-document-segment'
+    ]
+  );
+
+  const weakAreaDiversity =
+    createPolicyWindow(
+      [
+        ...Array.from(
+          {
+            length:
+              25
+          },
+          (
+            _unused,
+            index
+          ) =>
+            createLink(
+              `/blog/family-${index}`
+            )
+        ),
+        createLink(
+          '/news'
+        )
+      ],
+      {
+        remainingPages:
+          2,
+        remainingDecisions:
+          2
+      }
+    ).window;
+
+  assert.equal(
+    weakAreaDiversity
+      .policyBand,
+    'weak-low-value-unseen-area'
+  );
+  assert.equal(
+    weakAreaDiversity
+      .areaBreadthConstrained,
+    true
+  );
+  assert.deepEqual(
+    new Set(
+      weakAreaDiversity
+        .candidates
+        .map(
+          candidate =>
+            candidate
+              .predictedIdentity
+              .areaKey
+        )
+    ),
+    new Set([
+      'blog',
+      'news'
+    ])
+  );
+  assert.ok(
+    weakAreaDiversity
+      .candidates
+      .length <=
+      20
   );
 
   const attemptedFrontier =
@@ -827,14 +1227,14 @@ async function main():
   );
 
   console.log(
-    'All Stage 6.1 navigation policy checks passed.'
+    'All Stage 6.2 navigation policy checks passed.'
   );
 }
 
 main().catch(
   error => {
     console.error(
-      'Stage 6.1 navigation policy check failed.'
+      'Stage 6.2 navigation policy check failed.'
     );
     console.error(
       error

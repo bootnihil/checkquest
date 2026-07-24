@@ -34,12 +34,18 @@ import type {
 } from '../investigation/known-findings';
 
 import type {
-  InspectedPageNovelty,
-  NavigationNoveltyTier
+  InspectedPageNovelty
 } from '../exploration/page-novelty';
 import type {
-  NavigationBudgetContext
+  NavigationBudgetContext,
+  NavigationPolicyBand,
+  RouteValueClassCounts,
+  RouteValueReasonCounts
 } from '../exploration/navigation-policy';
+import type {
+  RouteValueClass,
+  RouteValueReason
+} from '../exploration/route-value';
 import type {
   UnifiedFinding
 } from '../findings/finding-model';
@@ -64,7 +70,15 @@ export interface NavigationSelectionAudit {
   requestedUrl: string;
   policyBand:
     | 'start-page'
-    | NavigationNoveltyTier;
+    | NavigationPolicyBand;
+  valueClass:
+    RouteValueClass | null;
+  valueReasons:
+    RouteValueReason[];
+  eligibleValueClassCounts:
+    RouteValueClassCounts | null;
+  deferredValueReasonCounts:
+    RouteValueReasonCounts;
   predictedAreaKey: string;
   predictedRouteFamilyKey: string;
   firstDiscoveredFromUrl: string | null;

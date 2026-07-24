@@ -378,9 +378,9 @@ export async function writeMarkdownReport(
           'start-url'
           ? 'Configured start URL'
           : pageResult
-              .selection
+            .selection
               .navigationAudit
-            ? `Agent-selected navigation (depth ${pageResult.selection.navigationAudit.traversalDepth}, ${pageResult.selection.navigationAudit.policyBand})`
+            ? `Agent-selected navigation (depth ${pageResult.selection.navigationAudit.traversalDepth}, value ${pageResult.selection.navigationAudit.valueClass ?? 'not-applicable'}, ${pageResult.selection.navigationAudit.policyBand}${pageResult.selection.navigationAudit.valueReasons.length > 0 ? `; reasons: ${pageResult.selection.navigationAudit.valueReasons.join(', ')}` : ''})`
             : 'Agent-selected navigation';
 
       lines.push(
