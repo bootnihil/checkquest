@@ -367,7 +367,7 @@ failure contract, and in-memory report are documented in
 | Analyze without autonomous investigation | `npm run agent:explore -- https://www.example.com/ --steps-per-page 0` |
 
 Report files from a successful CLI run are written under
-`agent-results/<run-id>/`; see [Reports and evidence](../README.md#reports-and-evidence).
+`agent-results/<run-id>/`; see [What you get](../README.md#what-you-get).
 
 ## Current boundaries
 

@@ -436,8 +436,8 @@ for real `runSite` browser integration without widening the production API.
 Most lower-level policies and registries are plain deterministic modules and
 can be tested directly.
 
-See the [README verification table](../README.md#local-verification-and-ci) for
-the current commands and CI split.
+See [Development and verification](../README.md#development-and-verification)
+in the README for the current contributor commands and CI split.
 
 ## Deliberate boundaries and non-goals
 

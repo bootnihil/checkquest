@@ -1,9 +1,9 @@
 # CheckQuest Roadmap
 
-**Roadmap version:** 1.12
+**Roadmap version:** 1.13
 
 **Frozen on:** 2026-07-23  
-**Current stage:** Stage 8F — Production-readiness review
+**Current stage:** Stage 9 — Productization boundary
 
 ## How this roadmap is used
 
@@ -305,6 +305,24 @@ Functional/UX exploration and passive security/infrastructure posture remain sep
 ---
 
 # Stage 8 — Engineering hardening
+
+**Completed:** 2026-07-25
+
+Stage 8 hardened the existing CheckQuest engine without changing its core
+exploratory-QA proposition or chasing analyzer scores. Across Stages 8A–8F it
+established reusable execution boundaries, mandatory static and local-browser
+quality gates, deeper lifecycle/integration coverage, structured errors and
+progress events, presentation-neutral programmatic execution, current
+technical documentation, and a final repository-wide production-readiness
+review.
+
+The final Stage 8F verdict was **READY TO CLOSE STAGE 8** with
+**NO STAGE 8 CLOSEOUT BLOCKERS FOUND**. Mandatory confidence remained
+independent of external Aidoc and Gemini availability. Schema-v3 reporting,
+candidate-driven and guarded interaction safety, passive zero-probe security,
+the fail-fast/no-partial-report contract, explicit Gemini BYOK, and the
+canonical `target|select-option|country|equador` mechanical-versus-semantic
+verification boundary remained intact.
 
 This stage intentionally incorporates the legitimate takeaways from the 2026-07-23 DevAnalyzer review without chasing arbitrary analyzer scores.
 
@@ -670,15 +688,79 @@ Stage 10 or later rather than unfinished CQ-021 requirements.
 
 ## 8F — Production-readiness and CI review
 
-Perform a deliberate repository-wide readiness pass.
+**Completed:** 2026-07-25
 
-### Explicit non-goals
+Stage 8F completed CQ-022 with a read-only repository-wide readiness audit.
+The verdict was **READY TO CLOSE STAGE 8**, with
+**NO STAGE 8 CLOSEOUT BLOCKERS FOUND**.
 
-Do **not** add the following merely to satisfy an automated analyzer:
+Repository hygiene, package/lock consistency, clean-install expectations,
+static quality, deterministic and Chromium regression structure, mandatory CI,
+runtime/API boundaries, cleanup/error handling, `RunEvent` observability,
+Gemini BYOK/privacy, guarded browser safety, passive-security zero-probe
+behavior, canonical finding/report integrity, configuration, documentation,
+portability, bounded execution, and external-dependency isolation were all
+reviewed against the implemented repository.
+
+Final readiness verification passed:
+
+- `npm run typecheck`
+- `npm run lint`
+- `npm run lint:md` — 0 issues
+- `npm run test:deterministic` — 27/27
+- `npm run check`
+- `npm run test:browser:ci` — 6/6
+- `npm ci --dry-run --ignore-scripts --offline`
+- `npm ls --depth=0`
+- offline `npm audit` — zero locally reported vulnerabilities
+- `git diff --check`
+- clean `git status`
+
+Mandatory confidence requires no Aidoc availability and no Gemini credential.
+No tracked credentials, environment files, debug artifacts, editor/OS junk, or
+other material repository-hygiene defects were found. The existing dual
+TypeScript compiler/tooling arrangement remains intentional and operational.
+
+Stage 8F confirmed that no Stage 8 implementation bypasses candidate/action
+identity, guarded containment and rollback, form-submission restrictions,
+passive-security redaction, structured cleanup/error precedence, or
+presentation-neutral reusable execution. Schema version 3 and the exact
+`target|select-option|country|equador` sentinel remain unchanged: a raw
+mechanical select result may be `VERIFIED` while the canonical semantic finding
+remains `INCONCLUSIVE` without verification-capable semantic evidence.
+
+After the readiness audit, `README.md` received one final documentation-only
+compression and presentation pass. It restored visual hierarchy, concise
+badges/emojis, and a shorter technical front door while preserving the
+accepted Stage 8E behavior, safety, BYOK, testing, reporting, and Equador
+semantics. Markdown lint, the canonical quality gate, and
+`git diff --check` remained clean. Product positioning, personas,
+adjacent-tool comparisons, demo/showcase work, and broader public
+productization remain Stage 10 work.
+
+### Explicit non-goals / non-blocking future work
+
+Stage 8F did **not** promote optional hardening into closeout blockers.
+The following remain future work only when justified by a concrete product or
+deployment need:
 
 - Docker/containerization without an actual deployment need;
 - a ceremonial build step without a packaging/runtime need;
-- additional technologies merely to increase stack breadth.
+- additional technologies merely to increase stack breadth;
+- coverage-percentage targets or test-framework migration;
+- Prettier or broad formatting migration;
+- stricter TypeScript flags without demonstrated defects;
+- macOS, multi-Node, or multi-browser CI matrices;
+- dependency upgrades without a current incompatibility or vulnerability;
+- telemetry, cancellation, remote tracing, event buses, or logging frameworks;
+- dependency-injection/plugin frameworks;
+- additional autonomous browser actions;
+- broader cookie/TLS/DNS/request-inventory security features;
+- atomic or partial-report persistence behavior;
+- installer, SaaS, or public-SDK packaging.
+
+A narrow `.env` / `.env.local` ignore remains only optional
+credential-hygiene defense-in-depth, not unfinished Stage 8 work.
 
 ---
 
@@ -760,6 +842,7 @@ Before moving to the next stage:
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-07-25 | 1.13 | Stage 8F completed CQ-022 with a repository-wide production-readiness review and the verdict READY TO CLOSE STAGE 8, with no closeout blockers. TypeScript, ESLint, Markdown lint, 27/27 deterministic checks, the canonical quality gate, and 6/6 local Chromium checks passed; install/package consistency, repository hygiene, CI isolation, BYOK/privacy, guarded browser safety, passive zero-probe behavior, cleanup/error/observability boundaries, schema-v3 reporting, configuration, documentation, portability, and bounded execution were all found ready. A final documentation-only README compression/presentation pass preserved the accepted technical semantics while restoring a shorter, more readable front door. CQ-022 moved to completed, Stage 8 was closed, and the current stage advanced to Stage 9 / CQ-023–CQ-024. |
 | 2026-07-25 | 1.12 | Stage 8E completed CQ-021 with an accurate operational README, a source-linked architecture/programmatic API reference, a bounded configuration/onboarding reference, and coherent navigation among canonical documentation. Final acceptance answered all 26 adversarial onboarding questions, resolved all 47 documentation links and anchors, found no blocking defects or local absolute paths, and passed Markdown lint, the 27-check deterministic quality gate, and `git diff --check` without Aidoc or Gemini connectivity. Schema-v3, exact Equador mechanical-versus-semantic verification, bounded safety, passive zero-probe, fail-fast reporting, and explicit Gemini BYOK semantics remain documented accurately. Advanced the active Stage 8 focus to Stage 8F / CQ-022. |
 | 2026-07-25 | 1.11 | Stage 8D completed CQ-020 with bounded structured errors, early reusable-input validation, explicit Gemini BYOK handling, safe model-response failures, conservative read-only retry policy, cleanup precedence, privacy-safe typed run events, reusable-core silence, CLI-owned progress, and actionable configuration failures. Final gates passed 27/27 deterministic and 6/6 browser checks; schema-v3 finding, Equador, guarded-safety, passive-security, reporting, and fail-fast semantics remained unchanged. Advanced the active Stage 8 focus to Stage 8E / CQ-021. |
 | 2026-07-25 | 1.10 | Stage 8C completed CQ-019 with reference-safe finding lifecycle integrity, deeper passive-security/reporting/URL/configuration coverage, Chromium-safe loopback allocation, and real local Gemini-free `runSite`/`inspectPage` integration and cleanup coverage. Genuine positional association, CSP directive-terminator, Markdown escaping, and unsafe ephemeral-port defects were corrected. Final gates passed 23/23 deterministic and 6/6 browser checks, including three stable browser repetitions; schema-v3 Equador semantics remained unchanged and no external Aidoc/Gemini success was claimed. Advanced the active Stage 8 focus to Stage 8D / CQ-020. |

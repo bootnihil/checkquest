@@ -1,8 +1,8 @@
 # CheckQuest Backlog
 
-**Backlog version:** 1.0  
+**Backlog version:** 1.13
 **Established:** 2026-07-23  
-**Current roadmap stage:** Stage 8F — Production-readiness review
+**Current roadmap stage:** Stage 9 — Productization boundary
 
 This file is the parking place for work that should not silently interrupt the current roadmap stage.
 
@@ -28,9 +28,8 @@ A newly added backlog item does **not** become immediate work merely because it 
 
 | ID | Item | Target stage | Status | Notes |
 |---|---|---:|---|---|
-| CQ-022 | Perform a repository-wide production-readiness/CI review | 8 | NOW | Active Stage 8F focus. Perform the existing deliberate repository-wide readiness review without analyzer-score chasing. |
-| CQ-023 | Formalize presentation-agnostic core boundaries | 9 | QUEUED | Keep CLI, desktop, and web/SaaS options viable. |
-| CQ-024 | Formalize Gemini BYOK handling across future interfaces | 9 | QUEUED | User keys must remain user-owned, isolated, and unlogged. |
+| CQ-023 | Formalize presentation-agnostic core boundaries | 9 | NOW | Active Stage 9 core-boundary focus. Keep CLI, desktop, and web/SaaS options viable without introducing frontend-specific coupling. |
+| CQ-024 | Formalize Gemini BYOK handling across future interfaces | 9 | NOW | Active Stage 9 credential/interface-boundary focus. User keys must remain user-owned, isolated, ephemeral by default, and unlogged. |
 | CQ-025 | Define release-quality installation/distribution | 10 | QUEUED | Exact mechanism depends on product direction. |
 | CQ-026 | Finalize stable configuration/versioning/report behavior | 10 | QUEUED | Required before external users depend on CheckQuest. |
 | CQ-027 | Polish the public repository and example/demo configuration | 10 | QUEUED | Final external-facing repository pass. |
@@ -113,3 +112,4 @@ Move completed backlog entries here during stage-closeout reviews.
 | CQ-019 | Expand unit/integration test depth around agent logic | Stage 8C — Test depth and coverage (DONE — 2026-07-25) |
 | CQ-020 | Harden error handling, retries, and observability | Stage 8D — Error handling and observability (DONE — 2026-07-25) |
 | CQ-021 | Expand setup and architecture documentation | Stage 8E — Documentation (DONE — 2026-07-25) |
+| CQ-022 | Perform a repository-wide production-readiness/CI review | Stage 8F — Production-readiness review (DONE — 2026-07-25) |
