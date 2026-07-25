@@ -4,349 +4,279 @@
 
 # CheckQuest
 
-An experimental **AI-powered exploratory web testing agent** built with **TypeScript, Playwright, Gemini, and Zod**.
+[![Repository Quality](https://github.com/bootnihil/checkquest/actions/workflows/quality.yml/badge.svg)](https://github.com/bootnihil/checkquest/actions/workflows/quality.yml)
 
-![Playwright Tests](https://github.com/bootnihil/checkquest/actions/workflows/playwright.yml/badge.svg)
-![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue?logo=typescript)
-![Playwright](https://img.shields.io/badge/Playwright-Automation-green?logo=playwright)
-![Gemini](https://img.shields.io/badge/Gemini-AI%20Reasoning-blueviolet)
-![Status](https://img.shields.io/badge/status-active%20development-orange)
+CheckQuest is an experimental exploratory web-testing agent built with
+TypeScript, Playwright, Gemini, and Zod. It combines model reasoning with
+deterministic browser execution, evidence collection, and structured
+reporting.
 
-Give CheckQuest a public URL and it can choose pages to inspect, identify suspicious content or behavior, perform constrained browser interactions, collect evidence, and generate structured QA reports.
+> AI helps decide what is worth investigating. Deterministic code controls
+> which browser actions are permitted.
 
-> **AI decides what is worth investigating. Deterministic code controls what the browser is allowed to do.**
+CheckQuest performs bounded, non-exhaustive exploration. It is designed for
+careful testing of HTTP/HTTPS websites, not unrestricted crawling or general
+browser automation.
 
----
+## What it does today
 
-## 💡 Why This Project?
+CheckQuest currently:
 
-Traditional automation is excellent at checking known expectations:
+- fully inspects the configured start page as page 1;
+- performs bounded multi-page navigation over eligible internal links;
+- uses deterministic route policy and page novelty/diversity before model
+  navigation choice;
+- combines deterministic findings with evidence-grounded model observations;
+- conservatively reconciles findings into canonical logical findings and
+  page occurrences;
+- supplies run-level known-finding context to later page analysis and can
+  suppress redundant investigation of findings already verified;
+- ties every autonomous investigation action to a concrete page-local
+  candidate and evidence target;
+- supports constrained form-control actions plus guarded informational
+  disclosure and conventional ARIA tab investigation;
+- collects browser diagnostics and conditional screenshot evidence;
+- observes passive main-document security posture without adding active probe
+  traffic;
+- returns one schema-version-3 report model and writes JSON and Markdown
+  reports from the CLI;
+- exposes structured run events and error categories for programmatic callers.
 
-```text
-Given X
-When Y
-Then Z
-```
+Exploration breadth depends on the configured page and navigation budgets. It
+does not attempt to enumerate every route or prove the absence of defects.
 
-Exploratory testing asks something different:
+## How exploration works
 
-> **What might be wrong here that nobody explicitly wrote a test for?**
-
-CheckQuest explores whether an AI agent can help answer that question without giving an LLM unrestricted control over a browser.
-
-```text
-Observe
-   ↓
-Form a QA hypothesis
-   ↓
-Request one approved action
-   ↓
-Validate it
-   ↓
-Execute with Playwright
-   ↓
-Observe again
-   ↓
-Decide what to do next
-```
-
----
-
-## 🚀 What Can It Do Today?
-
-CheckQuest can:
-
-- accept a public URL directly from the command line;
-- explore multiple pages within an approved hostname;
-- let Gemini choose representative pages to inspect;
-- extract headings, links, buttons, fields, dropdowns, and visible text;
-- collect console and network diagnostics;
-- identify evidence-grounded candidate findings;
-- perform bounded autonomous investigations;
-- interact safely with supported UI controls;
-- capture screenshot evidence;
-- preserve page-level investigation history;
-- deduplicate repeated findings into a site-wide view;
-- generate JSON and Markdown reports.
-
-A typical run looks like:
+A run follows this high-level sequence:
 
 ```text
-Public URL
+Validate configuration and model requirements
     ↓
-Safe runtime configuration
+Launch Chromium and inspect the configured start page
     ↓
-AI chooses a page
+Collect page content, diagnostics, deterministic findings,
+and passive main-document security observations
     ↓
-Playwright opens and observes it
+Ask Gemini for evidence-grounded candidate findings
     ↓
-AI identifies candidate findings
+Reconcile candidates with findings already known in the run
     ↓
-Planner requests a supported action
+Perform only candidate-linked, deterministically approved investigations
     ↓
-Deterministic code executes it
+Add eligible internal links to the bounded navigation frontier
     ↓
-Evidence is collected
+Choose another page within deterministic policy constraints, or finish
     ↓
-Repeated findings are grouped
-    ↓
-Reports are generated
+Build the canonical schema-v3 report
 ```
 
----
+The deterministic navigation policy considers information such as previously
+visited pages, predicted page identity, route value, traversal depth, and
+run-level novelty. Gemini chooses only within the eligible candidate band
+provided by that policy.
 
-## 🔍 A Real Issue It Found
+The reusable run coordinator returns an in-memory report. The CLI separately
+renders progress and persists report files. Programmatic execution can omit
+the event observer and remain silent.
 
-During autonomous runs against the Aidoc public website, CheckQuest inspected a country dropdown and noticed both:
+## Conservative verification
+
+CheckQuest distinguishes an observed interaction fact from a broader semantic
+claim.
+
+For example, the regression sentinel `Equador` is an observed native-select
+option. A candidate-driven interaction can select it, so the raw mechanical
+interaction result can be `VERIFIED`. That does not independently prove the
+semantic assertion that the text is incorrect, so the canonical finding
+remains `INCONCLUSIVE` unless verification-capable evidence establishes that
+claim.
+
+Its canonical fingerprint is:
 
 ```text
-Ecuador
-Equador
+target|select-option|country|equador
 ```
 
-Gemini identified `Equador` as a likely misspelled duplicate.
+A canonical finding represents one logical issue. Occurrences record the
+pages on which it appeared, and evidence records what supports, contradicts,
+or remains inconclusive about the finding. Conservative fingerprinting and
+reconciliation can unify occurrences across pages without forcing uncertain
+claims into a verified state.
 
-The agent then safely:
+## Safety by design
 
-1. located the observed dropdown;
-2. selected `Equador`;
-3. selected the correctly spelled `Ecuador`;
-4. confirmed that both values were available;
-5. captured screenshot evidence;
-6. stopped once sufficient evidence had been collected.
+“Production-safe” is a constrained design goal, not a guarantee that website
+interaction can never produce side effects.
 
-The same form appeared on several pages. Instead of reporting three separate defects, the final report grouped them into one site-wide finding:
+Normal browser navigation generates ordinary traffic to the target website.
+CheckQuest limits that navigation to approved hosts and finite budgets. Its
+passive-security layer only observes signals already produced by normal
+main-document browsing; it does not add security probes.
 
-```text
-Unique finding:
-Misspelled country option
+Autonomous investigation is candidate-driven. The planner has no generic
+arbitrary-click, CSS-selector, or JavaScript-execution authority. Current
+actions are limited to:
 
-Occurrences:
-3
+- fill, clear, or blur an exactly identified supported text field;
+- select an observed option from an exactly identified native `<select>`;
+- perform a bounded scroll;
+- set the state of an eligible informational disclosure;
+- select an eligible conventional ARIA tab;
+- stop exploration.
 
-Affected pages:
-3
-```
+Guarded disclosure and tab actions use a stricter click-like containment
+boundary. It monitors and blocks outbound requests, mutation-capable requests,
+form submission, navigation, popups, downloads, and realtime activity during
+the action; captures deterministic state evidence; requires rollback to the
+original state; and returns a fail-closed unsafe outcome when its invariants
+cannot be established.
 
-The original page-level findings and screenshots remain preserved for traceability.
+The ordinary form-control actions are tightly targeted but do not claim the
+same transactional containment or rollback guarantees. Website JavaScript may
+react to browser events. Current site profiles disallow form submission, and
+pages containing password fields suppress autonomous investigation.
 
----
+CheckQuest is not a penetration-testing tool. Findings and safety outcomes
+still require human review.
 
-## 🧠 Autonomous Exploration
+## Prerequisites
 
-CheckQuest supports a bounded:
+- Node.js LTS is recommended. The repository does not currently declare an
+  exact minimum Node version.
+- npm.
+- Playwright Chromium for agent execution and browser acceptance checks.
+- A user-owned Gemini API key for normal model-backed exploration.
 
-```text
-observe → plan → act → observe
-```
+Development has primarily taken place on Windows. Mandatory repository gates
+also run on Ubuntu in GitHub Actions. This is not a claim of verified support
+for every operating system.
 
-loop.
+## Quick start
 
-For every step, Gemini must provide:
-
-- a QA hypothesis;
-- reasoning;
-- one supported action;
-- the expected observation.
-
-The request then passes through:
-
-```text
-Gemini planner
-      ↓
-Structured action
-      ↓
-Zod validation
-      ↓
-Deterministic TypeScript executor
-      ↓
-Playwright
-      ↓
-Browser
-```
-
-The planner may stop when:
-
-- the finding is sufficiently evidenced;
-- no useful supported action remains;
-- the investigation cannot be performed safely;
-- additional steps would add no meaningful evidence.
-
----
-
-## 🔒 Safety by Design
-
-Gemini never receives direct Playwright access.
-
-Currently supported actions include:
-
-```text
-fill text field
-clear text field
-blur field
-select native dropdown option
-bounded scroll
-stop exploration
-```
-
-Current restrictions include:
-
-- no arbitrary selectors;
-- no arbitrary JavaScript;
-- no unrestricted clicking;
-- no form submission;
-- no destructive actions;
-- no autonomous interaction with password fields;
-- no navigation outside the approved hostname;
-- strict page and action budgets;
-- ambiguous or missing targets are rejected.
-
-For raw-URL runs, only the exact supplied hostname is approved automatically.
-
----
-
-## 🧩 Site-Wide Deduplication
-
-AI wording can vary between pages:
-
-```text
-Misspelled country name in selection list
-Misspelled country name in registration form
-Misspelled country option in dropdown
-```
-
-These may describe the same underlying issue.
-
-Where possible, CheckQuest creates a deterministic fingerprint from structured evidence:
-
-```text
-category
-+
-target type
-+
-control identity
-+
-target value
-```
-
-For the country issue:
-
-```text
-target|content|select-option|country|equador
-```
-
-The report can therefore show:
-
-```text
-Original occurrences: 3
-Unique site-wide findings: 1
-```
-
-Findings without a machine-readable target use a conservative fallback. It is safer to leave some duplicates unmerged than to merge unrelated issues incorrectly.
-
----
-
-## 🎛️ Runtime Controls
-
-Explore a public website using safe defaults:
-
-```bash
-npm run agent:explore -- https://www.example.com/
-```
-
-Choose custom limits:
-
-```bash
-npm run agent:explore -- https://www.example.com/ --pages 5 --steps-per-page 4
-```
-
-Available options:
-
-```text
---pages
-Pages to inspect
-Allowed range: 1–20
-
---steps-per-page
-Autonomous investigation steps per page
-Allowed range: 0–10
-```
-
-Run analysis without autonomous interaction:
-
-```bash
-npm run agent:explore -- https://www.example.com/ --pages 3 --steps-per-page 0
-```
-
-Invalid values are rejected before Chromium launches or Gemini is called.
-
----
-
-## 🛠️ Tech Stack
-
-- **TypeScript**
-- **Playwright**
-- **Gemini API**
-- **Zod**
-- **Node.js**
-- **GitHub Actions**
-
-The core agent remains generic. Websites can be provided through either:
-
-- saved site configurations;
-- arbitrary public URLs resolved into conservative runtime configurations.
-
----
-
-## 🧪 Try It
-
-Clone the repository:
+### Install
 
 ```bash
 git clone https://github.com/bootnihil/checkquest.git
 cd checkquest
-```
-
-Install dependencies:
-
-```bash
 npm ci
 npx playwright install chromium
 ```
 
-Configure a Gemini API key on Windows:
+Chromium is required for actual agent runs and browser acceptance checks. It
+is not required merely for typechecking, linting, or the browser-free
+deterministic aggregate.
 
-```cmd
-setx GEMINI_API_KEY "your-api-key"
-```
-
-Open a new terminal after running `setx`.
-
-Run the deterministic Playwright suite:
+On Linux environments that need Playwright system packages, use:
 
 ```bash
-npm test
+npx playwright install --with-deps chromium
 ```
 
-Run project-wide TypeScript checking:
+### Configure Gemini BYOK
+
+CheckQuest uses `GEMINI_API_KEY`. The credential belongs to the user and is
+read from the invoking process environment. CheckQuest does not persist it or
+include it in reports, run events, or public error messages.
+
+`GOOGLE_API_KEY` is deliberately not accepted as an implicit fallback. The
+repository also does not automatically load a `.env` file.
+
+Set the key for the current shell session.
+
+PowerShell:
+
+```powershell
+$env:GEMINI_API_KEY = "replace-with-your-key"
+```
+
+Windows cmd:
+
+```bat
+set GEMINI_API_KEY=replace-with-your-key
+```
+
+POSIX shell:
+
+```sh
+export GEMINI_API_KEY="replace-with-your-key"
+```
+
+Normal model-backed CLI exploration checks for this credential before
+launching Chromium. Mandatory repository quality and local-browser checks do
+not require a real Gemini key.
+
+### Run a configured site
+
+`agent:run` and `agent:explore` are aliases. With no positional target,
+CheckQuest uses the configured `aidoc` profile.
 
 ```bash
-npx tsc --noEmit
+npm run agent:run
 ```
 
-Explore a public website:
-
-```bash
-npm run agent:explore -- https://www.example.com/
-```
-
-Run a saved site configuration:
+The configured site can also be explicit:
 
 ```bash
 npm run agent:run -- aidoc
 ```
 
-Reports are written to:
+`aidoc` is currently the only reusable configured site ID.
+
+### Run an arbitrary URL
+
+Supply one complete HTTP or HTTPS URL:
+
+```bash
+npm run agent:explore -- https://www.example.com/
+```
+
+An arbitrary URL creates a conservative runtime profile scoped to the exact
+supplied hostname. It does not automatically allow sibling subdomains or
+external hosts, and it is not equivalent to a reusable configured profile
+with explicitly authored hosts and policies.
+
+CheckQuest is designed to operate across ordinary websites, but it does not
+claim that every site or custom control is supported.
+
+### Runtime controls
+
+| Option | Meaning | Allowed values |
+|---|---|---|
+| `--pages` | Maximum inspected-page budget | Integer 1–20 |
+| `--navigation-steps` | Maximum navigation-decision budget | Integer 1–50 |
+| `--steps-per-page` | Maximum autonomous investigation budget per page | Integer 0–10 |
+
+Current defaults:
+
+| Target type | Pages | Navigation decisions | Investigation steps/page |
+|---|---:|---:|---:|
+| Configured `aidoc` profile | 5 | 6 | 3 |
+| Arbitrary runtime URL | 3 | 4 | 3 |
+
+Example with explicit limits:
+
+```bash
+npm run agent:explore -- https://www.example.com/ --pages 5 --navigation-steps 7 --steps-per-page 3
+```
+
+Setting the investigation budget to zero keeps page analysis but disables
+autonomous investigation:
+
+```bash
+npm run agent:explore -- https://www.example.com/ --steps-per-page 0
+```
+
+When `--navigation-steps` is omitted, increasing `--pages` can also raise the
+profile’s navigation budget so that the requested page ceiling is reachable.
+An explicit navigation budget is preserved independently.
+
+Unknown options, duplicate options, invalid values, unknown site IDs, and
+malformed runtime URLs exit with an actionable, privacy-safe `CONFIGURATION`
+error.
+
+## Reports and evidence
+
+Successful CLI runs build one in-memory schema-version-3 report and persist:
 
 ```text
 agent-results/<run-id>/report.json
@@ -354,62 +284,84 @@ agent-results/<run-id>/report.md
 agent-results/<run-id>/evidence/
 ```
 
----
+The run ID is generated from the run timestamp unless a safe identity is
+provided programmatically.
 
-## ⚠️ Current Limitations
+- `report.json` is the detailed machine-readable execution record.
+- `report.md` is the human-readable summary.
+- `evidence/` contains screenshots when a page has evidence worth capturing.
 
-CheckQuest is still experimental.
+Reports include canonical findings, occurrences, evidence and verification,
+page-level execution detail, navigation provenance, diagnostics, and passive
+security observations. The CLI owns file persistence; the reusable engine
+only returns the report model.
 
-Current limitations include:
+The current contract is fail-fast with no successful partial report for a
+failed exploration.
 
-- public, unauthenticated websites are the primary target;
-- autonomous browser actions remain intentionally limited;
-- custom JavaScript controls are not yet handled as broadly as native controls;
-- raw-URL mode permits only the exact supplied hostname;
-- findings still require human review;
-- navigation can become more coverage-aware;
-- the supplied start URL currently acts mainly as a launch point rather than a fully investigated page.
+Artifacts can contain target URLs, visible site content, browser diagnostics,
+model-derived observations, and screenshots. Treat the output directory
+accordingly. Gemini API keys are not included.
 
-These limits are deliberate. New capabilities are added only when the corresponding safety and deterministic execution layers are ready.
+## Local verification and CI
 
----
+| Command | Purpose | Browser/network/Gemini |
+|---|---|---|
+| `npm run typecheck` | Strict no-emit TypeScript validation | None |
+| `npm run lint` | TypeScript-aware ESLint | None |
+| `npm run lint:md` | Lint authored Markdown | None |
+| `npm run test:deterministic` | Browser-free deterministic aggregate; currently 27 checks | None |
+| `npm run check` | Canonical browser-free quality gate: typecheck, lint, Markdown lint, deterministic checks | None |
+| `npm run test:browser:ci` | Six Chromium checks using local loopback fixtures | Chromium only; no Gemini or external Aidoc |
+| `npm test` / `npm run test:ui` | External Aidoc Playwright acceptance | Chromium and network; no Gemini |
+| `npm run agent:api-check` | Optional real Gemini connectivity check | Gemini key and network |
 
-## 🗺️ Roadmap
+Normal contributor verification is:
 
-Next areas of work:
-
-- explicit outcomes: **Verified**, **Not Verified**, and **Inconclusive**;
-- full inspection of the supplied start URL;
-- passive **security & infrastructure posture** checks such as HTTP security headers, TLS, cookies, and DNS;
-- safe support for checkboxes, radio buttons, tabs, and accordions;
-- smarter navigation and broader link discovery;
-- stronger deterministic checks in CI;
-- scheduled monitoring and comparison across runs.
-
----
-
-## ✨ The Idea
-
-CheckQuest combines:
-
-```text
-Deterministic automation
-        +
-AI reasoning
-        +
-Exploratory testing
-        +
-Strict safety boundaries
+```bash
+npm run check
+npm run test:browser:ci
 ```
 
-The goal is an agent that can independently look at a website and ask:
+The mandatory [Repository Quality workflow](.github/workflows/quality.yml)
+runs `npm run check` plus the six local Chromium checks on pushes and pull
+requests. It requires no Gemini key and no external Aidoc availability.
 
-> **“What would a curious QA engineer test next?”**
+The [External Aidoc Acceptance workflow](.github/workflows/aidoc-acceptance.yml)
+is manual. External-site availability is not a normal contributor success
+criterion.
 
-Then safely go find out.
+## Current limitations
 
----
+- Exploration is bounded and non-exhaustive.
+- Autonomous action types and guarded click-like interactions are deliberately
+  narrow.
+- The safety model reduces risk but cannot guarantee zero side effects on
+  arbitrary websites.
+- Passive security is observational main-document posture analysis, not
+  penetration testing or active vulnerability scanning.
+- Normal CLI exploration depends on Gemini and the user’s API access.
+- Only one reusable configured site profile currently ships with the
+  repository.
+- Failed runs do not produce a successful partial-report schema.
+- CheckQuest is not yet packaged as a desktop application, hosted service, or
+  standalone SDK.
 
-**CheckQuest — Explore. Check. Prove.**
+## Project status
 
-**Status:** Experimental / Active Development
+CheckQuest is in Stage 8 engineering hardening. The current focus is
+documentation that accurately reflects the implemented architecture.
+
+See the canonical [roadmap](docs/ROADMAP.md) for execution status and the
+[backlog](docs/BACKLOG.md) for active, queued, and parked work.
+
+## Tech stack
+
+- TypeScript
+- Playwright
+- Gemini API
+- Zod
+- Node.js
+- GitHub Actions
+
+**Status:** Experimental / active development
