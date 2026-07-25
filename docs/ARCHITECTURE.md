@@ -141,7 +141,9 @@ explicit `runId` to a safe 1-128 character form. Invalid reusable input fails
 with `CONFIGURATION`.
 
 CLI parsing and site-specific defaults remain outside this reusable validation
-boundary.
+boundary. See [CheckQuest Configuration](CONFIGURATION.md) for the current CLI
+contract, target profiles, environment variables, and profile-authoring
+reference.
 
 ## Progress contract: `RunEvent`
 

@@ -273,6 +273,9 @@ When `--navigation-steps` is omitted, increasing `--pages` can also raise the
 profile’s navigation budget so that the requested page ceiling is reachable.
 An explicit navigation budget is preserved independently.
 
+For target profiles, `SiteConfig` authoring, host policy, model overrides, and
+configuration errors, see [Configuration](docs/CONFIGURATION.md).
+
 Unknown options, duplicate options, invalid values, unknown site IDs, and
 malformed runtime URLs exit with an actionable, privacy-safe `CONFIGURATION`
 error.
