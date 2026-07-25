@@ -4,6 +4,10 @@ import {
   evaluatePassiveSecurity
 } from './security/evaluate-passive-security';
 
+import {
+  sanitizePassiveSecurityHeaderValue
+} from './security/capture-main-document-security';
+
 import type {
   PassivePageSecuritySnapshot,
   PassiveSecurityObservation
@@ -152,6 +156,90 @@ function assertClassification(
 }
 
 function main(): void {
+  const cspSecrets = [
+    'NONCE_SECRET',
+    'SHA256_SECRET',
+    'SHA384_SECRET',
+    'SHA512_SECRET',
+    'QUERY_SECRET',
+    'FRAGMENT_SECRET',
+    'USER_SECRET',
+    'PASSWORD_SECRET',
+    'PROTOCOL_RELATIVE_SECRET',
+    'REPORT_SECRET'
+  ] as const;
+
+  const sanitizedCsp =
+    sanitizePassiveSecurityHeaderValue(
+      'content-security-policy',
+      [
+        "default-src 'self';",
+        "script-src 'nonce-NONCE_SECRET' 'sha256-SHA256_SECRET' 'sha384-SHA384_SECRET' 'sha512-SHA512_SECRET';",
+        'connect-src https://USER_SECRET:PASSWORD_SECRET@api.example.test/path?token=QUERY_SECRET#FRAGMENT_SECRET',
+        '//cdn.example.test/library.js?api_key=PROTOCOL_RELATIVE_SECRET;',
+        'report-uri /csp-report?token=REPORT_SECRET;',
+        'report-to csp-endpoint;',
+        "frame-ancestors 'self'"
+      ].join(
+        ' '
+      )
+    );
+
+  for (
+    const secret of
+      cspSecrets
+  ) {
+    assert.equal(
+      sanitizedCsp.includes(
+        secret
+      ),
+      false,
+      `Sanitized CSP retained ${secret}.`
+    );
+  }
+
+  assert.match(
+    sanitizedCsp,
+    /script-src 'nonce-\[redacted\]' 'sha256-\[redacted\]' 'sha384-\[redacted\]' 'sha512-\[redacted\]'; connect-src/
+  );
+
+  assert.match(
+    sanitizedCsp,
+    /https:\/\/api\.example\.test\/path/
+  );
+
+  assert.match(
+    sanitizedCsp,
+    /\/\/cdn\.example\.test\/library\.js/
+  );
+
+  assert.match(
+    sanitizedCsp,
+    /report-uri \/csp-report\?\[redacted\]; report-to csp-endpoint;/
+  );
+
+  const normalizedWhitespace =
+    sanitizePassiveSecurityHeaderValue(
+      'content-security-policy',
+      "default-src\t'self';\r\n  frame-ancestors   'none'"
+    );
+
+  assert.equal(
+    normalizedWhitespace,
+    "default-src 'self'; frame-ancestors 'none'"
+  );
+
+  const maximumLengthValue =
+    sanitizePassiveSecurityHeaderValue(
+      'server',
+      `  ${'a'.repeat(4_100)}  `
+    );
+
+  assert.equal(
+    maximumLengthValue.length,
+    4_000
+  );
+
   const httpSnapshot =
     createSnapshot({
       finalUrl:
@@ -618,6 +706,64 @@ function main(): void {
     getPassiveSecurityReport(
       registry
     );
+
+  const equivalentRegistry =
+    createPassiveSecurityRegistry();
+
+  for (
+    let pageNumber = 1;
+    pageNumber <=
+      5;
+    pageNumber +=
+      1
+  ) {
+    registerPassiveSecuritySnapshot(
+      equivalentRegistry,
+      createSnapshot({
+        finalUrl:
+          `https://example.com/page-${pageNumber}`,
+        headers: {
+          'content-security-policy': [
+            "frame-ancestors 'self'"
+          ],
+          'x-content-type-options': [
+            'nosniff'
+          ]
+        }
+      })
+    );
+  }
+
+  registerPassiveSecuritySnapshot(
+    equivalentRegistry,
+    createSnapshot({
+      finalUrl:
+        'https://other.example/page',
+      headers: {
+        'content-security-policy': [
+          "frame-ancestors 'self'"
+        ],
+        'x-content-type-options': [
+          'nosniff'
+        ]
+      }
+    })
+  );
+
+  const equivalentReport =
+    getPassiveSecurityReport(
+      equivalentRegistry
+    );
+
+  assert.deepEqual(
+    equivalentReport.observations,
+    report.observations
+  );
+
+  assert.deepEqual(
+    equivalentReport.summary,
+    report.summary
+  );
 
   const hstsObservations =
     report.observations.filter(

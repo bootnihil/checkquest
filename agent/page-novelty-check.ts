@@ -579,6 +579,84 @@ async function main():
     )
   );
 
+  const sameFamilyState =
+    createPageNoveltyState();
+
+  const firstSameFamilyInspection =
+    registerInspectedPageNovelty(
+      sameFamilyState,
+      predictPageIdentity(
+        articleLinks[0].url,
+        articleLinks
+      ),
+      contentPageA
+    );
+
+  const structurallyDistinctSameFamilyInspection =
+    registerInspectedPageNovelty(
+      sameFamilyState,
+      predictPageIdentity(
+        articleLinks[1].url,
+        articleLinks
+      ),
+      interactivePage
+    );
+
+  const repeatedTemplateDifferentUrlInspection =
+    registerInspectedPageNovelty(
+      sameFamilyState,
+      predictPageIdentity(
+        articleLinks[2].url,
+        articleLinks
+      ),
+      contentPageB
+    );
+
+  assert.equal(
+    firstSameFamilyInspection
+      .predictedIdentity
+      .routeFamilyKey,
+    structurallyDistinctSameFamilyInspection
+      .predictedIdentity
+      .routeFamilyKey
+  );
+
+  assert.notEqual(
+    firstSameFamilyInspection
+      .observedTemplateKey,
+    structurallyDistinctSameFamilyInspection
+      .observedTemplateKey
+  );
+
+  assert.equal(
+    firstSameFamilyInspection
+      .observedTemplateKey,
+    repeatedTemplateDifferentUrlInspection
+      .observedTemplateKey
+  );
+
+  assert.equal(
+    sameFamilyState
+      .routeFamilyObservedTemplates
+      .get(
+        firstSameFamilyInspection
+          .predictedIdentity
+          .routeFamilyKey
+      )
+      ?.size,
+    2
+  );
+
+  assert.equal(
+    sameFamilyState
+      .observedTemplateVisitCounts
+      .get(
+        firstSameFamilyInspection
+          .observedTemplateKey
+      ),
+    2
+  );
+
   const structuralPriorityLinks = [
     createLink(
       '/articles/how-clinical-ai-improves-workflows'

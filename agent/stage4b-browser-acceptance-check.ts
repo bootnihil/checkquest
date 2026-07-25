@@ -8,6 +8,10 @@ import {
   chromium
 } from '@playwright/test';
 
+import {
+  listenOnBrowserSafeLoopbackPort
+} from './testing/listen-on-browser-safe-loopback-port';
+
 import type {
   ExploratoryQaFinding
 } from './analysis/exploratory-qa-schema';
@@ -164,45 +168,16 @@ async function startFixtureServer():
       }
     );
 
-  await new Promise<void>(
-    (
-      resolve,
-      reject
-    ) => {
-      server.once(
-        'error',
-        reject
-      );
-      server.listen(
-        0,
-        '127.0.0.1',
-        () => {
-          server.off(
-            'error',
-            reject
-          );
-          resolve();
-        }
-      );
-    }
-  );
-
-  const address =
-    server.address();
-
-  if (
-    address === null ||
-    typeof address === 'string'
-  ) {
-    throw new Error(
-      'The Stage 4B fixture server did not expose an ephemeral TCP port.'
+  const port =
+    await listenOnBrowserSafeLoopbackPort(
+      server,
+      'Stage 4B acceptance fixture'
     );
-  }
 
   return {
     server,
     url:
-      `http://127.0.0.1:${address.port}/`,
+      `http://127.0.0.1:${port}/`,
     getRequestCount: () =>
       requestCount
   };

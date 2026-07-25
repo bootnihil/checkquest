@@ -12,6 +12,10 @@ import type {
 } from './reporting/report-types';
 
 import {
+  buildSiteAgentReport
+} from './reporting/build-site-agent-report';
+
+import {
   writeJsonReport
 } from './reporting/write-json-report';
 
@@ -28,6 +32,19 @@ import {
   getPassiveSecurityReport,
   registerPassiveSecuritySnapshot
 } from './security/passive-security-registry';
+
+import {
+  sanitizePassiveSecurityHeaderValue
+} from './security/capture-main-document-security';
+
+const passiveHeaderSecrets = [
+  'REPORT_NONCE_SECRET',
+  'REPORT_HASH_SECRET',
+  'REPORT_QUERY_SECRET',
+  'REPORT_FRAGMENT_SECRET',
+  'REPORT_USER_SECRET',
+  'REPORT_PASSWORD_SECRET'
+] as const;
 
 function createSnapshot(
   pageNumber: number
@@ -55,7 +72,10 @@ function createSnapshot(
       [],
     headers: {
       'content-security-policy': [
-        "default-src 'self'"
+        sanitizePassiveSecurityHeaderValue(
+          'content-security-policy',
+          "default-src 'self'; script-src 'nonce-REPORT_NONCE_SECRET' 'sha256-REPORT_HASH_SECRET'; connect-src https://REPORT_USER_SECRET:REPORT_PASSWORD_SECRET@api.example.test/path?token=REPORT_QUERY_SECRET#REPORT_FRAGMENT_SECRET; frame-ancestors 'self'"
+        )
       ],
       'x-content-type-options': [
         'nosniff'
@@ -64,7 +84,7 @@ function createSnapshot(
         'DENY'
       ],
       server: [
-        'fixture-server'
+        'fixture`server | [edge]'
       ]
     }
   };
@@ -106,9 +126,9 @@ async function main():
         severity:
           'high',
         title:
-          'Page returned HTTP 404',
+          'Page [docs] (legacy) #1 | `status`\n## injected heading',
         description:
-          'The main document returned a client-error response.',
+          'The main document returned a client-error response with <literal> text.\n# This line is content, not a report section.',
         suggestedCheck:
           null,
         occurrences: [
@@ -116,9 +136,9 @@ async function main():
             occurrenceReference:
               'occurrence-1',
             pageUrl:
-              'https://example.com/missing',
+              'https://example.com/missing_(draft)?functional-page-token=retained',
             pageTitle:
-              'Missing',
+              'Missing [docs] (draft) | details',
             target:
               null,
             evidence: [
@@ -134,14 +154,14 @@ async function main():
                 verificationCapable:
                   true,
                 summary:
-                  'The main document returned HTTP 404.'
+                  'The main document returned HTTP 404 with `status` | [details] (synthetic).\n# Evidence continuation.'
               }
             ],
             verification: {
               state:
                 'verified',
               reason:
-                'Deterministic evidence supports the exact assertion.',
+                'Deterministic evidence supports the exact assertion | with `detail`.',
               evidenceReferences: [
                 'evidence-1'
               ]
@@ -161,83 +181,278 @@ async function main():
             'evidence-1'
           ]
         }
+      },
+      {
+        findingReference:
+          'finding-2',
+        fingerprint:
+          'target|select-option|country|exampleland',
+        category:
+          'content',
+        severity:
+          'medium',
+        title:
+          'Structured target finding',
+        description:
+          'A model observation was tied to one exact option.',
+        suggestedCheck:
+          'Review the source data.',
+        occurrences: [
+          {
+            occurrenceReference:
+              'occurrence-2',
+            pageUrl:
+              'https://example.com/form-b',
+            pageTitle:
+              'Form B',
+            target: {
+              kind:
+                'select-option',
+              controlLabel:
+                'Country',
+              controlName:
+                'country',
+              controlId:
+                null,
+              optionText:
+                'Exampleland'
+            },
+            evidence: [
+              {
+                evidenceReference:
+                  'evidence-2b',
+                source:
+                  'model',
+                kind:
+                  'model-observation',
+                relation:
+                  'supports',
+                verificationCapable:
+                  false,
+                summary:
+                  'Second encounter-order evidence item.'
+              },
+              {
+                evidenceReference:
+                  'evidence-2a',
+                source:
+                  'browser',
+                kind:
+                  'browser-observation',
+                relation:
+                  'inconclusive',
+                verificationCapable:
+                  false,
+                summary:
+                  'First source label is intentionally not alphabetic.'
+              }
+            ],
+            verification: {
+              state:
+                'inconclusive',
+              reason:
+                'The observation was not deterministically confirmed.',
+              evidenceReferences: [
+                'evidence-2b',
+                'evidence-2a'
+              ]
+            },
+            screenshotReferences:
+              [],
+            redundantInvestigationSkipped:
+              false
+          },
+          {
+            occurrenceReference:
+              'occurrence-3',
+            pageUrl:
+              'https://example.com/form-a',
+            pageTitle:
+              'Form A',
+            target: {
+              kind:
+                'select-option',
+              controlLabel:
+                'Country',
+              controlName:
+                'country',
+              controlId:
+                null,
+              optionText:
+                'Exampleland'
+            },
+            evidence: [
+              {
+                evidenceReference:
+                  'evidence-3',
+                source:
+                  'model',
+                kind:
+                  'model-observation',
+                relation:
+                  'supports',
+                verificationCapable:
+                  false,
+                summary:
+                  'A repeated structured observation.'
+              }
+            ],
+            verification: {
+              state:
+                'inconclusive',
+              reason:
+                'The repeated observation was not reinvestigated.',
+              evidenceReferences: [
+                'evidence-3'
+              ]
+            },
+            screenshotReferences:
+              [],
+            redundantInvestigationSkipped:
+              true
+          }
+        ],
+        verification: {
+          state:
+            'inconclusive',
+          reason:
+            'Only model observations are available.',
+          evidenceReferences: [
+            'evidence-2b',
+            'evidence-2a',
+            'evidence-3'
+          ]
+        }
+      },
+      {
+        findingReference:
+          'finding-3',
+        fingerprint:
+          'model|targetless|navigation|synthetic',
+        category:
+          'navigation',
+        severity:
+          'low',
+        title:
+          'Targetless model-only finding',
+        description:
+          'The observation has no structured target.',
+        suggestedCheck:
+          null,
+        occurrences: [
+          {
+            occurrenceReference:
+              'occurrence-4',
+            pageUrl:
+              'https://example.com/navigation',
+            pageTitle:
+              'Navigation',
+            target:
+              null,
+            evidence: [
+              {
+                evidenceReference:
+                  'evidence-4',
+                source:
+                  'model',
+                kind:
+                  'model-observation',
+                relation:
+                  'supports',
+                verificationCapable:
+                  false,
+                summary:
+                  'A targetless synthetic model observation.'
+              }
+            ],
+            verification: {
+              state:
+                'inconclusive',
+              reason:
+                'No deterministic evidence was available.',
+              evidenceReferences: [
+                'evidence-4'
+              ]
+            },
+            screenshotReferences:
+              [],
+            redundantInvestigationSkipped:
+              false
+          }
+        ],
+        verification: {
+          state:
+            'inconclusive',
+          reason:
+            'No deterministic evidence was available.',
+          evidenceReferences: [
+            'evidence-4'
+          ]
+        }
       }
     ];
 
-  const report:
-    SiteAgentReport = {
-    reportSchemaVersion:
-      '3',
-    runId:
-      'passive-security-report-check',
-    startedAt:
-      '2026-07-24T00:00:00.000Z',
-    finishedAt:
-      '2026-07-24T00:01:00.000Z',
-    site: {
-      id:
-        'synthetic-stage-7-1',
-      name:
-        'Synthetic Stage 7.1 report',
-      startUrl:
-        'https://example.com/'
-    },
-    homepage: {
-      requestedUrl:
-        'https://example.com/',
-      finalUrl:
-        'https://example.com/',
-      title:
-        'Synthetic',
-      httpStatus:
-        200
-    },
-    outcome: {
-      type:
-        'completed',
-      summary:
-        'Synthetic Stage 7.1 report completed.'
-    },
-    inspectedPages:
-      [],
-    findings:
-      functionalFindings,
-    siteWideExploratoryFindings:
-      [],
-    passiveSecurity,
-    summary: {
-      pagesInspected:
-        0,
-      logicalFindingsCount:
-        1,
-      findingOccurrencesCount:
-        1,
-      findingsCount:
-        1,
-      highestSeverity:
-        'high',
-      exploratoryQaFindingsCount:
-        0,
-      siteWideExploratoryFindingsCount:
-        0,
-      knownFindingOccurrencesCount:
-        0,
-      knownFindingsSuppliedToAnalysisCount:
-        0,
-      newCandidateFindingsCount:
-        0,
-      redundantInvestigationsSkippedCount:
-        0,
-      highestExploratoryQaSeverity:
-        'none',
-      actionableDiagnosticsCount:
-        0,
-      diagnosticsNeedingReviewCount:
-        0,
-      ignoredDiagnosticNoiseCount:
-        0
-    }
-  };
+  const report =
+    buildSiteAgentReport({
+      runId:
+        'passive-security-report-check',
+      startedAt:
+        new Date(
+          '2026-07-24T00:00:00.000Z'
+        ),
+      finishedAt:
+        new Date(
+          '2026-07-24T00:01:00.000Z'
+        ),
+      site: {
+        id:
+          'synthetic-stage-7-1',
+        name:
+          'Synthetic Stage 7.1 report',
+        startUrl:
+          'https://example.com/?functional-page-token=retained',
+        allowedHosts: [
+          'example.com'
+        ],
+        maxPages:
+          1,
+        maxAgentSteps:
+          0,
+        maxExploratoryStepsPerPage:
+          0,
+        allowFormSubmission:
+          false
+      },
+      homepage: {
+        requestedUrl:
+          'https://example.com/',
+        finalUrl:
+          'https://example.com/',
+        title:
+          'Synthetic',
+        httpStatus:
+          200
+      },
+      outcome: {
+        type:
+          'completed',
+        summary:
+          'Synthetic Stage 7.1 report completed.'
+      },
+      inspectedPages:
+        [],
+      canonicalFindings:
+        functionalFindings,
+      passiveSecurity,
+      findingMetrics: {
+        knownFindingsSuppliedToAnalysisCount:
+          0,
+        newCandidateFindingsCount:
+          0,
+        redundantInvestigationsSkippedCount:
+          0
+      }
+    });
 
   const jsonReport =
     await writeJsonReport(
@@ -282,10 +497,114 @@ async function main():
     'high'
   );
 
+  assert.deepEqual(
+    parsed.findings.map(
+      finding => [
+        finding.category,
+        finding.severity,
+        finding
+          .occurrences
+          .length
+      ]
+    ),
+    [
+      [
+        'technical',
+        'high',
+        1
+      ],
+      [
+        'content',
+        'medium',
+        2
+      ],
+      [
+        'navigation',
+        'low',
+        1
+      ]
+    ]
+  );
+
+  assert.equal(
+    parsed.summary
+      .logicalFindingsCount,
+    3
+  );
+
+  assert.equal(
+    parsed.summary
+      .findingOccurrencesCount,
+    4
+  );
+
+  assert.equal(
+    parsed.findings.some(
+      finding =>
+        finding.fingerprint
+          .startsWith(
+            'https://example.com|PS_'
+          )
+    ),
+    false
+  );
+
+  assert.equal(
+    parsed.passiveSecurity
+      .observations
+      .some(
+        observation =>
+          observation.fingerprint ===
+          'rule|HTTP_CLIENT_ERROR'
+      ),
+    false
+  );
+
   assert.equal(
     parsed.findings[0]
       .verification.state,
     'verified'
+  );
+
+  assert.deepEqual(
+    parsed.findings.map(
+      finding =>
+        finding.findingReference
+    ),
+    [
+      'finding-1',
+      'finding-2',
+      'finding-3'
+    ]
+  );
+
+  assert.deepEqual(
+    parsed.findings[1]
+      .occurrences
+      .map(
+        occurrence =>
+          occurrence
+            .occurrenceReference
+      ),
+    [
+      'occurrence-2',
+      'occurrence-3'
+    ]
+  );
+
+  assert.deepEqual(
+    parsed.findings[1]
+      .occurrences[0]
+      .evidence
+      .map(
+        evidence =>
+          evidence
+            .evidenceReference
+      ),
+    [
+      'evidence-2b',
+      'evidence-2a'
+    ]
   );
 
   assert.equal(
@@ -331,7 +650,64 @@ async function main():
 
   assert.match(
     markdown,
-    /VERIFIED - Page returned HTTP 404/
+    /VERIFIED - Page \\\[docs\\\] \(legacy\) #1 \\\| \\`status\\` ## injected heading/
+  );
+
+  assert.equal(
+    markdown.includes(
+      '\n## injected heading'
+    ),
+    false
+  );
+
+  assert.equal(
+    markdown.includes(
+      '\n# This line is content'
+    ),
+    false
+  );
+
+  assert.equal(
+    markdown.includes(
+      '\n# Evidence continuation'
+    ),
+    false
+  );
+
+  assert.match(
+    markdown,
+    /&lt;literal&gt;/
+  );
+
+  assert.match(
+    markdown,
+    /Values: ``fixture`server \| \[edge\]``\./
+  );
+
+  assert.match(
+    markdown,
+    /\[Missing \\\[docs\\\] \(draft\) \\\| details\]\(https:\/\/example\.com\/missing_%28draft%29\?functional-page-token=retained\)/
+  );
+
+  assert.equal(
+    markdown.includes(
+      'undefined'
+    ),
+    false
+  );
+
+  assert.equal(
+    markdown.includes(
+      '**Recommended next step:** null'
+    ),
+    false
+  );
+
+  assert.equal(
+    jsonText.includes(
+      'functional-page-token=retained'
+    ),
+    true
   );
 
   assert.equal(
@@ -369,11 +745,19 @@ async function main():
         'Set-Cookie',
         'super-secret-cookie',
         'Authorization',
-        'Bearer '
+        'Bearer ',
+        ...passiveHeaderSecrets
       ]
   ) {
     assert.equal(
       jsonText.includes(
+        forbiddenValue
+      ),
+      false
+    );
+
+    assert.equal(
+      markdown.includes(
         forbiddenValue
       ),
       false

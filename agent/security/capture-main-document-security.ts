@@ -60,21 +60,40 @@ function sanitizeRedirectLocation(
 function sanitizeCspToken(
   token: string
 ): string {
+  const directiveTerminator =
+    token.endsWith(
+      ';'
+    )
+      ? ';'
+      : '';
+
+  const tokenValue =
+    directiveTerminator.length >
+      0
+      ? token.slice(
+          0,
+          -directiveTerminator.length
+        )
+      : token;
+
   if (
     /^'nonce-/i.test(
-      token
+      tokenValue
     )
   ) {
-    return "'nonce-[redacted]'";
+    return (
+      "'nonce-[redacted]'" +
+      directiveTerminator
+    );
   }
 
   if (
     /^'sha(?:256|384|512)-/i.test(
-      token
+      tokenValue
     )
   ) {
     const algorithm =
-      token
+      tokenValue
         .slice(
           1
         )
@@ -83,53 +102,63 @@ function sanitizeCspToken(
           1
         )[0];
 
-    return `'${algorithm}-[redacted]'`;
+    return (
+      `'${algorithm}-[redacted]'` +
+      directiveTerminator
+    );
   }
 
   if (
     /^[a-z][a-z\d+.-]*:\/\//i.test(
-      token
+      tokenValue
     )
   ) {
-    return sanitizeUrl(
-      token
+    return (
+      sanitizeUrl(
+        tokenValue
+      ) +
+      directiveTerminator
     );
   }
 
   if (
-    token.startsWith(
+    tokenValue.startsWith(
       '//'
     )
   ) {
-    return sanitizeUrl(
-      `https:${token}`
-    ).replace(
-      /^https:/,
-      ''
+    return (
+      sanitizeUrl(
+        `https:${tokenValue}`
+      ).replace(
+        /^https:/,
+        ''
+      ) +
+      directiveTerminator
     );
   }
 
   if (
-    token.includes(
+    tokenValue.includes(
       '?'
     ) ||
-    token.includes(
+    tokenValue.includes(
       '#'
     )
   ) {
     return (
-      token.split(
+      tokenValue.split(
         /[?#]/,
         1
       )[0] +
-      '?[redacted]'
+      '?[redacted]' +
+      directiveTerminator
     );
   }
 
   return token;
 }
 
-function sanitizeHeaderValue(
+export function sanitizePassiveSecurityHeaderValue(
   headerName:
     SelectedSecurityHeaderName,
   value:
@@ -196,7 +225,7 @@ async function captureSelectedHeaders(
               )
               .map(
                 value =>
-                  sanitizeHeaderValue(
+                  sanitizePassiveSecurityHeaderValue(
                     headerName,
                     value
                   )

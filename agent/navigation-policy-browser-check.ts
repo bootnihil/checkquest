@@ -8,6 +8,10 @@ import {
 } from '@playwright/test';
 
 import {
+  listenOnBrowserSafeLoopbackPort
+} from './testing/listen-on-browser-safe-loopback-port';
+
+import {
   extractPageContent
 } from './browser/extract-page-content';
 import {
@@ -101,41 +105,14 @@ async function main():
       }
     );
 
-  await new Promise<void>(
-    (
-      resolve,
-      reject
-    ) => {
-      server.once(
-        'error',
-        reject
-      );
-
-      server.listen(
-        0,
-        '127.0.0.1',
-        () =>
-          resolve()
-      );
-    }
-  );
-
-  const address =
-    server.address();
-
-  if (
-    address ===
-      null ||
-    typeof address ===
-      'string'
-  ) {
-    throw new Error(
-      'Local navigation fixture did not expose a TCP port.'
+  const port =
+    await listenOnBrowserSafeLoopbackPort(
+      server,
+      'Local navigation fixture'
     );
-  }
 
   const origin =
-    `http://127.0.0.1:${address.port}`;
+    `http://127.0.0.1:${port}`;
 
   const browser =
     await chromium.launch({

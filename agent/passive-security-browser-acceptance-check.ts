@@ -8,6 +8,10 @@ import {
 } from '@playwright/test';
 
 import {
+  listenOnBrowserSafeLoopbackPort
+} from './testing/listen-on-browser-safe-loopback-port';
+
+import {
   visitApprovedLinkWithPassiveSecurity
 } from './browser/visit-approved-link';
 
@@ -31,6 +35,35 @@ async function main():
   Promise<void> {
   const receivedRequests:
     ReceivedRequest[] = [];
+
+  const cspSecrets = [
+    'BROWSER_NONCE_SECRET',
+    'BROWSER_SHA256_SECRET',
+    'BROWSER_SHA384_SECRET',
+    'BROWSER_SHA512_SECRET',
+    'BROWSER_QUERY_SECRET',
+    'BROWSER_FRAGMENT_SECRET',
+    'BROWSER_USER_SECRET',
+    'BROWSER_PASSWORD_SECRET',
+    'BROWSER_PROTOCOL_SECRET',
+    'BROWSER_REPORT_SECRET',
+    'EXCLUDED_BY_COUNT_SECRET'
+  ] as const;
+
+  const cspValues = [
+    "default-src 'self'; frame-ancestors 'self'",
+    "script-src 'nonce-BROWSER_NONCE_SECRET';",
+    "style-src 'sha256-BROWSER_SHA256_SECRET' 'sha384-BROWSER_SHA384_SECRET' 'sha512-BROWSER_SHA512_SECRET';",
+    'connect-src https://api.example.test/data?token=BROWSER_QUERY_SECRET#BROWSER_FRAGMENT_SECRET;',
+    '//cdn.example.test/library.js?api_key=BROWSER_PROTOCOL_SECRET;',
+    'img-src https://BROWSER_USER_SECRET:BROWSER_PASSWORD_SECRET@images.example.test/pixel;',
+    'report-uri /csp-report?token=BROWSER_REPORT_SECRET; report-to csp-endpoint;',
+    "frame-ancestors 'self'",
+    "frame-ancestors 'self'",
+    `style-src https://styles.example.test/${'a'.repeat(5_000)};`,
+    'report-uri /excluded?token=EXCLUDED_BY_COUNT_SECRET;',
+    "object-src 'none'"
+  ];
 
   const server =
     createServer(
@@ -111,11 +144,8 @@ async function main():
             }
 
             response.setHeader(
-              'content-security-policy',
-              [
-                "default-src 'self'",
-                "frame-ancestors 'self'"
-              ]
+              'CoNtEnT-SeCuRiTy-PoLiCy',
+              cspValues
             );
 
             response.writeHead(
@@ -159,41 +189,14 @@ async function main():
       }
     );
 
-  await new Promise<void>(
-    (
-      resolve,
-      reject
-    ) => {
-      server.once(
-        'error',
-        reject
-      );
-
-      server.listen(
-        0,
-        '127.0.0.1',
-        () =>
-          resolve()
-      );
-    }
-  );
-
-  const address =
-    server.address();
-
-  if (
-    address ===
-      null ||
-    typeof address ===
-      'string'
-  ) {
-    throw new Error(
-      'Local passive-security fixture did not expose a TCP port.'
+  const port =
+    await listenOnBrowserSafeLoopbackPort(
+      server,
+      'Local passive-security fixture'
     );
-  }
 
   const origin =
-    `http://127.0.0.1:${address.port}`;
+    `http://127.0.0.1:${port}`;
 
   const browser =
     await chromium.launch({
@@ -258,15 +261,81 @@ async function main():
       ]
     );
 
-    assert.deepEqual(
+    const capturedCspValues =
       startSnapshot
         .headers[
           'content-security-policy'
-        ],
-      [
-        "default-src 'self'",
-        "frame-ancestors 'self'"
-      ]
+        ] ??
+      [];
+
+    assert.equal(
+      capturedCspValues.length,
+      10
+    );
+
+    assert.equal(
+      capturedCspValues.every(
+        value =>
+          value.length <=
+          4_000
+      ),
+      true
+    );
+
+    assert.equal(
+      capturedCspValues.some(
+        value =>
+          value.length ===
+          4_000
+      ),
+      true
+    );
+
+    assert.equal(
+      capturedCspValues.filter(
+        value =>
+          value ===
+          "frame-ancestors 'self'"
+      ).length,
+      2
+    );
+
+    const serializedSnapshot =
+      JSON.stringify(
+        startSnapshot
+      );
+
+    for (
+      const secret of
+        cspSecrets
+    ) {
+      assert.equal(
+        serializedSnapshot.includes(
+          secret
+        ),
+        false,
+        `Passive snapshot serialized CSP secret: ${secret}.`
+      );
+    }
+
+    assert.equal(
+      capturedCspValues.some(
+        value =>
+          value.includes(
+            'https://api.example.test/data'
+          )
+      ),
+      true
+    );
+
+    assert.equal(
+      capturedCspValues.some(
+        value =>
+          value.includes(
+            '//cdn.example.test/library.js'
+          )
+      ),
+      true
     );
 
     const nextVisit =
@@ -370,7 +439,8 @@ async function main():
           'redirect-secret',
           'set-cookie',
           'authorization',
-          'x-secret-token'
+          'x-secret-token',
+          ...cspSecrets
         ]
     ) {
       assert.equal(

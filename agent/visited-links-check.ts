@@ -102,6 +102,49 @@ assert.equal(
   1
 );
 
+assert.equal(
+  normalizeUrlForComparison(
+    'https://EXAMPLE.com/Path/?a=1&b=2#first'
+  ),
+  'https://example.com/Path?a=1&b=2'
+);
+
+assert.equal(
+  normalizeUrlForComparison(
+    'https://example.com/Path?a=1&b=2#second'
+  ),
+  normalizeUrlForComparison(
+    'https://EXAMPLE.com/Path/?a=1&b=2#first'
+  )
+);
+
+assert.notEqual(
+  normalizeUrlForComparison(
+    'https://example.com/Path?a=1&b=2'
+  ),
+  normalizeUrlForComparison(
+    'https://example.com/Path?b=2&a=1'
+  )
+);
+
+assert.notEqual(
+  normalizeUrlForComparison(
+    'https://example.com/Path?a=1'
+  ),
+  normalizeUrlForComparison(
+    'https://example.com/Path?a=2'
+  )
+);
+
+assert.notEqual(
+  normalizeUrlForComparison(
+    'https://example.com/Path'
+  ),
+  normalizeUrlForComparison(
+    'https://example.com/path'
+  )
+);
+
 const navigationState =
   createNavigationUrlState();
 
@@ -163,6 +206,37 @@ assert.equal(
   secondResolution
     .finalUrlAlreadyInspected,
   true
+);
+
+markFinalUrlInspected(
+  navigationState,
+  'https://example.com/search/?a=1&b=2#initial'
+);
+
+const equivalentRedirectResolution =
+  recordNavigationResolution(
+    navigationState,
+    'https://example.com/search-alias',
+    'https://EXAMPLE.com/search?a=1&b=2#redirect-fragment'
+  );
+
+assert.equal(
+  equivalentRedirectResolution
+    .finalUrlAlreadyInspected,
+  true
+);
+
+const reorderedQueryResolution =
+  recordNavigationResolution(
+    navigationState,
+    'https://example.com/reordered-search-alias',
+    'https://example.com/search?b=2&a=1'
+  );
+
+assert.equal(
+  reorderedQueryResolution
+    .finalUrlAlreadyInspected,
+  false
 );
 
 console.log(

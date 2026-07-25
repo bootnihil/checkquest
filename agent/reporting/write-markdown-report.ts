@@ -84,11 +84,119 @@ function formatHeaderValues(
   return (
     ` Values: ${values
       .map(
-        value =>
-          `\`${value.replace(/`/g, '\\`')}\``
+        value => {
+          const longestBacktickRun =
+            Math.max(
+              0,
+              ...(
+                value.match(
+                  /`+/g
+                ) ??
+                []
+              ).map(
+                run =>
+                  run.length
+              )
+            );
+
+          const fence =
+            '`'.repeat(
+              longestBacktickRun +
+              1
+            );
+
+          const needsPadding =
+            value.startsWith(
+              '`'
+            ) ||
+            value.endsWith(
+              '`'
+            );
+
+          return (
+            `${fence}${needsPadding ? ' ' : ''}${value}${needsPadding ? ' ' : ''}${fence}`
+          );
+        }
       )
       .join(', ')}.`
   );
+}
+
+function escapeMarkdownInlineText(
+  value: string
+): string {
+  return value
+    .replace(
+      /\r?\n/g,
+      ' '
+    )
+    .replace(
+      /\\/g,
+      '\\\\'
+    )
+    .replace(
+      /`/g,
+      '\\`'
+    )
+    .replace(
+      /\[/g,
+      '\\['
+    )
+    .replace(
+      /\]/g,
+      '\\]'
+    )
+    .replace(
+      /\|/g,
+      '\\|'
+    )
+    .replace(
+      /&/g,
+      '&amp;'
+    )
+    .replace(
+      /</g,
+      '&lt;'
+    )
+    .replace(
+      />/g,
+      '&gt;'
+    );
+}
+
+function formatMarkdownProse(
+  value: string
+): string {
+  return value
+    .replace(
+      /\r\n?/g,
+      '\n'
+    )
+    .replace(
+      /&/g,
+      '&amp;'
+    )
+    .replace(
+      /</g,
+      '&lt;'
+    )
+    .replace(
+      />/g,
+      '&gt;'
+    )
+    .split(
+      '\n'
+    )
+    .map(
+      line =>
+        line.replace(
+          /^(\s*)(#{1,6})(?=\s|$)/,
+          '$1\\$2'
+        )
+    )
+    .join(
+      '\n'
+    );
 }
 
 function escapeTableCell(
@@ -102,6 +210,32 @@ function escapeTableCell(
     .replace(
       /\r?\n/g,
       ' '
+    )
+    .replace(
+      /</g,
+      '&lt;'
+    )
+    .replace(
+      />/g,
+      '&gt;'
+    );
+}
+
+function escapeMarkdownLinkDestination(
+  url: string
+): string {
+  return url
+    .replace(
+      / /g,
+      '%20'
+    )
+    .replace(
+      /\(/g,
+      '%28'
+    )
+    .replace(
+      /\)/g,
+      '%29'
     );
 }
 
@@ -116,7 +250,7 @@ function createPageLink(
       : url;
 
   return (
-    `[${escapeTableCell(displayTitle)}](${url})`
+    `[${escapeMarkdownInlineText(displayTitle)}](${escapeMarkdownLinkDestination(url)})`
   );
 }
 
@@ -148,7 +282,7 @@ function createScreenshotLink(
   }
 
   return (
-    `[${escapeTableCell(filename)}](evidence/${filename})`
+    `[${escapeMarkdownInlineText(filename)}](evidence/${escapeMarkdownLinkDestination(filename)})`
   );
 }
 
@@ -248,7 +382,9 @@ export async function writeMarkdownReport(
     `| Passive security medium / low / info | ${report.passiveSecurity.summary.bySeverity.medium} / ${report.passiveSecurity.summary.bySeverity.low} / ${report.passiveSecurity.summary.bySeverity.info} |`,
     `| Run outcome | ${report.outcome.type.toUpperCase()} |`,
     '',
-    report.outcome.summary,
+    formatMarkdownProse(
+      report.outcome.summary
+    ),
     '',
     '## Findings',
     ''
@@ -288,17 +424,19 @@ export async function writeMarkdownReport(
             ).size;
 
           lines.push(
-            `### ${findingIndex + 1}. ${formatVerificationState(finding.verification.state)} - ${finding.title}`,
+            `### ${findingIndex + 1}. ${formatVerificationState(finding.verification.state)} - ${escapeMarkdownInlineText(finding.title)}`,
             '',
             `**Severity:** ${formatSeverity(finding.severity)}  `,
             `**Category:** ${finding.category}  `,
             `**Observed on:** ${affectedPageCount} page${affectedPageCount === 1 ? '' : 's'} (${occurrenceCount} occurrence${occurrenceCount === 1 ? '' : 's'})`,
             '',
-            finding.description,
+            formatMarkdownProse(
+              finding.description
+            ),
             '',
             `**Verification:** ${formatVerificationState(finding.verification.state)} - ${describeVerificationState(finding.verification.state)}`,
             '',
-            `**Derivation:** ${finding.verification.reason}`,
+            `**Derivation:** ${formatMarkdownProse(finding.verification.reason)}`,
             ''
           );
 
@@ -307,7 +445,7 @@ export async function writeMarkdownReport(
             null
           ) {
             lines.push(
-              `**Recommended next step:** ${finding.suggestedCheck}`,
+              `**Recommended next step:** ${formatMarkdownProse(finding.suggestedCheck)}`,
               ''
             );
           }
@@ -331,7 +469,7 @@ export async function writeMarkdownReport(
                 `##### ${createPageLink(occurrence.pageTitle, occurrence.pageUrl)}`,
                 '',
                 `**Occurrence status:** ${formatVerificationState(occurrence.verification.state)}${suppressedLabel}  `,
-                `**Derivation:** ${occurrence.verification.reason}  `,
+                `**Derivation:** ${formatMarkdownProse(occurrence.verification.reason)}  `,
                 `**Screenshot:** ${createScreenshotLink(occurrence.screenshotReferences[0] ?? null)}`,
                 '',
                 '**Evidence:**',
@@ -349,7 +487,7 @@ export async function writeMarkdownReport(
                           : 'context only';
 
                       lines.push(
-                        `- **${evidence.source} / ${evidence.relation} / ${capability}:** ${evidence.summary}`
+                        `- **${evidence.source} / ${evidence.relation} / ${capability}:** ${formatMarkdownProse(evidence.summary)}`
                       );
                     }
                   );
@@ -433,7 +571,7 @@ export async function writeMarkdownReport(
         ).size;
 
       lines.push(
-        `### ${observation.observationReference} - ${observation.title}`,
+        `### ${observation.observationReference} - ${escapeMarkdownInlineText(observation.title)}`,
         '',
         `**Code:** ${observation.code}  `,
         `**Posture:** ${observation.posture}  `,
@@ -443,7 +581,9 @@ export async function writeMarkdownReport(
         `**Scope:** ${observation.scope.type} — ${observation.scope.key}  `,
         `**Observed on:** ${affectedPageCount} page${affectedPageCount === 1 ? '' : 's'} (${observation.occurrences.length} occurrence${observation.occurrences.length === 1 ? '' : 's'})`,
         '',
-        observation.description,
+        formatMarkdownProse(
+          observation.description
+        ),
         ''
       );
 
@@ -452,7 +592,7 @@ export async function writeMarkdownReport(
         null
       ) {
         lines.push(
-          `**Conservative remediation:** ${observation.remediation}`,
+          `**Conservative remediation:** ${formatMarkdownProse(observation.remediation)}`,
           ''
         );
       }
@@ -481,7 +621,7 @@ export async function writeMarkdownReport(
             occurrence.evidence
         ) {
           lines.push(
-            `- **${evidence.kind} / ${evidence.subject}:** ${evidence.summary}${formatHeaderValues(evidence.headerValues ?? [])}`
+            `- **${evidence.kind} / ${evidence.subject}:** ${formatMarkdownProse(evidence.summary)}${formatHeaderValues(evidence.headerValues ?? [])}`
           );
         }
 
@@ -532,7 +672,7 @@ export async function writeMarkdownReport(
             : 'Agent-selected navigation';
 
       lines.push(
-        `| ${createPageLink(pageResult.observation.title, pageResult.observation.finalUrl)} | ${inspectionSource} | ${predictedIdentityLabel} | ${observedTemplateKey} | ${formatHttpStatus(pageResult.observation.httpStatus)} | ${pageResult.exploratoryQaAnalysis.findings.length + pageResult.knownFindingOccurrences.length} | ${pageResult.findings.length} | ${getPageTechnicalStatus(report, pageIndex)} |`
+        `| ${createPageLink(pageResult.observation.title, pageResult.observation.finalUrl)} | ${escapeTableCell(inspectionSource)} | ${predictedIdentityLabel} | ${observedTemplateKey} | ${formatHttpStatus(pageResult.observation.httpStatus)} | ${pageResult.exploratoryQaAnalysis.findings.length + pageResult.knownFindingOccurrences.length} | ${pageResult.findings.length} | ${getPageTechnicalStatus(report, pageIndex)} |`
       );
     }
   );

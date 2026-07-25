@@ -8,6 +8,10 @@ import {
   chromium
 } from '@playwright/test';
 
+import {
+  listenOnBrowserSafeLoopbackPort
+} from './testing/listen-on-browser-safe-loopback-port';
+
 import type {
   ExploratoryQaFinding
 } from './analysis/exploratory-qa-schema';
@@ -162,67 +166,16 @@ async function startFixtureServer():
       }
     );
 
-  await new Promise<void>(
-    (
-      resolve,
-      reject
-    ) => {
-      const handleError =
-        (
-          error: Error
-        ): void => {
-          server.off(
-            'listening',
-            handleListening
-          );
-          reject(error);
-        };
-
-      const handleListening =
-        (): void => {
-          server.off(
-            'error',
-            handleError
-          );
-          resolve();
-        };
-
-      server.once(
-        'error',
-        handleError
-      );
-      server.once(
-        'listening',
-        handleListening
-      );
-      server.listen(
-        0,
-        '127.0.0.1'
-      );
-    }
-  );
-
-  const address =
-    server.address();
-
-  if (
-    address === null ||
-    typeof address ===
-      'string'
-  ) {
-    await closeFixtureServer(
-      server
+  const port =
+    await listenOnBrowserSafeLoopbackPort(
+      server,
+      'Stage 4A acceptance fixture'
     );
-
-    throw new Error(
-      'The local acceptance fixture did not receive an ephemeral TCP port.'
-    );
-  }
 
   return {
     server,
     url:
-      `http://127.0.0.1:${address.port}/`,
+      `http://127.0.0.1:${port}/`,
     getRequestCount:
       () =>
         requestCount
