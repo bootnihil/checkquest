@@ -1,4 +1,9 @@
 
+# Local environment and credentials
+/.env
+/.env.*
+!/.env.example
+
 # Playwright
 node_modules/
 /test-results/
@@ -9,3 +14,8 @@ node_modules/
 
 # Agent-generated reports
 /agent-results/
+
+# Local operating-system and npm artifacts
+.DS_Store
+Thumbs.db
+npm-debug.log*

@@ -433,5 +433,6 @@ Report files from a successful CLI run are written under
 - The programmatic API is source-level, not a published versioned SDK.
 - Host and action policies reduce risk but cannot guarantee universal website
   compatibility or zero side effects.
-- Installer, distribution, GUI, SaaS, and stable public configuration design
-  remain future productization work.
+- Fresh-clone source installation is the supported Stage 10A distribution
+  path. An npm-published package, standalone executable, installer, GUI, SaaS,
+  and stable public configuration design remain outside this slice.

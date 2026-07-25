@@ -1,8 +1,10 @@
 # CheckQuest Backlog
 
-**Backlog version:** 1.14
+**Backlog version:** 1.15
 **Established:** 2026-07-23
 **Current roadmap stage:** Stage 10 — Release-quality CheckQuest
+**Current execution focus:** CQ-026 — stable configuration, versioning, and
+report behavior
 
 This file is the parking place for work that should not silently interrupt the current roadmap stage.
 
@@ -11,7 +13,7 @@ The canonical stage order is defined in `ROADMAP.md`.
 ## Status values
 
 - **NOW** — belongs to the current roadmap stage.
-- **QUEUED** — belongs to a later roadmap stage.
+- **QUEUED** — follows the current work, within this stage or a later stage.
 - **PARKED** — valid idea, but intentionally not scheduled yet.
 - **DONE** — completed.
 - **REJECTED** — explicitly not a goal unless circumstances change.
@@ -28,9 +30,8 @@ A newly added backlog item does **not** become immediate work merely because it 
 
 | ID | Item | Target stage | Status | Notes |
 |---|---|---:|---|---|
-| CQ-025 | Define release-quality installation/distribution | 10 | NOW | Active Stage 10 distribution focus. Choose a release mechanism that matches the actual product direction rather than adding packaging ceremony. |
-| CQ-026 | Finalize stable configuration/versioning/report behavior | 10 | NOW | Active Stage 10 contract focus. Decide which externally visible configuration, versioning, and report behaviors should become dependable for users. |
-| CQ-027 | Polish the public repository and example/demo configuration | 10 | NOW | Active Stage 10 public-facing focus. Make the repository, product explanation, example/demo path, and final documentation suitable for external users. |
+| CQ-026 | Finalize stable configuration/versioning/report behavior | 10 | NOW | Current Stage 10 work item. Decide which externally visible configuration, versioning, and report behaviors should become dependable for users. |
+| CQ-027 | Polish the public repository and example/demo configuration | 10 | QUEUED | Subsequent Stage 10 work item. Address LICENSE, public-repository and demo presentation, final documentation, and package-content curation if publication is later chosen. npm publication and a standalone executable are not prerequisites for the accepted source-clone distribution. |
 
 ---
 
@@ -113,3 +114,4 @@ Move completed backlog entries here during stage-closeout reviews.
 | CQ-022 | Perform a repository-wide production-readiness/CI review | Stage 8F — Production-readiness review (DONE — 2026-07-25) |
 | CQ-023 | Formalize presentation-agnostic core boundaries | Stage 9 — Productization boundary (DONE — 2026-07-25) |
 | CQ-024 | Formalize Gemini BYOK handling across future interfaces | Stage 9 — Productization boundary (DONE — 2026-07-25) |
+| CQ-025 | Define release-quality installation/distribution | Stage 10A — Fresh-clone source installation and distribution (DONE — 2026-07-25) |

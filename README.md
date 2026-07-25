@@ -93,24 +93,43 @@ CheckQuest is **not** a penetration-testing tool. Findings and safety outcomes s
 
 ## 🚀 Quick start
 
-### 1. Install
+### 1. Check the prerequisites
 
-Node.js LTS and npm are recommended.
+CheckQuest currently supports a **fresh-clone source installation**. It is not
+yet published as an npm package or standalone executable.
+
+You need:
+
+- Git;
+- Node.js 22.13.0 or newer (an LTS release is recommended);
+- npm 10 or newer;
+- network access for npm, Chromium, the target website, and Gemini; and
+- a user-owned Gemini API key for normal exploration.
+
+Confirm the local toolchain:
+
+```bash
+node --version
+npm --version
+```
+
+### 2. Install the locked dependencies and Chromium
 
 ```bash
 git clone https://github.com/bootnihil/checkquest.git
 cd checkquest
 npm ci
-npx playwright install chromium
+npm run setup:browser
 ```
 
-On Linux systems that also need Playwright system dependencies:
+`npm ci` is the intended repository installation command and uses the committed
+lockfile. On Linux systems that also need Playwright system packages, use:
 
 ```bash
-npx playwright install --with-deps chromium
+npm run setup:browser:with-deps
 ```
 
-### 2. Add your Gemini key
+### 3. Add your Gemini key
 
 CheckQuest uses **BYOK — Bring Your Own Key**.
 
@@ -134,21 +153,28 @@ POSIX shell:
 export GEMINI_API_KEY="replace-with-your-key"
 ```
 
-### 3. Run it
+### 4. Run it
 
-Run the built-in `aidoc` profile:
+For a small first run against a site you are authorized to test:
+
+```bash
+npm start -- https://www.example.com/ --pages 1 --navigation-steps 1 --steps-per-page 0
+```
+
+Or run the built-in `aidoc` profile with its configured defaults:
+
+```bash
+npm start
+```
+
+The existing explicit aliases remain available:
 
 ```bash
 npm run agent:run
-```
-
-Or point CheckQuest at an arbitrary HTTP/HTTPS URL:
-
-```bash
 npm run agent:explore -- https://www.example.com/
 ```
 
-`agent:run` and `agent:explore` are aliases.
+`start`, `agent:run`, and `agent:explore` use the same CLI entry point.
 
 ## 🎛️ Control the run
 
@@ -187,6 +213,23 @@ agent-results/<run-id>/evidence/
 Reports can contain target URLs, visible page content, browser diagnostics, model-derived observations, and screenshots. Treat the output directory accordingly. Gemini API keys are not included.
 
 The current contract is fail-fast: a failed exploration does not produce a successful partial report.
+
+## 🩺 Common setup failures
+
+| Message or symptom | Meaning and next step |
+|---|---|
+| `EBADENGINE` during installation | Install Node.js 22.13.0+ and npm 10+, then rerun `npm ci`. |
+| `GEMINI_API_KEY is required` | Set `GEMINI_API_KEY` in the same shell that starts CheckQuest. `GOOGLE_API_KEY` is not a fallback. |
+| `Unable to launch Chromium` | Run `npm run setup:browser`. On Linux, use `npm run setup:browser:with-deps`. |
+| Chromium reports missing Linux libraries | Install the Playwright system packages with `npm run setup:browser:with-deps`. |
+| `Unknown site configuration` | Use `aidoc` or provide a complete URL beginning with `http://` or `https://`. |
+| A `MODEL` error occurs after requests begin | Check the Gemini key, optional `GEMINI_MODEL`, network access, quota, and provider availability. |
+| Report persistence fails | Run from a writable checkout and verify access to `agent-results/`. Failed runs do not emit a successful partial report. |
+
+CheckQuest intentionally prints bounded public errors rather than raw SDK
+responses or stack traces. See
+[Configuration errors](docs/CONFIGURATION.md#configuration-errors) for the
+detailed CLI contract.
 
 ## 🧪 Development and verification
 

@@ -290,7 +290,7 @@ async function executeRunSite(
   ) {
     throw new CheckQuestError(
       'BROWSER',
-      'Unable to launch Chromium.',
+      'Unable to launch Chromium. Install the project browser with "npm run setup:browser" and retry.',
       {
         phase:
           'browser-launch',
