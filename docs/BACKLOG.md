@@ -1,8 +1,8 @@
 # CheckQuest Backlog
 
-**Backlog version:** 1.13
-**Established:** 2026-07-23  
-**Current roadmap stage:** Stage 9 — Productization boundary
+**Backlog version:** 1.14
+**Established:** 2026-07-23
+**Current roadmap stage:** Stage 10 — Release-quality CheckQuest
 
 This file is the parking place for work that should not silently interrupt the current roadmap stage.
 
@@ -28,11 +28,9 @@ A newly added backlog item does **not** become immediate work merely because it 
 
 | ID | Item | Target stage | Status | Notes |
 |---|---|---:|---|---|
-| CQ-023 | Formalize presentation-agnostic core boundaries | 9 | NOW | Active Stage 9 core-boundary focus. Keep CLI, desktop, and web/SaaS options viable without introducing frontend-specific coupling. |
-| CQ-024 | Formalize Gemini BYOK handling across future interfaces | 9 | NOW | Active Stage 9 credential/interface-boundary focus. User keys must remain user-owned, isolated, ephemeral by default, and unlogged. |
-| CQ-025 | Define release-quality installation/distribution | 10 | QUEUED | Exact mechanism depends on product direction. |
-| CQ-026 | Finalize stable configuration/versioning/report behavior | 10 | QUEUED | Required before external users depend on CheckQuest. |
-| CQ-027 | Polish the public repository and example/demo configuration | 10 | QUEUED | Final external-facing repository pass. |
+| CQ-025 | Define release-quality installation/distribution | 10 | NOW | Active Stage 10 distribution focus. Choose a release mechanism that matches the actual product direction rather than adding packaging ceremony. |
+| CQ-026 | Finalize stable configuration/versioning/report behavior | 10 | NOW | Active Stage 10 contract focus. Decide which externally visible configuration, versioning, and report behaviors should become dependable for users. |
+| CQ-027 | Polish the public repository and example/demo configuration | 10 | NOW | Active Stage 10 public-facing focus. Make the repository, product explanation, example/demo path, and final documentation suitable for external users. |
 
 ---
 
@@ -113,3 +111,5 @@ Move completed backlog entries here during stage-closeout reviews.
 | CQ-020 | Harden error handling, retries, and observability | Stage 8D — Error handling and observability (DONE — 2026-07-25) |
 | CQ-021 | Expand setup and architecture documentation | Stage 8E — Documentation (DONE — 2026-07-25) |
 | CQ-022 | Perform a repository-wide production-readiness/CI review | Stage 8F — Production-readiness review (DONE — 2026-07-25) |
+| CQ-023 | Formalize presentation-agnostic core boundaries | Stage 9 — Productization boundary (DONE — 2026-07-25) |
+| CQ-024 | Formalize Gemini BYOK handling across future interfaces | Stage 9 — Productization boundary (DONE — 2026-07-25) |
