@@ -18,24 +18,27 @@ CheckQuest is organized around a small reusable core with these constraints:
 - one canonical run-level finding model with traceable occurrences and
   evidence;
 - passive security observation without additional probe traffic;
-- bring-your-own-key (BYOK) Gemini access without key persistence or exposure;
+- bring-your-own-key (BYOK) Gemini access through isolated per-run credentials
+  without key persistence or exposure;
 - explicit, privacy-safe progress and failure contracts; and
 - required cleanup that does not hide an earlier operational failure.
 
 The current CLI is one adapter around that core. A future desktop or web
 frontend can call the same coordinator and consume its events and in-memory
-report without moving CLI rendering, filesystem persistence, or process-exit
-behavior into the engine.
+report without moving CLI rendering, filesystem persistence, environment-based
+credential resolution, or process-exit behavior into the engine.
 
 ## Execution overview
 
 ```mermaid
 flowchart TD
   CLI["CLI adapter"] --> CFG["Parse arguments and resolve SiteConfig"]
+  CLI --> CREDS["Resolve CLI Gemini credential"]
   CFG --> RUN["runSite reusable coordinator"]
+  CREDS --> RUN
   RUN -. "RunEvent progress" .-> PRESENT["Caller or CLI renderer"]
   RUN -. "CheckQuestError failure" .-> PRESENT
-  RUN --> PRE["Validate input and preflight Gemini when required"]
+  RUN --> PRE["Validate input and preflight per-run Gemini credential when required"]
   PRE --> BROWSER["Launch Chromium and visit the start page"]
   BROWSER --> PAGE["inspectPage pipeline"]
   PAGE --> WORK["Observe, analyze, reconcile, investigate, and commit"]
@@ -59,6 +62,8 @@ The [CLI entry point](../agent/run-site-agent.ts) owns:
 
 - parsing command-line arguments and applying overrides to the selected site
   configuration;
+- resolving `GEMINI_API_KEY` from the invoking environment and adapting it into
+  the explicit per-run credential contract;
 - creating CLI-oriented run metadata;
 - rendering `RunEvent` values;
 - writing JSON and Markdown reports after a successful core run;
@@ -68,7 +73,8 @@ The [CLI entry point](../agent/run-site-agent.ts) owns:
 The [run coordinator](../agent/run/run-site.ts) owns:
 
 - reusable input validation;
-- Gemini credential preflight when default model collaborators may be used;
+- explicit per-run Gemini credential preflight when default model
+  collaborators may be used;
 - browser, diagnostics, passive-security, and run-state lifecycles;
 - start-page navigation and bounded multi-page coordination;
 - calls to the per-page inspection pipeline;
@@ -77,9 +83,9 @@ The [run coordinator](../agent/run/run-site.ts) owns:
 - required resource cleanup; and
 - ordered progress and terminal events.
 
-The coordinator does not parse CLI arguments, render progress, write report
-files, or terminate a process. A programmatic caller can omit the event
-observer and run silently.
+The coordinator does not parse CLI arguments, read user credentials from
+`process.env`, render progress, write report files, or terminate a process. A
+programmatic caller can omit the event observer and run silently.
 
 ## Programmatic `runSite` API
 
@@ -90,32 +96,44 @@ The source-level API is defined by
 ```ts
 const report = await runSite({
   site,
+  credentials: {
+    geminiApiKey
+  },
   startedAt,
   runId,
   onEvent,
   dependencies: {
     analyzePageForQa,
+    planNextAction,
     chooseNavigationLink
   }
 });
 ```
 
-Only `site` is required:
+Only `site` is structurally required. A Gemini credential is required at
+runtime only when a default Gemini-backed execution path can be reached.
 
 | Input | Meaning |
 |---|---|
 | `site` | Validated execution limits, start URL, allowed hosts, and form policy |
+| `credentials` | Optional per-run execution credentials; currently supports a transient Gemini API key |
 | `startedAt` | Optional valid `Date`; generated when omitted |
 | `runId` | Optional filesystem-safe identifier; generated when omitted |
 | `onEvent` | Optional synchronous `RunEvent` observer |
 | `dependencies.analyzePageForQa` | Optional page-analysis collaborator |
+| `dependencies.planNextAction` | Optional investigation-planner collaborator |
 | `dependencies.chooseNavigationLink` | Optional navigation-choice collaborator |
 
-The two dependency overrides are narrow test and embedding seams. They do not
-form a general dependency-injection, provider, or plugin framework. If either
-default Gemini-backed path can be reached, `runSite` resolves the BYOK
-credential before launching Chromium. A fully injected local integration can
-therefore exercise real browser coordination without Gemini.
+The credential is execution context, not site configuration. Reusable
+`runSite(...)` does not resolve a user credential from `process.env`. If a
+default Gemini-backed analysis, planner, or navigation path can be reached,
+the coordinator requires an explicit per-run `credentials.geminiApiKey`
+before launching Chromium.
+
+The three dependency overrides are narrow test and embedding seams. They do
+not form a general dependency-injection, provider, or plugin framework. A
+fully injected local integration can therefore exercise real browser
+coordination without Gemini or a Gemini credential.
 
 `runSite` resolves only after required browser cleanup succeeds. It returns a
 complete successful report or rejects; it does not return a partial success
@@ -133,6 +151,10 @@ The reusable [`SiteConfig`](../agent/config/site-config.ts) contains:
 - `maxExploratoryStepsPerPage`; and
 - `allowFormSubmission`.
 
+Credentials deliberately do not belong to `SiteConfig`. A site profile
+describes where and how CheckQuest may explore; a Gemini key belongs to one
+execution invocation.
+
 [`validateRunSiteInput`](../agent/run/validate-run-site-input.ts) runs before
 browser work. It requires an HTTP or HTTPS start URL whose hostname is in the
 non-empty allowed-host list, validates each budget as a safe whole number,
@@ -140,10 +162,15 @@ requires a Boolean form policy, validates `startedAt`, and constrains an
 explicit `runId` to a safe 1-128 character form. Invalid reusable input fails
 with `CONFIGURATION`.
 
-CLI parsing and site-specific defaults remain outside this reusable validation
-boundary. See [CheckQuest Configuration](CONFIGURATION.md) for the current CLI
-contract, target profiles, environment variables, and profile-authoring
-reference.
+When a default Gemini-backed operation may be reached, the coordinator then
+requires a non-blank explicit per-run Gemini credential before Chromium is
+launched. Missing or blank credentials fail with `MODEL` and phase
+`gemini-credential-resolution`.
+
+CLI parsing, environment-to-credential adaptation, and site-specific defaults
+remain outside these reusable boundaries. See
+[CheckQuest Configuration](CONFIGURATION.md) for the current CLI contract,
+target profiles, environment variables, and profile-authoring reference.
 
 ## Progress contract: `RunEvent`
 
@@ -182,7 +209,7 @@ boundary for expected operational failures. Its current codes are:
 | `CONFIGURATION` | Invalid reusable input or missing required configuration |
 | `BROWSER` | Browser launch or browser-level operation |
 | `NAVIGATION` | Start-page or approved-link navigation |
-| `MODEL` | Gemini request, transport, timeout, or service failure |
+| `MODEL` | Gemini credential, request, transport, timeout, or service failure |
 | `MODEL_RESPONSE` | Invalid or unusable model output |
 | `REPORTING` | Successful report construction or CLI persistence |
 | `CLEANUP` | Required cleanup failed without an earlier primary failure |
@@ -236,8 +263,10 @@ coordinator. For each already-navigated page it performs this ordered work:
 13. update the navigation frontier and inspected-final-URL state.
 
 The pipeline returns page detail plus run-level metrics. It receives the
-long-lived registries and navigation state from `runSite`; it does not own
-browser launch, cross-page scheduling, report persistence, or process output.
+long-lived registries, navigation state, optional per-run Gemini credential,
+and model-request event observer from `runSite`; it does not own browser
+launch, cross-page scheduling, environment credential resolution, report
+persistence, or process output.
 
 ## Navigation and run-level exploration
 
@@ -379,17 +408,37 @@ inventory. Values are allowlisted and sanitized before reporting.
 ## Gemini collaboration and BYOK
 
 The production analysis, planner, and navigation-choice paths use Gemini as a
-bounded collaborator. They resolve `GEMINI_API_KEY` explicitly; CheckQuest
-does not fall back to `GOOGLE_API_KEY`. The key belongs to the user, is not
-persisted by CheckQuest, and is not included in events, reports, prompts,
-diagnostics, or public errors.
+bounded collaborator.
 
-[`runGeminiRequest`](../agent/ai/run-gemini-request.ts) owns the shared request
-boundary. The SDK receives no retry authority. CheckQuest allows at most two
-total attempts and retries only bounded transient transport or timeout
-conditions and HTTP status `408`, `429`, `500`, `502`, `503`, or `504`.
-Schema-invalid or malformed model output is parsed outside that boundary and
-fails as `MODEL_RESPONSE` without retry.
+Reusable execution receives the user's Gemini credential explicitly as
+per-run execution context. `runSite(...)` does not read
+`process.env.GEMINI_API_KEY` and does not mutate process-global credential
+state. If any default Gemini-backed collaborator can be reached, the supplied
+per-run key is validated before Chromium launches.
+
+The CLI is an adapter around this boundary. It reads `GEMINI_API_KEY` from the
+invoking process environment and passes the resolved value into `runSite`.
+`GOOGLE_API_KEY` is not accepted as an implicit fallback.
+
+A future desktop adapter can supply a transient user credential directly. A
+hosted worker can likewise supply a different credential for each run without
+changing process-global environment state.
+
+The key belongs to the user and is not persisted by CheckQuest or included in
+events, reports, prompts, diagnostics, public errors, or reusable site
+configuration.
+
+Each production Gemini operation consumes the explicit key only when creating
+its `GoogleGenAI` client.
+[`runGeminiRequest`](../agent/ai/run-gemini-request.ts) remains
+credential-neutral and receives only request, retry, timeout, and event
+concerns.
+
+The SDK receives no retry authority. CheckQuest allows at most two total
+attempts and retries only bounded transient transport or timeout conditions
+and HTTP status `408`, `429`, `500`, `502`, `503`, or `504`. Schema-invalid or
+malformed model output is parsed outside that boundary and fails as
+`MODEL_RESPONSE` without retry.
 
 Prompts provide bounded observations and deterministic policy context. Model
 output is untrusted until schema parsing and deterministic validation succeed.
@@ -424,17 +473,25 @@ potentially sensitive artifacts. Gemini API keys are excluded.
 The architecture supports three deliberately different verification layers:
 
 - browser-free deterministic checks exercise schemas, policies, lifecycle
-  integrity, reporting, errors, events, and regression sentinels;
+  integrity, reporting, errors, events, credential isolation, and regression
+  sentinels;
 - local loopback Chromium checks exercise real browser safety, navigation,
-  passive response capture, and coordinator cleanup without Gemini or an
-  external site; and
+  passive response capture, coordinator cleanup, and Gemini-free reusable
+  execution without an external site; and
 - optional external Aidoc or real Gemini checks remain separate from mandatory
   contributor and CI success.
 
-The injected page-analysis and navigation-choice collaborators are sufficient
-for real `runSite` browser integration without widening the production API.
-Most lower-level policies and registries are plain deterministic modules and
-can be tested directly.
+The injected page-analysis, investigation-planner, and navigation-choice
+collaborators are sufficient for real `runSite` browser integration without
+widening the production API or requiring a Gemini credential. Most lower-level
+policies and registries are plain deterministic modules and can be tested
+directly.
+
+Stage 9 credential-boundary coverage additionally verifies that reusable
+execution does not silently consume `process.env.GEMINI_API_KEY`, distinct
+per-run values remain isolated, process environment state is not mutated, and
+credential sentinels do not enter public events, errors, reports, or serialized
+output.
 
 See [Development and verification](../README.md#development-and-verification)
 in the README for the current contributor commands and CI split.
@@ -443,12 +500,15 @@ in the README for the current contributor commands and CI split.
 
 The following boundaries are intentional:
 
-- the reusable core has no CLI rendering, process control, or report-file
-  persistence;
+- the reusable core has no CLI rendering, process control, report-file
+  persistence, or process-environment credential dependency;
+- per-run credentials are execution context and do not belong to `SiteConfig`;
 - `RunEvent` is a progress contract, not a general event bus, logger, or remote
   telemetry protocol;
 - model dependency overrides are narrow collaborators, not a provider or
   plugin architecture;
+- `runGeminiRequest` is credential-neutral and does not act as a credential
+  store or client factory;
 - canonical findings and passive-security observations remain separate;
 - compatibility report projections are derived, not parallel authorities;
 - deterministic policy constrains every model-assisted navigation or action;

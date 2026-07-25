@@ -3,27 +3,34 @@
 This document is the configuration reference for the current repository. Start
 with the [README](../README.md) for installation and normal CLI usage. See
 [CheckQuest Architecture](ARCHITECTURE.md) for execution flow, programmatic
-events, errors, findings, and safety boundaries.
+events, errors, findings, credentials, and safety boundaries.
 
 Configuration is currently source-level and experimental. It is not a
 versioned public configuration-file format or SDK stability promise.
 
 ## Configuration model
 
-A CLI run is configured in three steps:
+A CLI run is configured in four steps:
 
 1. parse zero or one positional target plus optional runtime controls;
-2. resolve the target to a `SiteConfig`; and
-3. apply any supplied budget overrides before passing the result to `runSite`.
+2. resolve the target to a `SiteConfig`;
+3. apply any supplied budget overrides; and
+4. adapt the invoking environment's Gemini credential into explicit per-run
+   execution context before calling `runSite`.
 
 The target can be a registered site ID or a complete HTTP/HTTPS URL. Registered
 profiles are authored in the repository. A URL supplied at runtime creates a
 temporary conservative profile; CheckQuest does not persist it.
 
+Credentials are deliberately separate from `SiteConfig`. A site profile
+describes exploration policy; a Gemini API key belongs only to the current
+execution.
+
 The authoritative implementations are the
 [CLI option parser](../agent/config/agent-run-options.ts), the
-[site registry](../agent/sites/index.ts), and
-[`SiteConfig`](../agent/config/site-config.ts).
+[site registry](../agent/sites/index.ts),
+[`SiteConfig`](../agent/config/site-config.ts), and the
+[CLI credential adapter](../agent/cli/resolve-run-site-credentials.ts).
 
 ## Choosing a target
 
@@ -53,8 +60,8 @@ npm run agent:run -- aidoc
 ```
 
 This registration expresses only the current start URL, hostname policy,
-budgets, and form policy. It does not guarantee that every page or control on
-the site is supported.
+budgets, and form policy. It does not contain a Gemini credential and does not
+guarantee that every page or control on the site is supported.
 
 ### Arbitrary URL
 
@@ -145,6 +152,9 @@ the start hostname, safe whole-number budgets, and a Boolean form policy.
 `maxPages` must be at least 1; the two step budgets can be 0 for programmatic
 configuration. The CLI applies its narrower ranges shown above.
 
+Gemini credentials are intentionally absent from `SiteConfig`. They are
+per-run execution context supplied separately to `runSite(...)`.
+
 ## Adding a configured site
 
 Adding a reusable profile is a source change, not a CLI registration command.
@@ -204,7 +214,8 @@ Choose a unique ID, include every hostname that navigation is intentionally
 allowed to reach, and keep all budgets bounded. Keep
 `allowFormSubmission: false` unless a future explicit interaction policy and
 safety review create a concrete reason to change it. Adding a profile does not
-broaden the implemented browser action vocabulary.
+broaden the implemented browser action vocabulary and does not store a Gemini
+credential.
 
 ## Host policy
 
@@ -251,20 +262,42 @@ invoking process environment:
 GEMINI_API_KEY
 ```
 
+The CLI resolves that environment value and passes it into `runSite(...)` as
+an explicit per-run credential. The reusable execution core does not silently
+read `process.env.GEMINI_API_KEY` and does not mutate process-global
+credential state.
+
 `GOOGLE_API_KEY` is not accepted as an implicit fallback. The repository has
 no automatic `.env` loader. CheckQuest does not persist the key or include it
-in reports, run events, prompts, diagnostics, or public error messages. Do not
-commit credentials to the repository.
+in reports, run events, prompts, diagnostics, reusable site configuration, or
+public error messages. Do not commit credentials to the repository.
 
-The key is resolved before Chromium launches whenever a production
-Gemini-backed collaborator can be reached. Missing or blank
-`GEMINI_API_KEY` fails as a non-retryable `MODEL` error with phase
-`gemini-credential-resolution`.
+When a default Gemini-backed analysis, planner, or navigation path can be
+reached, `runSite(...)` requires a non-blank explicit per-run Gemini key before
+Chromium launches. Missing or blank credentials fail as a non-retryable
+`MODEL` error with phase `gemini-credential-resolution`.
+
+Programmatic callers can supply a transient credential directly:
+
+```ts
+const report = await runSite({
+  site: exampleSite,
+  credentials: {
+    geminiApiKey: userGeminiApiKey
+  }
+});
+```
+
+Because the credential belongs to a single invocation rather than global
+process state, separate desktop or hosted runs can supply different user keys
+without changing `process.env`.
 
 Mandatory browser-free and local Chromium repository gates do not require
-Gemini. A programmatic `runSite` execution whose reachable page-analysis and
-navigation-choice collaborators are fully injected can also run without a
-Gemini key. The collaborator seam is described in
+Gemini. A programmatic `runSite(...)` execution whose reachable page-analysis,
+planner, and navigation-choice collaborators are fully injected also requires
+no Gemini key.
+
+The collaborator seam is described in
 [Programmatic `runSite` API](ARCHITECTURE.md#programmatic-runsite-api).
 
 ## Model override
@@ -283,6 +316,10 @@ provider selection, or configuration for non-Gemini providers.
 
 Environment values should be set before starting the Node.js process because
 the model configuration is read when its module is loaded.
+
+Unlike the API key, the current model selection remains process-level
+implementation configuration. Stage 9 does not redefine it as per-run product
+configuration.
 
 ## Cross-platform environment examples
 
@@ -311,6 +348,9 @@ export GEMINI_API_KEY="your-key"
 export GEMINI_MODEL="your-model"
 ```
 
+For CLI execution, `GEMINI_API_KEY` is read by the CLI adapter and converted
+into the explicit per-run credential supplied to the reusable core.
+
 Permanent environment configuration is operating-system-specific. CheckQuest
 does not manage credential storage or shell profiles.
 
@@ -329,7 +369,8 @@ Known CLI target and option failures use `CheckQuestError` code
 | Unknown configured site | Lists the currently available configured IDs |
 | Malformed `http://` or `https://` URL | Requests a complete HTTP/HTTPS URL |
 | Non-HTTP(S) programmatic `startUrl` | Rejected by reusable input validation |
-| Missing or blank `GEMINI_API_KEY` | Non-retryable `MODEL`, not `CONFIGURATION` |
+| Missing or blank CLI `GEMINI_API_KEY` | Non-retryable `MODEL`, not `CONFIGURATION` |
+| Missing or blank required per-run Gemini credential | Non-retryable `MODEL`, not `CONFIGURATION` |
 
 The CLI recognizes runtime URLs by their `http://` or `https://` prefix. A
 target with another scheme is not a runtime URL and will normally be resolved
@@ -341,18 +382,25 @@ causes, raw model output, or credentials.
 
 ## Programmatic configuration
 
-Programmatic callers pass the same `SiteConfig` shape directly:
+Programmatic callers pass the same `SiteConfig` shape directly and supply
+execution credentials separately:
 
 ```ts
 const report = await runSite({
-  site: exampleSite
+  site: exampleSite,
+  credentials: {
+    geminiApiKey: userGeminiApiKey
+  }
 });
 ```
+
+`credentials` is per-run execution context and is deliberately separate from
+`SiteConfig`. A fully injected Gemini-free run can omit it.
 
 `runSite` performs reusable validation independently of CLI parsing, so callers
 cannot rely on TypeScript shape-checking or earlier CLI validation alone. Its
 optional timestamps, run identity, event observer, model collaborators,
-failure contract, and in-memory report are documented in
+credential behavior, failure contract, and in-memory report are documented in
 [CheckQuest Architecture](ARCHITECTURE.md#programmatic-runsite-api).
 
 ## Configuration examples
@@ -374,7 +422,12 @@ Report files from a successful CLI run are written under
 - `aidoc` is the only registered reusable site profile.
 - Runtime URL profiles are temporary and scoped to one exact hostname.
 - CheckQuest does not automatically load `.env` files or persist credentials.
+- CLI BYOK is adapted from `GEMINI_API_KEY` into an explicit per-run
+  credential.
+- Reusable `runSite(...)` does not depend on process-global user credentials.
 - Gemini is the only production model provider currently supported.
+- `GEMINI_MODEL` remains process-level implementation configuration rather
+  than a stable per-run product contract.
 - Configuration is code and CLI/environment input, not a standalone
   configuration-file format.
 - The programmatic API is source-level, not a published versioned SDK.

@@ -114,7 +114,7 @@ npx playwright install --with-deps chromium
 
 CheckQuest uses **BYOK — Bring Your Own Key**.
 
-It reads `GEMINI_API_KEY` from the current process environment. It does not persist the key or include it in reports, events, or public errors. `GOOGLE_API_KEY` is intentionally not used as an implicit fallback, and `.env` files are not loaded automatically.
+The CLI reads `GEMINI_API_KEY` from the current process environment and passes it into the run as an explicit per-run credential. Reusable `runSite(...)` callers can instead supply their own transient Gemini key directly. CheckQuest does not persist the key or include it in reports, events, or public errors. `GOOGLE_API_KEY` is intentionally not used as an implicit fallback, and `.env` files are not loaded automatically.
 
 PowerShell:
 
