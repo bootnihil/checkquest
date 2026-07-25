@@ -73,13 +73,23 @@ import {
   getPassiveSecurityReport
 } from '../security/passive-security-registry';
 import {
-  validateRunSiteInput
+  validateRunSiteInput,
+  type ValidatedRunSiteInput
 } from './validate-run-site-input';
+import {
+  createModelRequestRunEventObserver,
+  createRunFailureEvent,
+  createRunEventEmitter,
+  type RunEventEmitter,
+  type RunEventObserver
+} from './run-event';
 
 export interface RunSiteInput {
   site: SiteConfig;
   startedAt?: Date;
   runId?: string;
+  onEvent?:
+    RunEventObserver;
   dependencies?:
     RunSiteDependencies;
 }
@@ -99,13 +109,116 @@ export async function runSite(
   input:
     RunSiteInput
 ): Promise<SiteAgentReport> {
+  let validatedInput:
+    ValidatedRunSiteInput;
+
+  try {
+    validatedInput =
+      validateRunSiteInput(
+        input
+      );
+  } catch (
+    error:
+      unknown
+  ) {
+    /*
+     * Validation can reject an unsafe caller-supplied run ID, so pre-run
+     * failures use a fixed safe identity rather than reflecting that input.
+     */
+    createRunEventEmitter(
+      'unavailable',
+      input.onEvent
+    )(
+      createRunFailureEvent(
+        error
+      )
+    );
+
+    throw error;
+  }
+
+  const {
+    site,
+    runId
+  } = validatedInput;
+  const emit =
+    createRunEventEmitter(
+      runId,
+      input.onEvent
+    );
+
+  emit({
+    type:
+      'run-started',
+    message:
+      'CheckQuest run started.',
+    startUrl:
+      createSafeDisplayUrl(
+        site.startUrl
+      ),
+    pageBudget:
+      site.maxPages,
+    navigationBudget:
+      site.maxAgentSteps
+  });
+
+  try {
+    const report =
+      await executeRunSite(
+        input,
+        validatedInput,
+        emit
+      );
+
+    emit({
+      type:
+        'run-completed',
+      message:
+        'CheckQuest run completed.',
+      outcome:
+        report.outcome.type,
+      inspectedPageCount:
+        report.summary
+          .pagesInspected,
+      findingCount:
+        report.summary
+          .logicalFindingsCount,
+      occurrenceCount:
+        report.summary
+          .findingOccurrencesCount
+    });
+
+    return report;
+  } catch (
+    error:
+      unknown
+  ) {
+    emit(
+      createRunFailureEvent(
+        error
+      )
+    );
+
+    throw error;
+  }
+}
+
+async function executeRunSite(
+  input:
+    RunSiteInput,
+  validatedInput:
+    ValidatedRunSiteInput,
+  emit:
+    RunEventEmitter
+): Promise<SiteAgentReport> {
   const {
     site,
     startedAt,
     runId
-  } =
-    validateRunSiteInput(
-      input
+  } = validatedInput;
+  const onModelRequestEvent =
+    createModelRequestRunEventObserver(
+      emit
     );
 
   const usesDefaultAnalysis =
@@ -133,34 +246,6 @@ export async function runSite(
      */
     resolveGeminiApiKey();
   }
-
-  console.log(
-    `Run ID: ${runId}`
-  );
-
-  console.log(
-    `Selected site: ${site.name}`
-  );
-
-  console.log(
-    `Start URL: ${site.startUrl}`
-  );
-
-  console.log(
-    `Maximum pages: ${site.maxPages}`
-  );
-
-  console.log(
-    `Maximum navigation steps: ${site.maxAgentSteps}`
-  );
-
-  console.log(
-    `Maximum exploratory steps per page: ${site.maxExploratoryStepsPerPage}`
-  );
-
-  console.log(
-    `Form submission allowed: ${site.allowFormSubmission}`
-  );
 
   let browser:
     Awaited<
@@ -327,22 +412,6 @@ export async function runSite(
           homepageResponse?.status() ??
           null
       };
-
-      console.log(
-        '\nHomepage opened:'
-      );
-
-      console.log(
-        `HTTP status: ${homepageObservation.httpStatus ?? 'unknown'}`
-      );
-
-      console.log(
-        `Final URL: ${homepageObservation.finalUrl}`
-      );
-
-      console.log(
-        `Title: ${homepageObservation.title}`
-      );
 
       const navigationUrlState =
         createNavigationUrlState();
@@ -513,38 +582,6 @@ export async function runSite(
                       navigationBudget
                   });
 
-                console.log(
-                  `\nNavigation step ${agentSteps + 1}/${site.maxAgentSteps}`
-                );
-
-                console.log(
-                  `Pages inspected: ${completedPages.length}/${site.maxPages}`
-                );
-
-                console.log(
-                  `Safe frontier entries discovered: ${navigationFrontier.entries.size}`
-                );
-
-                console.log(
-                  `Stage 6.2 policy band: ${policyWindow.policyBand ?? 'none'}`
-                );
-
-                console.log(
-                  `Area-diversified candidates supplied to Gemini: ${policyWindow.candidates.length}`
-                );
-
-                console.log(
-                  `Eligible route values: neutral=${policyWindow.eligibleValueClassCounts.neutral}, weak-low-value=${policyWindow.eligibleValueClassCounts['weak-low-value']}, strong-low-value=${policyWindow.eligibleValueClassCounts['strong-low-value']}`
-                );
-
-                console.log(
-                  `Remaining page slots: ${navigationBudget.remainingPageSlots}`
-                );
-
-                console.log(
-                  `Remaining navigation-decision slots: ${navigationBudget.remainingNavigationDecisionSlots}`
-                );
-
                 if (
                   policyWindow
                     .candidates
@@ -558,14 +595,6 @@ export async function runSite(
                     summary:
                       'No unattempted safe navigation links remained.'
                   };
-
-                  console.log(
-                    '\nAgent exploration finished:'
-                  );
-
-                  console.log(
-                    outcome.summary
-                  );
 
                   return null;
                 }
@@ -590,7 +619,11 @@ export async function runSite(
                   )(
                     site,
                     policyWindow.candidates,
-                    navigationBudget
+                    navigationBudget,
+                    {
+                      onEvent:
+                        onModelRequestEvent
+                    }
                   );
 
                 if (
@@ -605,40 +638,8 @@ export async function runSite(
                       decision.summary
                   };
 
-                  console.log(
-                    '\nAgent decision: FINISH'
-                  );
-
-                  console.log(
-                    `Summary: ${decision.summary}`
-                  );
-
                   return null;
                 }
-
-                console.log(
-                  '\nAgent selected a navigation target:'
-                );
-
-                console.log(
-                  `Text: ${decision.link.text}`
-                );
-
-                console.log(
-                  `URL: ${decision.link.url}`
-                );
-
-                console.log(
-                  `Traversal depth: ${decision.policyCandidate.minimumDiscoveryDepth}`
-                );
-
-                console.log(
-                  `Policy band: ${decision.policyCandidate.policyBand}`
-                );
-
-                console.log(
-                  `Reason: ${decision.reason}`
-                );
 
                 markNavigationUrlAttempted(
                   navigationUrlState,
@@ -647,6 +648,26 @@ export async function runSite(
 
                 diagnosticsCollector
                   .reset();
+
+                emit({
+                  type:
+                    'navigation-started',
+                  message:
+                    `Navigation ${agentSteps} started.`,
+                  navigationStep:
+                    agentSteps,
+                  navigationBudget:
+                    site.maxAgentSteps,
+                  pageNumber:
+                    completedPages.length +
+                    1,
+                  requestedUrl:
+                    createSafeDisplayUrl(
+                      decision
+                        .link
+                        .url
+                    )
+                });
 
                 const {
                   observation:
@@ -703,24 +724,61 @@ export async function runSite(
                   navigationResolution
                     .finalUrlAlreadyInspected
                 ) {
-                  console.log(
-                    '\nNavigation resolved to an already-inspected final URL.'
-                  );
-
-                  console.log(
-                    `Requested URL: ${navigationResolution.requestedUrl}`
-                  );
-
-                  console.log(
-                    `Final URL: ${navigationResolution.finalUrl}`
-                  );
-
-                  console.log(
-                    'No duplicate full inspection or page-novelty registration was performed.'
-                  );
+                  emit({
+                    type:
+                      'navigation-completed',
+                    message:
+                      `Navigation ${agentSteps} resolved to an already-inspected page.`,
+                    navigationStep:
+                      agentSteps,
+                    navigationBudget:
+                      site.maxAgentSteps,
+                    pageNumber:
+                      completedPages
+                        .length +
+                      1,
+                    requestedUrl:
+                      createSafeDisplayUrl(
+                        navigationResolution
+                          .requestedUrl
+                      ),
+                    finalUrl:
+                      createSafeDisplayUrl(
+                        navigationResolution
+                          .finalUrl
+                      ),
+                    outcome:
+                      'duplicate-final-url'
+                  });
 
                   continue;
                 }
+
+                emit({
+                  type:
+                    'navigation-completed',
+                  message:
+                    `Navigation ${agentSteps} completed.`,
+                  navigationStep:
+                    agentSteps,
+                  navigationBudget:
+                    site.maxAgentSteps,
+                  pageNumber:
+                    completedPages.length +
+                    1,
+                  requestedUrl:
+                    createSafeDisplayUrl(
+                      navigationResolution
+                        .requestedUrl
+                    ),
+                  finalUrl:
+                    createSafeDisplayUrl(
+                      navigationResolution
+                        .finalUrl
+                    ),
+                  outcome:
+                    'ready-for-inspection'
+                });
 
                 return {
                   selection: {
@@ -793,26 +851,117 @@ export async function runSite(
             async (
               currentPage,
               pageIndex
-            ) =>
-              inspectPage({
-                page,
-                site,
-                runId,
-                pageIndex,
-                currentPage,
-                diagnosticsCollector,
-                navigationFrontier,
-                navigationUrlState,
-                pageNoveltyState,
-                passiveSecurityRegistry,
-                findingLifecycle,
-                dependencies: {
-                  analyzePageForQa:
-                    input
-                      .dependencies
-                      ?.analyzePageForQa
+            ) => {
+              const pageNumber =
+                pageIndex +
+                1;
+
+              emit({
+                type:
+                  'inspection-started',
+                message:
+                  `Page ${pageNumber} inspection started.`,
+                pageNumber,
+                url:
+                  createSafeDisplayUrl(
+                    currentPage
+                      .observation
+                      .finalUrl
+                  )
+              });
+
+              const result =
+                await inspectPage({
+                  page,
+                  site,
+                  runId,
+                  pageIndex,
+                  currentPage,
+                  diagnosticsCollector,
+                  navigationFrontier,
+                  navigationUrlState,
+                  pageNoveltyState,
+                  passiveSecurityRegistry,
+                  findingLifecycle,
+                  dependencies: {
+                    analyzePageForQa:
+                      input
+                        .dependencies
+                        ?.analyzePageForQa,
+                    onModelRequestEvent
+                  }
+                });
+
+              const {
+                pageResult
+              } = result;
+
+              if (
+                pageResult
+                  .exploratoryInvestigation !==
+                null
+              ) {
+                for (
+                  const findingResult of
+                    pageResult
+                      .exploratoryFindingResults
+                ) {
+                  emit({
+                    type:
+                      'investigation-completed',
+                    message:
+                      `Candidate ${findingResult.candidateReference} investigation completed.`,
+                    pageNumber,
+                    candidateReference:
+                      findingResult
+                        .candidateReference,
+                    status:
+                      findingResult
+                        .outcome
+                        .status,
+                    stepsUsed:
+                      pageResult
+                        .exploratoryInvestigation
+                        .plannerDecisionCount
+                  });
                 }
-              })
+              }
+
+              emit({
+                type:
+                  'inspection-completed',
+                message:
+                  `Page ${pageNumber} inspection completed.`,
+                pageNumber,
+                url:
+                  createSafeDisplayUrl(
+                    pageResult
+                      .observation
+                      .finalUrl
+                  ),
+                findingCount:
+                  pageResult
+                    .findings
+                    .length +
+                  pageResult
+                    .exploratoryFindingResults
+                    .length +
+                  pageResult
+                    .knownFindingOccurrences
+                    .length,
+                diagnosticCount:
+                  pageResult
+                    .diagnostics
+                    .consoleErrors
+                    .length +
+                  pageResult
+                    .diagnostics
+                    .failedRequests
+                    .length
+              });
+
+              return result;
+            }
         });
 
       const inspectedPages =

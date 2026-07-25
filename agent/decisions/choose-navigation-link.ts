@@ -8,7 +8,8 @@ import {
   resolveGeminiApiKey
 } from '../ai/resolve-gemini-api-key';
 import {
-  runGeminiRequest
+  runGeminiRequest,
+  type GeminiRequestDependencies
 } from '../ai/run-gemini-request';
 
 import type {
@@ -77,7 +78,12 @@ export type NavigationDecision =
 export async function chooseNavigationLink(
   site: SiteConfig,
   candidates: NavigationPolicyCandidate[],
-  budget: NavigationBudgetContext
+  budget: NavigationBudgetContext,
+  requestDependencies:
+    Pick<
+      GeminiRequestDependencies,
+      'onEvent'
+    > = {}
 ): Promise<NavigationDecision> {
   if (
     candidates.length ===
@@ -305,7 +311,8 @@ ${JSON.stringify(
           },
 
           requestOptions
-        )
+        ),
+      requestDependencies
     );
 
   const functionCalls =

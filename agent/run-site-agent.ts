@@ -3,6 +3,9 @@ import {
   parseAgentRunOptions
 } from './config/agent-run-options';
 import {
+  renderRunEvent
+} from './cli/render-run-event';
+import {
   CheckQuestError,
   formatPublicError
 } from './errors/checkquest-error';
@@ -53,7 +56,9 @@ async function main(): Promise<void> {
     await runSite({
       site,
       startedAt,
-      runId
+      runId,
+      onEvent:
+        renderRunEvent
     });
 
   let writtenJsonReport:

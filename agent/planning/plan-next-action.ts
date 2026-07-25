@@ -6,7 +6,10 @@ import {
 import {
   resolveGeminiApiKey
 } from '../ai/resolve-gemini-api-key';
-import { runGeminiRequest } from '../ai/run-gemini-request';
+import {
+  runGeminiRequest,
+  type GeminiRequestDependencies
+} from '../ai/run-gemini-request';
 import { aiConfig } from '../config/ai-config';
 import {
   buildPlannerPrompt,
@@ -24,7 +27,12 @@ import {
  * anything is allowed to reach the deterministic browser executor.
  */
 export async function planNextAction(
-  input: BuildPlannerPromptInput
+  input: BuildPlannerPromptInput,
+  requestDependencies:
+    Pick<
+      GeminiRequestDependencies,
+      'onEvent'
+    > = {}
 ): Promise<PlannerDecision> {
   const ai =
     new GoogleGenAI({
@@ -72,7 +80,8 @@ export async function planNextAction(
             }
           }
         });
-      }
+      },
+      requestDependencies
     );
 
   return parseModelJsonResponse(

@@ -5,7 +5,10 @@ import {
 import {
   resolveGeminiApiKey
 } from '../ai/resolve-gemini-api-key';
-import { runGeminiRequest } from '../ai/run-gemini-request';
+import {
+  runGeminiRequest,
+  type GeminiRequestDependencies
+} from '../ai/run-gemini-request';
 import type { ExtractedPageContent } from '../browser/extract-page-content';
 import type { VisitedPageObservation } from '../browser/visit-approved-link';
 import { aiConfig } from '../config/ai-config';
@@ -30,7 +33,12 @@ export interface AnalyzePageForQaInput {
 }
 
 export async function analyzePageForQa(
-  input: AnalyzePageForQaInput
+  input: AnalyzePageForQaInput,
+  requestDependencies:
+    Pick<
+      GeminiRequestDependencies,
+      'onEvent'
+    > = {}
 ): Promise<ExploratoryQaAnalysis> {
   const ai =
     new GoogleGenAI({
@@ -78,7 +86,8 @@ export async function analyzePageForQa(
             }
           }
         });
-      }
+      },
+      requestDependencies
     );
 
   return parseModelJsonResponse(

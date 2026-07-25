@@ -1,6 +1,9 @@
 import type { Page } from '@playwright/test';
 
 import type { AgentAction } from '../actions/agent-action-schema';
+import type {
+  GeminiRequestEvent
+} from '../ai/run-gemini-request';
 import {
   executeAgentAction,
   type ExecutedAgentActionResult
@@ -218,6 +221,11 @@ export async function runExploratoryLoop(
   dependencies: {
     plan?: typeof planNextAction;
     execute?: typeof executeAgentAction;
+    onModelRequestEvent?:
+      (
+        event:
+          GeminiRequestEvent
+      ) => void;
   } = {}
 ): Promise<ExploratoryLoopResult> {
   const steps:
@@ -232,10 +240,6 @@ export async function runExploratoryLoop(
     );
 
   if (investigableCandidates.length === 0) {
-    console.log(
-      'Autonomous investigation skipped: no candidates have a supported machine-readable evidence target.'
-    );
-
     return {
       pageUrl,
       maxPlannerDecisions,
@@ -254,38 +258,33 @@ export async function runExploratoryLoop(
     stepNumber <= maxPlannerDecisions;
     stepNumber += 1
   ) {
-    console.log(
-      `\nExploratory planner decision ${stepNumber}/${maxPlannerDecisions}`
-    );
-
     const observationBefore =
       await extractPageContent(page);
 
     const decision =
-      await planner({
-        pageUrl,
+      await planner(
+        {
+          pageUrl,
 
-        pageContent:
-          observationBefore,
+          pageContent:
+            observationBefore,
 
-        history,
+          history,
 
-        currentStep:
-          stepNumber,
+          currentStep:
+            stepNumber,
 
-        maxSteps:
-          maxPlannerDecisions,
+          maxSteps:
+            maxPlannerDecisions,
 
-        investigableCandidates
-      });
-
-    console.log(
-      `Planner hypothesis: ${decision.hypothesis}`
-    );
-
-    console.log(
-      `Requested action: ${decision.action.kind}`
-    );
+          investigableCandidates
+        },
+        {
+          onEvent:
+            dependencies
+              .onModelRequestEvent
+        }
+      );
 
     const rejectionReason =
       validateDecisionCandidateRelevance(
@@ -294,10 +293,6 @@ export async function runExploratoryLoop(
       );
 
     if (rejectionReason !== null) {
-      console.log(
-        `Investigation decision rejected before browser execution: ${rejectionReason}`
-      );
-
       const executionResult: RejectedAgentActionResult = {
         kind: decision.action.kind,
         status: 'rejected',
@@ -374,10 +369,6 @@ export async function runExploratoryLoop(
         executionResult,
         observationAfter
       );
-
-    console.log(
-      `Execution result: ${historyResult}`
-    );
 
     if (
       decision.action.kind ===

@@ -20,6 +20,57 @@ export interface GeminiRequestDependencies {
     ) => Promise<void>;
   random?:
     () => number;
+  onEvent?:
+    (
+      event:
+        GeminiRequestEvent
+    ) => void;
+}
+
+export type GeminiRequestEvent =
+  | {
+      type: 'started';
+      operation: string;
+      attempt: number;
+      maxAttempts: number;
+    }
+  | {
+      type: 'retrying';
+      operation: string;
+      attempt: number;
+      maxAttempts: number;
+      retryDelayMs: number;
+      statusCode: number | null;
+    }
+  | {
+      type: 'completed';
+      operation: string;
+      attempt: number;
+      maxAttempts: number;
+    };
+
+function notifyRequestObserver(
+  observer:
+    GeminiRequestDependencies[
+      'onEvent'
+    ],
+  event:
+    GeminiRequestEvent
+): void {
+  if (
+    observer ===
+    undefined
+  ) {
+    return;
+  }
+
+  try {
+    observer(
+      event
+    );
+  } catch {
+    // Model progress observers cannot affect request execution.
+  }
 }
 
 const retryableStatuses =
@@ -481,9 +532,18 @@ export async function runGeminiRequest<T>(
       attemptIndex +
       1;
 
-    console.log(
-      `\nGemini: ${description} ` +
-        `(attempt ${attemptNumber}/${totalAttempts})...`
+    notifyRequestObserver(
+      dependencies.onEvent,
+      {
+        type:
+          'started',
+        operation:
+          description,
+        attempt:
+          attemptNumber,
+        maxAttempts:
+          totalAttempts
+      }
     );
 
     try {
@@ -499,8 +559,18 @@ export async function runGeminiRequest<T>(
           }
         });
 
-      console.log(
-        'Gemini: response received.'
+      notifyRequestObserver(
+        dependencies.onEvent,
+        {
+          type:
+            'completed',
+          operation:
+            description,
+          attempt:
+            attemptNumber,
+          maxAttempts:
+            totalAttempts
+        }
       );
 
       return result;
@@ -541,16 +611,21 @@ export async function runGeminiRequest<T>(
           random
         );
 
-      console.warn(
-        `Gemini: temporary error${
-          statusCode ===
-          null
-            ? ''
-            : ` ${statusCode}`
-        }. Retrying in approximately ${Math.ceil(
-          delayMs /
-          1_000
-        )} seconds...`
+      notifyRequestObserver(
+        dependencies.onEvent,
+        {
+          type:
+            'retrying',
+          operation:
+            description,
+          attempt:
+            attemptNumber,
+          maxAttempts:
+            totalAttempts,
+          retryDelayMs:
+            delayMs,
+          statusCode
+        }
       );
 
       await waitForDelay(

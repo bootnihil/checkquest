@@ -43,9 +43,9 @@ import {
 import {
   evaluateFindingInvestigationOutcome
 } from '../investigation/evaluate-finding-investigation-outcome';
-import {
-  isInvestigablePageCandidate
-} from '../investigation/page-candidates';
+import type {
+  GeminiRequestEvent
+} from '../ai/run-gemini-request';
 import {
   commitRunPageFindings,
   prepareKnownFindingAnalysis,
@@ -92,6 +92,11 @@ export interface PageInspectionFindingMetrics {
 export interface InspectPageDependencies {
   analyzePageForQa?:
     typeof analyzePageForQa;
+  onModelRequestEvent?:
+    (
+      event:
+        GeminiRequestEvent
+    ) => void;
 }
 
 export interface InspectPageInput {
@@ -155,21 +160,6 @@ export async function inspectPage(
     passiveSecuritySnapshot
   );
 
-  console.log(
-    selection.type ===
-      'start-url'
-      ? '\nInspecting configured start page as page 1.'
-      : '\nSelected page visited successfully:'
-  );
-
-  console.log(
-    JSON.stringify(
-      pageObservation,
-      null,
-      2
-    )
-  );
-
   await page.waitForTimeout(
     1_000
   );
@@ -192,16 +182,6 @@ export async function inspectPage(
       )
       .length;
 
-  const ignoredNoiseCount =
-    classifiedDiagnostics
-      .failedRequests
-      .filter(
-        item =>
-          item.disposition ===
-          'ignored-noise'
-      )
-      .length;
-
   const needsReviewCount =
     classifiedDiagnostics
       .failedRequests
@@ -212,59 +192,10 @@ export async function inspectPage(
       )
       .length;
 
-  console.log(
-    '\nBrowser diagnostics collected:'
-  );
-
-  console.log(
-    `Console errors: ${diagnostics.consoleErrors.length}`
-  );
-
-  console.log(
-    `Failed network requests: ${diagnostics.failedRequests.length}`
-  );
-
-  console.log(
-    '\nDiagnostic classification:'
-  );
-
-  console.log(
-    `Actionable failed requests: ${actionableRequestCount}`
-  );
-
-  console.log(
-    `Needs review: ${needsReviewCount}`
-  );
-
-  console.log(
-    `Ignored noise: ${ignoredNoiseCount}`
-  );
-
   const findings =
     evaluatePageObservation(
       pageObservation
     );
-
-  if (
-    findings.length ===
-    0
-  ) {
-    console.log(
-      '\nDeterministic evaluation: no rule-based page health issues found.'
-    );
-  } else {
-    console.log(
-      `\nDeterministic evaluation: ${findings.length} potential issue(s) found.`
-    );
-
-    console.log(
-      JSON.stringify(
-        findings,
-        null,
-        2
-      )
-    );
-  }
 
   const pageContent =
     await extractPageContent(
@@ -318,47 +249,6 @@ export async function inspectPage(
       pageContent
     );
 
-  console.log(
-    '\nStructured page content extracted:'
-  );
-
-  console.log(
-    `Headings: ${pageContent.headings.length}`
-  );
-
-  console.log(
-    `Links: ${pageContent.links.length}`
-  );
-
-  console.log(
-    `Buttons: ${pageContent.buttons.length}`
-  );
-
-  console.log(
-    `Text fields: ${pageContent.textFields.length}`
-  );
-
-  console.log(
-    `Select controls: ${pageContent.selects.length}`
-  );
-
-  console.log(
-    `Body text characters: ${pageContent.bodyText.length}`
-  );
-
-  console.log(
-    `Predicted area: ${pageNovelty.predictedIdentity.areaKey}`
-
-  );
-
-  console.log(
-    `Predicted route family: ${pageNovelty.predictedIdentity.routeFamilyKey}`
-  );
-
-  console.log(
-    `Observed template: ${pageNovelty.observedTemplateKey}`
-  );
-
   const containsPasswordField =
     pageContent.textFields.some(
       field =>
@@ -379,31 +269,35 @@ export async function inspectPage(
   const knownFindingsSuppliedToAnalysisCount =
     knownFindingContext.length;
 
-  console.log(
-    `Known findings supplied to analysis: ${knownFindingContext.length}`
-  );
-
   const rawExploratoryQaAnalysis =
     await (
       input
         .dependencies
         ?.analyzePageForQa ??
       analyzePageForQa
-    )({
-      observation:
-        pageObservation,
+    )(
+      {
+        observation:
+          pageObservation,
 
-      content:
-        pageContent,
+        content:
+          pageContent,
 
-      classifiedDiagnostics,
+        classifiedDiagnostics,
 
-      ruleBasedFindings:
-        findings,
+        ruleBasedFindings:
+          findings,
 
-      knownFindings:
-        knownFindingContext
-    });
+        knownFindings:
+          knownFindingContext
+      },
+      {
+        onEvent:
+          input
+            .dependencies
+            ?.onModelRequestEvent
+      }
+    );
 
   const pageFindingLifecycle =
     reconcileRunPageFindings(
@@ -432,18 +326,6 @@ export async function inspectPage(
       .newFindings
       .length;
 
-  console.log(
-    '\nExploratory QA analysis:'
-  );
-
-  console.log(
-    `New candidate findings: ${reconciledPageFindings.newFindings.length}`
-  );
-
-  console.log(
-    `Known finding occurrences: ${reconciledPageFindings.knownOccurrenceDrafts.length}`
-  );
-
   const pageRedundantInvestigationsSkipped =
     reconciledPageFindings
       .knownOccurrenceDrafts
@@ -457,72 +339,29 @@ export async function inspectPage(
   const redundantInvestigationsSkippedCount =
     pageRedundantInvestigationsSkipped;
 
-  console.log(
-    `Redundant investigations skipped: ${pageRedundantInvestigationsSkipped}`
-  );
-
-  for (
-    const draft of
-      reconciledPageFindings
-        .knownOccurrenceDrafts
-  ) {
-    if (
-      draft
-        .redundantInvestigationSkipped
-    ) {
-      console.log(
-        `- ${draft.knownFindingReference}: known verified occurrence recorded; redundant investigation skipped.`
-      );
-    }
-  }
-
-  console.log(
-    `Summary: ${exploratoryQaAnalysis.summary}`
-  );
-
-  for (
-    const exploratoryFinding of
-      exploratoryQaAnalysis.findings
-  ) {
-    console.log(
-      `- [${exploratoryFinding.severity}/${exploratoryFinding.confidence}] ${exploratoryFinding.title}`
-    );
-  }
-
   let exploratoryInvestigation:
     InspectedPageResult['exploratoryInvestigation'] =
       null;
 
   if (
-    containsPasswordField
-  ) {
-    console.log(
-      '\nAutonomous investigation skipped: password field detected.'
-    );
-  } else if (
+    !containsPasswordField &&
     site.maxExploratoryStepsPerPage >
       0 &&
     pageCandidates.length >
       0
   ) {
-    console.log(
-      '\nStarting autonomous page investigation...'
-    );
-
-    console.log(
-      `Maximum investigation steps: ${site.maxExploratoryStepsPerPage}`
-    );
-
-    console.log(
-      `Investigable candidates supplied to planner: ${pageCandidates.filter(isInvestigablePageCandidate).length}`
-    );
-
     exploratoryInvestigation =
       await runExploratoryLoop(
         page,
         pageObservation.finalUrl,
         site.maxExploratoryStepsPerPage,
-        pageCandidates
+        pageCandidates,
+        {
+          onModelRequestEvent:
+            input
+              .dependencies
+              ?.onModelRequestEvent
+        }
       );
 
     const postInvestigationUrl =
@@ -539,22 +378,6 @@ export async function inspectPage(
         `Autonomous investigation escaped to disallowed host "${postInvestigationUrl.hostname}".`
       );
     }
-
-    console.log(
-      '\nAutonomous page investigation completed:'
-    );
-
-    console.log(
-      `Planner decisions: ${exploratoryInvestigation.plannerDecisionCount}/${exploratoryInvestigation.maxPlannerDecisions}`
-    );
-
-    console.log(
-      `Executed candidate-investigation actions: ${exploratoryInvestigation.executedInvestigationActionCount}`
-    );
-
-    console.log(
-      `Stop reason: ${exploratoryInvestigation.stopReason}`
-    );
   }
 
   /*
@@ -581,28 +404,6 @@ export async function inspectPage(
           )
       })
     );
-
-  if (
-    exploratoryFindingResults.length >
-    0
-  ) {
-    console.log(
-      '\nExploratory finding outcomes:'
-    );
-
-    for (
-      const result of
-        exploratoryFindingResults
-    ) {
-      console.log(
-        `- [${result.outcome.status.toUpperCase()}] ${result.finding.title}`
-      );
-
-      console.log(
-        `  ${result.outcome.summary}`
-      );
-    }
-  }
 
   const investigationPerformedAction =
 
@@ -653,18 +454,6 @@ export async function inspectPage(
 
     screenshotPath =
       screenshot.filePath;
-
-    console.log(
-      '\nScreenshot evidence captured:'
-    );
-
-    console.log(
-      screenshotPath
-    );
-  } else {
-    console.log(
-      '\nScreenshot evidence: not required for this page.'
-    );
   }
 
   const knownFindingOccurrences =
@@ -682,24 +471,12 @@ export async function inspectPage(
       }
     );
 
-  const newlyAddedLinks =
-    registerDiscoveredNavigationLinks(
-      navigationFrontier,
-      discoveredLinks,
-      pageObservation
-        .finalUrl,
-      traversalDepth
-    );
-
-  console.log(
-    selection.type ===
-      'start-url'
-      ? `\nInitial safe navigation candidates found: ${discoveredLinks.length}`
-      : `\nAdditional safe links discovered on this page: ${newlyAddedLinks}`
-  );
-
-  console.log(
-    `Total unique safe links in frontier: ${navigationFrontier.entries.size}`
+  registerDiscoveredNavigationLinks(
+    navigationFrontier,
+    discoveredLinks,
+    pageObservation
+      .finalUrl,
+    traversalDepth
   );
 
   markFinalUrlInspected(

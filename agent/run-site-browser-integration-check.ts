@@ -18,6 +18,9 @@ import {
   runSite,
   type RunSiteDependencies
 } from './run/run-site';
+import type {
+  RunEvent
+} from './run/run-event';
 import {
   listenOnBrowserSafeLoopbackPort
 } from './testing/listen-on-browser-safe-loopback-port';
@@ -589,24 +592,70 @@ async function main():
         receivedRequests.length;
       const collaborators =
         createRunCollaborators();
-      const report =
-        await runSite({
-          site:
-            createSite(
-              baseUrl,
-              '/budget-one',
-              1,
-              5
-            ),
-          runId:
-            'stage8c3-page-budget-one',
-          startedAt:
-            new Date(
-              '2026-07-25T00:00:00.000Z'
-            ),
-          dependencies:
-            collaborators.dependencies
-        });
+      const coreConsoleCalls:
+        unknown[][] =
+          [];
+      const originalConsole = {
+        log:
+          console.log,
+        warn:
+          console.warn,
+        error:
+          console.error
+      };
+      let report:
+        Awaited<
+          ReturnType<
+            typeof runSite
+          >
+        >;
+
+      try {
+        console.log =
+          (
+            ...values:
+              unknown[]
+          ) => {
+            coreConsoleCalls.push(
+              values
+            );
+          };
+        console.warn =
+          console.log;
+        console.error =
+          console.log;
+
+        report =
+          await runSite({
+            site:
+              createSite(
+                baseUrl,
+                '/budget-one',
+                1,
+                5
+              ),
+            runId:
+              'stage8c3-page-budget-one',
+            startedAt:
+              new Date(
+                '2026-07-25T00:00:00.000Z'
+              ),
+            dependencies:
+              collaborators.dependencies
+          });
+      } finally {
+        console.log =
+          originalConsole.log;
+        console.warn =
+          originalConsole.warn;
+        console.error =
+          originalConsole.error;
+      }
+
+      assert.deepEqual(
+        coreConsoleCalls,
+        []
+      );
 
       assertCoreReportShape(
         report,
@@ -731,6 +780,9 @@ async function main():
         receivedRequests.length;
       const collaborators =
         createRunCollaborators();
+      const successEvents:
+        RunEvent[] =
+          [];
       const report =
         await runSite({
           site:
@@ -746,6 +798,12 @@ async function main():
             new Date(
               '2026-07-25T00:02:00.000Z'
             ),
+          onEvent:
+            event => {
+              successEvents.push(
+                event
+              );
+            },
           dependencies:
             collaborators.dependencies
         });
@@ -808,6 +866,44 @@ async function main():
           .navigationCalls
           .length,
         1
+      );
+      assert.deepEqual(
+        successEvents.map(
+          event =>
+            event.type
+        ),
+        [
+          'run-started',
+          'inspection-started',
+          'inspection-completed',
+          'navigation-started',
+          'navigation-completed',
+          'inspection-started',
+          'inspection-completed',
+          'run-completed'
+        ]
+      );
+      assert.deepEqual(
+        successEvents
+          .filter(
+            event =>
+              event.type ===
+              'inspection-started'
+          )
+          .map(
+            event =>
+              event.pageNumber
+          ),
+        [
+          1,
+          2
+        ]
+      );
+      assert.equal(
+        successEvents.at(
+          -1
+        )?.type,
+        'run-completed'
       );
       assertOrdinaryLocalGets(
         getRunRequests(
@@ -1014,6 +1110,9 @@ async function main():
         0;
       let navigationCallCount =
         0;
+      const failureEvents:
+        RunEvent[] =
+          [];
 
       await assert.rejects(
         runSite({
@@ -1030,6 +1129,12 @@ async function main():
             new Date(
               '2026-07-25T00:05:00.000Z'
             ),
+          onEvent:
+            event => {
+              failureEvents.push(
+                event
+              );
+            },
           dependencies: {
             analyzePageForQa:
               async () => {
@@ -1059,6 +1164,49 @@ async function main():
       assert.equal(
         navigationCallCount,
         0
+      );
+      assert.deepEqual(
+        failureEvents.map(
+          event =>
+            event.type
+        ),
+        [
+          'run-started',
+          'inspection-started',
+          'run-failed'
+        ]
+      );
+      assert.equal(
+        failureEvents.at(
+          -1
+        )?.type,
+        'run-failed'
+      );
+      const finalFailureEvent =
+        failureEvents.at(
+          -1
+        );
+
+      if (
+        finalFailureEvent?.type ===
+        'run-failed'
+      ) {
+        assert.equal(
+          finalFailureEvent.code,
+          'INTERNAL'
+        );
+        assert.equal(
+          finalFailureEvent.message,
+          'An unexpected CheckQuest failure occurred.'
+        );
+      }
+      assert.equal(
+        failureEvents.some(
+          event =>
+            event.type ===
+            'run-completed'
+        ),
+        false
       );
       assertOrdinaryLocalGets(
         getRunRequests(
@@ -1093,6 +1241,12 @@ async function main():
             new Date(
               '2026-07-25T00:06:00.000Z'
             ),
+          onEvent:
+            () => {
+              throw new Error(
+                'Synthetic observer failure.'
+              );
+            },
           dependencies:
             successorCollaborators
               .dependencies
