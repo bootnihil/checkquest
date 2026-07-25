@@ -56,6 +56,7 @@
     "agent:finding-reconciliation-check": "tsx agent/finding-reconciliation-check.ts",
     "agent:unified-lifecycle-check": "tsx agent/unified-finding-lifecycle-check.ts",
     "agent:run-finding-lifecycle-check": "tsx agent/run-finding-lifecycle-check.ts",
+    "agent:run-finding-lifecycle-integrity-check": "tsx agent/run-finding-lifecycle-integrity-check.ts",
     "agent:finding-investigation-outcome-check": "tsx agent/finding-investigation-outcome-check.ts",
     "agent:run-options-check": "tsx agent/agent-run-options-check.ts",
     "agent:passive-security-check": "tsx agent/passive-security-check.ts",

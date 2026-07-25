@@ -22,6 +22,7 @@ const deterministicChecks = [
   'agent:finding-reconciliation-check',
   'agent:unified-lifecycle-check',
   'agent:run-finding-lifecycle-check',
+  'agent:run-finding-lifecycle-integrity-check',
   'agent:passive-security-check',
   'agent:passive-security-report-check'
 ] as const;

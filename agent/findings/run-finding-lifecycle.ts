@@ -142,6 +142,151 @@ export interface CommitRunPageFindingsInput {
     PageFindingInvestigationResult[];
 }
 
+function validateInvestigationResults(
+  input:
+    CommitRunPageFindingsInput
+): Map<
+  PageCandidateReference,
+  PageFindingInvestigationResult
+> {
+  const candidateByReference =
+    new Map<
+      PageCandidateReference,
+      PageCandidate
+    >();
+
+  for (
+    const candidate of
+      input.page.pageCandidates
+  ) {
+    if (
+      candidateByReference.has(
+        candidate.reference
+      )
+    ) {
+      throw new Error(
+        `Prepared lifecycle contains duplicate candidate reference "${candidate.reference}".`
+      );
+    }
+
+    candidateByReference.set(
+      candidate.reference,
+      candidate
+    );
+
+    if (
+      !input
+        .page
+        .unifiedFingerprintByCandidateReference
+        .has(
+          candidate.reference
+        )
+    ) {
+      throw new Error(
+        `Candidate "${candidate.reference}" is missing its unified finding identity.`
+      );
+    }
+  }
+
+  const newFindingCandidateCount =
+    input
+      .page
+      .pageCandidates
+      .filter(
+        candidate =>
+          !input
+            .page
+            .knownFingerprintByCandidateReference
+            .has(
+              candidate.reference
+            )
+      )
+      .length;
+
+  if (
+    newFindingCandidateCount !==
+    input
+      .page
+      .reconciledPageFindings
+      .newFindings
+      .length
+  ) {
+    throw new Error(
+      'Prepared lifecycle candidate identities do not match the new-finding collection.'
+    );
+  }
+
+  const resultByCandidateReference =
+    new Map<
+      PageCandidateReference,
+      PageFindingInvestigationResult
+    >();
+
+  for (
+    const result of
+      input.exploratoryFindingResults
+  ) {
+    if (
+      resultByCandidateReference.has(
+        result.candidateReference
+      )
+    ) {
+      throw new Error(
+        `Duplicate investigation result for candidate "${result.candidateReference}".`
+      );
+    }
+
+    const candidate =
+      candidateByReference.get(
+        result.candidateReference
+      );
+
+    if (
+      candidate ===
+      undefined
+    ) {
+      throw new Error(
+        `Unexpected investigation result for candidate "${result.candidateReference}".`
+      );
+    }
+
+    if (
+      createExploratoryFindingFingerprint(
+        result.finding
+      ) !==
+      createExploratoryFindingFingerprint(
+        candidate.finding
+      )
+    ) {
+      throw new Error(
+        `Investigation result for candidate "${result.candidateReference}" does not match its prepared finding identity.`
+      );
+    }
+
+    resultByCandidateReference.set(
+      result.candidateReference,
+      result
+    );
+  }
+
+  for (
+    const candidate of
+      input.page.pageCandidates
+  ) {
+    if (
+      !resultByCandidateReference.has(
+        candidate.reference
+      )
+    ) {
+      throw new Error(
+        `Missing investigation result for candidate "${candidate.reference}".`
+      );
+    }
+  }
+
+  return resultByCandidateReference;
+}
+
 function createModelFindingIdentity(
   finding:
     ExploratoryQaFinding
@@ -408,6 +553,16 @@ export function commitRunPageFindings(
   input:
     CommitRunPageFindingsInput
 ): KnownFindingOccurrence[] {
+  /*
+   * Validate the complete candidate/result contract before either registry
+   * is mutated. A malformed result collection must fail closed without
+   * leaving partial canonical or compatibility state behind.
+   */
+  const findingResultByCandidateReference =
+    validateInvestigationResults(
+      input
+    );
+
   registerUnifiedPageFindings(
     state.unifiedFindingRegistry,
     input
@@ -472,28 +627,22 @@ export function commitRunPageFindings(
     }
   }
 
-  const findingResultByCandidateReference =
-    new Map(
-      input
-        .exploratoryFindingResults
-        .map(
-          result => [
-            result.candidateReference,
-            result
-          ]
-        )
-    );
-
   for (
-    const result of
-      input.exploratoryFindingResults
+    const candidate of
+      input.page.pageCandidates
   ) {
+    const result =
+      findingResultByCandidateReference
+        .get(
+          candidate.reference
+        )!;
+
     const unifiedFingerprint =
       input
         .page
         .unifiedFingerprintByCandidateReference
         .get(
-          result.candidateReference
+          candidate.reference
         );
 
     if (
@@ -501,7 +650,7 @@ export function commitRunPageFindings(
       undefined
     ) {
       throw new Error(
-        `Candidate "${result.candidateReference}" is missing its unified finding identity.`
+        `Candidate "${candidate.reference}" is missing its unified finding identity.`
       );
     }
 
@@ -513,14 +662,14 @@ export function commitRunPageFindings(
         pageUrl:
           input.pageUrl,
         target:
-          result.finding
+          candidate.finding
             .evidenceTarget,
         finding:
-          result.finding,
+          candidate.finding,
         outcome:
           result.outcome,
         candidateReference:
-          result.candidateReference
+          candidate.reference
       }
     );
   }
@@ -596,41 +745,35 @@ export function commitRunPageFindings(
         }
       );
 
-  /*
-   * Preserve the existing positional contract between the leading
-   * new-finding candidates and their page-local investigation results.
-   */
+  const newFindingCandidates =
+    input
+      .page
+      .pageCandidates
+      .filter(
+        candidate =>
+          !input
+            .page
+            .knownFingerprintByCandidateReference
+            .has(
+              candidate.reference
+            )
+      );
+
   for (
-    let findingIndex = 0;
-    findingIndex <
-      input
-        .page
-        .reconciledPageFindings
-        .newFindings
-        .length;
-    findingIndex +=
-      1
+    const candidate of
+      newFindingCandidates
   ) {
     const result =
-      input
-        .exploratoryFindingResults[
-          findingIndex
-        ];
-
-    if (
-      result ===
-      undefined
-    ) {
-      throw new Error(
-        'A new exploratory finding is missing its page-local investigation result.'
-      );
-    }
+      findingResultByCandidateReference
+        .get(
+          candidate.reference
+        )!;
 
     registerNewFinding(
       state.knownFindingState,
       {
         finding:
-          result.finding,
+          candidate.finding,
         pageUrl:
           input.pageUrl,
         pageTitle:
