@@ -1,9 +1,9 @@
 # CheckQuest Roadmap
 
-**Roadmap version:** 1.11
+**Roadmap version:** 1.12
 
 **Frozen on:** 2026-07-23  
-**Current stage:** Stage 8E — Documentation
+**Current stage:** Stage 8F — Production-readiness review
 
 ## How this roadmap is used
 
@@ -605,18 +605,68 @@ future test idea rather than unfinished Stage 8D work.
 
 ## 8E — Documentation
 
-Bring documentation up to the architecture that actually exists.
+**Completed:** 2026-07-25
 
-Cover:
+Stage 8E completed CQ-021 by making the repository documentation match the
+implemented system after Stages 1–8D.
 
-- setup;
-- running CheckQuest;
-- configuration;
-- architecture overview;
-- Gemini/BYOK behavior;
-- safety model;
-- findings and evidence;
-- reporting.
+`README.md` is now the factual operational entry point. It covers current
+capabilities, bounded and non-exhaustive exploration, conservative
+verification, the safety model, prerequisites and Chromium setup, Gemini BYOK,
+configured-site and arbitrary-URL execution, runtime budgets, reports and
+evidence, local verification and CI, current limitations, and canonical
+roadmap/backlog links. The correction removed or replaced the obsolete
+workflow badge, old CLI and testing behavior, stale navigation and start-page
+statements, stale action vocabulary and passive-security status, the obsolete
+fingerprint and misleading Equador semantic-verification claim, and the
+duplicated README roadmap.
+
+`docs/ARCHITECTURE.md` now documents the architectural goals, CLI/reusable-core
+boundary, `runSite(...)` lifecycle, `inspectPage(...)`, bounded navigation,
+run-level finding lifecycle, candidate-driven investigation, guarded
+interaction safety, passive security, Gemini BYOK and retries, `RunEvent`,
+`CheckQuestError`, report construction and CLI persistence, required cleanup,
+deterministic and Gemini-free testing seams, and deliberate current non-goals.
+
+`docs/CONFIGURATION.md` now documents configured profiles versus arbitrary
+runtime URLs, `SiteConfig`, the current `aidoc` profile, CLI
+options/ranges/defaults, page/navigation override behavior, exact-host policy,
+form-submission policy, profile authoring, `GEMINI_API_KEY`, the lack of
+implicit `GOOGLE_API_KEY` fallback, `GEMINI_MODEL`, cross-platform shell
+examples, safe configuration failures, and the relationship to programmatic
+configuration.
+
+Final Stage 8E acceptance established that all 26 adversarial onboarding
+questions are answerable from the documentation and produced a newcomer
+verdict of YES. No CQ-021 blocking documentation defects remained. All 47
+documentation links and anchors resolved, no local absolute development paths
+or stale workflow references remained, and the documentation matched
+production for `SiteConfig`, CLI options/ranges/defaults, registered site IDs,
+Gemini environment behavior, architecture and safety boundaries, passive
+security, schema-v3 reporting, testing/CI, and Equador semantics.
+
+Final verification passed:
+
+- `npm run lint:md` — 0 issues
+- `npm run check`
+- deterministic aggregate — 27/27
+- `git diff --check`
+
+No Aidoc or Gemini connectivity was required.
+
+Stage 8E documentation preserves report schema version 3, fingerprint
+`target|select-option|country|equador`, the raw mechanically `VERIFIED`
+interaction versus canonical semantic `INCONCLUSIVE` assertion,
+bounded/non-exhaustive exploration, candidate-driven investigation, guarded
+disclosure/tab containment, passive-security zero-probe behavior, the
+fail-fast/no-partial-report contract, explicit `GEMINI_API_KEY` BYOK, and no
+implicit `GOOGLE_API_KEY` fallback.
+
+Stage 8E deliberately did not perform later public-productization work.
+Product positioning, target personas, adjacent-tool comparisons, competitive
+matrices, polished demo/showcase narrative, installer/distribution design,
+GUI/SaaS instructions, and public/versioned SDK promises remain deferred to
+Stage 10 or later rather than unfinished CQ-021 requirements.
 
 ## 8F — Production-readiness and CI review
 
@@ -710,6 +760,7 @@ Before moving to the next stage:
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-07-25 | 1.12 | Stage 8E completed CQ-021 with an accurate operational README, a source-linked architecture/programmatic API reference, a bounded configuration/onboarding reference, and coherent navigation among canonical documentation. Final acceptance answered all 26 adversarial onboarding questions, resolved all 47 documentation links and anchors, found no blocking defects or local absolute paths, and passed Markdown lint, the 27-check deterministic quality gate, and `git diff --check` without Aidoc or Gemini connectivity. Schema-v3, exact Equador mechanical-versus-semantic verification, bounded safety, passive zero-probe, fail-fast reporting, and explicit Gemini BYOK semantics remain documented accurately. Advanced the active Stage 8 focus to Stage 8F / CQ-022. |
 | 2026-07-25 | 1.11 | Stage 8D completed CQ-020 with bounded structured errors, early reusable-input validation, explicit Gemini BYOK handling, safe model-response failures, conservative read-only retry policy, cleanup precedence, privacy-safe typed run events, reusable-core silence, CLI-owned progress, and actionable configuration failures. Final gates passed 27/27 deterministic and 6/6 browser checks; schema-v3 finding, Equador, guarded-safety, passive-security, reporting, and fail-fast semantics remained unchanged. Advanced the active Stage 8 focus to Stage 8E / CQ-021. |
 | 2026-07-25 | 1.10 | Stage 8C completed CQ-019 with reference-safe finding lifecycle integrity, deeper passive-security/reporting/URL/configuration coverage, Chromium-safe loopback allocation, and real local Gemini-free `runSite`/`inspectPage` integration and cleanup coverage. Genuine positional association, CSP directive-terminator, Markdown escaping, and unsafe ephemeral-port defects were corrected. Final gates passed 23/23 deterministic and 6/6 browser checks, including three stable browser repetitions; schema-v3 Equador semantics remained unchanged and no external Aidoc/Gemini success was claimed. Advanced the active Stage 8 focus to Stage 8D / CQ-020. |
 | 2026-07-24 | 1.9 | Stage 8B completed CQ-018 with strict no-emit TypeScript and typed ESLint gates, authored-document Markdown lint, a 21-check deterministic regression gate, a stable four-check loopback Chromium gate, separate mandatory browser-free/browser CI jobs, manual-only external Aidoc acceptance, and removal of the unused API Playwright project. All local quality, workflow, and schema-v3 Equador regression sentinels passed; no external Aidoc/Gemini execution was claimed. Advanced the active Stage 8 focus to Stage 8C / CQ-019. |
