@@ -1,19 +1,23 @@
 # CheckQuest Backlog
 
-**Backlog version:** 1.17
+**Scope:** Unified living backlog across all CheckQuest roadmap versions
 **Established:** 2026-07-23
-**Current roadmap stage:** Roadmap v1 complete — Stages 1–10 accepted
-**Current execution focus:** None — future work must begin as an explicit backlog/product-planning decision
+**Current roadmap:** Roadmap v2 - Local GUI / Product Shell
+**Current roadmap document:** `ROADMAP-V2.md`
+**Current roadmap stage:** G1 - GUI/core boundary
+**Completed roadmap:** Roadmap v1 - Stages 1-10 accepted
+**Current execution focus:** Expose the completed engine cleanly to a GUI without changing Stage 1–10 semantics
 
-This file is the parking place for work that should not silently interrupt the current roadmap stage.
+This is the single project-wide parking place for work that should not silently interrupt the current roadmap stage. It persists across Roadmap v1, v2, and future roadmap versions.
 
-The canonical stage order is defined in `ROADMAP.md`.
+The **current** canonical stage order is defined in `ROADMAP-V2.md`. The completed Roadmap v1 is preserved in `ROADMAP.md` as the historical Stage 1–10 engineering record. When a future roadmap becomes current, this same backlog continues; only the roadmap pointers and execution focus are updated.
 
 ## Status values
 
 - **NOW** — belongs to the current roadmap stage.
-- **QUEUED** — follows the current work, within this stage or a later stage.
+- **QUEUED** — follows the current work, within this roadmap or a later committed stage.
 - **PARKED** — valid idea, but intentionally not scheduled yet.
+- **PROMOTED** — originated in the backlog and has since been incorporated into a roadmap; retained here for history.
 - **DONE** — completed.
 - **REJECTED** — explicitly not a goal unless circumstances change.
 
@@ -27,9 +31,9 @@ A newly added backlog item does **not** become immediate work merely because it 
 
 # Active and queued backlog
 
-There are no active or queued roadmap items after Stage 10 closeout. New work
-should be added deliberately rather than silently extending the completed
-10-stage roadmap.
+Roadmap v2 stages G1–G7 are the committed execution plan and are intentionally not duplicated as backlog rows. New defects, refinements, or product ideas discovered while executing them belong here unless they are true blockers for the current stage.
+
+Current execution starts with **G1 — GUI/core boundary** in `ROADMAP-V2.md`.
 
 ---
 
@@ -39,13 +43,18 @@ These are valid future possibilities, but they are **not commitments to build th
 
 | ID | Item | Status | Notes |
 |---|---|---|---|
-| CQ-P001 | Windows/Desktop UI | PARKED | Architecture should permit it; implementation waits until the core/product direction is mature. |
+| CQ-P001 | Windows/Desktop UI | PROMOTED | Promoted into Roadmap v2 G1–G7 as the Local GUI / Product Shell phase; no longer a parked idea. |
 | CQ-P002 | Web/SaaS frontend | PARKED | Architecture should permit it; no decision yet between desktop, SaaS, or both. |
 | CQ-P003 | Review observedTemplateKey sensitivity across multiple real sites before tuning the structural-template algorithm | PARKED | The Stage 2 Aidoc run produced distinct observed template keys for all five selected pages. This may be legitimate, but the structural fingerprint may also be somewhat sensitive. Do not tune it based on one site/run; this was not a Stage 2 blocker. |
 | CQ-P005 | Improve planner behavior after sufficient candidate evidence is already gathered | PARKED | In real-site runs Gemini sometimes proposes a second comparison action such as selecting "Ecuador" after the targeted "Equador" interaction fact has already been demonstrated. Stage 1 correctly rejects that off-target action before browser execution. This is not a safety defect. A future refinement could encourage the planner to stop immediately once the candidate has sufficient interaction evidence rather than proposing an action the relevance gate will reject. |
 | CQ-P006 | Clarify legacy interaction-verification terminology in runtime console output | PARKED | Stage 5 canonical reports correctly distinguish a raw legacy `VERIFIED` interaction outcome from an inconclusive semantic finding. Consider changing console terminology to make that distinction clearer without altering the preserved raw outcome or canonical verification semantics. |
 | CQ-P007 | Evaluate optional future exploration refinements | PARKED | Consider URL identity/canonicalization and tracking-query normalization, evidence-led adaptive navigation-yield signals, multilingual deterministic route hints, and persisted cross-run navigation history only when supported by broader evidence. None is required for Stage 6 completion. |
 | CQ-P008 | Evaluate optional future passive-security posture enhancements | PARKED | Consider cookie posture with strict secret redaction, broader passive request/external-host inventory, TLS/browser infrastructure metadata, mixed-content diagnostics, visible form-action posture, and more advanced security-policy interpretation only when justified by product need and a safe privacy design. These were design recommendations, not Stage 7 completion requirements. |
+| CQ-P009 | Authenticated application exploration | PARKED | Consider user-supplied/pre-authenticated Playwright session state only after the local GUI is validated and the stronger safety implications of authenticated authority are deliberately designed. Not a Roadmap v2 requirement. |
+| CQ-P010 | Additional model providers / provider abstraction | PARKED | Gemini remains the working BYOK provider for Roadmap v2. Add provider abstraction only when real users or deployment constraints justify it. |
+| CQ-P011 | Partial-run reporting | PARKED | Consider an explicit PARTIAL run/report state for larger or recurring scans so useful completed work can survive a later failure without masquerading as a successful complete run. |
+| CQ-P012 | Finding-to-Playwright regression-test generation | PARKED | Evaluate whether deterministically replayable confirmed findings can be exported as minimal regression tests. Product-validation candidate, not a committed Roadmap v2 feature. |
+| CQ-P013 | CI/release and recurring-monitoring integrations | PARKED | Consider CI triggers, scheduled runs, history, new/resolved finding comparison, and notifications only if external usage demonstrates recurring-monitoring demand. |
 
 ---
 
@@ -67,10 +76,11 @@ When a new issue or idea appears:
 
 1. Decide whether it is a **BLOCKER**, **DEFECT**, or **BACKLOG** item.
 2. If it is not a blocker, add it here before doing implementation work.
-3. Assign the most appropriate roadmap stage when possible.
+3. Assign the most appropriate stage in the **current roadmap** when possible.
 4. Use **PARKED** when the idea is valid but does not yet belong to a committed stage.
-5. Do not reorder roadmap stages silently.
-6. Mark items **DONE** as part of stage completion.
+5. Use **PROMOTED** when a parked item is deliberately incorporated into a roadmap, so its history remains visible without duplicating execution tracking.
+6. Do not reorder, extend, or replace roadmap stages silently.
+7. Mark items **DONE** as part of stage completion.
 
 Suggested ID format:
 
