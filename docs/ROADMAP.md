@@ -1,9 +1,9 @@
 # CheckQuest Roadmap
 
-**Roadmap version:** 1.10
+**Roadmap version:** 1.11
 
 **Frozen on:** 2026-07-23  
-**Current stage:** Stage 8D — Error handling and observability
+**Current stage:** Stage 8E — Documentation
 
 ## How this roadmap is used
 
@@ -526,15 +526,82 @@ detailed retry, recovery, and partial-failure policy belongs to CQ-020.
 
 ## 8D — Error handling and observability
 
-Review and strengthen:
+**Completed:** 2026-07-25
 
-- failures;
-- retries;
-- malformed model responses;
-- browser failures;
-- configuration errors;
-- logging;
-- progress events.
+Stage 8D completed CQ-020 with one bounded `CheckQuestError` model covering
+`CONFIGURATION`, `BROWSER`, `NAVIGATION`, `MODEL`, `MODEL_RESPONSE`,
+`REPORTING`, `CLEANUP`, and `INTERNAL`. Safe public messages are separated
+from retained internal causes. Browser launch/setup, initial and later
+navigation, model requests and responses, report construction and persistence,
+cleanup, and CLI configuration now have meaningful boundaries. Unknown
+defects remain safely generic rather than exposing internal details.
+
+Reusable `runSite(...)` input is validated before browser or network work
+where applicable. Central validation covers numeric budgets and relevant run
+invariants, including filesystem- and traversal-safe caller-supplied run IDs.
+Default Gemini collaborators explicitly require `GEMINI_API_KEY`;
+`GOOGLE_API_KEY` is not silently accepted. Missing credentials fail before
+expensive browser work, while fully injected model collaborators remain
+Gemini-free. Keys are neither logged nor persisted.
+
+Empty, malformed, schema-invalid, and unsupported model output becomes
+`MODEL_RESPONSE` without exposing raw response or parser/schema content.
+Read-only Gemini requests permit at most one application-level retry, for two
+total attempts, and SDK retries remain disabled. Retry classification is
+limited to justified transient statuses and transport failures. Malformed
+model output, browser navigation, and guarded actions are never automatically
+retried.
+
+Required cleanup operations are all attempted. Operational failures remain
+primary if cleanup also fails, while cleanup-only failure becomes `CLEANUP`.
+Diagnostics disposal and browser closure remain protected.
+
+Reusable `runSite(...)` now accepts an optional
+`onEvent?: (event: RunEvent) => void` observer. The small typed discriminated
+union covers run lifecycle, inspection, navigation, model requests and
+retries, investigation completion, and terminal success/failure. Observer
+failures cannot alter the run, and event data follows bounded URL and privacy
+rules without changing functional report URL semantics.
+
+Ordinary reusable production progress no longer writes directly to the global
+console. Core production console calls across
+run/inspection/planning/analysis/ai were reduced from 88 to 0. CLI-specific
+rendering owns terminal progress, while programmatic execution remains silent
+when no observer is supplied. Known argument, configured-site, and runtime-URL
+errors now produce actionable, privacy-safe `CONFIGURATION` output. Unknown
+errors remain generic, and report-persistence failure remains distinguishable
+from exploration failure.
+
+Final Stage 8D verification passed:
+
+- `npm run typecheck`
+- `npm run lint`
+- `npm run lint:md`
+- `npm run test:deterministic` — 27/27
+- `npm run check`
+- `npm run test:browser:ci` — 6/6
+- relevant direct error, BYOK, event, `runSite`, browser, and report checks
+- `git diff --check`
+
+The six-check browser aggregate had already demonstrated stable repeated
+execution during the event slice. Mandatory acceptance required no real
+Gemini or Aidoc connectivity.
+
+Stage 8D preserved report schema version 3, canonical finding/evidence
+semantics, fingerprint `target|select-option|country|equador`, the raw
+mechanically `VERIFIED` Equador interaction versus canonical semantic
+`INCONCLUSIVE` result, verified-known suppression, candidate-reference
+integrity, guarded containment and rollback, passive-security zero-probe
+behavior, JSON/Markdown report semantics, and the fail-fast/no-partial-report
+contract.
+
+Deliberate non-goals were partial/failed report schemas, navigation or guarded
+action retries, malformed-response retries, cancellation architecture, logger
+frameworks, event buses, Sentry/OpenTelemetry or remote telemetry, GUI/web
+implementation, broad functional URL-privacy redesign, generic
+resource-management infrastructure, and transactional report-file
+persistence. A JSON-success/Markdown-write-failure test remains a non-blocking
+future test idea rather than unfinished Stage 8D work.
 
 ## 8E — Documentation
 
@@ -643,6 +710,7 @@ Before moving to the next stage:
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-07-25 | 1.11 | Stage 8D completed CQ-020 with bounded structured errors, early reusable-input validation, explicit Gemini BYOK handling, safe model-response failures, conservative read-only retry policy, cleanup precedence, privacy-safe typed run events, reusable-core silence, CLI-owned progress, and actionable configuration failures. Final gates passed 27/27 deterministic and 6/6 browser checks; schema-v3 finding, Equador, guarded-safety, passive-security, reporting, and fail-fast semantics remained unchanged. Advanced the active Stage 8 focus to Stage 8E / CQ-021. |
 | 2026-07-25 | 1.10 | Stage 8C completed CQ-019 with reference-safe finding lifecycle integrity, deeper passive-security/reporting/URL/configuration coverage, Chromium-safe loopback allocation, and real local Gemini-free `runSite`/`inspectPage` integration and cleanup coverage. Genuine positional association, CSP directive-terminator, Markdown escaping, and unsafe ephemeral-port defects were corrected. Final gates passed 23/23 deterministic and 6/6 browser checks, including three stable browser repetitions; schema-v3 Equador semantics remained unchanged and no external Aidoc/Gemini success was claimed. Advanced the active Stage 8 focus to Stage 8D / CQ-020. |
 | 2026-07-24 | 1.9 | Stage 8B completed CQ-018 with strict no-emit TypeScript and typed ESLint gates, authored-document Markdown lint, a 21-check deterministic regression gate, a stable four-check loopback Chromium gate, separate mandatory browser-free/browser CI jobs, manual-only external Aidoc acceptance, and removal of the unused API Playwright project. All local quality, workflow, and schema-v3 Equador regression sentinels passed; no external Aidoc/Gemini execution was claimed. Advanced the active Stage 8 focus to Stage 8C / CQ-019. |
 | 2026-07-24 | 1.8 | Stage 8A completed CQ-017 through the shared guarded-interaction safety boundary, run-level finding lifecycle coordinator, reusable site-run coordinator, extracted page-inspection workflow, thin CLI adapter, and pure report-model builder. Deterministic/local verification and exact schema-v3 report equivalence passed while external Gemini/Aidoc checks remained environment-blocked. Advanced the active Stage 8 focus to Stage 8B / CQ-018. |

@@ -2,7 +2,7 @@
 
 **Backlog version:** 1.0  
 **Established:** 2026-07-23  
-**Current roadmap stage:** Stage 8D — Error handling and observability
+**Current roadmap stage:** Stage 8E — Documentation
 
 This file is the parking place for work that should not silently interrupt the current roadmap stage.
 
@@ -28,8 +28,7 @@ A newly added backlog item does **not** become immediate work merely because it 
 
 | ID | Item | Target stage | Status | Notes |
 |---|---|---:|---|---|
-| CQ-020 | Harden error handling, retries, and observability | 8 | NOW | Active Stage 8D focus. Include model, browser, navigation-visit, configuration, logging, and progress failures, including conservative retry/recovery behavior. |
-| CQ-021 | Expand setup and architecture documentation | 8 | QUEUED | Document the architecture after it stabilizes rather than continuously rewriting it. |
+| CQ-021 | Expand setup and architecture documentation | 8 | NOW | Active Stage 8E focus. Bring setup, running, configuration, architecture, Gemini/BYOK, safety, findings/evidence, and reporting documentation up to the implementation that now exists. |
 | CQ-022 | Perform a repository-wide production-readiness/CI review | 8 | QUEUED | Deliberate hardening pass rather than analyzer-score chasing. |
 | CQ-023 | Formalize presentation-agnostic core boundaries | 9 | QUEUED | Keep CLI, desktop, and web/SaaS options viable. |
 | CQ-024 | Formalize Gemini BYOK handling across future interfaces | 9 | QUEUED | User keys must remain user-owned, isolated, and unlogged. |
@@ -113,3 +112,4 @@ Move completed backlog entries here during stage-closeout reviews.
 | CQ-017 | Review large files and responsibility boundaries | Stage 8A — Code organization and responsibility hardening (DONE — 2026-07-24) |
 | CQ-018 | Add/strengthen ESLint and static-quality checks | Stage 8B — Static quality and tooling (DONE — 2026-07-24) |
 | CQ-019 | Expand unit/integration test depth around agent logic | Stage 8C — Test depth and coverage (DONE — 2026-07-25) |
+| CQ-020 | Harden error handling, retries, and observability | Stage 8D — Error handling and observability (DONE — 2026-07-25) |
