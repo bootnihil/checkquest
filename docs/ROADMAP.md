@@ -1,9 +1,9 @@
 # CheckQuest Roadmap
 
-**Roadmap version:** 1.9
+**Roadmap version:** 1.10
 
 **Frozen on:** 2026-07-23  
-**Current stage:** Stage 8C — Test depth and coverage
+**Current stage:** Stage 8D — Error handling and observability
 
 ## How this roadmap is used
 
@@ -410,15 +410,119 @@ these items blocks CQ-018 completion.
 
 ## 8C — Test depth
 
-Expand beyond browser-level testing with focused unit/integration coverage for areas such as:
+**Completed:** 2026-07-25
 
-- candidate handling;
-- schemas and validation;
-- finding deduplication/unification;
-- novelty logic;
-- run context;
-- agent decision logic;
-- deterministic verification.
+Stage 8C completed CQ-019 through three focused slices aimed at high-risk
+semantic and integration blind spots. It deliberately did not use a raw
+line/branch coverage percentage as an acceptance criterion, migrate to a
+conventional test framework, or add coverage tooling.
+
+Stage 8C.1 expanded deterministic run-level finding lifecycle and
+candidate-reference integrity coverage across multiple new findings, mixed new
+and known findings, mixed and reordered investigation outcomes, missing and
+duplicate results, stale references, mismatched finding identities, legitimate
+model/static aliases, verified-known suppression, occurrence/evidence
+isolation, and the legacy `Equador` non-suppression boundary.
+
+That coverage exposed a latent positional-association defect. Canonical outcome
+attachment already used candidate references, but compatibility and
+known-finding registration could still associate a reordered investigation
+result with the wrong new logical finding. Malformed result sets could also
+mutate registry state before failing. The lifecycle now validates the complete
+candidate/result contract before mutation, indexes outcomes by candidate
+reference, processes prepared candidate order independently of result-array
+order, and rejects missing, duplicate, stale, or mismatched results
+deterministically. `KnownFindingState` and `UnifiedFindingRegistry` remain
+separate. The deterministic aggregate increased from 21 to 22 checks.
+
+Stage 8C.2 deepened passive-security sanitization/privacy, JSON/Markdown
+reporting, URL identity, navigation policy, novelty, runtime configuration, and
+local browser-fixture coverage. It protects CSP nonces and hashes, reporting
+URLs, queries/fragments, userinfo, header casing/repetition, whitespace and
+size bounds, security-evidence leakage, deterministic ordering, nullable
+fields, Markdown control characters, and the separation between functional
+URLs and sanitized security evidence.
+
+This coverage exposed and corrected two genuine defect groups:
+
+- CSP redaction could consume a trailing semicolon and merge adjacent
+  directives; sanitization now preserves directive terminators without
+  retaining secret material.
+- Dynamic report text could inject headings or break links, tables, and inline
+  code through newlines, brackets, parentheses, pipes, or backticks; the
+  renderer now narrowly escapes those contexts without redesigning reports.
+
+Stage 8C.2 also added explicit URL/configuration matrices and confirmed the
+existing identity policy: fragments and trailing slashes are normalized, host
+casing is normalized, while path casing, query values, and query-parameter
+ordering remain significant. Tracking-query removal was not introduced. The
+deterministic aggregate increased from 22 to 23 checks.
+
+Windows verification also revealed a test-infrastructure reliability issue:
+an ephemeral loopback port can be Chromium-restricted and produce
+`ERR_UNSAFE_PORT`. A shared test-only allocator now keeps the accepted server
+bound, rejects Chromium-restricted ports, retries a bounded number of times,
+and fails clearly without weakening browser security or adding a dependency.
+All mandatory loopback fixtures use it.
+
+Stage 8C.3 introduced only two optional typed model-facing collaborators,
+`analyzePageForQa` and `chooseNavigationLink`, while preserving the existing
+Gemini-backed production defaults and BYOK behavior. A local Gemini-free
+Chromium check now exercises the real `runSite(...)` and `inspectPage(...)`
+workflow through browser lifecycle, content and diagnostics, novelty,
+passive-security registration, finding lifecycle, navigation/completion, and
+schema-v3 report construction.
+
+The integration scenarios cover page budget 1, navigation budget 0, successful
+two-page navigation, redirect aliases sharing one final destination, no
+navigable candidates, deterministic finding registration, controlled analysis
+failure, resource cleanup, and a successful successor run. The deterministic
+`rule|NO_PRIMARY_HEADINGS` finding reaches the canonical report with one
+occurrence and no duplicate registration. Failure coverage verifies original
+error propagation, no later navigation or misleading report, zero remaining
+fixture connections, and isolated subsequent execution.
+
+Candidate-driven browser coverage now explicitly protects
+`max-planner-decisions-reached` and stale-reference rejection before browser
+execution. The mandatory local-browser gate contains six checks: navigation
+policy, Stage 4A, Stage 4B, passive security, candidate investigation, and the
+`runSite`/`inspectPage` integration. Its final three stability repetitions all
+passed 6/6 in approximately 69–71 seconds.
+
+Final Stage 8C verification passed:
+
+- `npm run typecheck`
+- `npm run lint`
+- `npm run lint:md`
+- `npm run test:deterministic` — 23/23
+- `npm run check`
+- `npm run test:browser:ci` — 6/6
+- three consecutive final six-check browser aggregate runs
+- relevant direct lifecycle, candidate, navigation, passive-security,
+  reporting, and integration checks
+- `git diff --check`
+
+External Aidoc/Gemini execution was not required and remains deliberately
+non-mandatory. Schema version 3, fingerprint
+`target|select-option|country|equador`, raw mechanically `VERIFIED`
+interaction evidence, canonical semantic `INCONCLUSIVE` status,
+known-finding suppression, occurrence/evidence association, and JSON/Markdown
+agreement remained unchanged.
+
+No separate Stage 8C.4 guarded-safety matrix was required. Existing Stage 4
+coverage already exercises network, mutation, navigation, popup, download,
+realtime, relevance, and rollback-failure branches, while mandatory browser
+acceptance protects disclosure/tab containment and rollback. Deeper expansion
+should be reconsidered when a new guarded interaction type or safety event is
+introduced.
+
+Non-blocking debt remains intentionally deferred: branch-oriented coverage
+instrumentation may be useful later as a diagnostic but does not require a
+percentage gate; the current `tsx`/`node:assert` check-script model remains
+adequate; no Jest/Vitest migration is justified; tracking-query removal
+remains parked; functional URL userinfo/query privacy needs an explicit product
+policy; external Aidoc/Gemini BYOK acceptance remains non-mandatory; and
+detailed retry, recovery, and partial-failure policy belongs to CQ-020.
 
 ## 8D — Error handling and observability
 
@@ -539,6 +643,7 @@ Before moving to the next stage:
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-07-25 | 1.10 | Stage 8C completed CQ-019 with reference-safe finding lifecycle integrity, deeper passive-security/reporting/URL/configuration coverage, Chromium-safe loopback allocation, and real local Gemini-free `runSite`/`inspectPage` integration and cleanup coverage. Genuine positional association, CSP directive-terminator, Markdown escaping, and unsafe ephemeral-port defects were corrected. Final gates passed 23/23 deterministic and 6/6 browser checks, including three stable browser repetitions; schema-v3 Equador semantics remained unchanged and no external Aidoc/Gemini success was claimed. Advanced the active Stage 8 focus to Stage 8D / CQ-020. |
 | 2026-07-24 | 1.9 | Stage 8B completed CQ-018 with strict no-emit TypeScript and typed ESLint gates, authored-document Markdown lint, a 21-check deterministic regression gate, a stable four-check loopback Chromium gate, separate mandatory browser-free/browser CI jobs, manual-only external Aidoc acceptance, and removal of the unused API Playwright project. All local quality, workflow, and schema-v3 Equador regression sentinels passed; no external Aidoc/Gemini execution was claimed. Advanced the active Stage 8 focus to Stage 8C / CQ-019. |
 | 2026-07-24 | 1.8 | Stage 8A completed CQ-017 through the shared guarded-interaction safety boundary, run-level finding lifecycle coordinator, reusable site-run coordinator, extracted page-inspection workflow, thin CLI adapter, and pure report-model builder. Deterministic/local verification and exact schema-v3 report equivalence passed while external Gemini/Aidoc checks remained environment-blocked. Advanced the active Stage 8 focus to Stage 8B / CQ-018. |
 | 2026-07-24 | 1.7 | Stage 7 added a separate deterministic passive security/infrastructure posture layer over normal main-document responses, with safe capture/redaction, origin aggregation, schema-v3 JSON/Markdown reporting, zero probe traffic, and successful local-browser, regression, and five-page Aidoc acceptance. Completed CQ-016 and advanced the current stage to Stage 8. |
