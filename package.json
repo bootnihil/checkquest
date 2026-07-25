@@ -51,6 +51,8 @@
     "agent:site-wide-findings-check": "tsx agent/site-wide-findings-check.ts",
     "agent:site-wide-report-check": "tsx agent/site-wide-report-check.ts",
     "agent:run-site-api-check": "tsx agent/run-site-api-check.ts",
+    "agent:error-handling-check": "tsx agent/error-handling-check.ts",
+    "agent:gemini-hardening-check": "tsx agent/gemini-hardening-check.ts",
     "agent:run-site-browser-integration-check": "tsx agent/run-site-browser-integration-check.ts",
     "agent:known-findings-check": "tsx agent/known-findings-check.ts",
     "agent:unified-findings-check": "tsx agent/unified-findings-check.ts",

@@ -1,4 +1,9 @@
-import { aiConfig } from '../config/ai-config';
+import {
+  aiConfig
+} from '../config/ai-config';
+import {
+  CheckQuestError
+} from '../errors/checkquest-error';
 
 export interface GeminiRequestOptions {
   timeout_ms: number;
@@ -7,185 +12,474 @@ export interface GeminiRequestOptions {
   };
 }
 
-export class GeminiRequestError extends Error {
-  readonly statusCode: number | null;
+export interface GeminiRequestDependencies {
+  wait?:
+    (
+      delayMs:
+        number
+    ) => Promise<void>;
+  random?:
+    () => number;
+}
 
-  constructor(
-    message: string,
-    statusCode: number | null,
-    cause: unknown
+const retryableStatuses =
+  new Set([
+    408,
+    429,
+    500,
+    502,
+    503,
+    504
+  ]);
+
+const retryableTransportCodes =
+  new Set([
+    'EAI_AGAIN',
+    'ECONNABORTED',
+    'ECONNRESET',
+    'ESOCKETTIMEDOUT',
+    'ETIMEDOUT',
+    'UND_ERR_BODY_TIMEOUT',
+    'UND_ERR_CONNECT_TIMEOUT',
+    'UND_ERR_HEADERS_TIMEOUT',
+    'UND_ERR_SOCKET'
+  ]);
+
+function isRecord(
+  value:
+    unknown
+): value is Record<
+  string,
+  unknown
+> {
+  return (
+    typeof value ===
+      'object' &&
+    value !==
+      null
+  );
+}
+
+function visitErrorChain(
+  error:
+    unknown,
+  read:
+    (
+      value:
+        Record<
+          string,
+          unknown
+        >
+    ) =>
+      string |
+      number |
+      null
+): string | number | null {
+  let current =
+    error;
+
+  for (
+    let depth = 0;
+    depth < 5;
+    depth += 1
   ) {
-    super(message, { cause });
+    if (
+      !isRecord(
+        current
+      )
+    ) {
+      return null;
+    }
 
-    this.name = 'GeminiRequestError';
-    this.statusCode = statusCode;
-  }
-}
+    const value =
+      read(
+        current
+      );
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
+    if (
+      value !==
+      null
+    ) {
+      return value;
+    }
 
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
-  }
-
-  if (typeof error === 'string') {
-    return error;
-  }
-
-  return 'Unknown Gemini API error.';
-}
-
-function getStatusCode(error: unknown): number | null {
-  if (!isRecord(error)) {
-    return null;
-  }
-
-  if (typeof error.status === 'number') {
-    return error.status;
-  }
-
-  if (typeof error.statusCode === 'number') {
-    return error.statusCode;
+    current =
+      current.cause;
   }
 
   return null;
 }
 
-function getRetryAfterMs(error: unknown): number | null {
-  const message = getErrorMessage(error);
-  const retryMatch = message.match(/retry in\s+([\d.]+)\s*s/i);
-
-  if (!retryMatch) {
-    return null;
+function getErrorMessage(
+  error:
+    unknown
+): string {
+  if (
+    error instanceof
+    Error
+  ) {
+    return error.message;
   }
 
-  const retrySeconds = Number.parseFloat(retryMatch[1]);
-
-  if (!Number.isFinite(retrySeconds) || retrySeconds < 0) {
-    return null;
+  if (
+    typeof error ===
+    'string'
+  ) {
+    return error;
   }
 
-  return Math.ceil(retrySeconds * 1_000);
+  return '';
 }
 
-function isTimeoutError(error: unknown): boolean {
-  return /timeout|timed out|request timed out|aborted/i.test(
-    getErrorMessage(error)
+export function getGeminiStatusCode(
+  error:
+    unknown
+): number | null {
+  const statusCode =
+    visitErrorChain(
+      error,
+      value => {
+        if (
+          typeof value.status ===
+          'number'
+        ) {
+          return value.status;
+        }
+
+        if (
+          typeof value.statusCode ===
+          'number'
+        ) {
+          return value.statusCode;
+        }
+
+        return null;
+      }
+    );
+
+  return (
+    typeof statusCode ===
+      'number'
+      ? statusCode
+      : null
   );
 }
 
-function isRetryableError(error: unknown): boolean {
-  const statusCode = getStatusCode(error);
+function getTransportCode(
+  error:
+    unknown
+): string | null {
+  const code =
+    visitErrorChain(
+      error,
+      value =>
+        typeof value.code ===
+          'string'
+          ? value.code
+              .toUpperCase()
+          : null
+    );
 
   return (
-    statusCode === 408 ||
-    statusCode === 429 ||
-    (statusCode !== null &&
-      statusCode >= 500 &&
-      statusCode <= 599) ||
-    isTimeoutError(error)
+    typeof code ===
+      'string'
+      ? code
+      : null
+  );
+}
+
+function getErrorName(
+  error:
+    unknown
+): string | null {
+  const name =
+    visitErrorChain(
+      error,
+      value =>
+        typeof value.name ===
+          'string'
+          ? value.name
+          : null
+    );
+
+  return (
+    typeof name ===
+      'string'
+      ? name
+      : null
+  );
+}
+
+function getRetryAfterMs(
+  error:
+    unknown
+): number | null {
+  const message =
+    getErrorMessage(
+      error
+    );
+  const retryMatch =
+    message.match(
+      /retry in\s+([\d.]+)\s*s/i
+    );
+
+  if (
+    retryMatch ===
+    null
+  ) {
+    return null;
+  }
+
+  const retrySeconds =
+    Number.parseFloat(
+      retryMatch[1]
+    );
+
+  if (
+    !Number.isFinite(
+      retrySeconds
+    ) ||
+    retrySeconds <
+      0
+  ) {
+    return null;
+  }
+
+  return Math.ceil(
+    retrySeconds *
+      1_000
+  );
+}
+
+function isStructuredTimeout(
+  error:
+    unknown
+): boolean {
+  const code =
+    getTransportCode(
+      error
+    );
+
+  if (
+    code !==
+      null &&
+    (
+      code.includes(
+        'TIMEOUT'
+      ) ||
+      code ===
+        'ETIMEDOUT' ||
+      code ===
+        'ECONNABORTED'
+    )
+  ) {
+    return true;
+  }
+
+  return getErrorName(
+    error
+  ) ===
+    'TimeoutError';
+}
+
+export function isRetryableGeminiError(
+  error:
+    unknown
+): boolean {
+  const statusCode =
+    getGeminiStatusCode(
+      error
+    );
+
+  if (
+    statusCode !==
+      null
+  ) {
+    return retryableStatuses.has(
+      statusCode
+    );
+  }
+
+  const transportCode =
+    getTransportCode(
+      error
+    );
+
+  return (
+    (
+      transportCode !==
+        null &&
+      retryableTransportCodes.has(
+        transportCode
+      )
+    ) ||
+    isStructuredTimeout(
+      error
+    )
   );
 }
 
 function calculateRetryDelayMs(
-  error: unknown,
-  retryNumber: number
+  error:
+    unknown,
+  retryNumber:
+    number,
+  random:
+    () => number
 ): number {
-  const serverDelay = getRetryAfterMs(error);
+  const serverDelay =
+    getRetryAfterMs(
+      error
+    );
 
-  if (serverDelay !== null) {
+  if (
+    serverDelay !==
+    null
+  ) {
     return Math.min(
       serverDelay,
-      aiConfig.maxRetryDelayMs
+      aiConfig
+        .maxRetryDelayMs
     );
   }
 
   const exponentialDelay =
-    aiConfig.baseRetryDelayMs *
-    2 ** retryNumber;
+    aiConfig
+      .baseRetryDelayMs *
+    2 **
+      retryNumber;
 
-  const jitterMs = Math.floor(Math.random() * 500);
+  const randomValue =
+    Math.max(
+      0,
+      Math.min(
+        random(),
+        0.999_999
+      )
+    );
+
+  const jitterMs =
+    Math.floor(
+      randomValue *
+      500
+    );
 
   return Math.min(
-    exponentialDelay + jitterMs,
-    aiConfig.maxRetryDelayMs
+    exponentialDelay +
+      jitterMs,
+    aiConfig
+      .maxRetryDelayMs
   );
 }
 
-function createFinalError(error: unknown): GeminiRequestError {
-  const statusCode = getStatusCode(error);
-  const originalMessage = getErrorMessage(error);
-  const retryAfterMs = getRetryAfterMs(error);
-
-  if (statusCode === 429) {
-    const retryText =
-      retryAfterMs === null
-        ? ''
-        : ` Suggested wait: approximately ${Math.ceil(
-            retryAfterMs / 1_000
-          )} seconds.`;
-
-    return new GeminiRequestError(
-      `Gemini rate limit or quota reached (429).${retryText}`,
-      statusCode,
+function createFinalError(
+  error:
+    unknown
+): CheckQuestError {
+  const statusCode =
+    getGeminiStatusCode(
       error
     );
-  }
-
-  if (statusCode === 408 || isTimeoutError(error)) {
-    return new GeminiRequestError(
-      `Gemini did not respond within ${Math.ceil(
-        aiConfig.requestTimeoutMs / 1_000
-      )} seconds.`,
-      statusCode,
+  const retryable =
+    isRetryableGeminiError(
       error
     );
-  }
+
+  let message:
+    string;
 
   if (
-    statusCode !== null &&
-    statusCode >= 500 &&
-    statusCode <= 599
+    statusCode ===
+    429
   ) {
-    return new GeminiRequestError(
-      `Gemini returned a temporary server error (${statusCode}).`,
-      statusCode,
+    message =
+      'Gemini rate limit or quota was reached.';
+  } else if (
+    statusCode ===
+      408 ||
+    isStructuredTimeout(
       error
-    );
+    )
+  ) {
+    message =
+      `Gemini did not respond within ${Math.ceil(
+        aiConfig
+          .requestTimeoutMs /
+        1_000
+      )} seconds.`;
+  } else if (
+    statusCode !==
+      null
+  ) {
+    message =
+      retryable
+        ? `Gemini returned a transient server error (${statusCode}).`
+        : `Gemini request failed (${statusCode}).`;
+  } else {
+    message =
+      'Gemini request failed.';
   }
 
-  return new GeminiRequestError(
-    `Gemini request failed${
-      statusCode === null ? '' : ` (${statusCode})`
-    }: ${originalMessage}`,
-    statusCode,
-    error
+  return new CheckQuestError(
+    'MODEL',
+    message,
+    {
+      phase:
+        'gemini-request',
+      statusCode:
+        statusCode ??
+        undefined,
+      retryable,
+      cause:
+        error
+    }
   );
 }
 
-function wait(delayMs: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, delayMs);
-  });
+function wait(
+  delayMs:
+    number
+): Promise<void> {
+  return new Promise(
+    resolve => {
+      setTimeout(
+        resolve,
+        delayMs
+      );
+    }
+  );
 }
 
 export async function runGeminiRequest<T>(
-  description: string,
-  operation: (
-    options: GeminiRequestOptions
-  ) => Promise<T>
+  description:
+    string,
+  operation:
+    (
+      options:
+        GeminiRequestOptions
+    ) => Promise<T>,
+  dependencies:
+    GeminiRequestDependencies = {}
 ): Promise<T> {
-  const totalAttempts = aiConfig.maxRetries + 1;
+  const totalAttempts =
+    aiConfig.maxRetries +
+    1;
+  const waitForDelay =
+    dependencies.wait ??
+    wait;
+  const random =
+    dependencies.random ??
+    Math.random;
 
   for (
     let attemptIndex = 0;
-    attemptIndex < totalAttempts;
+    attemptIndex <
+      totalAttempts;
     attemptIndex += 1
   ) {
-    const attemptNumber = attemptIndex + 1;
+    const attemptNumber =
+      attemptIndex +
+      1;
 
     console.log(
       `\nGemini: ${description} ` +
@@ -193,52 +487,84 @@ export async function runGeminiRequest<T>(
     );
 
     try {
-      const result = await operation({
-        timeout_ms: aiConfig.requestTimeoutMs,
+      const result =
+        await operation({
+          timeout_ms:
+            aiConfig
+              .requestTimeoutMs,
 
-        // Disable hidden SDK retries. This wrapper controls them.
-        retries: {
-          strategy: 'none'
-        }
-      });
+          retries: {
+            strategy:
+              'none'
+          }
+        });
 
-      console.log('Gemini: response received.');
+      console.log(
+        'Gemini: response received.'
+      );
 
       return result;
-    } catch (error: unknown) {
+    } catch (
+      error:
+        unknown
+    ) {
       const retriesRemaining =
-        attemptIndex < aiConfig.maxRetries;
+        attemptIndex <
+        aiConfig.maxRetries;
 
       if (
         !retriesRemaining ||
-        !isRetryableError(error)
+        !isRetryableGeminiError(
+          error
+        )
       ) {
-        throw createFinalError(error);
+        if (
+          error instanceof
+          CheckQuestError
+        ) {
+          throw error;
+        }
+
+        throw createFinalError(
+          error
+        );
       }
 
-      const statusCode = getStatusCode(error);
-      const delayMs = calculateRetryDelayMs(
-        error,
-        attemptIndex
-      );
+      const statusCode =
+        getGeminiStatusCode(
+          error
+        );
+      const delayMs =
+        calculateRetryDelayMs(
+          error,
+          attemptIndex,
+          random
+        );
 
       console.warn(
         `Gemini: temporary error${
-          statusCode === null
+          statusCode ===
+          null
             ? ''
             : ` ${statusCode}`
         }. Retrying in approximately ${Math.ceil(
-          delayMs / 1_000
+          delayMs /
+          1_000
         )} seconds...`
       );
 
-      await wait(delayMs);
+      await waitForDelay(
+        delayMs
+      );
     }
   }
 
-  throw new GeminiRequestError(
+  throw new CheckQuestError(
+    'INTERNAL',
     'Gemini request ended unexpectedly.',
-    null,
-    undefined
+    {
+      phase:
+        'gemini-request'
+    }
   );
 }

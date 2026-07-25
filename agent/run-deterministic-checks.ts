@@ -6,6 +6,8 @@ const deterministicChecks = [
   'agent:run-options-check',
   'agent:site-config-check',
   'agent:run-site-api-check',
+  'agent:error-handling-check',
+  'agent:gemini-hardening-check',
   'agent:evaluation-check',
   'agent:visited-links-check',
   'agent:diagnostics-classification-check',

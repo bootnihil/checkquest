@@ -3,6 +3,10 @@ import {
   parseAgentRunOptions
 } from './config/agent-run-options';
 import {
+  CheckQuestError,
+  formatPublicError
+} from './errors/checkquest-error';
+import {
   createRunId
 } from './reporting/report-utils';
 import {
@@ -52,15 +56,46 @@ async function main(): Promise<void> {
       runId
     });
 
-  const writtenJsonReport =
-    await writeJsonReport(
-      report
-    );
+  let writtenJsonReport:
+    Awaited<
+      ReturnType<
+        typeof writeJsonReport
+      >
+    >;
 
-  const writtenMarkdownReport =
-    await writeMarkdownReport(
-      report
+  let writtenMarkdownReport:
+    Awaited<
+      ReturnType<
+        typeof writeMarkdownReport
+      >
+    >;
+
+  try {
+    writtenJsonReport =
+      await writeJsonReport(
+        report
+      );
+
+    writtenMarkdownReport =
+      await writeMarkdownReport(
+        report
+      );
+  } catch (
+    error:
+      unknown
+  ) {
+    throw new CheckQuestError(
+      'REPORTING',
+      'The run completed, but its report files could not be persisted.',
+      {
+        phase:
+          'report-persistence',
+        runId,
+        cause:
+          error
+      }
     );
+  }
 
   console.log(
     '\nExploration outcome:'
@@ -90,8 +125,9 @@ async function main(): Promise<void> {
 main().catch(
   (error: unknown) => {
     console.error(
-      'Site agent run failed:',
-      error
+      `CheckQuest failed: ${formatPublicError(
+        error
+      )}`
     );
 
     process.exitCode =

@@ -2,6 +2,12 @@ import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
 
 import {
+  parseModelJsonResponse
+} from '../ai/parse-model-json-response';
+import {
+  resolveGeminiApiKey
+} from '../ai/resolve-gemini-api-key';
+import {
   runGeminiRequest
 } from '../ai/run-gemini-request';
 
@@ -21,6 +27,9 @@ import type {
 import {
   aiConfig
 } from '../config/ai-config';
+import {
+  CheckQuestError
+} from '../errors/checkquest-error';
 
 import type {
   SiteConfig
@@ -227,7 +236,10 @@ export async function chooseNavigationLink(
     );
 
   const ai =
-    new GoogleGenAI({});
+    new GoogleGenAI({
+      apiKey:
+        resolveGeminiApiKey()
+    });
 
   const interaction =
     await runGeminiRequest(
@@ -310,8 +322,15 @@ ${JSON.stringify(
     functionCalls.length !==
     1
   ) {
-    throw new Error(
-      `Expected exactly one navigation decision, received ${functionCalls.length}.`
+    throw new CheckQuestError(
+      'MODEL_RESPONSE',
+      'Gemini returned an unsupported navigation decision shape.',
+      {
+        phase:
+          'navigation-choice-response',
+        retryable:
+          false
+      }
     );
   }
 
@@ -323,8 +342,12 @@ ${JSON.stringify(
     'choose_navigation_link'
   ) {
     const argumentsResult =
-      chooseLinkArguments.parse(
-        decision.arguments
+      parseModelJsonResponse(
+        JSON.stringify(
+          decision.arguments
+        ),
+        'navigation-choice-arguments',
+        chooseLinkArguments
       );
 
     const selectedLink =
@@ -333,8 +356,15 @@ ${JSON.stringify(
       ];
 
     if (!selectedLink) {
-      throw new Error(
-        `Agent selected invalid link index ${argumentsResult.linkIndex}.`
+      throw new CheckQuestError(
+        'MODEL_RESPONSE',
+        'Gemini selected a navigation link outside the supplied candidate list.',
+        {
+          phase:
+            'navigation-choice-response',
+          retryable:
+            false
+        }
       );
     }
 
@@ -362,8 +392,12 @@ ${JSON.stringify(
     'finish'
   ) {
     const argumentsResult =
-      finishArguments.parse(
-        decision.arguments
+      parseModelJsonResponse(
+        JSON.stringify(
+          decision.arguments
+        ),
+        'navigation-finish-arguments',
+        finishArguments
       );
 
     return {
@@ -375,7 +409,14 @@ ${JSON.stringify(
     };
   }
 
-  throw new Error(
-    `Unexpected navigation function: ${decision.name}`
+  throw new CheckQuestError(
+    'MODEL_RESPONSE',
+    'Gemini returned an unsupported navigation function.',
+    {
+      phase:
+        'navigation-choice-response',
+      retryable:
+        false
+    }
   );
 }

@@ -3,6 +3,9 @@ import {
 } from '@playwright/test';
 
 import {
+  resolveGeminiApiKey
+} from '../ai/resolve-gemini-api-key';
+import {
   collectPageDiagnostics
 } from '../browser/collect-page-diagnostics';
 import {
@@ -14,6 +17,15 @@ import {
 import type {
   SiteConfig
 } from '../config/site-config';
+import {
+  CheckQuestError
+} from '../errors/checkquest-error';
+import {
+  completeRequiredCleanup
+} from '../errors/required-cleanup';
+import {
+  createSafeDisplayUrl
+} from '../errors/safe-display-url';
 import {
   chooseNavigationLink
 } from '../decisions/choose-navigation-link';
@@ -49,9 +61,6 @@ import {
   buildSiteAgentReport,
   type SiteRunFindingMetrics
 } from '../reporting/build-site-agent-report';
-import {
-  createRunId
-} from '../reporting/report-utils';
 import type {
   InspectedPageResult,
   SiteAgentReport
@@ -63,6 +72,9 @@ import {
   createPassiveSecurityRegistry,
   getPassiveSecurityReport
 } from '../security/passive-security-registry';
+import {
+  validateRunSiteInput
+} from './validate-run-site-input';
 
 export interface RunSiteInput {
   site: SiteConfig;
@@ -87,33 +99,39 @@ export async function runSite(
   input:
     RunSiteInput
 ): Promise<SiteAgentReport> {
-  const startedAt =
-    input.startedAt ??
-    new Date();
-
-  const runId =
-    input.runId ??
-    createRunId(
-      startedAt
-    );
-
   const {
-    site
-  } = input;
-
-  const configuredStartUrl =
-    new URL(
-      site.startUrl
+    site,
+    startedAt,
+    runId
+  } =
+    validateRunSiteInput(
+      input
     );
+
+  const usesDefaultAnalysis =
+    input.dependencies
+      ?.analyzePageForQa ===
+    undefined;
+
+  const mayUseDefaultNavigation =
+    site.maxPages >
+      1 &&
+    site.maxAgentSteps >
+      0 &&
+    input.dependencies
+      ?.chooseNavigationLink ===
+      undefined;
 
   if (
-    !site.allowedHosts.includes(
-      configuredStartUrl.hostname
-    )
+    usesDefaultAnalysis ||
+    mayUseDefaultNavigation
   ) {
-    throw new Error(
-      `Configured start host "${configuredStartUrl.hostname}" is not allowed.`
-    );
+    /*
+     * Fail before Chromium work when this run can reach a production
+     * Gemini collaborator. Fully injected Stage 8C collaborators remain
+     * Gemini-free.
+     */
+    resolveGeminiApiKey();
   }
 
   console.log(
@@ -144,39 +162,124 @@ export async function runSite(
     `Form submission allowed: ${site.allowFormSubmission}`
   );
 
-  const browser =
-    await chromium.launch({
-      headless: true
-    });
+  let browser:
+    Awaited<
+      ReturnType<
+        typeof chromium.launch
+      >
+    >;
 
   try {
-    const page =
-      await browser.newPage({
-        serviceWorkers:
-          'block'
+    browser =
+      await chromium.launch({
+        headless:
+          true
       });
-
-    await preparePageForGuardedInteractions(
-      page
+  } catch (
+    error:
+      unknown
+  ) {
+    throw new CheckQuestError(
+      'BROWSER',
+      'Unable to launch Chromium.',
+      {
+        phase:
+          'browser-launch',
+        runId,
+        cause:
+          error
+      }
     );
+  }
+
+  let browserPrimaryError:
+    Error | undefined;
+
+  try {
+    let page:
+      Awaited<
+        ReturnType<
+          typeof browser.newPage
+        >
+      >;
+
+    try {
+      page =
+        await browser.newPage({
+          serviceWorkers:
+            'block'
+        });
+
+      await preparePageForGuardedInteractions(
+        page
+      );
+    } catch (
+      error:
+        unknown
+    ) {
+      throw new CheckQuestError(
+        'BROWSER',
+        'Chromium page setup failed.',
+        {
+          phase:
+            'browser-setup',
+          runId,
+          cause:
+            error
+        }
+      );
+    }
 
     const diagnosticsCollector =
       collectPageDiagnostics(
         page
       );
 
-    try {
-      const homepageResponse =
-        await page.goto(
-          site.startUrl,
-          {
-            waitUntil:
-              'domcontentloaded',
+    let diagnosticsPrimaryError:
+      Error | undefined;
 
-            timeout:
-              30_000
+    try {
+      let homepageResponse:
+        Awaited<
+          ReturnType<
+            typeof page.goto
+          >
+        >;
+
+      try {
+        homepageResponse =
+          await page.goto(
+            site.startUrl,
+            {
+              waitUntil:
+                'domcontentloaded',
+
+              timeout:
+                30_000
+            }
+          );
+      } catch (
+        error:
+          unknown
+      ) {
+        throw new CheckQuestError(
+          'NAVIGATION',
+          'Unable to open the configured start page.',
+          {
+            phase:
+              'start-page-navigation',
+            runId,
+            pageNumber:
+              1,
+            requestedUrl:
+              createSafeDisplayUrl(
+                site.startUrl
+              ),
+            cause:
+              error
           }
         );
+      }
 
       const homepageFinalUrl =
         new URL(
@@ -188,8 +291,25 @@ export async function runSite(
           homepageFinalUrl.hostname
         )
       ) {
-        throw new Error(
-          `Homepage redirected to disallowed host "${homepageFinalUrl.hostname}".`
+        throw new CheckQuestError(
+          'NAVIGATION',
+          'The configured start page redirected to a disallowed host.',
+          {
+            phase:
+              'start-page-navigation',
+            runId,
+            pageNumber:
+              1,
+            requestedUrl:
+              createSafeDisplayUrl(
+                site.startUrl
+              ),
+            finalUrl:
+              createSafeDisplayUrl(
+                homepageFinalUrl
+                  .toString()
+              )
+          }
         );
       }
 
@@ -533,11 +653,43 @@ export async function runSite(
                     pageObservation,
                   passiveSecuritySnapshot
                 } =
-                  await visitApprovedLinkWithPassiveSecurity(
-                    page,
-                    decision.link,
-                    site.allowedHosts
-                  );
+                  await (
+                    async () => {
+                      try {
+                        return await visitApprovedLinkWithPassiveSecurity(
+                          page,
+                          decision.link,
+                          site.allowedHosts
+                        );
+                      } catch (
+                        error:
+                          unknown
+                      ) {
+                        throw new CheckQuestError(
+                          'NAVIGATION',
+                          'Unable to open the selected navigation target.',
+                          {
+                            phase:
+                              'agent-navigation',
+                            runId,
+                            pageNumber:
+                              completedPages.length +
+                              1,
+                            navigationStep:
+                              agentSteps,
+                            requestedUrl:
+                              createSafeDisplayUrl(
+                                decision
+                                  .link
+                                  .url
+                              ),
+                            cause:
+                              error
+                          }
+                        );
+                      }
+                    }
+                  )();
 
                 const navigationResolution =
                   recordNavigationResolution(
@@ -748,27 +900,113 @@ export async function runSite(
           findingLifecycle
         );
 
-      return buildSiteAgentReport({
-        runId,
-        startedAt,
-        finishedAt:
-          new Date(),
-        site,
-        homepage:
-          homepageObservation,
-        outcome,
-        inspectedPages,
-        canonicalFindings,
-        passiveSecurity:
-          getPassiveSecurityReport(
-            passiveSecurityRegistry
-          ),
-        findingMetrics
-      });
+      try {
+        return buildSiteAgentReport({
+          runId,
+          startedAt,
+          finishedAt:
+            new Date(),
+          site,
+          homepage:
+            homepageObservation,
+          outcome,
+          inspectedPages,
+          canonicalFindings,
+          passiveSecurity:
+            getPassiveSecurityReport(
+              passiveSecurityRegistry
+            ),
+          findingMetrics
+        });
+      } catch (
+        error:
+          unknown
+      ) {
+        throw new CheckQuestError(
+          'REPORTING',
+          'Unable to construct the successful run report.',
+          {
+            phase:
+              'report-construction',
+            runId,
+            cause:
+              error
+          }
+        );
+      }
+    } catch (
+      error:
+        unknown
+    ) {
+      const normalizedError =
+        error instanceof
+          Error
+          ? error
+          : new CheckQuestError(
+              'INTERNAL',
+              'Page inspection failed with an invalid error value.',
+              {
+                phase:
+                  'page-inspection',
+                runId,
+                cause:
+                  error
+              }
+            );
+
+      diagnosticsPrimaryError =
+        normalizedError;
+      throw normalizedError;
     } finally {
-      diagnosticsCollector.dispose();
+      await completeRequiredCleanup(
+        diagnosticsPrimaryError,
+        [
+          () =>
+            diagnosticsCollector
+              .dispose()
+        ],
+        {
+          phase:
+            'diagnostics-disposal',
+          runId
+        }
+      );
     }
+  } catch (
+    error:
+      unknown
+  ) {
+    const normalizedError =
+      error instanceof
+        Error
+        ? error
+        : new CheckQuestError(
+            'INTERNAL',
+            'Site execution failed with an invalid error value.',
+            {
+              phase:
+                'site-execution',
+              runId,
+              cause:
+                error
+            }
+          );
+
+    browserPrimaryError =
+      normalizedError;
+    throw normalizedError;
   } finally {
-    await browser.close();
+    await completeRequiredCleanup(
+      browserPrimaryError,
+      [
+        () =>
+          browser.close()
+      ],
+      {
+        phase:
+          'browser-close',
+        runId
+      }
+    );
   }
 }
