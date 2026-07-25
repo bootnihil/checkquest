@@ -41,6 +41,7 @@ import {
 } from '../findings/run-finding-lifecycle';
 import {
   inspectPage,
+  type InspectPageDependencies,
   type InspectPageResult,
   type OpenPageInspectionInput
 } from '../inspection/inspect-page';
@@ -67,6 +68,19 @@ export interface RunSiteInput {
   site: SiteConfig;
   startedAt?: Date;
   runId?: string;
+  dependencies?:
+    RunSiteDependencies;
+}
+
+export interface RunSiteDependencies {
+  analyzePageForQa?:
+    NonNullable<
+      InspectPageDependencies[
+        'analyzePageForQa'
+      ]
+    >;
+  chooseNavigationLink?:
+    typeof chooseNavigationLink;
 }
 
 export async function runSite(
@@ -448,7 +462,12 @@ export async function runSite(
                   );
 
                 const decision =
-                  await chooseNavigationLink(
+                  await (
+                    input
+                      .dependencies
+                      ?.chooseNavigationLink ??
+                    chooseNavigationLink
+                  )(
                     site,
                     policyWindow.candidates,
                     navigationBudget
@@ -634,7 +653,13 @@ export async function runSite(
                 navigationUrlState,
                 pageNoveltyState,
                 passiveSecurityRegistry,
-                findingLifecycle
+                findingLifecycle,
+                dependencies: {
+                  analyzePageForQa:
+                    input
+                      .dependencies
+                      ?.analyzePageForQa
+                }
               })
         });
 

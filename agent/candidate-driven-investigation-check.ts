@@ -389,6 +389,10 @@ async function main(): Promise<void> {
     assert.equal(matching.plannerDecisionCount, 1);
     assert.equal(matching.executedInvestigationActionCount, 1);
     assert.equal(
+      matching.stopReason,
+      'max-planner-decisions-reached'
+    );
+    assert.equal(
       await page.locator('#country').inputValue(),
       'Equador'
     );

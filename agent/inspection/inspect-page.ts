@@ -89,6 +89,11 @@ export interface PageInspectionFindingMetrics {
     number;
 }
 
+export interface InspectPageDependencies {
+  analyzePageForQa?:
+    typeof analyzePageForQa;
+}
+
 export interface InspectPageInput {
   page: Page;
   site: SiteConfig;
@@ -108,6 +113,8 @@ export interface InspectPageInput {
     PassiveSecurityRegistry;
   findingLifecycle:
     RunFindingLifecycleState;
+  dependencies?:
+    InspectPageDependencies;
 }
 
 export interface InspectPageResult {
@@ -377,7 +384,12 @@ export async function inspectPage(
   );
 
   const rawExploratoryQaAnalysis =
-    await analyzePageForQa({
+    await (
+      input
+        .dependencies
+        ?.analyzePageForQa ??
+      analyzePageForQa
+    )({
       observation:
         pageObservation,
 
