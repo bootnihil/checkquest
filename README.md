@@ -79,6 +79,9 @@ The reusable run coordinator returns an in-memory report. The CLI separately
 renders progress and persists report files. Programmatic execution can omit
 the event observer and remain silent.
 
+For subsystem boundaries and the source-level programmatic API, see
+[Architecture](docs/ARCHITECTURE.md).
+
 ## Conservative verification
 
 CheckQuest distinguishes an observed interaction fact from a broader semantic
