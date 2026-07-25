@@ -1,10 +1,9 @@
 # CheckQuest Backlog
 
-**Backlog version:** 1.15
+**Backlog version:** 1.17
 **Established:** 2026-07-23
-**Current roadmap stage:** Stage 10 — Release-quality CheckQuest
-**Current execution focus:** CQ-026 — stable configuration, versioning, and
-report behavior
+**Current roadmap stage:** Roadmap v1 complete — Stages 1–10 accepted
+**Current execution focus:** None — future work must begin as an explicit backlog/product-planning decision
 
 This file is the parking place for work that should not silently interrupt the current roadmap stage.
 
@@ -28,10 +27,9 @@ A newly added backlog item does **not** become immediate work merely because it 
 
 # Active and queued backlog
 
-| ID | Item | Target stage | Status | Notes |
-|---|---|---:|---|---|
-| CQ-026 | Finalize stable configuration/versioning/report behavior | 10 | NOW | Current Stage 10 work item. Decide which externally visible configuration, versioning, and report behaviors should become dependable for users. |
-| CQ-027 | Polish the public repository and example/demo configuration | 10 | QUEUED | Subsequent Stage 10 work item. Address LICENSE, public-repository and demo presentation, final documentation, and package-content curation if publication is later chosen. npm publication and a standalone executable are not prerequisites for the accepted source-clone distribution. |
+There are no active or queued roadmap items after Stage 10 closeout. New work
+should be added deliberately rather than silently extending the completed
+10-stage roadmap.
 
 ---
 
@@ -115,3 +113,5 @@ Move completed backlog entries here during stage-closeout reviews.
 | CQ-023 | Formalize presentation-agnostic core boundaries | Stage 9 — Productization boundary (DONE — 2026-07-25) |
 | CQ-024 | Formalize Gemini BYOK handling across future interfaces | Stage 9 — Productization boundary (DONE — 2026-07-25) |
 | CQ-025 | Define release-quality installation/distribution | Stage 10A — Fresh-clone source installation and distribution (DONE — 2026-07-25) |
+| CQ-026 | Finalize stable configuration/versioning/report behavior | Stage 10B — Stable public contracts (DONE — 2026-07-25) |
+| CQ-027 | Polish the public repository and example/demo configuration | Stage 10C — Public repository, demo, and release presentation (DONE — 2026-07-25) |

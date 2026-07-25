@@ -35,6 +35,18 @@ Today, CheckQuest can:
 
 The goal is not to prove a site is defect-free. It is to spend a small inspection budget intelligently and come back with useful evidence.
 
+## 🎯 Where CheckQuest fits
+
+CheckQuest is most useful as an **evidence-oriented exploratory pass alongside a normal QA stack**. It does not replace scripted regression, manual exploratory testing, security testing, or site-quality tooling.
+
+- **Playwright / Cypress / Selenium** execute tests you already defined. CheckQuest starts from a URL and decides where a bounded exploratory budget is worth spending.
+- **Crawlers and site-quality platforms** are better suited to broad inventory and exhaustive rule-based scanning. CheckQuest deliberately favors representative coverage and evidence-gathering investigation over exhaustive crawling.
+- **AI test-authoring tools** primarily help create or maintain test cases. CheckQuest's current product is the exploratory run and its evidence-backed report, not generated regression code.
+- **Security scanners** actively probe for vulnerabilities. CheckQuest does not: its current security posture layer is passive and observational.
+- **Manual exploratory QA** retains richer human judgment and product context. CheckQuest trades some of that depth for a repeatable, bounded pass that can run without a predefined test suite.
+
+That makes CheckQuest a complement to existing QA automation rather than a claim that one agent should replace the rest of the testing stack.
+
 ## 🧠 How it works
 
 ```text
@@ -176,6 +188,8 @@ npm run agent:explore -- https://www.example.com/
 
 `start`, `agent:run`, and `agent:explore` use the same CLI entry point.
 
+For a deliberately small first-run walkthrough, including what to inspect in the generated report, see the **[Guided demo](docs/DEMO.md)**.
+
 ## 🎛️ Control the run
 
 | Option | Meaning | Range |
@@ -213,6 +227,28 @@ agent-results/<run-id>/evidence/
 Reports can contain target URLs, visible page content, browser diagnostics, model-derived observations, and screenshots. Treat the output directory accordingly. Gemini API keys are not included.
 
 The current contract is fail-fast: a failed exploration does not produce a successful partial report.
+
+## 🔒 Public compatibility
+
+CheckQuest is currently on the **0.1.x initial-development release line**.
+The source-distributed CLI and schema-v3 JSON report have explicit compatibility
+rules even though the project is not yet a published SDK or 1.0 product.
+
+For machine consumers, `reportSchemaVersion: "3"` is the report compatibility
+signal. Existing fields cannot be removed, renamed, change type, or materially
+change meaning within schema v3; additive fields may be introduced. The
+Markdown report is a human-readable projection and is not a machine-stable
+format.
+
+For CLI automation, exit code **0** means the exploration completed and both
+`report.json` and `report.md` were persisted successfully. Exit code **1**
+means the CLI run or report delivery failed; callers should not infer success
+merely because an artifact happens to exist from a partially completed
+persistence sequence.
+
+The supported CLI/configuration surface, version policy, report compatibility
+rules, and deliberately non-versioned source API are defined in
+**[Public contracts](docs/PUBLIC-CONTRACTS.md)**.
 
 ## 🩺 Common setup failures
 
@@ -261,10 +297,18 @@ CheckQuest is still experimental.
 
 ## 📚 Go deeper
 
+- **[Guided demo](docs/DEMO.md)** — a minimal first run and report-reading walkthrough.
 - **[Architecture](docs/ARCHITECTURE.md)** — execution flow, `runSite`, findings, investigation, safety, events, errors, passive security, and reporting.
 - **[Configuration](docs/CONFIGURATION.md)** — site profiles, arbitrary URLs, budgets, host policy, BYOK, and model settings.
+- **[Public contracts](docs/PUBLIC-CONTRACTS.md)** — supported CLI/configuration behavior, versioning, exit semantics, and report compatibility.
 - **[Roadmap](docs/ROADMAP.md)** — canonical development status.
 - **[Backlog](docs/BACKLOG.md)** — active, queued, and parked work.
+
+## ⚖️ Licensing
+
+CheckQuest is **source-visible but not currently released under an open-source license**. The package metadata is intentionally marked `UNLICENSED`. No additional permission to use, modify, or redistribute the source is granted by this repository beyond rights provided by GitHub's platform terms and applicable law.
+
+A future open-source or commercial licensing decision should be made deliberately as part of productization rather than inferred from the repository being public.
 
 ## 🔧 Built with
 

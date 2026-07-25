@@ -1,9 +1,9 @@
 # CheckQuest Roadmap
 
-**Roadmap version:** 1.15
+**Roadmap version:** 1.17
 
 **Frozen on:** 2026-07-23
-**Current stage:** Stage 10 — Release-quality CheckQuest
+**Current stage:** Roadmap v1 complete — Stages 1–10 accepted
 
 ## How this roadmap is used
 
@@ -884,8 +884,12 @@ Potential front ends include:
 
 # Stage 10 — Release-quality CheckQuest
 
-**Current work item:** CQ-026 — stable configuration, versioning, and report
-behavior
+**Completed:** 2026-07-25
+
+Stage 10 completed CQ-025 through CQ-027 and answered the final readiness
+question **YES**: this source-distributed version can be placed in front of
+technically competent external users with its present experimental/initial-
+development positioning and documented boundaries.
 
 ## Goal
 
@@ -916,10 +920,89 @@ dependency and lockfile validation, and `git diff --check`.
 Source-clone installation is sufficient for this accepted slice. npm
 publication and a standalone executable are not required.
 
-Stage 10 remains open. CQ-026 is current and covers stable
-configuration/version/report contracts. CQ-027 follows and retains LICENSE,
-public-repository, example/demo, final-documentation, and any
-publication-specific package-curation work.
+Stage 10 remains open. CQ-026 followed as the stable public-contract pass,
+with CQ-027 retained for LICENSE, public-repository, example/demo,
+final-documentation, and any publication-specific package-curation work.
+
+## Stage 10B — Stable public contracts
+
+**Accepted:** 2026-07-25
+
+CQ-026 formalized the externally dependable behavior of the current
+source-distributed CLI without redesigning the runtime or turning internal
+TypeScript interfaces into a published SDK. The canonical public contract is
+now documented in `docs/PUBLIC-CONTRACTS.md` and linked from the README.
+
+The supported CLI/configuration surface, `GEMINI_API_KEY` and optional
+`GEMINI_MODEL` behavior, report locations, and process outcome semantics are
+explicit. A successful CLI run exits `0` only after the run completes and both
+`report.json` and `report.md` are persisted. Exit `1` represents a failed run
+or incomplete report delivery; callers must not infer success merely from the
+presence of an artifact. Run-directory identifiers are intentionally opaque.
+
+`reportSchemaVersion: "3"` remains the machine-readable compatibility
+boundary. Additive fields may appear within schema v3, while removal, rename,
+type changes, or meaningfully incompatible semantic changes require a new
+report schema version. Markdown remains human-readable output rather than a
+machine-stable parsing contract. Package/product versioning is independent of
+report-schema versioning.
+
+The package version was corrected from `1.0.0` to `0.1.0` to represent an
+initial-development source release rather than imply a finalized public SDK or
+API. `runSite(...)` remains a reusable source-level boundary for future
+interfaces, but it is not currently promised as a separately published or
+versioned SDK contract.
+
+No runtime behavior, finding semantics, navigation policy, guarded safety,
+Gemini BYOK isolation, passive-security behavior, or report schema content was
+changed by this pass. Final acceptance passed `npm run check`, including
+28/28 deterministic checks and zero Markdown-lint issues, plus 6/6 local
+Chromium regression checks and `git diff --check`.
+
+Stage 10 remains open. CQ-027 is now the current and final Stage 10 work item
+for LICENSE, public-repository presentation, example/demo configuration, final
+documentation, and any publication-specific package curation that is actually
+required.
+
+## Stage 10C — Public repository, demo, and release presentation
+
+**Accepted:** 2026-07-25
+
+CQ-027 completed the public-facing release-quality pass without changing the
+CheckQuest engine. The README now explains what CheckQuest is, what it is not,
+who it is for, and how it fits alongside adjacent categories such as browser
+automation frameworks, crawlers/site-quality platforms, AI test-authoring
+tools, security scanners, and manual exploratory QA without presenting those
+categories as simplistic direct competitors.
+
+A dedicated `docs/DEMO.md` now provides a bounded guided first-run path from
+installation and BYOK configuration through execution and report review. The
+existing source-clone distribution remains the accepted release mechanism; npm
+publication, standalone executable packaging, desktop UI, and SaaS delivery
+remain outside Stage 10.
+
+Repository licensing metadata was made intentionally conservative. Because no
+open-source license has been deliberately selected, package metadata now uses
+`UNLICENSED` rather than advertising an unsupported ISC license. No `LICENSE`
+file was added merely to satisfy package boilerplate. A future licensing or
+commercial-distribution decision must be explicit.
+
+Final acceptance preserved package version `0.1.0`, `private: true`, and report
+schema version 3. The full quality gate passed 28/28 deterministic checks, the
+local Chromium gate passed 6/6, and `git diff --check` reported only expected
+Windows line-ending notices. A real bounded stranger-style run against
+`https://www.example.com/` produced both `report.json` and `report.md`; the JSON
+reported schema version 3 and the supplied Gemini credential was absent from
+both reports.
+
+No runtime behavior, finding semantics, navigation policy, guarded interaction
+safety, passive-security behavior, Gemini BYOK isolation, or report-schema
+content changed in Stage 10C.
+
+With CQ-025, CQ-026, and CQ-027 accepted, Stage 10 and the original 10-stage
+roadmap are complete. Future productization, commercial positioning, UI/SaaS
+work, packaging, licensing, or new capabilities require an explicit new
+planning decision rather than silently extending this roadmap.
 
 ## Scope
 
@@ -937,6 +1020,9 @@ publication-specific package-curation work.
 ## Final readiness question
 
 > Would we be comfortable putting this version in front of strangers?
+
+**Accepted answer:** Yes — within the documented `0.1.0` initial-development,
+source-distributed, BYOK, bounded exploratory-QA scope.
 
 ---
 
@@ -960,6 +1046,8 @@ Before moving to the next stage:
 
 | Date | Version | Change |
 |---|---|---|
+| 2026-07-25 | 1.17 | Stage 10C completed CQ-027 and closed Stage 10. Public positioning and a guided demo path were added without changing engine behavior; package licensing metadata was corrected from unsupported ISC to intentionally `UNLICENSED`; package version remains `0.1.0`, private, and independent of report schema v3. Final acceptance passed the 28/28 deterministic gate, 6/6 local Chromium gate, and `git diff --check`, and a bounded stranger-style BYOK run produced both reports with schema version 3 and no Gemini credential serialized. CQ-025 through CQ-027 are complete, the final readiness answer is YES within the documented source-distributed initial-development scope, and roadmap v1 (Stages 1–10) is complete. |
+| 2026-07-25 | 1.16 | Stage 10B completed CQ-026 by formalizing CheckQuest's supported CLI/configuration, exit behavior, report locations, schema-v3 compatibility policy, opaque run identifiers, human-readable Markdown boundary, and source-level versus published-API distinction in `docs/PUBLIC-CONTRACTS.md`. Package metadata was corrected from `1.0.0` to `0.1.0` to represent initial development without coupling package versioning to report-schema versioning. No runtime or report-schema behavior changed. Final gates passed `npm run check` with 28/28 deterministic checks and zero Markdown-lint issues, 6/6 local Chromium checks, and `git diff --check`. CQ-026 moved to completed, Stage 10 remains open, and CQ-027 is now the current and final Stage 10 work item. |
 | 2026-07-25 | 1.15 | Stage 10A completed CQ-025 with an accepted fresh-clone source distribution: explicit Node.js/npm requirements, lockfile installation, project-owned Chromium setup commands, declared CLI runtime dependencies, a conventional first-run command, actionable setup failures, credential/artifact exclusions, and public onboarding documentation. Clean full and production-only installation rehearsals passed, including a bounded live BYOK run with no credential in generated reports; final gates passed 28/28 deterministic and 6/6 browser checks. npm publication and a standalone executable are not required. Stage 10 remains open, CQ-026 is now current for stable configuration/version/report contracts, and CQ-027 remains subsequent for LICENSE, public repository, demo, documentation, and any publication-specific package curation. |
 | 2026-07-25 | 1.14 | Stage 9 completed CQ-023 and CQ-024 by confirming the existing presentation-neutral `runSite(...)` boundary and removing the remaining process-global Gemini user-credential dependency from reusable execution. The CLI now adapts `GEMINI_API_KEY` into an explicit per-run credential; analysis, planning, and navigation consume the run-specific value without exposing it to the credential-neutral request/retry layer. Distinct run credentials are isolated, process environment state is not mutated, fully injected execution remains Gemini-free, and credential sentinels remain absent from events, public errors, reports, and serialized output. Final gates passed 28/28 deterministic and 6/6 browser checks without Aidoc or Gemini connectivity. Stage 9 closed with schema-v3, Equador, guarded-safety, passive-security, and fail-fast semantics unchanged, and the current stage advanced to Stage 10 / CQ-025–CQ-027. |
 | 2026-07-25 | 1.13 | Stage 8F completed CQ-022 with a repository-wide production-readiness review and the verdict READY TO CLOSE STAGE 8, with no closeout blockers. TypeScript, ESLint, Markdown lint, 27/27 deterministic checks, the canonical quality gate, and 6/6 local Chromium checks passed; install/package consistency, repository hygiene, CI isolation, BYOK/privacy, guarded browser safety, passive zero-probe behavior, cleanup/error/observability boundaries, schema-v3 reporting, configuration, documentation, portability, and bounded execution were all found ready. A final documentation-only README compression/presentation pass preserved the accepted technical semantics while restoring a shorter, more readable front door. CQ-022 moved to completed, Stage 8 was closed, and the current stage advanced to Stage 9 / CQ-023–CQ-024. |

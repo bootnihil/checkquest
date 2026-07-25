@@ -1,6 +1,6 @@
 {
   "name": "checkquest",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "description": "Autonomous exploratory QA agent for safe web testing, evidence collection, and structured reporting using TypeScript, Playwright, Gemini, and Zod.",
   "private": true,
   "engines": {
@@ -87,7 +87,7 @@
     "exploratory-testing",
     "browser-automation"
   ],
-  "license": "ISC",
+  "license": "UNLICENSED",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/bootnihil/checkquest.git"
