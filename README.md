@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/branding/checkquest-banner.png" alt="CheckQuest — Explore. Check. Prove." width="100%">
+  <img src="assets/branding/checkquest-banner.png" alt="CheckQuest — Explore. Investigate. Report." width="100%">
 </p>
 
 # CheckQuest 🧭
@@ -10,9 +10,9 @@
 ![Gemini](https://img.shields.io/badge/Gemini-BYOK-purple)
 ![Status](https://img.shields.io/badge/status-experimental-orange)
 
-**Explore. Check. Prove.**
+**Explore. Investigate. Report.**
 
-CheckQuest is an exploratory QA agent for websites. Give it a URL instead of a predefined test suite: it inspects the site, decides where it is worth looking next, flags suspicious issues, investigates only when it has a bounded evidence-gathering action, and produces a structured report of what it found.
+CheckQuest is an exploratory QA agent for websites. Give it **any authorized HTTP(S) URL** instead of a predefined test suite: it inspects the site, decides where it is worth looking next, flags suspicious issues, investigates only when it has a bounded evidence-gathering action, and produces a structured report of what it found. No site-specific profile is required for normal use.
 
 > **AI decides what may be worth investigating. Deterministic code decides what the browser is actually allowed to do.**
 
@@ -50,7 +50,7 @@ That makes CheckQuest a complement to existing QA automation rather than a claim
 ## 🧠 How it works
 
 ```text
-URL / site profile
+Arbitrary URL / optional saved site profile
         ↓
 Inspect page 1
         ↓
@@ -167,13 +167,15 @@ export GEMINI_API_KEY="replace-with-your-key"
 
 ### 4. Run it
 
-For a small first run against a site you are authorized to test:
+The normal path is to supply the website you want CheckQuest to inspect directly. No named profile is required:
 
 ```bash
 npm start -- https://www.example.com/ --pages 1 --navigation-steps 1 --steps-per-page 0
 ```
 
-Or run the built-in `aidoc` profile with its configured defaults:
+CheckQuest builds a conservative runtime profile automatically for the supplied hostname.
+
+The repository also includes one **optional reference profile**, `aidoc`, because Aidoc was the project's original development and external regression target. It is not the only supported site and is not required for arbitrary-URL runs:
 
 ```bash
 npm start
@@ -206,9 +208,11 @@ npm run agent:explore -- https://www.example.com/ --pages 5 --navigation-steps 7
 
 Set `--steps-per-page 0` to analyze pages without autonomous investigation.
 
-Current defaults are **5 / 6 / 3** for the configured `aidoc` profile and **3 / 4 / 3** for an arbitrary URL.
+For the normal arbitrary-URL path, current defaults are **3 / 4 / 3**. Arbitrary URLs use a conservative runtime profile scoped to the exact supplied hostname.
 
-Arbitrary URLs use a conservative runtime profile scoped to the exact supplied hostname. For reusable profiles, host policy, `SiteConfig`, model overrides, and configuration errors, see **[Configuration](docs/CONFIGURATION.md)**.
+The optional built-in `aidoc` reference profile uses **5 / 6 / 3** because it doubles as a development/regression fixture. Reusable named profiles are an advanced convenience for sites that need persistent configuration; they are not required to run CheckQuest against other websites.
+
+For reusable profiles, host policy, `SiteConfig`, model overrides, and configuration errors, see **[Configuration](docs/CONFIGURATION.md)**.
 
 ## 📄 What you get
 
@@ -258,7 +262,7 @@ rules, and deliberately non-versioned source API are defined in
 | `GEMINI_API_KEY is required` | Set `GEMINI_API_KEY` in the same shell that starts CheckQuest. `GOOGLE_API_KEY` is not a fallback. |
 | `Unable to launch Chromium` | Run `npm run setup:browser`. On Linux, use `npm run setup:browser:with-deps`. |
 | Chromium reports missing Linux libraries | Install the Playwright system packages with `npm run setup:browser:with-deps`. |
-| `Unknown site configuration` | Use `aidoc` or provide a complete URL beginning with `http://` or `https://`. |
+| `Unknown site configuration` | Provide a complete URL beginning with `http://` or `https://`. The optional built-in `aidoc` name is only a reference profile. |
 | A `MODEL` error occurs after requests begin | Check the Gemini key, optional `GEMINI_MODEL`, network access, quota, and provider availability. |
 | Report persistence fails | Run from a writable checkout and verify access to `agent-results/`. Failed runs do not emit a successful partial report. |
 
@@ -280,7 +284,7 @@ npm run test:browser:ci
 
 `npm run test:browser:ci` runs the mandatory local Chromium acceptance suite against loopback fixtures — no Gemini key and no external Aidoc dependency required.
 
-`npm test` / `npm run test:ui` is the separate **manual external Aidoc acceptance** suite.
+`npm test` / `npm run test:ui` is the project's separate **manual external Aidoc regression acceptance** suite. Aidoc is used there as a stable development/reference target; normal CheckQuest usage is not limited to Aidoc or to preconfigured sites.
 
 ## ⚠️ Current boundaries
 
@@ -291,7 +295,7 @@ CheckQuest is still experimental.
 - Safety controls reduce risk; they cannot guarantee zero side effects on arbitrary sites.
 - Passive security is observational, not active vulnerability scanning.
 - Normal exploration currently depends on Gemini.
-- Only one reusable configured site profile ships today.
+- One optional reusable reference profile (`aidoc`) ships today; arbitrary authorized URLs are the normal general-purpose path and do not require a profile.
 - Failed runs do not have a partial-report schema.
 - CheckQuest is not yet packaged as a desktop app, hosted service, or standalone SDK.
 
