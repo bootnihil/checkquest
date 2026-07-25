@@ -53,6 +53,7 @@
     "agent:run-site-api-check": "tsx agent/run-site-api-check.ts",
     "agent:error-handling-check": "tsx agent/error-handling-check.ts",
     "agent:gemini-hardening-check": "tsx agent/gemini-hardening-check.ts",
+    "agent:gemini-credential-boundary-check": "tsx agent/gemini-credential-boundary-check.ts",
     "agent:run-event-check": "tsx agent/run-event-check.ts",
     "agent:run-site-browser-integration-check": "tsx agent/run-site-browser-integration-check.ts",
     "agent:known-findings-check": "tsx agent/known-findings-check.ts",

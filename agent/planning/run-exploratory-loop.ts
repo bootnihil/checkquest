@@ -221,6 +221,8 @@ export async function runExploratoryLoop(
   dependencies: {
     plan?: typeof planNextAction;
     execute?: typeof executeAgentAction;
+    geminiApiKey?:
+      string;
     onModelRequestEvent?:
       (
         event:
@@ -280,6 +282,9 @@ export async function runExploratoryLoop(
           investigableCandidates
         },
         {
+          geminiApiKey:
+            dependencies
+              .geminiApiKey,
           onEvent:
             dependencies
               .onModelRequestEvent

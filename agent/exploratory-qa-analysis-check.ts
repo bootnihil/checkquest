@@ -1,4 +1,7 @@
 import { analyzePageForQa } from './analysis/analyze-page-for-qa';
+import {
+  resolveGeminiApiKey
+} from './ai/resolve-gemini-api-key';
 
 async function main(): Promise<void> {
   const analysis =
@@ -62,6 +65,11 @@ async function main(): Promise<void> {
       },
 
       ruleBasedFindings: []
+    }, {
+      geminiApiKey:
+        resolveGeminiApiKey(
+          process.env
+        )
     });
 
   console.log(

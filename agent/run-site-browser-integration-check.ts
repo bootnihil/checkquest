@@ -46,6 +46,21 @@ interface RunCollaborators {
     string[][];
   navigationCalls:
     NavigationChoiceCall[];
+  analysisGeminiApiKeys:
+    Array<
+      string |
+      undefined
+    >;
+  plannerGeminiApiKeys:
+    Array<
+      string |
+      undefined
+    >;
+  navigationGeminiApiKeys:
+    Array<
+      string |
+      undefined
+    >;
 }
 
 const allowedHost =
@@ -276,7 +291,10 @@ function createSite(
   };
 }
 
-function createRunCollaborators():
+function createRunCollaborators(
+  includeCandidate =
+    false
+):
   RunCollaborators {
   const analysisUrls:
     string[] = [];
@@ -284,6 +302,21 @@ function createRunCollaborators():
     string[][] = [];
   const navigationCalls:
     NavigationChoiceCall[] = [];
+  const analysisGeminiApiKeys:
+    Array<
+      string |
+      undefined
+    > = [];
+  const plannerGeminiApiKeys:
+    Array<
+      string |
+      undefined
+    > = [];
+  const navigationGeminiApiKeys:
+    Array<
+      string |
+      undefined
+    > = [];
 
   const analyzePageForQa:
     NonNullable<
@@ -293,8 +326,13 @@ function createRunCollaborators():
     > =
       async (
         input:
-          AnalyzePageForQaInput
+          AnalyzePageForQaInput,
+        options
       ) => {
+        analysisGeminiApiKeys.push(
+          options
+            ?.geminiApiKey
+        );
         analysisUrls.push(
           input
             .observation
@@ -310,9 +348,71 @@ function createRunCollaborators():
 
         return {
           findings:
-            [],
+            includeCandidate
+              ? [
+                  {
+                    category:
+                      'content',
+                    severity:
+                      'low',
+                    confidence:
+                      'high',
+                    title:
+                      'Synthetic credential-boundary candidate',
+                    evidence:
+                      'Synthetic evidence for planner propagation.',
+                    reasoning:
+                      'The planner should receive the same per-run credential.',
+                    suggestedCheck:
+                      'Stop without browser interaction.',
+                    evidenceTarget: {
+                      kind:
+                        'select-option',
+                      controlLabel:
+                        'Country',
+                      controlName:
+                        'country',
+                      controlId:
+                        'country',
+                      optionText:
+                        'Equador'
+                    }
+                  }
+                ]
+              : [],
           summary:
             'Local deterministic analysis stub found no model candidates.'
+        };
+      };
+
+  const injectedPlanNextAction:
+    NonNullable<
+      RunSiteDependencies[
+        'planNextAction'
+      ]
+    > =
+      async (
+        _input,
+        options
+      ) => {
+        plannerGeminiApiKeys.push(
+          options
+            ?.geminiApiKey
+        );
+
+        return {
+          hypothesis:
+            'No browser interaction is required for credential propagation.',
+          reasoning:
+            'The injected planner stops deterministically.',
+          action: {
+            kind:
+              'stop',
+            reason:
+              'Credential propagation was observed.'
+          },
+          expectedObservation:
+            'No browser interaction executes.'
         };
       };
 
@@ -325,8 +425,13 @@ function createRunCollaborators():
       async (
         _site,
         candidates,
-        budget
+        budget,
+        options
       ) => {
+        navigationGeminiApiKeys.push(
+          options
+            ?.geminiApiKey
+        );
         navigationCalls.push({
           candidateUrls:
             candidates.map(
@@ -366,11 +471,16 @@ function createRunCollaborators():
   return {
     dependencies: {
       analyzePageForQa,
+      planNextAction:
+        injectedPlanNextAction,
       chooseNavigationLink
     },
     analysisUrls,
     analysisHeadings,
-    navigationCalls
+    navigationCalls,
+    analysisGeminiApiKeys,
+    plannerGeminiApiKeys,
+    navigationGeminiApiKeys
   };
 }
 
@@ -778,6 +888,8 @@ async function main():
     {
       const requestStart =
         receivedRequests.length;
+      const runCredential =
+        'BROWSER_RUN_KEY_A';
       const collaborators =
         createRunCollaborators();
       const successEvents:
@@ -792,6 +904,10 @@ async function main():
               2,
               1
             ),
+          credentials: {
+            geminiApiKey:
+              runCredential
+          },
           runId:
             'stage8c3-two-page-success',
           startedAt:
@@ -868,6 +984,26 @@ async function main():
         1
       );
       assert.deepEqual(
+        collaborators
+          .analysisGeminiApiKeys,
+        [
+          runCredential,
+          runCredential
+        ]
+      );
+      assert.deepEqual(
+        collaborators
+          .navigationGeminiApiKeys,
+        [
+          runCredential
+        ]
+      );
+      assert.deepEqual(
+        collaborators
+          .plannerGeminiApiKeys,
+        []
+      );
+      assert.deepEqual(
         successEvents.map(
           event =>
             event.type
@@ -905,6 +1041,16 @@ async function main():
         )?.type,
         'run-completed'
       );
+      assert.equal(
+        JSON.stringify({
+          report,
+          events:
+            successEvents
+        }).includes(
+          runCredential
+        ),
+        false
+      );
       assertOrdinaryLocalGets(
         getRunRequests(
           receivedRequests,
@@ -913,6 +1059,80 @@ async function main():
         [
           '/success/start',
           '/success/second'
+        ]
+      );
+    }
+
+    {
+      const requestStart =
+        receivedRequests.length;
+      const runCredential =
+        'BROWSER_RUN_KEY_B';
+      const collaborators =
+        createRunCollaborators(
+          true
+        );
+      const site =
+        createSite(
+          baseUrl,
+          '/budget-one',
+          1,
+          0
+        );
+      site.maxExploratoryStepsPerPage =
+        1;
+
+      const report =
+        await runSite({
+          site,
+          credentials: {
+            geminiApiKey:
+              runCredential
+          },
+          runId:
+            'stage9b-planner-credential',
+          startedAt:
+            new Date(
+              '2026-07-25T00:02:30.000Z'
+            ),
+          dependencies:
+            collaborators.dependencies
+        });
+
+      assert.deepEqual(
+        collaborators
+          .analysisGeminiApiKeys,
+        [
+          runCredential
+        ]
+      );
+      assert.deepEqual(
+        collaborators
+          .plannerGeminiApiKeys,
+        [
+          runCredential
+        ]
+      );
+      assert.deepEqual(
+        collaborators
+          .navigationGeminiApiKeys,
+        []
+      );
+      assert.equal(
+        JSON.stringify(
+          report
+        ).includes(
+          runCredential
+        ),
+        false
+      );
+      assertOrdinaryLocalGets(
+        getRunRequests(
+          receivedRequests,
+          requestStart
+        ),
+        [
+          '/budget-one'
         ]
       );
     }

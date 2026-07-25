@@ -5,12 +5,14 @@ import {
   parseModelJsonResponse
 } from '../ai/parse-model-json-response';
 import {
-  resolveGeminiApiKey
+  requireGeminiApiKey
 } from '../ai/resolve-gemini-api-key';
 import {
-  runGeminiRequest,
-  type GeminiRequestDependencies
+  runGeminiRequest
 } from '../ai/run-gemini-request';
+import type {
+  GeminiOperationOptions
+} from '../ai/gemini-operation-options';
 
 import type {
   PredictedPageIdentity
@@ -80,10 +82,7 @@ export async function chooseNavigationLink(
   candidates: NavigationPolicyCandidate[],
   budget: NavigationBudgetContext,
   requestDependencies:
-    Pick<
-      GeminiRequestDependencies,
-      'onEvent'
-    > = {}
+    GeminiOperationOptions = {}
 ): Promise<NavigationDecision> {
   if (
     candidates.length ===
@@ -244,7 +243,10 @@ export async function chooseNavigationLink(
   const ai =
     new GoogleGenAI({
       apiKey:
-        resolveGeminiApiKey()
+        requireGeminiApiKey(
+          requestDependencies
+            .geminiApiKey
+        )
     });
 
   const interaction =
@@ -312,7 +314,11 @@ ${JSON.stringify(
 
           requestOptions
         ),
-      requestDependencies
+      {
+        onEvent:
+          requestDependencies
+            .onEvent
+      }
     );
 
   const functionCalls =

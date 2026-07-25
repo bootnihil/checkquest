@@ -56,6 +56,9 @@ import {
   runExploratoryLoop
 } from '../planning/run-exploratory-loop';
 import type {
+  planNextAction
+} from '../planning/plan-next-action';
+import type {
   InspectedPageResult
 } from '../reporting/report-types';
 import type {
@@ -92,6 +95,10 @@ export interface PageInspectionFindingMetrics {
 export interface InspectPageDependencies {
   analyzePageForQa?:
     typeof analyzePageForQa;
+  planNextAction?:
+    typeof planNextAction;
+  geminiApiKey?:
+    string;
   onModelRequestEvent?:
     (
       event:
@@ -292,6 +299,10 @@ export async function inspectPage(
           knownFindingContext
       },
       {
+        geminiApiKey:
+          input
+            .dependencies
+            ?.geminiApiKey,
         onEvent:
           input
             .dependencies
@@ -357,6 +368,14 @@ export async function inspectPage(
         site.maxExploratoryStepsPerPage,
         pageCandidates,
         {
+          plan:
+            input
+              .dependencies
+              ?.planNextAction,
+          geminiApiKey:
+            input
+              .dependencies
+              ?.geminiApiKey,
           onModelRequestEvent:
             input
               .dependencies

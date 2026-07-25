@@ -1,6 +1,9 @@
 import { chromium } from '@playwright/test';
 
 import { analyzePageForQa } from './analysis/analyze-page-for-qa';
+import {
+  resolveGeminiApiKey
+} from './ai/resolve-gemini-api-key';
 import { classifyDiagnostics } from './analysis/classify-diagnostics';
 import { evaluatePageObservation } from './analysis/evaluate-page';
 import { collectPageDiagnostics } from './browser/collect-page-diagnostics';
@@ -257,6 +260,11 @@ const maxSteps =
           classifiedDiagnostics,
 
           ruleBasedFindings
+        }, {
+          geminiApiKey:
+            resolveGeminiApiKey(
+              process.env
+            )
         });
 
       const pageCandidates =
@@ -374,7 +382,13 @@ const maxSteps =
           page,
           pageObservation.finalUrl,
           maxSteps,
-          pageCandidates
+          pageCandidates,
+          {
+            geminiApiKey:
+              resolveGeminiApiKey(
+                process.env
+              )
+          }
         );
 
       /*

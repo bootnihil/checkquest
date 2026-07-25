@@ -2,6 +2,9 @@ import {
   planNextAction
 } from './planning/plan-next-action';
 import {
+  resolveGeminiApiKey
+} from './ai/resolve-gemini-api-key';
+import {
   assignPageCandidateReferences,
   isInvestigablePageCandidate
 } from './investigation/page-candidates';
@@ -91,6 +94,11 @@ async function main(): Promise<void> {
         tabs:
           []
       }
+    }, {
+      geminiApiKey:
+        resolveGeminiApiKey(
+          process.env
+        )
     });
 
   console.log(

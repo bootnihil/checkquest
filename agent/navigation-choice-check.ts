@@ -2,6 +2,9 @@ import { chromium } from '@playwright/test';
 import { inspectNavigation } from './browser/inspect-navigation';
 import { chooseNavigationLink } from './decisions/choose-navigation-link';
 import {
+  resolveGeminiApiKey
+} from './ai/resolve-gemini-api-key';
+import {
   createPageNoveltyState
 } from './exploration/page-novelty';
 import {
@@ -70,7 +73,13 @@ async function main(): Promise<void> {
     const decision = await chooseNavigationLink(
       site,
       policyWindow.candidates,
-      budget
+      budget,
+      {
+        geminiApiKey:
+          resolveGeminiApiKey(
+            process.env
+          )
+      }
     );
 
     if (decision.type === 'finish') {

@@ -4,6 +4,9 @@ import { executeAgentAction } from './browser/execute-agent-action';
 import { extractPageContent } from './browser/extract-page-content';
 import { planNextAction } from './planning/plan-next-action';
 import {
+  resolveGeminiApiKey
+} from './ai/resolve-gemini-api-key';
+import {
   validateDecisionCandidateRelevance
 } from './planning/run-exploratory-loop';
 import {
@@ -151,6 +154,11 @@ async function main(): Promise<void> {
         history: [],
 
         investigableCandidates
+      }, {
+        geminiApiKey:
+          resolveGeminiApiKey(
+            process.env
+          )
       });
 
     console.log(

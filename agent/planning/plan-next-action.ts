@@ -4,12 +4,14 @@ import {
   parseModelJsonResponse
 } from '../ai/parse-model-json-response';
 import {
-  resolveGeminiApiKey
+  requireGeminiApiKey
 } from '../ai/resolve-gemini-api-key';
 import {
-  runGeminiRequest,
-  type GeminiRequestDependencies
+  runGeminiRequest
 } from '../ai/run-gemini-request';
+import type {
+  GeminiOperationOptions
+} from '../ai/gemini-operation-options';
 import { aiConfig } from '../config/ai-config';
 import {
   buildPlannerPrompt,
@@ -29,15 +31,15 @@ import {
 export async function planNextAction(
   input: BuildPlannerPromptInput,
   requestDependencies:
-    Pick<
-      GeminiRequestDependencies,
-      'onEvent'
-    > = {}
+    GeminiOperationOptions = {}
 ): Promise<PlannerDecision> {
   const ai =
     new GoogleGenAI({
       apiKey:
-        resolveGeminiApiKey()
+        requireGeminiApiKey(
+          requestDependencies
+            .geminiApiKey
+        )
     });
 
   const prompt =
@@ -81,7 +83,11 @@ export async function planNextAction(
           }
         });
       },
-      requestDependencies
+      {
+        onEvent:
+          requestDependencies
+            .onEvent
+      }
     );
 
   return parseModelJsonResponse(

@@ -3,12 +3,14 @@ import {
   parseModelJsonResponse
 } from '../ai/parse-model-json-response';
 import {
-  resolveGeminiApiKey
+  requireGeminiApiKey
 } from '../ai/resolve-gemini-api-key';
 import {
-  runGeminiRequest,
-  type GeminiRequestDependencies
+  runGeminiRequest
 } from '../ai/run-gemini-request';
+import type {
+  GeminiOperationOptions
+} from '../ai/gemini-operation-options';
 import type { ExtractedPageContent } from '../browser/extract-page-content';
 import type { VisitedPageObservation } from '../browser/visit-approved-link';
 import { aiConfig } from '../config/ai-config';
@@ -35,15 +37,15 @@ export interface AnalyzePageForQaInput {
 export async function analyzePageForQa(
   input: AnalyzePageForQaInput,
   requestDependencies:
-    Pick<
-      GeminiRequestDependencies,
-      'onEvent'
-    > = {}
+    GeminiOperationOptions = {}
 ): Promise<ExploratoryQaAnalysis> {
   const ai =
     new GoogleGenAI({
       apiKey:
-        resolveGeminiApiKey()
+        requireGeminiApiKey(
+          requestDependencies
+            .geminiApiKey
+        )
     });
 
   const prompt =
@@ -87,7 +89,11 @@ export async function analyzePageForQa(
           }
         });
       },
-      requestDependencies
+      {
+        onEvent:
+          requestDependencies
+            .onEvent
+      }
     );
 
   return parseModelJsonResponse(

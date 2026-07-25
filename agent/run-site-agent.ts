@@ -10,6 +10,9 @@ import {
   formatPublicError
 } from './errors/checkquest-error';
 import {
+  resolveRunSiteCredentials
+} from './cli/resolve-run-site-credentials';
+import {
   createRunId
 } from './reporting/report-utils';
 import {
@@ -55,6 +58,10 @@ async function main(): Promise<void> {
   const report =
     await runSite({
       site,
+      credentials:
+        resolveRunSiteCredentials(
+          process.env
+        ),
       startedAt,
       runId,
       onEvent:

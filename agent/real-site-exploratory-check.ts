@@ -1,6 +1,9 @@
 import { chromium } from '@playwright/test';
 
 import { analyzePageForQa } from './analysis/analyze-page-for-qa';
+import {
+  resolveGeminiApiKey
+} from './ai/resolve-gemini-api-key';
 import { classifyDiagnostics } from './analysis/classify-diagnostics';
 import { evaluatePageObservation } from './analysis/evaluate-page';
 
@@ -283,6 +286,11 @@ async function main(): Promise<void> {
 
           ruleBasedFindings:
             findings
+        }, {
+          geminiApiKey:
+            resolveGeminiApiKey(
+              process.env
+            )
         });
 
       const pageCandidates =

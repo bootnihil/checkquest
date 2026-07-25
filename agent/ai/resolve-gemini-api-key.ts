@@ -14,9 +14,16 @@ export function resolveGeminiApiKey(
     GeminiCredentialEnvironment =
       process.env
 ): string {
-  const apiKey =
+  return requireGeminiApiKey(
     environment
-      .GEMINI_API_KEY;
+      .GEMINI_API_KEY
+  );
+}
+
+export function requireGeminiApiKey(
+  apiKey?:
+    string
+): string {
 
   if (
     apiKey ===

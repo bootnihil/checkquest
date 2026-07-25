@@ -3,7 +3,7 @@ import {
 } from '@playwright/test';
 
 import {
-  resolveGeminiApiKey
+  requireGeminiApiKey
 } from '../ai/resolve-gemini-api-key';
 import {
   collectPageDiagnostics
@@ -57,6 +57,9 @@ import {
   type InspectPageResult,
   type OpenPageInspectionInput
 } from '../inspection/inspect-page';
+import type {
+  planNextAction
+} from '../planning/plan-next-action';
 import {
   buildSiteAgentReport,
   type SiteRunFindingMetrics
@@ -86,12 +89,19 @@ import {
 
 export interface RunSiteInput {
   site: SiteConfig;
+  credentials?:
+    RunSiteCredentials;
   startedAt?: Date;
   runId?: string;
   onEvent?:
     RunEventObserver;
   dependencies?:
     RunSiteDependencies;
+}
+
+export interface RunSiteCredentials {
+  geminiApiKey?:
+    string;
 }
 
 export interface RunSiteDependencies {
@@ -101,6 +111,8 @@ export interface RunSiteDependencies {
         'analyzePageForQa'
       ]
     >;
+  planNextAction?:
+    typeof planNextAction;
   chooseNavigationLink?:
     typeof chooseNavigationLink;
 }
@@ -226,6 +238,14 @@ async function executeRunSite(
       ?.analyzePageForQa ===
     undefined;
 
+  const mayUseDefaultPlanner =
+    site
+      .maxExploratoryStepsPerPage >
+      0 &&
+    input.dependencies
+      ?.planNextAction ===
+      undefined;
+
   const mayUseDefaultNavigation =
     site.maxPages >
       1 &&
@@ -237,6 +257,7 @@ async function executeRunSite(
 
   if (
     usesDefaultAnalysis ||
+    mayUseDefaultPlanner ||
     mayUseDefaultNavigation
   ) {
     /*
@@ -244,7 +265,10 @@ async function executeRunSite(
      * Gemini collaborator. Fully injected Stage 8C collaborators remain
      * Gemini-free.
      */
-    resolveGeminiApiKey();
+    requireGeminiApiKey(
+      input.credentials
+        ?.geminiApiKey
+    );
   }
 
   let browser:
@@ -621,6 +645,10 @@ async function executeRunSite(
                     policyWindow.candidates,
                     navigationBudget,
                     {
+                      geminiApiKey:
+                        input
+                          .credentials
+                          ?.geminiApiKey,
                       onEvent:
                         onModelRequestEvent
                     }
@@ -888,6 +916,14 @@ async function executeRunSite(
                       input
                         .dependencies
                         ?.analyzePageForQa,
+                    planNextAction:
+                      input
+                        .dependencies
+                        ?.planNextAction,
+                    geminiApiKey:
+                      input
+                        .credentials
+                        ?.geminiApiKey,
                     onModelRequestEvent
                   }
                 });
