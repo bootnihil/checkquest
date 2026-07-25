@@ -1,11 +1,17 @@
-# CheckQuest Roadmap
+# CheckQuest Roadmap v1 — Completed
 
+**Status:** Completed
 **Roadmap version:** 1.17
 
 **Frozen on:** 2026-07-23
 **Current stage:** Roadmap v1 complete — Stages 1–10 accepted
+**Current development roadmap:** Roadmap v2 (`docs/ROADMAP-V2.md`)
 
 ## How this roadmap is used
+
+This document is the **completed historical record** of the original CheckQuest engineering roadmap. It remains useful as the canonical account of how Stages 1–10 were executed and accepted, but it is **not** the current active roadmap.
+
+For current planned work, see **Roadmap v2** in `docs/ROADMAP-V2.md`.
 
 This is the canonical execution order for CheckQuest.
 

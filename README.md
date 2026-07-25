@@ -35,6 +35,13 @@ Today, CheckQuest can:
 
 The goal is not to prove a site is defect-free. It is to spend a small inspection budget intelligently and come back with useful evidence.
 
+## 🗺️ Roadmap status
+
+- **Roadmap v1 is complete.** The original Stage 1–10 engine roadmap has been fully accepted and is now a historical record.
+- **Roadmap v2 is current.** It tracks the next phase: a local GUI / product shell that exposes the finished engine to normal users.
+
+If you want the current plan, start with **[Roadmap v2](docs/ROADMAP-V2.md)**. If you want the completed engineering history, see **[Roadmap v1](docs/ROADMAP.md)**.
+
 ## 🎯 Where CheckQuest fits
 
 CheckQuest is most useful as an **evidence-oriented exploratory pass alongside a normal QA stack**. It does not replace scripted regression, manual exploratory testing, security testing, or site-quality tooling.
@@ -299,13 +306,20 @@ CheckQuest is still experimental.
 - Failed runs do not have a partial-report schema.
 - CheckQuest is not yet packaged as a desktop app, hosted service, or standalone SDK.
 
+## 🗺️ What's next
+
+The original engine roadmap is complete. **[Roadmap v2 — Local GUI / Product Shell](docs/ROADMAP-V2.md)** now tracks the next phase: exposing the existing CheckQuest engine through a usable local interface, packaging it for normal users, and validating it externally before committing to SaaS or major new engine capabilities.
+
+Roadmap v2 deliberately stops at a product-validation gate so real user behavior — not speculative feature ideas — determines what comes after the GUI.
+
 ## 📚 Go deeper
 
 - **[Guided demo](docs/DEMO.md)** — a minimal first run and report-reading walkthrough.
 - **[Architecture](docs/ARCHITECTURE.md)** — execution flow, `runSite`, findings, investigation, safety, events, errors, passive security, and reporting.
 - **[Configuration](docs/CONFIGURATION.md)** — site profiles, arbitrary URLs, budgets, host policy, BYOK, and model settings.
 - **[Public contracts](docs/PUBLIC-CONTRACTS.md)** — supported CLI/configuration behavior, versioning, exit semantics, and report compatibility.
-- **[Roadmap](docs/ROADMAP.md)** — canonical development status.
+- **[Roadmap v2](docs/ROADMAP-V2.md)** — **current** local GUI / product-shell roadmap.
+- **[Roadmap v1](docs/ROADMAP.md)** — **completed** Stage 1–10 engine roadmap and historical development record.
 - **[Backlog](docs/BACKLOG.md)** — active, queued, and parked work.
 
 ## ⚖️ Licensing
