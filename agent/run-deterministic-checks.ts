@@ -5,6 +5,7 @@ import {
 const deterministicChecks = [
   'agent:run-options-check',
   'agent:site-config-check',
+  'agent:cli-configuration-error-check',
   'agent:run-site-api-check',
   'agent:error-handling-check',
   'agent:gemini-hardening-check',

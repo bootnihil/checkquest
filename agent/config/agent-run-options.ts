@@ -2,6 +2,23 @@ import type {
   SiteConfig
 } from './site-config';
 
+import {
+  CheckQuestError
+} from '../errors/checkquest-error';
+
+function createCliArgumentError(
+  message: string
+): CheckQuestError {
+  return new CheckQuestError(
+    'CONFIGURATION',
+    message,
+    {
+      phase:
+        'cli-argument-parsing'
+    }
+  );
+}
+
 export interface AgentRunOptions {
   siteIdOrUrl: string;
 
@@ -51,7 +68,7 @@ function parseBoundedInteger(
     rawValue ===
     undefined
   ) {
-    throw new Error(
+    throw createCliArgumentError(
       `Missing value after ${flagName}.`
     );
   }
@@ -66,8 +83,8 @@ function parseBoundedInteger(
       rawValue
     )
   ) {
-    throw new Error(
-      `Invalid value "${rawValue}" for ${flagName}. Expected a whole number from ${minimum} to ${maximum}.`
+    throw createCliArgumentError(
+      `Invalid value for ${flagName}. Expected a whole number from ${minimum} to ${maximum}.`
     );
   }
 
@@ -81,8 +98,8 @@ function parseBoundedInteger(
       parsedValue
     )
   ) {
-    throw new Error(
-      `Invalid value "${rawValue}" for ${flagName}. Expected a safe whole number.`
+    throw createCliArgumentError(
+      `Invalid value for ${flagName}. Expected a safe whole number.`
     );
   }
 
@@ -92,8 +109,8 @@ function parseBoundedInteger(
     parsedValue >
       maximum
   ) {
-    throw new Error(
-      `Value for ${flagName} must be from ${minimum} to ${maximum}. Received ${parsedValue}.`
+    throw createCliArgumentError(
+      `Value for ${flagName} must be from ${minimum} to ${maximum}.`
     );
   }
 
@@ -138,7 +155,7 @@ export function parseAgentRunOptions(
         pages !==
         null
       ) {
-        throw new Error(
+        throw createCliArgumentError(
           'The --pages option may be supplied only once.'
         );
       }
@@ -171,7 +188,7 @@ export function parseAgentRunOptions(
         navigationSteps !==
         null
       ) {
-        throw new Error(
+        throw createCliArgumentError(
           'The --navigation-steps option may be supplied only once.'
         );
       }
@@ -204,7 +221,7 @@ export function parseAgentRunOptions(
         exploratoryStepsPerPage !==
         null
       ) {
-        throw new Error(
+        throw createCliArgumentError(
           'The --steps-per-page option may be supplied only once.'
         );
       }
@@ -234,8 +251,8 @@ export function parseAgentRunOptions(
         '--'
       )
     ) {
-      throw new Error(
-        `Unknown command-line option "${argument}". Supported options are --pages, --navigation-steps, and --steps-per-page.`
+      throw createCliArgumentError(
+        'Unknown command-line option. Supported options are --pages, --navigation-steps, and --steps-per-page.'
       );
     }
 
@@ -243,8 +260,8 @@ export function parseAgentRunOptions(
       siteIdOrUrl !==
       null
     ) {
-      throw new Error(
-        `Unexpected positional argument "${argument}". Supply only one configured site ID or URL.`
+      throw createCliArgumentError(
+        'Unexpected positional argument. Supply only one configured site ID or URL.'
       );
     }
 

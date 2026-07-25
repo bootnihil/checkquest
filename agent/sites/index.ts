@@ -3,6 +3,10 @@ import type {
 } from '../config/site-config';
 
 import {
+  CheckQuestError
+} from '../errors/checkquest-error';
+
+import {
   aidocSite
 } from './aidoc';
 
@@ -36,6 +40,21 @@ const runtimeSiteDefaults = {
     false
 } as const;
 
+function createSiteConfigurationError(
+  message: string,
+  cause?: unknown
+): CheckQuestError {
+  return new CheckQuestError(
+    'CONFIGURATION',
+    message,
+    {
+      phase:
+        'site-configuration-resolution',
+      cause
+    }
+  );
+}
+
 function isHttpUrl(
   value: string
 ): boolean {
@@ -60,9 +79,13 @@ function createRuntimeSiteConfig(
       new URL(
         rawUrl
       );
-  } catch {
-    throw new Error(
-      `Invalid exploration URL "${rawUrl}".`
+  } catch (
+    error:
+      unknown
+  ) {
+    throw createSiteConfigurationError(
+      'Invalid exploration URL. Supply a complete http:// or https:// URL.',
+      error
     );
   }
 
@@ -72,8 +95,8 @@ function createRuntimeSiteConfig(
     parsedUrl.protocol !==
       'http:'
   ) {
-    throw new Error(
-      `Unsupported URL protocol "${parsedUrl.protocol}". Only HTTP and HTTPS URLs may be explored.`
+    throw createSiteConfigurationError(
+      'Unsupported exploration URL protocol. Only HTTP and HTTPS URLs may be explored.'
     );
   }
 
@@ -152,8 +175,8 @@ export function getSiteConfig(
           ', '
         );
 
-    throw new Error(
-      `Unknown site "${siteIdOrUrl}". Use a configured site (${availableSites}) or supply a complete http:// or https:// URL.`
+    throw createSiteConfigurationError(
+      `Unknown site configuration. Use a configured site (${availableSites}) or supply a complete http:// or https:// URL.`
     );
   }
 

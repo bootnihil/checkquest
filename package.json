@@ -64,6 +64,7 @@
     "agent:finding-investigation-outcome-check": "tsx agent/finding-investigation-outcome-check.ts",
     "agent:run-options-check": "tsx agent/agent-run-options-check.ts",
     "agent:site-config-check": "tsx agent/site-config-check.ts",
+    "agent:cli-configuration-error-check": "tsx agent/cli-configuration-error-check.ts",
     "agent:passive-security-check": "tsx agent/passive-security-check.ts",
     "agent:passive-security-browser-check": "tsx agent/passive-security-browser-acceptance-check.ts",
     "agent:passive-security-report-check": "tsx agent/passive-security-report-check.ts"
