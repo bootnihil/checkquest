@@ -183,6 +183,33 @@ function ignoreObserverRejection(
   }
 }
 
+export function deliverRunEvent(
+  observer:
+    RunEventObserver | undefined,
+  event:
+    RunEvent
+): void {
+  if (
+    observer ===
+      undefined
+  ) {
+    return;
+  }
+
+  try {
+    const result =
+      observer(
+        event
+      ) as unknown;
+
+    ignoreObserverRejection(
+      result
+    );
+  } catch {
+    // Observer failures are deliberately isolated from reusable execution.
+  }
+}
+
 /**
  * Delivers events synchronously in execution order. Observer exceptions and
  * unexpected promise rejections are isolated so presentation code cannot
@@ -205,22 +232,16 @@ export function createRunEventEmitter(
   }
 
   return event => {
-    try {
-      const result =
-        observer({
-          ...event,
-          timestamp:
-            now()
-              .toISOString(),
-          runId
-        }) as unknown;
-
-      ignoreObserverRejection(
-        result
-      );
-    } catch {
-      // Observer failures are deliberately isolated from reusable execution.
-    }
+    deliverRunEvent(
+      observer,
+      {
+        ...event,
+        timestamp:
+          now()
+            .toISOString(),
+        runId
+      }
+    );
   };
 }
 

@@ -1,5 +1,6 @@
 export type CheckQuestErrorCode =
   | 'CONFIGURATION'
+  | 'CANCELLED'
   | 'BROWSER'
   | 'NAVIGATION'
   | 'MODEL'

@@ -4,10 +4,10 @@
 **Established:** 2026-07-23
 **Current roadmap:** Roadmap v2 - Public Landing + Local GUI / Product Shell
 **Current roadmap document:** `ROADMAP-V2.md`
-**Current roadmap stage:** G1 - GUI/core boundary
+**Current roadmap stage:** G2 - Local GUI MVP
 **Completed roadmap:** Roadmap v1 - Stages 1-10 accepted
-**Current execution focus:** Expose the completed engine cleanly to a GUI without changing Stage 1–10 semantics
-**Most recently completed:** Roadmap v2 G0 — Public landing & brand presence (2026-07-26)
+**Current execution focus:** Build the smallest useful local interface with URL, page/navigation/investigation budgets, Gemini key, optional model override, Run, Cancel, and basic status
+**Most recently completed:** Roadmap v2 G1 — GUI/core boundary (2026-07-26)
 
 This is the single project-wide parking place for work that should not silently interrupt the current roadmap stage. It persists across Roadmap v1, v2, and future roadmap versions.
 
@@ -32,11 +32,22 @@ A newly added backlog item does **not** become immediate work merely because it 
 
 # Active and queued backlog
 
-Roadmap v2 stages G1–G7 are the committed execution plan and are intentionally not duplicated as backlog rows. New defects, refinements, or product ideas discovered while executing them belong here unless they are true blockers for the current stage.
+Roadmap v2 stages G2–G7 are the remaining committed execution plan and are intentionally not duplicated as backlog rows. New defects, refinements, or product ideas discovered while executing them belong here unless they are true blockers for the current stage.
 
 G0 — Public landing & brand presence — completed on 2026-07-26. The public GitHub Pages site, aligned repository/branding presentation, responsive/contrast acceptance, and Pages deployment are complete.
 
-Current execution starts with **G1 — GUI/core boundary** in `ROADMAP-V2.md`.
+G1 — GUI/core boundary — completed on 2026-07-26. The accepted
+`startCheckQuest(...)` application boundary supports arbitrary URLs and
+existing site configurations, page/navigation/investigation budgets, transient
+per-run Gemini credentials, per-run model override, structured events,
+categorized failures, idempotent cancellation, report persistence, and
+absolute artifact paths. Cancellation preserves guarded-action rollback and
+required browser cleanup; application-boundary sanitization prevents
+credentials and nested causes from crossing public event, error, report, or
+result boundaries. The CLI now delegates execution and persistence to this
+shared boundary.
+
+Current execution continues with **G2 — Local GUI MVP** in `ROADMAP-V2.md`.
 
 ---
 
@@ -55,9 +66,11 @@ These are valid future possibilities, but they are **not commitments to build th
 | CQ-P008 | Evaluate optional future passive-security posture enhancements | PARKED | Consider cookie posture with strict secret redaction, broader passive request/external-host inventory, TLS/browser infrastructure metadata, mixed-content diagnostics, visible form-action posture, and more advanced security-policy interpretation only when justified by product need and a safe privacy design. These were design recommendations, not Stage 7 completion requirements. |
 | CQ-P009 | Authenticated application exploration | PARKED | Consider user-supplied/pre-authenticated Playwright session state only after the local GUI is validated and the stronger safety implications of authenticated authority are deliberately designed. Not a Roadmap v2 requirement. |
 | CQ-P010 | Additional model providers / provider abstraction | PARKED | Gemini remains the working BYOK provider for Roadmap v2. G7 explicitly assesses availability, latency, rate limits, cost, provider-behavior changes, and material run-to-run variability; promote provider abstraction only if that evidence or real deployment constraints justify it. |
-| CQ-P011 | Partial-run reporting | PARKED | Consider an explicit PARTIAL run/report state for larger or recurring scans so useful completed work can survive a later failure without masquerading as a successful complete run. |
+| CQ-P011 | Partial-run reporting | PARKED | Consider an explicit PARTIAL run/report state for larger or recurring scans so useful completed work can survive a later failure without masquerading as a successful complete run. G1 cancellation during an active filesystem write remains cooperative; atomic or partial-report persistence was not required for G1. |
 | CQ-P012 | Finding-to-Playwright regression-test generation | PARKED | Evaluate whether deterministically replayable confirmed findings can be exported as minimal regression tests. Product-validation candidate, not a committed Roadmap v2 feature. |
 | CQ-P013 | CI/release and recurring-monitoring integrations | PARKED | Consider CI triggers, scheduled runs, history, new/resolved finding comparison, and notifications only if external usage demonstrates recurring-monitoring demand. |
+| CQ-P014 | Packaged-app user-data and report-storage location | PARKED | The G1 application boundary returns absolute artifact paths while preserving the existing persistence root. Select an OS-appropriate user-data/report location when the product shell and Windows packaging requirements are established; this is not a G1 requirement. |
+| CQ-P015 | Forced real-Chromium browser-close failure injection | PARKED | G1 deterministically covers cleanup precedence and integration-tests real browser connection cleanup. Add a seam that can force a real `browser.close()` failure only if future cleanup risk justifies it; it is not required for G1. |
 
 ---
 

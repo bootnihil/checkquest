@@ -99,6 +99,10 @@ export interface InspectPageDependencies {
     typeof planNextAction;
   geminiApiKey?:
     string;
+  model?:
+    string;
+  signal?:
+    AbortSignal;
   onModelRequestEvent?:
     (
       event:
@@ -303,6 +307,14 @@ export async function inspectPage(
           input
             .dependencies
             ?.geminiApiKey,
+        model:
+          input
+            .dependencies
+            ?.model,
+        signal:
+          input
+            .dependencies
+            ?.signal,
         onEvent:
           input
             .dependencies
@@ -376,6 +388,14 @@ export async function inspectPage(
             input
               .dependencies
               ?.geminiApiKey,
+          model:
+            input
+              .dependencies
+              ?.model,
+          signal:
+            input
+              .dependencies
+              ?.signal,
           onModelRequestEvent:
             input
               .dependencies

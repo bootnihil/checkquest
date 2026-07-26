@@ -257,6 +257,8 @@ export async function chooseNavigationLink(
         ai.interactions.create(
           {
             model:
+              requestDependencies
+                .model ??
               aiConfig.model,
 
             /*
@@ -312,12 +314,25 @@ ${JSON.stringify(
             }
           },
 
-          requestOptions
+          {
+            timeout_ms:
+              requestOptions
+                .timeout_ms,
+            retries:
+              requestOptions
+                .retries,
+            signal:
+              requestOptions
+                .abortSignal
+          }
         ),
       {
         onEvent:
           requestDependencies
-            .onEvent
+            .onEvent,
+        signal:
+          requestDependencies
+            .signal
       }
     );
 

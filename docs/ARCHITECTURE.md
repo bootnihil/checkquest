@@ -101,6 +101,8 @@ const report = await runSite({
   },
   startedAt,
   runId,
+  model,
+  signal,
   onEvent,
   dependencies: {
     analyzePageForQa,
@@ -119,6 +121,8 @@ runtime only when a default Gemini-backed execution path can be reached.
 | `credentials` | Optional per-run execution credentials; currently supports a transient Gemini API key |
 | `startedAt` | Optional valid `Date`; generated when omitted |
 | `runId` | Optional filesystem-safe identifier; generated when omitted |
+| `model` | Optional per-run Gemini model override |
+| `signal` | Optional `AbortSignal` for programmatic cancellation |
 | `onEvent` | Optional synchronous `RunEvent` observer |
 | `dependencies.analyzePageForQa` | Optional page-analysis collaborator |
 | `dependencies.planNextAction` | Optional investigation-planner collaborator |
@@ -139,6 +143,48 @@ coordination without Gemini or a Gemini credential.
 complete successful report or rejects; it does not return a partial success
 report after an operational failure. Evidence such as a screenshot captured
 before a later failure may still exist on disk.
+
+## Application run boundary
+
+[`startCheckQuest(...)`](../agent/application/start-checkquest.ts) is the
+presentation-agnostic boundary intended for a local GUI or another product
+shell:
+
+```ts
+const run = startCheckQuest({
+  target,
+  budgets: {
+    pages,
+    navigationSteps,
+    investigationStepsPerPage
+  },
+  credentials: {
+    geminiApiKey
+  },
+  model,
+  onEvent
+});
+
+const result = await run.result;
+run.cancel();
+```
+
+`target` may be a registered site ID or an arbitrary HTTP/HTTPS URL. The
+result contains the schema-v3 in-memory report plus absolute paths for the
+report directory, JSON report, and Markdown report. Report persistence uses
+the same reporting boundary as the CLI. Credentials are accepted only as
+per-run execution context and are not returned.
+
+`cancel()` aborts the per-run signal. Cancellation propagates to Gemini
+requests, stops at safe execution boundaries, lets any active guarded action
+finish its mandatory rollback, then closes the browser during required
+cleanup. It rejects with `CheckQuestError` code `CANCELLED` and never emits
+`run-completed`; a cleanup failure is retained as secondary context rather
+than replacing cancellation.
+
+The CLI is a thin adapter over `startCheckQuest(...)`: it parses arguments,
+adapts `GEMINI_API_KEY` and `GEMINI_MODEL` from its environment, renders
+events, and prints the returned artifact paths.
 
 ## Configuration and input validation
 
@@ -193,7 +239,10 @@ After valid input, a run emits `run-started` and exactly one terminal
 `run-completed` or `run-failed`. Input rejected before a caller-supplied run ID
 is trusted can emit `run-failed` with the fixed safe run identity
 `unavailable`. `run-completed` is emitted only after required core cleanup;
-CLI persistence happens later and is not part of the core event lifecycle.
+Direct `runSite(...)` callers receive core completion before any caller-owned
+persistence. `startCheckQuest(...)` holds that terminal completion event until
+report persistence succeeds, so application callers receive exactly one
+terminal completion or failure for the full application run.
 
 Event payloads contain bounded operational context and sanitized display URLs.
 They do not contain API keys, prompts, raw model responses, SDK causes, page
@@ -207,6 +256,7 @@ boundary for expected operational failures. Its current codes are:
 | Code | Responsibility |
 |---|---|
 | `CONFIGURATION` | Invalid reusable input or missing required configuration |
+| `CANCELLED` | Explicit programmatic cancellation |
 | `BROWSER` | Browser launch or browser-level operation |
 | `NAVIGATION` | Start-page or approved-link navigation |
 | `MODEL` | Gemini credential, request, transport, timeout, or service failure |

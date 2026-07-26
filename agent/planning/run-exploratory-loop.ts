@@ -26,6 +26,9 @@ import {
   type InvestigablePageCandidate,
   type PageCandidate
 } from '../investigation/page-candidates';
+import {
+  throwIfRunCancelled
+} from '../errors/run-cancellation';
 
 export interface RejectedAgentActionResult {
   kind: AgentAction['kind'];
@@ -223,6 +226,10 @@ export async function runExploratoryLoop(
     execute?: typeof executeAgentAction;
     geminiApiKey?:
       string;
+    model?:
+      string;
+    signal?:
+      AbortSignal;
     onModelRequestEvent?:
       (
         event:
@@ -260,6 +267,12 @@ export async function runExploratoryLoop(
     stepNumber <= maxPlannerDecisions;
     stepNumber += 1
   ) {
+    throwIfRunCancelled(
+      dependencies.signal,
+      undefined,
+      'exploratory-investigation'
+    );
+
     const observationBefore =
       await extractPageContent(page);
 
@@ -285,11 +298,23 @@ export async function runExploratoryLoop(
           geminiApiKey:
             dependencies
               .geminiApiKey,
+          model:
+            dependencies
+              .model,
+          signal:
+            dependencies
+              .signal,
           onEvent:
             dependencies
               .onModelRequestEvent
         }
       );
+
+    throwIfRunCancelled(
+      dependencies.signal,
+      undefined,
+      'exploratory-investigation'
+    );
 
     const rejectionReason =
       validateDecisionCandidateRelevance(
@@ -330,6 +355,12 @@ export async function runExploratoryLoop(
         page,
         decision.action
       );
+
+    throwIfRunCancelled(
+      dependencies.signal,
+      undefined,
+      'exploratory-investigation'
+    );
 
     const observationAfter =
       await extractPageContent(page);

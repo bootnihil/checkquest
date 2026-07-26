@@ -1,42 +1,20 @@
 import {
-  applyAgentRunOptions,
   parseAgentRunOptions
 } from './config/agent-run-options';
 import {
   renderRunEvent
 } from './cli/render-run-event';
 import {
-  CheckQuestError,
   formatPublicError
 } from './errors/checkquest-error';
 import {
   resolveRunSiteCredentials
 } from './cli/resolve-run-site-credentials';
 import {
-  createRunId
-} from './reporting/report-utils';
-import {
-  writeJsonReport
-} from './reporting/write-json-report';
-import {
-  writeMarkdownReport
-} from './reporting/write-markdown-report';
-import {
-  runSite
-} from './run/run-site';
-import {
-  getSiteConfig
-} from './sites';
+  startCheckQuest
+} from './application/start-checkquest';
 
 async function main(): Promise<void> {
-  const startedAt =
-    new Date();
-
-  const runId =
-    createRunId(
-      startedAt
-    );
-
   const runOptions =
     parseAgentRunOptions(
       process.argv.slice(
@@ -44,70 +22,75 @@ async function main(): Promise<void> {
       )
     );
 
-  const baseSite =
-    getSiteConfig(
-      runOptions.siteIdOrUrl
-    );
-
-  const site =
-    applyAgentRunOptions(
-      baseSite,
-      runOptions
-    );
-
-  const report =
-    await runSite({
-      site,
+  const run =
+    startCheckQuest({
+      target:
+        runOptions
+          .siteIdOrUrl,
+      budgets: {
+        ...(runOptions.pages ===
+        null
+          ? {}
+          : {
+              pages:
+                runOptions.pages
+            }),
+        ...(runOptions
+          .navigationSteps ===
+        null
+          ? {}
+          : {
+              navigationSteps:
+                runOptions
+                  .navigationSteps
+            }),
+        ...(runOptions
+          .exploratoryStepsPerPage ===
+        null
+          ? {}
+          : {
+              investigationStepsPerPage:
+                runOptions
+                  .exploratoryStepsPerPage
+            })
+      },
       credentials:
         resolveRunSiteCredentials(
           process.env
         ),
-      startedAt,
-      runId,
+      model:
+        process.env
+          .GEMINI_MODEL,
       onEvent:
         renderRunEvent
     });
 
-  let writtenJsonReport:
-    Awaited<
-      ReturnType<
-        typeof writeJsonReport
-      >
-    >;
+  const cancelRun =
+    (): void => {
+      run.cancel();
+    };
+  process.on(
+    'SIGINT',
+    cancelRun
+  );
 
-  let writtenMarkdownReport:
+  let result:
     Awaited<
-      ReturnType<
-        typeof writeMarkdownReport
-      >
+      typeof run.result
     >;
-
   try {
-    writtenJsonReport =
-      await writeJsonReport(
-        report
-      );
-
-    writtenMarkdownReport =
-      await writeMarkdownReport(
-        report
-      );
-  } catch (
-    error:
-      unknown
-  ) {
-    throw new CheckQuestError(
-      'REPORTING',
-      'The run completed, but its report files could not be persisted.',
-      {
-        phase:
-          'report-persistence',
-        runId,
-        cause:
-          error
-      }
+    result =
+      await run.result;
+  } finally {
+    process.removeListener(
+      'SIGINT',
+      cancelRun
     );
   }
+
+  const {
+    report
+  } = result;
 
   console.log(
     '\nExploration outcome:'
@@ -122,11 +105,11 @@ async function main(): Promise<void> {
   );
 
   console.log(
-    `\nJSON report saved: ${writtenJsonReport.filePath}`
+    `\nJSON report saved: ${result.jsonReportPath}`
   );
 
   console.log(
-    `Markdown report saved: ${writtenMarkdownReport.filePath}`
+    `Markdown report saved: ${result.markdownReportPath}`
   );
 
   console.log(

@@ -56,6 +56,8 @@ export async function planNextAction(
       ) => {
         return ai.models.generateContent({
           model:
+            requestDependencies
+              .model ??
             aiConfig.model,
 
           contents:
@@ -64,6 +66,10 @@ export async function planNextAction(
           config: {
             responseMimeType:
               'application/json',
+
+            abortSignal:
+              requestOptions
+                .abortSignal,
 
             httpOptions: {
               timeout:
@@ -86,7 +92,10 @@ export async function planNextAction(
       {
         onEvent:
           requestDependencies
-            .onEvent
+            .onEvent,
+        signal:
+          requestDependencies
+            .signal
       }
     );
 

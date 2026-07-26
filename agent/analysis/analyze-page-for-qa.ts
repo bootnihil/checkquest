@@ -62,6 +62,8 @@ export async function analyzePageForQa(
       ) => {
         return ai.models.generateContent({
           model:
+            requestDependencies
+              .model ??
             aiConfig.model,
 
           contents:
@@ -70,6 +72,10 @@ export async function analyzePageForQa(
           config: {
             responseMimeType:
               'application/json',
+
+            abortSignal:
+              requestOptions
+                .abortSignal,
 
             httpOptions: {
               timeout:
@@ -92,7 +98,10 @@ export async function analyzePageForQa(
       {
         onEvent:
           requestDependencies
-            .onEvent
+            .onEvent,
+        signal:
+          requestDependencies
+            .signal
       }
     );
 

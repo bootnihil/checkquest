@@ -9,4 +9,8 @@ export interface GeminiOperationOptions extends
   > {
   geminiApiKey?:
     string;
+  model?:
+    string;
+  signal?:
+    AbortSignal;
 }

@@ -27,6 +27,11 @@ import {
   createSafeDisplayUrl
 } from '../errors/safe-display-url';
 import {
+  createRunCancelledError,
+  normalizeRunCancellation,
+  throwIfRunCancelled
+} from '../errors/run-cancellation';
+import {
   chooseNavigationLink
 } from '../decisions/choose-navigation-link';
 import {
@@ -95,6 +100,10 @@ export interface RunSiteInput {
   runId?: string;
   onEvent?:
     RunEventObserver;
+  model?:
+    string;
+  signal?:
+    AbortSignal;
   dependencies?:
     RunSiteDependencies;
 }
@@ -159,6 +168,24 @@ export async function runSite(
       input.onEvent
     );
 
+  try {
+    throwIfRunCancelled(
+      input.signal,
+      runId,
+      'run-start'
+    );
+  } catch (
+    error:
+      unknown
+  ) {
+    emit(
+      createRunFailureEvent(
+        error
+      )
+    );
+    throw error;
+  }
+
   emit({
     type:
       'run-started',
@@ -181,6 +208,12 @@ export async function runSite(
         validatedInput,
         emit
       );
+
+    throwIfRunCancelled(
+      input.signal,
+      runId,
+      'run-completion'
+    );
 
     emit({
       type:
@@ -205,13 +238,51 @@ export async function runSite(
     error:
       unknown
   ) {
+    let normalizedError:
+      unknown =
+        error;
+
+    if (
+      error instanceof
+        CheckQuestError &&
+      error.code ===
+        'CANCELLED'
+    ) {
+      normalizedError =
+        normalizeRunCancellation(
+          error,
+          undefined,
+          runId,
+          'run-execution'
+        );
+    } else if (
+      error instanceof
+        CheckQuestError &&
+      error.code ===
+        'CLEANUP' &&
+      input.signal
+        ?.aborted
+    ) {
+      const cancellationError =
+        createRunCancelledError(
+          runId,
+          'browser-close'
+        );
+
+      cancellationError
+        .secondaryCleanupError =
+          error;
+      normalizedError =
+        cancellationError;
+    }
+
     emit(
       createRunFailureEvent(
-        error
+        normalizedError
       )
     );
 
-    throw error;
+    throw normalizedError;
   }
 }
 
@@ -232,6 +303,12 @@ async function executeRunSite(
     createModelRequestRunEventObserver(
       emit
     );
+
+  throwIfRunCancelled(
+    input.signal,
+    runId,
+    'run-preflight'
+  );
 
   const usesDefaultAnalysis =
     input.dependencies
@@ -288,6 +365,21 @@ async function executeRunSite(
     error:
       unknown
   ) {
+    const cancellationError =
+      normalizeRunCancellation(
+        error,
+        input.signal,
+        runId,
+        'browser-launch'
+      );
+
+    if (
+      cancellationError !==
+        error
+    ) {
+      throw cancellationError;
+    }
+
     throw new CheckQuestError(
       'BROWSER',
       'Unable to launch Chromium. Install the project browser with "npm run setup:browser" and retry.',
@@ -326,6 +418,21 @@ async function executeRunSite(
       error:
         unknown
     ) {
+      const cancellationError =
+        normalizeRunCancellation(
+          error,
+          input.signal,
+          runId,
+          'browser-setup'
+        );
+
+      if (
+        cancellationError !==
+          error
+      ) {
+        throw cancellationError;
+      }
+
       throw new CheckQuestError(
         'BROWSER',
         'Chromium page setup failed.',
@@ -356,6 +463,12 @@ async function executeRunSite(
         >;
 
       try {
+        throwIfRunCancelled(
+          input.signal,
+          runId,
+          'start-page-navigation'
+        );
+
         homepageResponse =
           await page.goto(
             site.startUrl,
@@ -394,6 +507,12 @@ async function executeRunSite(
         new URL(
           page.url()
         );
+
+      throwIfRunCancelled(
+        input.signal,
+        runId,
+        'start-page-navigation'
+      );
 
       if (
         !site.allowedHosts.includes(
@@ -576,6 +695,12 @@ async function executeRunSite(
               while (
                 true
               ) {
+                throwIfRunCancelled(
+                  input.signal,
+                  runId,
+                  'navigation-selection'
+                );
+
                 const navigationBudget =
                   createNavigationBudgetContext(
                     site.maxPages,
@@ -649,10 +774,20 @@ async function executeRunSite(
                         input
                           .credentials
                           ?.geminiApiKey,
+                      model:
+                        input.model,
+                      signal:
+                        input.signal,
                       onEvent:
                         onModelRequestEvent
                     }
                   );
+
+                throwIfRunCancelled(
+                  input.signal,
+                  runId,
+                  'navigation-selection'
+                );
 
                 if (
                   decision.type ===
@@ -884,6 +1019,12 @@ async function executeRunSite(
                 pageIndex +
                 1;
 
+              throwIfRunCancelled(
+                input.signal,
+                runId,
+                'page-inspection'
+              );
+
               emit({
                 type:
                   'inspection-started',
@@ -924,9 +1065,19 @@ async function executeRunSite(
                       input
                         .credentials
                         ?.geminiApiKey,
+                    model:
+                      input.model,
+                    signal:
+                      input.signal,
                     onModelRequestEvent
                   }
                 });
+
+              throwIfRunCancelled(
+                input.signal,
+                runId,
+                'page-inspection'
+              );
 
               const {
                 pageResult
@@ -1085,6 +1236,12 @@ async function executeRunSite(
           findingLifecycle
         );
 
+      throwIfRunCancelled(
+        input.signal,
+        runId,
+        'report-construction'
+      );
+
       try {
         return buildSiteAgentReport({
           runId,
@@ -1119,14 +1276,21 @@ async function executeRunSite(
           }
         );
       }
-    } catch (
-      error:
-        unknown
-    ) {
-      const normalizedError =
-        error instanceof
-          Error
-          ? error
+  } catch (
+    error:
+      unknown
+  ) {
+    const cancellationError =
+      normalizeRunCancellation(
+        error,
+        input.signal,
+        runId,
+        'site-execution'
+      );
+    const normalizedError =
+      cancellationError instanceof
+        Error
+          ? cancellationError
           : new CheckQuestError(
               'INTERNAL',
               'Page inspection failed with an invalid error value.',

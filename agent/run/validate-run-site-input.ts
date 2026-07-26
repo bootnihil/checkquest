@@ -15,6 +15,8 @@ export interface RunSiteValidationInput {
     Date;
   runId?:
     string;
+  model?:
+    string;
 }
 
 export interface ValidatedRunSiteInput {
@@ -186,6 +188,23 @@ export function validateRunSiteInput(
     site.maxPages,
     1
   );
+
+  if (
+    input.model !==
+      undefined &&
+    (
+      typeof input.model !==
+        'string' ||
+      input.model
+        .trim()
+        .length ===
+        0
+    )
+  ) {
+    throw configurationError(
+      'model must be a non-empty string when supplied.'
+    );
+  }
   validateBudget(
     'maxAgentSteps',
     site.maxAgentSteps,

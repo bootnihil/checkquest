@@ -4,9 +4,15 @@ import {
 import {
   CheckQuestError
 } from '../errors/checkquest-error';
+import {
+  createRunCancelledError,
+  throwIfRunCancelled
+} from '../errors/run-cancellation';
 
 export interface GeminiRequestOptions {
   timeout_ms: number;
+  abortSignal?:
+    AbortSignal;
   retries: {
     strategy: 'none';
   };
@@ -25,6 +31,8 @@ export interface GeminiRequestDependencies {
       event:
         GeminiRequestEvent
     ) => void;
+  signal?:
+    AbortSignal;
 }
 
 export type GeminiRequestEvent =
@@ -501,6 +509,76 @@ function wait(
   );
 }
 
+async function waitForRetryDelay(
+  delayMs:
+    number,
+  waitForDelay:
+    (
+      delay:
+        number
+    ) => Promise<void>,
+  signal:
+    AbortSignal | undefined
+): Promise<void> {
+  if (
+    signal ===
+      undefined
+  ) {
+    await waitForDelay(
+      delayMs
+    );
+    return;
+  }
+
+  throwIfRunCancelled(
+    signal,
+    undefined,
+    'gemini-request'
+  );
+
+  await new Promise<void>(
+    (
+      resolve,
+      reject
+    ) => {
+      const rejectCancellation =
+        (): void => {
+          reject(
+            createRunCancelledError(
+              undefined,
+              'gemini-request'
+            )
+          );
+        };
+
+      signal.addEventListener(
+        'abort',
+        rejectCancellation,
+        {
+          once:
+            true
+        }
+      );
+
+      void waitForDelay(
+        delayMs
+      )
+        .then(
+          resolve,
+          reject
+        )
+        .finally(
+          () => {
+            signal.removeEventListener(
+              'abort',
+              rejectCancellation
+            );
+          }
+        );
+    }
+  );
+}
+
 export async function runGeminiRequest<T>(
   description:
     string,
@@ -521,6 +599,12 @@ export async function runGeminiRequest<T>(
   const random =
     dependencies.random ??
     Math.random;
+
+  throwIfRunCancelled(
+    dependencies.signal,
+    undefined,
+    'gemini-request'
+  );
 
   for (
     let attemptIndex = 0;
@@ -552,6 +636,8 @@ export async function runGeminiRequest<T>(
           timeout_ms:
             aiConfig
               .requestTimeoutMs,
+          abortSignal:
+            dependencies.signal,
 
           retries: {
             strategy:
@@ -578,6 +664,12 @@ export async function runGeminiRequest<T>(
       error:
         unknown
     ) {
+      throwIfRunCancelled(
+        dependencies.signal,
+        undefined,
+        'gemini-request'
+      );
+
       const retriesRemaining =
         attemptIndex <
         aiConfig.maxRetries;
@@ -628,8 +720,10 @@ export async function runGeminiRequest<T>(
         }
       );
 
-      await waitForDelay(
-        delayMs
+      await waitForRetryDelay(
+        delayMs,
+        waitForDelay,
+        dependencies.signal
       );
     }
   }

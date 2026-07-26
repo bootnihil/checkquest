@@ -1,7 +1,7 @@
 # CheckQuest Roadmap v2 — Public Landing + Local GUI / Product Shell
 
 **Status:** In progress
-**Current stage:** G1 — GUI/core boundary
+**Current stage:** G2 — Local GUI MVP
 **Roadmap v1:** Complete (Stages 1–10)
 **Roadmap v2 started:** 2026-07-26
 
@@ -50,11 +50,59 @@ G0 is intentionally bounded. It establishes CheckQuest's public identity without
 
 ### G1 — GUI/core boundary
 
+**Completed:** 2026-07-26
+
 Confirm that the GUI can configure and invoke CheckQuest through the existing reusable execution boundary without UI-specific logic leaking into the engine.
 
 The product shell may expose today's Gemini-backed capability, but it must preserve the existing narrow collaborator boundaries rather than embedding provider-specific behavior into GUI or application-shell logic.
 
 **Done when:** URL, budgets, transient Gemini credentials, progress, completion/failure, cancellation, and report location can be handled through a clean boundary; the GUI does not bypass the existing engine contracts or introduce unnecessary new direct Gemini coupling.
+
+G1 delivered the presentation-agnostic `startCheckQuest(...)` application
+boundary. A product shell can now supply an arbitrary HTTP/HTTPS URL or an
+existing site configuration, page/navigation/investigation budgets, transient
+per-run Gemini credentials, and an optional per-run model override. It can
+observe structured run events, receive categorized failures, cancel
+programmatically, and receive the schema-v3 report plus absolute paths for the
+report directory and persisted JSON and Markdown artifacts.
+
+Cancellation is explicit and idempotent before execution starts, during
+execution or persistence, and after completion. The engine stops further useful
+work at safe boundaries, does not interrupt mandatory guarded-action rollback,
+and closes Playwright/browser resources through required cleanup on success,
+ordinary failure, and cancellation. A cancellation cannot race into an
+apparent successful completion, and cleanup failure remains secondary to the
+primary run failure or cancellation.
+
+The application boundary now sanitizes its public outputs: raw nested error
+causes do not cross the boundary, and the transient Gemini credential is
+redacted from serialized event metadata, returned errors and results, report
+content, and persisted report files. Per-run model overrides do not mutate
+process-global state.
+
+The CLI is now a thin consumer of `startCheckQuest(...)`. It owns argument and
+environment adaptation, terminal event rendering, signal handling, and final
+console output while shared application code owns execution, cancellation, and
+report persistence.
+
+G1 acceptance verification passed:
+
+- `npm run check` — PASS, including 29/29 deterministic checks;
+- `npm run test:browser:ci` — PASS, 7/7;
+- `npm run agent:application-run-browser-check` — PASS;
+- `npm test` — PASS, 3/3 when network permission was available; the earlier
+  sandbox network denial occurred before assertions and was environmental; and
+- `git diff --check` — PASS.
+
+The following remain non-blocking future work rather than G1 requirements:
+
+- cancellation during an active filesystem write remains cooperative, and no
+  partial-report contract is required;
+- packaged-app user-data and report-storage location selection remains product
+  shell/packaging work; and
+- forced injection of a real Chromium `browser.close()` failure is not required
+  for G1; cleanup precedence is covered deterministically and real browser
+  connection cleanup is covered by integration checks.
 
 ### G2 — Local GUI MVP
 

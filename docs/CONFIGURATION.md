@@ -280,12 +280,15 @@ Chromium launches. Missing or blank credentials fail as a non-retryable
 Programmatic callers can supply a transient credential directly:
 
 ```ts
-const report = await runSite({
-  site: exampleSite,
+const run = startCheckQuest({
+  target: exampleSite.startUrl,
   credentials: {
     geminiApiKey: userGeminiApiKey
-  }
+  },
+  model: optionalModelOverride
 });
+
+const result = await run.result;
 ```
 
 Because the credential belongs to a single invocation rather than global
@@ -314,12 +317,11 @@ When it is absent, the current implementation default is
 stable public API guarantee. CheckQuest does not provide model aliases,
 provider selection, or configuration for non-Gemini providers.
 
-Environment values should be set before starting the Node.js process because
-the model configuration is read when its module is loaded.
-
-Unlike the API key, the current model selection remains process-level
-implementation configuration. Stage 9 does not redefine it as per-run product
-configuration.
+The CLI adapts this environment value into the explicit per-run `model` input.
+Programmatic callers, including a future GUI, can pass that model directly
+without mutating process environment state. When no per-run model is supplied,
+the existing implementation default and process-level fallback remain
+available for direct low-level callers.
 
 ## Cross-platform environment examples
 
@@ -382,22 +384,36 @@ causes, raw model output, or credentials.
 
 ## Programmatic configuration
 
-Programmatic callers pass the same `SiteConfig` shape directly and supply
-execution credentials separately:
+Application callers can resolve an arbitrary URL or registered profile,
+configure budgets, provide transient credentials and an optional model, observe
+events, cancel, and receive persisted artifact paths without CLI coupling:
 
 ```ts
-const report = await runSite({
-  site: exampleSite,
+const run = startCheckQuest({
+  target: 'https://www.example.com/',
+  budgets: {
+    pages: 3,
+    navigationSteps: 2,
+    investigationStepsPerPage: 1
+  },
   credentials: {
     geminiApiKey: userGeminiApiKey
-  }
+  },
+  model: optionalModelOverride,
+  onEvent
 });
+
+const result = await run.result;
+run.cancel();
 ```
 
-`credentials` is per-run execution context and is deliberately separate from
-`SiteConfig`. A fully injected Gemini-free run can omit it.
+`result` contains the in-memory schema-v3 report and absolute report-directory,
+JSON-report, and Markdown-report paths. `credentials` is per-run execution
+context and is deliberately absent from results and events.
 
-`runSite` performs reusable validation independently of CLI parsing, so callers
+The lower-level `runSite` boundary remains available to callers that already
+own a `SiteConfig` and report persistence. It performs reusable validation
+independently of CLI parsing, so callers
 cannot rely on TypeScript shape-checking or earlier CLI validation alone. Its
 optional timestamps, run identity, event observer, model collaborators,
 credential behavior, failure contract, and in-memory report are documented in
@@ -426,8 +442,8 @@ Report files from a successful CLI run are written under
   credential.
 - Reusable `runSite(...)` does not depend on process-global user credentials.
 - Gemini is the only production model provider currently supported.
-- `GEMINI_MODEL` remains process-level implementation configuration rather
-  than a stable per-run product contract.
+- The CLI reads `GEMINI_MODEL` as an optional per-run model override; Gemini
+  remains the only production provider.
 - Configuration is code and CLI/environment input, not a standalone
   configuration-file format.
 - The programmatic API is source-level, not a published versioned SDK.
