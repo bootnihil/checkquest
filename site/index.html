@@ -4,12 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>CheckQuest — AI website tester that explores on its own</title>
-  <meta name="description" content="Give CheckQuest a website. It explores on its own, looks for potential problems you did not already tell it to test for, safely investigates what it finds, and produces an evidence-backed QA report.">
+  <meta name="description" content="Give CheckQuest a website. It explores autonomously, investigates within deterministic safety boundaries, and reports only what the collected evidence supports.">
   <meta name="theme-color" content="#071321">
 
   <meta property="og:type" content="website">
   <meta property="og:title" content="CheckQuest — Explore. Investigate. Report.">
-  <meta property="og:description" content="AI website testing that explores on its own, safely investigates potential problems, and reports with evidence.">
+  <meta property="og:description" content="Autonomous exploratory QA with deterministic guardrails, evidence-backed investigation, and explicit verified-or-inconclusive outcomes.">
   <meta property="og:url" content="https://bootnihil.github.io/checkquest/">
   <meta property="og:image" content="https://bootnihil.github.io/checkquest/assets/checkquest-social-preview.png">
   <meta name="twitter:card" content="summary_large_image">
@@ -68,6 +68,8 @@
             Give CheckQuest a website. It explores on its own to look for
             potential problems you did not already tell it to test for, safely
             investigates what it finds, and gives you an evidence-backed QA report.
+            AI can suggest what looks suspicious; CheckQuest controls what may be
+            investigated and what the evidence actually proves.
           </p>
 
           <div class="hero-actions">
@@ -225,6 +227,45 @@
       </div>
     </section>
 
+    <section class="section section-steps" id="why-checkquest">
+      <div class="shell">
+        <div class="section-heading compact-heading">
+          <p class="eyebrow">More than an LLM with a browser</p>
+          <h2>AI can propose. Evidence has to be earned.</h2>
+          <p>CheckQuest uses a model for exploratory judgment, but the model is not the authority on what is true. The QA system around it controls scope, interaction, evidence, and finding state.</p>
+        </div>
+
+        <div class="steps-grid">
+          <article class="step-card">
+            <div class="card-meta">
+              <span class="outline-number">01</span>
+              <span class="icon-chip"><span class="material-symbols-rounded" aria-hidden="true">psychology</span></span>
+            </div>
+            <h3>The model proposes</h3>
+            <p>Which route, observation, or page-local candidate looks worth spending a bounded exploratory budget on?</p>
+          </article>
+
+          <article class="step-card step-card-accent">
+            <div class="card-meta">
+              <span class="outline-number">02</span>
+              <span class="icon-chip icon-chip-amber"><span class="material-symbols-rounded" aria-hidden="true">policy</span></span>
+            </div>
+            <h3>CheckQuest constrains</h3>
+            <p>Deterministic budgets, host policy, candidate-linked actions, and safety boundaries decide what the browser may actually do.</p>
+          </article>
+
+          <article class="step-card">
+            <div class="card-meta">
+              <span class="outline-number">03</span>
+              <span class="icon-chip icon-chip-green"><span class="material-symbols-rounded" aria-hidden="true">fact_check</span></span>
+            </div>
+            <h3>The evidence decides</h3>
+            <p>Repeated observations are reconciled into explicit verified or inconclusive findings. A successful browser action is not proof by itself.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
     <section class="section fit-section" id="where-it-fits">
       <div class="shell">
         <div class="section-heading fit-heading">
@@ -242,6 +283,13 @@
                 <div>
                   <strong>Site crawler</strong>
                   <small>Broad inventory and exhaustive rule scanning.</small>
+                </div>
+              </div>
+              <div class="not-item">
+                <span class="not-icon">×</span>
+                <div>
+                  <strong>Generic browser agent</strong>
+                  <small>Gives a model broad browser authority and treats its output as the result.</small>
                 </div>
               </div>
               <div class="not-item">
@@ -267,6 +315,7 @@
             <p class="contrast-label contrast-label-bright">What it is</p>
             <h3>An autonomous exploratory QA pass.</h3>
             <p>Start from a URL. Spend a bounded exploration budget. Investigate potential issues only when an approved action can gather evidence. Report what the evidence actually supports.</p>
+            <p><strong>The model proposes. CheckQuest constrains, investigates, verifies, and reports.</strong></p>
             <p class="fit-support">Built to complement Playwright, Cypress, Selenium, site-quality tooling, and human exploratory testing — not replace them.</p>
           </div>
         </div>

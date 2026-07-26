@@ -18,6 +18,14 @@
 >
 > **AI decides what may be worth investigating. Deterministic code decides what the browser is actually allowed to do.**
 
+## 🧭 More than an LLM with a browser
+
+CheckQuest uses an LLM as one reasoning component, not as the authority on what is true. The surrounding QA system controls exploration budgets and browser actions, captures evidence, reconciles repeated observations, tracks finding state, and distinguishes what was merely suspected from what was actually verified.
+
+A model can propose that something looks wrong. **It cannot make the finding true by saying so.**
+
+**The model proposes. CheckQuest constrains, investigates, verifies, and reports.**
+
 Under the hood, CheckQuest is deliberately **bounded and non-exhaustive**. It is closer to an automated exploratory QA pass than a crawler, a generic browser agent, or a replacement for a full regression suite.
 
 ## ✨ What it does
@@ -51,6 +59,7 @@ CheckQuest is most useful as an **evidence-oriented exploratory pass alongside a
 - **Playwright / Cypress / Selenium** execute tests you already defined. CheckQuest starts from a URL and decides where a bounded exploratory budget is worth spending.
 - **Crawlers and site-quality platforms** are better suited to broad inventory and exhaustive rule-based scanning. CheckQuest deliberately favors representative coverage and evidence-gathering investigation over exhaustive crawling.
 - **AI test-authoring tools** primarily help create or maintain test cases. CheckQuest's current product is the exploratory run and its evidence-backed report, not generated regression code.
+- **Generic browser agents / thin AI wrappers** can ask a model to operate a browser and describe what it sees. CheckQuest adds the QA system around that intelligence: bounded exploration, deterministic action authority, evidence capture, finding reconciliation, and explicit verification semantics.
 - **Security scanners** actively probe for vulnerabilities. CheckQuest does not: its current security posture layer is passive and observational.
 - **Manual exploratory QA** retains richer human judgment and product context. CheckQuest trades some of that depth for a repeatable, bounded pass that can run without a predefined test suite.
 
