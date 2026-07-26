@@ -1,44 +1,42 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 480" role="img" aria-labelledby="title desc">
   <title id="title">CheckQuest README banner</title>
-  <desc id="desc">A dark CheckQuest banner showing a compass mark and a focused website inspection beam revealing findings.</desc>
+  <desc id="desc">CheckQuest branding with compass mark and a flowing exploratory QA route across a stylized dark map.</desc>
+
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#07101D"/>
-      <stop offset="1" stop-color="#0A1628"/>
+      <stop offset="1" stop-color="#091827"/>
     </linearGradient>
+
     <linearGradient id="quest" x1="0" y1="0" x2="1" y2="0">
       <stop offset="0" stop-color="#78B7FF"/>
       <stop offset="0.52" stop-color="#3B82F6"/>
       <stop offset="1" stop-color="#6A5DF5"/>
     </linearGradient>
-    <linearGradient id="beam" x1="0" y1="0.5" x2="1" y2="0.5">
-      <stop offset="0" stop-color="#83EFFF" stop-opacity="0.78"/>
-      <stop offset="0.55" stop-color="#3FC4F3" stop-opacity="0.30"/>
-      <stop offset="1" stop-color="#3B82F6" stop-opacity="0"/>
+
+    <linearGradient id="route" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#58C5E9"/>
+      <stop offset="0.58" stop-color="#6688FF"/>
+      <stop offset="1" stop-color="#FFC14D"/>
     </linearGradient>
-    <radialGradient id="beamGlow" cx="0.15" cy="0.5" r="0.75">
-      <stop offset="0" stop-color="#8CF5FF" stop-opacity="0.55"/>
-      <stop offset="1" stop-color="#3B82F6" stop-opacity="0"/>
+
+    <radialGradient id="mapGlow" cx="0.55" cy="0.45" r="0.75">
+      <stop offset="0" stop-color="#2A5D8D" stop-opacity="0.22"/>
+      <stop offset="1" stop-color="#0B1C2F" stop-opacity="0"/>
     </radialGradient>
-    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
-      <feGaussianBlur stdDeviation="9" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-    </filter>
-    <filter id="amberGlow" x="-100%" y="-100%" width="300%" height="300%">
-      <feGaussianBlur stdDeviation="7" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+
+    <filter id="amberGlow" x="-120%" y="-120%" width="340%" height="340%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
     </filter>
   </defs>
 
   <rect width="1920" height="480" rx="22" fill="url(#bg)"/>
 
-  <!-- subtle technical field, kept quiet -->
-  <g opacity="0.12" stroke="#5A789A" stroke-width="1">
-    <path d="M950 42V438M1040 42V438M1130 42V438M1220 42V438M1310 42V438M1400 42V438M1490 42V438M1580 42V438M1670 42V438M1760 42V438"/>
-    <path d="M920 90H1860M920 160H1860M920 230H1860M920 300H1860M920 370H1860"/>
-  </g>
-
-  <!-- compass logo -->
+  <!-- brand copy -->
   <g transform="translate(58 92) scale(.42)">
     <circle cx="256" cy="256" r="158" fill="none" stroke="#9FC7F5" stroke-width="22"/>
     <circle cx="256" cy="256" r="10" fill="#E2F6FF"/>
@@ -47,58 +45,111 @@
     <path d="M132 256h28M352 256h28M256 132v28M256 352v28" stroke="#7EA8E4" stroke-width="8" stroke-linecap="round"/>
   </g>
 
-  <!-- brand copy -->
-  <text x="285" y="192" font-family="Segoe UI, Arial, sans-serif" font-size="112" font-weight="700" letter-spacing="-5" fill="#F7FAFF">Check<tspan fill="url(#quest)">Quest</tspan></text>
-  <text x="292" y="255" font-family="Segoe UI, Arial, sans-serif" font-size="25" font-weight="600" letter-spacing="8" fill="#B6C2D2">EXPLORE. <tspan fill="#70A5FF">INVESTIGATE.</tspan> REPORT.</text>
-  <text x="294" y="320" font-family="Segoe UI, Arial, sans-serif" font-size="27" font-weight="400" fill="#D2DAE6">Autonomous website QA with evidence-backed findings.</text>
+  <text x="285" y="192" font-family="Segoe UI, Arial, sans-serif" font-size="112" font-weight="700" letter-spacing="-5" fill="#F7FAFF">
+    Check<tspan fill="url(#quest)">Quest</tspan>
+  </text>
 
-  <!-- browser target -->
-  <g transform="translate(965 120)" fill="none" stroke="#648CB9" stroke-width="3" opacity="0.95">
-    <rect x="0" y="0" width="230" height="190" rx="16"/>
-    <line x1="0" y1="42" x2="230" y2="42"/>
-    <circle cx="25" cy="22" r="5" fill="#72CFF2" stroke="none"/>
-    <circle cx="45" cy="22" r="5" fill="#5FA9E8" stroke="none"/>
-    <circle cx="65" cy="22" r="5" fill="#567BC4" stroke="none"/>
-    <path d="M28 76h102M28 103h166M28 130h142M28 157h84" opacity="0.7"/>
-  </g>
+  <text x="292" y="255" font-family="Segoe UI, Arial, sans-serif" font-size="25" font-weight="600" letter-spacing="8" fill="#B6C2D2">
+    EXPLORE. <tspan fill="#70A5FF">INVESTIGATE.</tspan> REPORT.
+  </text>
 
-  <!-- focused scan beam -->
-  <path d="M1152 212 L1575 117 L1575 352 Z" fill="url(#beam)"/>
-  <ellipse cx="1235" cy="234" rx="240" ry="135" fill="url(#beamGlow)" opacity="0.35"/>
-  <path d="M1152 212 L1575 117M1152 212 L1575 352" stroke="#8AEAFF" stroke-width="2" opacity="0.65"/>
-  <circle cx="1152" cy="212" r="7" fill="#A3F3FF" filter="url(#glow)"/>
+  <text x="294" y="320" font-family="Segoe UI, Arial, sans-serif" font-size="27" fill="#D2DAE6">
+    AI website tester that explores on its own.
+  </text>
 
-  <!-- inspection boundary -->
-  <g fill="none" stroke="#78CDEB" stroke-width="3" opacity="0.9">
-    <path d="M1500 98h-28v28M1690 98h28v28M1500 370h-28v-28M1690 370h28v-28"/>
-  </g>
+  <text x="294" y="360" font-family="Segoe UI, Arial, sans-serif" font-size="20" fill="#8197B0">
+    Potential issues. Safe investigation. Evidence-backed reports.
+  </text>
 
-  <!-- findings cluster: abstract, no extra copy -->
-  <g opacity="0.55" fill="none" stroke="#426A8F" stroke-width="2">
-    <path d="M1523 136l27-16 27 16v32l-27 16-27-16z"/>
-    <path d="M1577 136l27-16 27 16v32l-27 16-27-16z"/>
-    <path d="M1631 136l27-16 27 16v32l-27 16-27-16z"/>
-    <path d="M1496 184l27-16 27 16v32l-27 16-27-16z"/>
-    <path d="M1550 184l27-16 27 16v32l-27 16-27-16z"/>
-    <path d="M1604 184l27-16 27 16v32l-27 16-27-16z"/>
-    <path d="M1658 184l27-16 27 16v32l-27 16-27-16z"/>
-    <path d="M1523 232l27-16 27 16v32l-27 16-27-16z"/>
-    <path d="M1577 232l27-16 27 16v32l-27 16-27-16z"/>
-    <path d="M1631 232l27-16 27 16v32l-27 16-27-16z"/>
-    <path d="M1496 280l27-16 27 16v32l-27 16-27-16z"/>
-    <path d="M1550 280l27-16 27 16v32l-27 16-27-16z"/>
-    <path d="M1604 280l27-16 27 16v32l-27 16-27-16z"/>
-    <path d="M1658 280l27-16 27 16v32l-27 16-27-16z"/>
-  </g>
+  <!-- rounded exploratory map -->
+  <g transform="translate(1085 60)">
+    <rect x="0" y="0" width="780" height="360" rx="38" fill="#0D2238" stroke="#254662" stroke-width="2"/>
+    <rect x="16" y="16" width="748" height="328" rx="28" fill="none" stroke="#335D7E" stroke-opacity=".28"/>
 
-  <g fill="#F0B94A" stroke="#FFD77B" stroke-width="4" filter="url(#amberGlow)">
-    <path d="M1550 184l27-16 27 16v32l-27 16-27-16z"/>
-    <path d="M1631 232l27-16 27 16v32l-27 16-27-16z"/>
-    <path d="M1577 280l27-16 27 16v32l-27 16-27-16z"/>
-  </g>
-  <g fill="#07101D" font-family="Segoe UI, Arial, sans-serif" font-size="30" font-weight="800" text-anchor="middle">
-    <text x="1577" y="208">!</text>
-    <text x="1658" y="256">!</text>
-    <text x="1604" y="304">!</text>
+    <rect x="0" y="0" width="780" height="360" rx="38" fill="url(#mapGlow)"/>
+
+    <g fill="#79A8CE" opacity=".14">
+      <circle cx="44" cy="40" r="1.2"/><circle cx="74" cy="40" r="1.2"/><circle cx="104" cy="40" r="1.2"/>
+      <circle cx="134" cy="40" r="1.2"/><circle cx="164" cy="40" r="1.2"/><circle cx="194" cy="40" r="1.2"/>
+      <circle cx="224" cy="40" r="1.2"/><circle cx="254" cy="40" r="1.2"/><circle cx="284" cy="40" r="1.2"/>
+      <circle cx="314" cy="40" r="1.2"/><circle cx="344" cy="40" r="1.2"/><circle cx="374" cy="40" r="1.2"/>
+      <circle cx="404" cy="40" r="1.2"/><circle cx="434" cy="40" r="1.2"/><circle cx="464" cy="40" r="1.2"/>
+      <circle cx="494" cy="40" r="1.2"/><circle cx="524" cy="40" r="1.2"/><circle cx="554" cy="40" r="1.2"/>
+      <circle cx="584" cy="40" r="1.2"/><circle cx="614" cy="40" r="1.2"/><circle cx="644" cy="40" r="1.2"/>
+      <circle cx="674" cy="40" r="1.2"/><circle cx="704" cy="40" r="1.2"/><circle cx="734" cy="40" r="1.2"/>
+    </g>
+
+    <g fill="#123557" stroke="#335E83" stroke-width="2">
+      <ellipse cx="98" cy="124" rx="86" ry="61"/>
+      <ellipse cx="576" cy="98" rx="92" ry="64"/>
+      <ellipse cx="196" cy="270" rx="96" ry="68"/>
+      <ellipse cx="612" cy="270" rx="92" ry="66"/>
+    </g>
+
+    <g fill="none" stroke="#5D91B7" stroke-width="2" opacity=".28" stroke-linecap="round">
+      <path d="M58 121C87 99 132 102 159 126"/>
+      <path d="M70 143C99 124 128 125 149 145"/>
+      <path d="M533 88C563 67 622 72 651 95"/>
+      <path d="M545 111C575 92 615 94 641 115"/>
+      <path d="M159 254C188 233 234 235 263 258"/>
+      <path d="M575 255C603 234 649 236 675 259"/>
+    </g>
+
+    <path d="M112 125
+             C238 166 386 170 560 110
+             C648 81 699 135 646 188
+             C602 232 502 266 312 270
+             C234 272 183 291 204 305
+             C270 349 452 343 602 283
+             C639 269 667 270 694 292"
+          fill="none"
+          stroke="url(#route)"
+          stroke-width="6"
+          stroke-linecap="round"
+          stroke-dasharray="16 15"/>
+
+    <g fill="none" stroke="#61CBEA" stroke-width="2" opacity=".32">
+      <circle cx="112" cy="125" r="22"/>
+      <circle cx="562" cy="109" r="22"/>
+      <circle cx="204" cy="305" r="23" stroke="#FFC14D"/>
+      <circle cx="602" cy="283" r="22"/>
+    </g>
+
+    <g stroke-width="3">
+      <circle cx="112" cy="125" r="12" fill="#081624" stroke="#75C8EE"/>
+      <circle cx="112" cy="125" r="4" fill="#5FD1EB" stroke="none"/>
+
+      <circle cx="562" cy="109" r="12" fill="#081624" stroke="#75C8EE"/>
+      <circle cx="562" cy="109" r="4" fill="#5FD1EB" stroke="none"/>
+
+      <circle cx="204" cy="305" r="13" fill="#30291F" stroke="#FFC14D"/>
+      <circle cx="204" cy="305" r="5" fill="#FFC14D" stroke="none"/>
+
+      <circle cx="602" cy="283" r="12" fill="#081624" stroke="#75C8EE"/>
+      <circle cx="602" cy="283" r="4" fill="#5FD1EB" stroke="none"/>
+    </g>
+
+    <g transform="translate(694 292)" filter="url(#amberGlow)">
+      <circle r="23" fill="#FFC14D" fill-opacity=".10" stroke="#79C7ED" stroke-width="3"/>
+      <path d="M-8-8L8 8M8-8L-8 8" fill="none" stroke="#FFC14D" stroke-width="5" stroke-linecap="round"/>
+    </g>
+
+    <g fill="none" stroke="#5A91B8" stroke-width="2" opacity=".28" stroke-linecap="round">
+      <path d="M360 88q12-10 24 0q12 10 24 0"/>
+      <path d="M382 94q10-8 20 0q10 8 20 0"/>
+      <path d="M56 252q16-14 32 0q16 14 32 0"/>
+      <path d="M442 296q16-14 32 0q16 14 32 0"/>
+      <path d="M670 92q14-12 28 0q14 12 28 0"/>
+    </g>
+
+    <g transform="translate(690 70)">
+      <circle r="44" fill="#0A1D30" fill-opacity=".70" stroke="#315875"/>
+      <circle r="30" fill="none" stroke="#4C7593" stroke-opacity=".45"/>
+      <path d="M0-18V18M-18 0H18" stroke="#5381A0" stroke-opacity=".45"/>
+      <path d="M-12 12L12-13" stroke="#FFC14D" stroke-width="5" stroke-linecap="round"/>
+      <path d="M0 0L16-18" stroke="#58C5E9" stroke-width="5" stroke-linecap="round"/>
+      <circle r="5" fill="#D9ECF8"/>
+      <text x="0" y="-52" font-family="Segoe UI, Arial, sans-serif" font-size="12" font-weight="700" text-anchor="middle" fill="#7898B0">N</text>
+    </g>
   </g>
 </svg>

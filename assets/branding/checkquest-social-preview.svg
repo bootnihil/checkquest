@@ -1,31 +1,115 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 640" role="img" aria-labelledby="title desc">
   <title id="title">CheckQuest GitHub social preview</title>
-  <desc id="desc">CheckQuest social preview with compass mark and focused inspection beam revealing findings.</desc>
+  <desc id="desc">CheckQuest social preview with compass mark and a flowing exploratory route across a stylized dark map.</desc>
+
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#07101D"/><stop offset="1" stop-color="#0A1628"/></linearGradient>
-    <linearGradient id="quest" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#78B7FF"/><stop offset=".52" stop-color="#3B82F6"/><stop offset="1" stop-color="#6A5DF5"/></linearGradient>
-    <linearGradient id="beam" x1="0" y1=".5" x2="1" y2=".5"><stop offset="0" stop-color="#8AF0FF" stop-opacity=".75"/><stop offset=".55" stop-color="#3FC4F3" stop-opacity=".28"/><stop offset="1" stop-color="#3B82F6" stop-opacity="0"/></linearGradient>
-    <filter id="g" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07101D"/>
+      <stop offset="1" stop-color="#091827"/>
+    </linearGradient>
+    <linearGradient id="quest" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#78B7FF"/>
+      <stop offset=".52" stop-color="#3B82F6"/>
+      <stop offset="1" stop-color="#6A5DF5"/>
+    </linearGradient>
+    <linearGradient id="route" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#58C5E9"/>
+      <stop offset=".58" stop-color="#6688FF"/>
+      <stop offset="1" stop-color="#FFC14D"/>
+    </linearGradient>
+    <filter id="amberGlow" x="-120%" y="-120%" width="340%" height="340%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
   </defs>
+
   <rect width="1280" height="640" rx="24" fill="url(#bg)"/>
-  <g transform="translate(56 153) scale(.48)">
+
+  <g transform="translate(58 190) scale(.48)">
     <circle cx="256" cy="256" r="158" fill="none" stroke="#9FC7F5" stroke-width="22"/>
     <circle cx="256" cy="256" r="10" fill="#E2F6FF"/>
     <path d="M168 344 L218 219 L344 168 L294 293 Z" fill="url(#quest)"/>
     <path d="M218 219 L256 256 L344 168" fill="none" stroke="#E9FBFF" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
     <path d="M132 256h28M352 256h28M256 132v28M256 352v28" stroke="#7EA8E4" stroke-width="8" stroke-linecap="round"/>
   </g>
-  <text x="295" y="300" font-family="Segoe UI, Arial, sans-serif" font-size="96" font-weight="700" letter-spacing="-5" fill="#F7FAFF">Check<tspan fill="url(#quest)">Quest</tspan></text>
-  <text x="303" y="365" font-family="Segoe UI, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="7" fill="#B6C2D2">EXPLORE. <tspan fill="#70A5FF">INVESTIGATE.</tspan> REPORT.</text>
-  <text x="304" y="420" font-family="Segoe UI, Arial, sans-serif" font-size="24" fill="#D2DAE6">Autonomous website QA with evidence-backed findings.</text>
 
-  <g transform="translate(810 173)" fill="none" stroke="#648CB9" stroke-width="3"><rect width="165" height="138" rx="14"/><line x1="0" y1="34" x2="165" y2="34"/><circle cx="20" cy="18" r="4" fill="#72CFF2" stroke="none"/><circle cx="37" cy="18" r="4" fill="#5FA9E8" stroke="none"/><circle cx="54" cy="18" r="4" fill="#567BC4" stroke="none"/><path d="M22 62h75M22 85h118M22 108h94" opacity=".65"/></g>
-  <path d="M948 249 L1170 166 L1170 385 Z" fill="url(#beam)"/>
-  <path d="M948 249L1170 166M948 249L1170 385" stroke="#8AEAFF" stroke-width="2" opacity=".7"/>
-  <circle cx="948" cy="249" r="6" fill="#A3F3FF" filter="url(#g)"/>
-  <g fill="none" stroke="#426A8F" stroke-width="2" opacity=".65">
-    <path d="M1070 195l24-14 24 14v28l-24 14-24-14z"/><path d="M1118 195l24-14 24 14v28l-24 14-24-14z"/><path d="M1094 237l24-14 24 14v28l-24 14-24-14z"/><path d="M1142 237l24-14 24 14v28l-24 14-24-14z"/><path d="M1070 279l24-14 24 14v28l-24 14-24-14z"/><path d="M1118 279l24-14 24 14v28l-24 14-24-14z"/>
+  <text x="292" y="304" font-family="Segoe UI, Arial, sans-serif" font-size="84" font-weight="700" letter-spacing="-5" fill="#F7FAFF">
+    Check<tspan fill="url(#quest)">Quest</tspan>
+  </text>
+
+  <text x="300" y="366" font-family="Segoe UI, Arial, sans-serif" font-size="20" font-weight="600" letter-spacing="7" fill="#B6C2D2">
+    EXPLORE. <tspan fill="#70A5FF">INVESTIGATE.</tspan> REPORT.
+  </text>
+
+  <text x="292" y="424" font-family="Segoe UI, Arial, sans-serif" font-size="23" fill="#D2DAE6">
+    AI website tester that explores on its own.
+  </text>
+
+  <text x="292" y="460" font-family="Segoe UI, Arial, sans-serif" font-size="17" fill="#8197B0">
+    Potential issues. Safe investigation. Evidence-backed reports.
+  </text>
+
+  <g transform="translate(905 150) scale(.76)">
+    <rect x="0" y="0" width="430" height="448" rx="38" fill="#0D2238" stroke="#254662" stroke-width="2"/>
+    <rect x="17" y="17" width="396" height="414" rx="29" fill="none" stroke="#335D7E" stroke-opacity=".28"/>
+
+    <g fill="#123557" stroke="#335E83" stroke-width="2">
+      <ellipse cx="92" cy="118" rx="72" ry="54"/>
+      <ellipse cx="319" cy="112" rx="78" ry="55"/>
+      <ellipse cx="111" cy="304" rx="76" ry="59"/>
+      <ellipse cx="319" cy="306" rx="77" ry="59"/>
+    </g>
+
+    <g fill="none" stroke="#5D91B7" stroke-width="2" opacity=".28" stroke-linecap="round">
+      <path d="M52 121C79 99 115 101 137 122"/>
+      <path d="M281 115C309 94 343 96 367 116"/>
+      <path d="M74 307C100 286 133 288 155 309"/>
+      <path d="M282 309C307 288 342 290 364 311"/>
+      <path d="M187 78q11-9 22 0q11 9 22 0"/>
+      <path d="M205 83q9-7 18 0q9 7 18 0"/>
+      <path d="M188 370q13-11 26 0q13 11 26 0"/>
+      <path d="M346 196q13-11 26 0q13 11 26 0"/>
+    </g>
+
+    <path d="M93 127
+             C165 159 260 157 320 119
+             C351 100 376 121 358 159
+             C334 206 267 244 150 299
+             C116 316 106 332 135 345
+             C191 370 282 365 338 323
+             C359 307 377 309 394 323"
+          fill="none"
+          stroke="url(#route)"
+          stroke-width="6"
+          stroke-linecap="round"
+          stroke-dasharray="15 14"/>
+
+    <g stroke-width="3">
+      <circle cx="93" cy="127" r="12" fill="#081624" stroke="#75C8EE"/>
+      <circle cx="93" cy="127" r="4" fill="#5FD1EB" stroke="none"/>
+
+      <circle cx="320" cy="119" r="12" fill="#081624" stroke="#75C8EE"/>
+      <circle cx="320" cy="119" r="4" fill="#5FD1EB" stroke="none"/>
+
+      <circle cx="135" cy="345" r="13" fill="#30291F" stroke="#FFC14D"/>
+      <circle cx="135" cy="345" r="5" fill="#FFC14D" stroke="none"/>
+
+      <circle cx="338" cy="323" r="12" fill="#081624" stroke="#75C8EE"/>
+      <circle cx="338" cy="323" r="4" fill="#5FD1EB" stroke="none"/>
+    </g>
+
+    <g transform="translate(394 323)" filter="url(#amberGlow)">
+      <circle r="22" fill="#FFC14D" fill-opacity=".10" stroke="#79C7ED" stroke-width="3"/>
+      <path d="M-7-7L7 7M7-7L-7 7" fill="none" stroke="#FFC14D" stroke-width="5" stroke-linecap="round"/>
+    </g>
+
+    <g transform="translate(360 58)">
+      <circle r="40" fill="#0A1D30" fill-opacity=".72" stroke="#315875"/>
+      <circle r="27" fill="none" stroke="#4C7593" stroke-opacity=".45"/>
+      <path d="M0-16V16M-16 0H16" stroke="#5381A0" stroke-opacity=".45"/>
+      <path d="M-10 10L10-11" stroke="#FFC14D" stroke-width="5" stroke-linecap="round"/>
+      <path d="M0 0L14-16" stroke="#58C5E9" stroke-width="5" stroke-linecap="round"/>
+      <circle r="4.5" fill="#D9ECF8"/>
+    </g>
   </g>
-  <g fill="#F0B94A" stroke="#FFD77B" stroke-width="3" filter="url(#g)"><path d="M1118 195l24-14 24 14v28l-24 14-24-14z"/><path d="M1070 279l24-14 24 14v28l-24 14-24-14z"/></g>
-  <g fill="#07101D" font-family="Segoe UI, Arial, sans-serif" font-size="26" font-weight="800" text-anchor="middle"><text x="1142" y="217">!</text><text x="1094" y="301">!</text></g>
 </svg>

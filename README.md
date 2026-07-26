@@ -12,11 +12,13 @@
 
 **Explore. Investigate. Report.**
 
-CheckQuest is an exploratory QA agent for websites. Give it **any authorized HTTP(S) URL** instead of a predefined test suite: it inspects the site, decides where it is worth looking next, flags suspicious issues, investigates only when it has a bounded evidence-gathering action, and produces a structured report of what it found. No site-specific profile is required for normal use.
+**CheckQuest is an AI website tester that explores on its own.** Give it **any authorized HTTP(S) URL** instead of a predefined test suite. It looks for potential issues, safely investigates what it finds when an approved action can gather useful evidence, and produces a structured report. No site-specific profile is required for normal use.
+
+> **Traditional automated tests check what you already told them to check. CheckQuest explores for potential problems you did not explicitly tell it to test for.**
 
 > **AI decides what may be worth investigating. Deterministic code decides what the browser is actually allowed to do.**
 
-CheckQuest is deliberately **bounded and non-exhaustive**. It is closer to an automated exploratory QA pass than a crawler, a generic browser agent, or a replacement for a full regression suite.
+Under the hood, CheckQuest is deliberately **bounded and non-exhaustive**. It is closer to an automated exploratory QA pass than a crawler, a generic browser agent, or a replacement for a full regression suite.
 
 ## ✨ What it does
 
@@ -63,7 +65,7 @@ Inspect page 1
         ↓
 Deterministic checks + Gemini analysis
         ↓
-Identify suspicious candidates
+Identify potential issues
         ↓
 Investigate only when an approved action can gather evidence
         ↓
