@@ -15,7 +15,7 @@
 **CheckQuest is an AI website tester that explores on its own.** Give it **any authorized HTTP(S) URL** instead of a predefined test suite. It looks for potential issues, safely investigates what it finds when an approved action can gather useful evidence, and produces a structured report. No site-specific profile is required for normal use.
 
 > **Traditional automated tests check what you already told them to check. CheckQuest explores for potential problems you did not explicitly tell it to test for.**
-
+>
 > **AI decides what may be worth investigating. Deterministic code decides what the browser is actually allowed to do.**
 
 Under the hood, CheckQuest is deliberately **bounded and non-exhaustive**. It is closer to an automated exploratory QA pass than a crawler, a generic browser agent, or a replacement for a full regression suite.
