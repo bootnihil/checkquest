@@ -1,14 +1,15 @@
-# CheckQuest Roadmap v2 — Local GUI / Product Shell
+# CheckQuest Roadmap v2 — Public Landing + Local GUI / Product Shell
 
-**Status:** Planned  
-**Current stage:** G1 — GUI/core boundary  
+**Status:** In progress
+**Current stage:** G0 — Public landing & brand presence
 **Roadmap v1:** Complete (Stages 1–10)
+**Roadmap v2 started:** 2026-07-26
 
 ## Goal
 
-Turn the completed CheckQuest engine into something a normal QA user can run and understand without Git, npm, Node.js, or command-line knowledge.
+Turn the completed CheckQuest engine into something a normal QA user can discover, understand, run, and use without Git, npm, Node.js, or command-line knowledge.
 
-Roadmap v2 is primarily a **product-shell roadmap**, not a new engine roadmap. Existing finding, safety, navigation, BYOK, investigation, and report semantics remain authoritative unless a stage explicitly requires a compatible interface change.
+Roadmap v2 is primarily a **product-shell roadmap**, not a new engine roadmap. It begins with a small public-facing product surface, then moves into the local GUI. Existing finding, safety, navigation, BYOK, investigation, and report semantics remain authoritative unless a stage explicitly requires a compatible interface change.
 
 ## Guiding principles
 
@@ -16,10 +17,33 @@ Roadmap v2 is primarily a **product-shell roadmap**, not a new engine roadmap. E
 - Keep Gemini credentials user-owned and ephemeral by default.
 - Reuse the existing `runSite(...)`, event, error, and report boundaries.
 - Prefer a thin local product before committing to SaaS infrastructure.
-- Do not add new QA intelligence merely because a GUI exists.
+- Keep the public landing page static, honest, and clearly separate from hosted CheckQuest execution.
+- Do not add new QA intelligence merely because a GUI or landing page exists.
 - Let external user feedback determine the roadmap after G7.
 
 ## Stages
+
+### G0 — Public landing & brand presence
+
+Create a small public front door for CheckQuest before the local application shell.
+
+The landing page is a **product/marketing surface**, not the CheckQuest GUI and not a hosted execution environment.
+
+**Scope:**
+
+- publish a responsive GitHub Pages landing page;
+- use the current CheckQuest visual identity and **Explore. Investigate. Report.** slogan;
+- explain, concisely and accurately, what CheckQuest is, what it is not, who it is for, and why someone should consider it;
+- communicate the core workflow: explore a deployed website, investigate potential issues safely, and produce evidence-backed findings/reports;
+- include links to the GitHub repository and relevant documentation;
+- add representative product visuals or examples only when they reflect real CheckQuest behavior;
+- keep the site static and dependency-light.
+
+No accounts, backend, cloud browser execution, billing, hosted scans, or SaaS infrastructure are introduced here.
+
+**Done when:** a public GitHub Pages site is deployed, works well on desktop and mobile, communicates the product in a few seconds without overstating its capabilities, and routes users cleanly to the repository/documentation.
+
+G0 is intentionally bounded. It should establish CheckQuest's public identity without becoming a detour from the local product shell.
 
 ### G1 — GUI/core boundary
 
@@ -98,6 +122,7 @@ These are **not committed Roadmap v2 requirements**.
 ## Explicitly out of scope for Roadmap v2
 
 - SaaS accounts, teams, billing, or cloud browser workers;
+- hosted CheckQuest execution from the public landing page;
 - scheduled scans or notifications;
 - arbitrary browser-action expansion;
 - new passive-security scope;
@@ -110,4 +135,4 @@ These are **not committed Roadmap v2 requirements**.
 
 The purpose of Roadmap v2 is simple:
 
-> **Expose the CheckQuest we already built to humans, then learn what deserves to be built next.**
+> **Give CheckQuest a clear public front door, expose the CheckQuest we already built to humans, then learn what deserves to be built next.**
