@@ -16,10 +16,11 @@ Roadmap v2 is primarily a **product-shell roadmap**, not a new engine roadmap. I
 - Keep the core engine presentation-agnostic.
 - Keep Gemini credentials user-owned and ephemeral by default.
 - Reuse the existing `runSite(...)`, event, error, and report boundaries.
+- Preserve the existing narrow AI collaborator seams; product-shell work must not introduce unnecessary direct Gemini coupling into presentation or orchestration layers.
 - Prefer a thin local product before committing to SaaS infrastructure.
 - Keep the public landing page static, honest, and clearly separate from hosted CheckQuest execution.
 - Do not add new QA intelligence merely because a GUI or landing page exists.
-- Let external user feedback determine the roadmap after G7.
+- Let external user feedback and measured product friction determine the roadmap after G7.
 
 ## Stages
 
@@ -45,15 +46,15 @@ No accounts, backend, cloud browser execution, billing, hosted scans, or SaaS in
 
 **Done when:** a public GitHub Pages site is deployed, works well on desktop and mobile, communicates the product in a few seconds without overstating its capabilities, and routes users cleanly to the repository/documentation.
 
-**Closeout:** PASS. The public landing page is live at `https://bootnihil.github.io/checkquest/` through GitHub Pages, with the repository deployment workflow and quality gates green. The final site is responsive across mobile, tablet, desktop, and wide-desktop acceptance sizes; representative text/background combinations pass WCAG AA contrast checks; and the public messaging now leads with the plain-English proposition that CheckQuest is an AI website tester that explores on its own, while preserving the more precise autonomous exploratory-QA positioning below it. The repository About text, website link, README, banner, and social-preview branding were aligned to the same product story. The page remains static and dependency-light and introduces no hosted CheckQuest execution or other SaaS scope.
-
-G0 is intentionally bounded. It established CheckQuest's public identity without becoming a detour from the local product shell.
+G0 is intentionally bounded. It establishes CheckQuest's public identity without becoming a detour from the local product shell.
 
 ### G1 — GUI/core boundary
 
 Confirm that the GUI can configure and invoke CheckQuest through the existing reusable execution boundary without UI-specific logic leaking into the engine.
 
-**Done when:** URL, budgets, transient Gemini credentials, progress, completion/failure, cancellation, and report location can be handled through a clean boundary.
+The product shell may expose today's Gemini-backed capability, but it must preserve the existing narrow collaborator boundaries rather than embedding provider-specific behavior into GUI or application-shell logic.
+
+**Done when:** URL, budgets, transient Gemini credentials, progress, completion/failure, cancellation, and report location can be handled through a clean boundary; the GUI does not bypass the existing engine contracts or introduce unnecessary new direct Gemini coupling.
 
 ### G2 — Local GUI MVP
 
@@ -73,7 +74,15 @@ Render structured engine events as understandable progress.
 
 Present completed findings in a useful human interface.
 
-**Done when:** users can review severity, verification state, affected pages, evidence, investigation outcome, and open the JSON/Markdown report or report folder.
+The viewer should make CheckQuest's evidence model visible rather than reducing a finding to a generic pass/fail label.
+
+**Done when:**
+
+- users can review severity, verification state, affected pages, evidence, and investigation outcome;
+- users can open the JSON/Markdown report or report folder; and
+- at least one representative real CheckQuest run can be captured as a reusable product-proof artefact showing the path from suspicious observation through investigation to verification state and supporting evidence.
+
+The representative artefact may later be reused in the public landing page, README, documentation, screenshots, or a short demo. It must reflect real CheckQuest behavior rather than a mocked product experience.
 
 ### G5 — Saved local configurations
 
@@ -91,11 +100,13 @@ Package the local application so a user does not need Git, Node.js, npm, or manu
 
 Packaging technology is chosen here, after the local GUI architecture is proven.
 
-### G7 — External usability acceptance
+### G7 — External usability and product acceptance
 
-Give the packaged application to people who have not participated in development.
+Give the packaged application to people who have not participated in development and perform a bounded credibility/evaluation pass before deciding what CheckQuest becomes next.
 
-Acceptance asks whether they can independently:
+#### External usability acceptance
+
+Acceptance asks whether new users can independently:
 
 1. install CheckQuest;
 2. understand its purpose and safety boundary;
@@ -107,11 +118,47 @@ Acceptance asks whether they can independently:
 
 Any required “you also need to know…” explanation is treated as product friction.
 
+#### Controlled evaluation fixture
+
+Maintain a small deterministic local site/fixture containing deliberately seeded cases that exercise CheckQuest's core claims without pretending exploratory QA has a complete bug denominator.
+
+The fixture should include representative examples such as:
+
+- defects that CheckQuest is expected to detect;
+- safe lookalikes that should not become findings;
+- repeated occurrences that should reconcile correctly;
+- cases whose evidence should remain `INCONCLUSIVE`;
+- candidate-linked interactions that can gather meaningful evidence; and
+- interactions or states that CheckQuest should refuse or back away from because of its safety boundary.
+
+The evaluation should record, at minimum:
+
+- expected seeded findings detected or missed;
+- obvious false-positive behavior;
+- correctness of `VERIFIED` versus `INCONCLUSIVE` handling;
+- occurrence reconciliation/deduplication behavior;
+- safety-boundary refusals; and
+- material run-to-run instability on the controlled fixture.
+
+This is a repeatable credibility check, not a claim that CheckQuest can achieve a universal accuracy, recall, or defect-detection percentage on arbitrary websites.
+
+#### Model-dependency assessment
+
+During G7, record whether the current Gemini dependency creates meaningful product friction through availability, latency, rate limits, cost, provider behavior changes, or material run-to-run variability.
+
+Roadmap v2 does **not** require another provider. The purpose of this assessment is to determine whether provider abstraction deserves promotion from the parking lot based on observed user/deployment need rather than architectural fashion.
+
+**G7 is complete when:** external users can perform the core workflow with acceptable product friction, the controlled evaluation fixture has been exercised and reviewed, and the observed model-dependency/repeatability risks are documented well enough to inform the next roadmap.
+
 ## Product validation gate
 
 Roadmap v2 stops after G7.
 
-External usage then determines whether the next roadmap should prioritize items such as:
+Before defining Roadmap v3, make explicit product decisions based on external usage and the G7 evidence.
+
+### Product-direction decision
+
+Determine which problems real users actually want CheckQuest to solve next. Candidates may include:
 
 - SaaS / scheduled monitoring and run history;
 - authenticated application exploration;
@@ -122,6 +169,14 @@ External usage then determines whether the next roadmap should prioritize items 
 - other needs repeatedly demonstrated by real users.
 
 These are **not committed Roadmap v2 requirements**.
+
+### Distribution and licensing decision
+
+Explicitly decide the intended distribution/commercial model before broad adoption is encouraged.
+
+Possible outcomes include remaining source-visible/proprietary, adopting an open-source license, using an open-core model, or another deliberate commercial/distribution approach.
+
+The public repository must not be treated as implying an open-source commitment. The decision should follow product validation rather than precede it.
 
 ## Explicitly out of scope for Roadmap v2
 
@@ -134,9 +189,10 @@ These are **not committed Roadmap v2 requirements**.
 - multi-model/provider support;
 - generated regression tests;
 - automatic updates;
-- browser extensions; and
+- browser extensions;
+- universal accuracy/recall claims for exploratory testing; and
 - changes to schema-v3 semantics merely for GUI convenience.
 
 The purpose of Roadmap v2 is simple:
 
-> **Give CheckQuest a clear public front door, expose the CheckQuest we already built to humans, then learn what deserves to be built next.**
+> **Give CheckQuest a clear public front door, expose the CheckQuest we already built to humans, prove its core behavior in a bounded and honest way, then learn what deserves to be built next.**

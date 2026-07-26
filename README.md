@@ -40,7 +40,7 @@ The goal is not to prove a site is defect-free. It is to spend a small inspectio
 ## 🗺️ Roadmap status
 
 - **Roadmap v1 is complete.** The original Stage 1–10 engine roadmap has been fully accepted and is now a historical record.
-- **Roadmap v2 is current.** It tracks the next phase: a local GUI / product shell that exposes the finished engine to normal users.
+- **Roadmap v2 is current.** It tracks the productization phase: exposing the finished engine through a local GUI/product shell, packaging it for normal users, and validating the product with external usage and bounded evaluation evidence.
 
 If you want the current plan, start with **[Roadmap v2](docs/ROADMAP-V2.md)**. If you want the completed engineering history, see **[Roadmap v1](docs/ROADMAP.md)**.
 
@@ -310,9 +310,9 @@ CheckQuest is still experimental.
 
 ## 🗺️ What's next
 
-The original engine roadmap is complete. **[Roadmap v2 — Local GUI / Product Shell](docs/ROADMAP-V2.md)** now tracks the next phase: exposing the existing CheckQuest engine through a usable local interface, packaging it for normal users, and validating it externally before committing to SaaS or major new engine capabilities.
+The original engine roadmap is complete. **[Roadmap v2 — Public Landing + Local GUI / Product Shell](docs/ROADMAP-V2.md)** tracks the current productization phase: exposing the existing CheckQuest engine through a usable local interface, packaging it for normal users, and validating the result through external usage and bounded controlled evaluation before committing to SaaS or major new engine capabilities.
 
-Roadmap v2 deliberately stops at a product-validation gate so real user behavior — not speculative feature ideas — determines what comes after the GUI.
+Roadmap v2 deliberately stops at a product-validation gate so real user behavior and evaluation evidence — not speculative feature ideas — determine what should be built next.
 
 ## 📚 Go deeper
 
@@ -320,7 +320,7 @@ Roadmap v2 deliberately stops at a product-validation gate so real user behavior
 - **[Architecture](docs/ARCHITECTURE.md)** — execution flow, `runSite`, findings, investigation, safety, events, errors, passive security, and reporting.
 - **[Configuration](docs/CONFIGURATION.md)** — site profiles, arbitrary URLs, budgets, host policy, BYOK, and model settings.
 - **[Public contracts](docs/PUBLIC-CONTRACTS.md)** — supported CLI/configuration behavior, versioning, exit semantics, and report compatibility.
-- **[Roadmap v2](docs/ROADMAP-V2.md)** — **current** local GUI / product-shell roadmap.
+- **[Roadmap v2](docs/ROADMAP-V2.md)** — **current** public-landing, local product-shell, packaging, and product-validation roadmap.
 - **[Roadmap v1](docs/ROADMAP.md)** — **completed** Stage 1–10 engine roadmap and historical development record.
 - **[Backlog](docs/BACKLOG.md)** — active, queued, and parked work.
 
@@ -328,7 +328,7 @@ Roadmap v2 deliberately stops at a product-validation gate so real user behavior
 
 CheckQuest is **source-visible but not currently released under an open-source license**. The package metadata is intentionally marked `UNLICENSED`. No additional permission to use, modify, or redistribute the source is granted by this repository beyond rights provided by GitHub's platform terms and applicable law.
 
-A future open-source or commercial licensing decision should be made deliberately as part of productization rather than inferred from the repository being public.
+The long-term licensing and distribution model is intentionally undecided. Roadmap v2 defers that decision until the product-validation gate, so any open-source, source-visible/proprietary, open-core, or other commercial model is chosen deliberately from actual product evidence rather than inferred from the repository being public.
 
 ## 🔧 Built with
 
