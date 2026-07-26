@@ -37,7 +37,11 @@ const runSiteAgentPath =
   );
 
 function runCli(
-  args: string[]
+  args:
+    string[],
+  environment:
+    NodeJS.ProcessEnv =
+      process.env
 ): CliResult {
   const result =
     spawnSync(
@@ -51,7 +55,9 @@ function runCli(
         cwd:
           process.cwd(),
         encoding:
-          'utf8'
+          'utf8',
+        env:
+          environment
       }
     );
 
@@ -80,9 +86,16 @@ function assertConfigurationFailure(
   forbiddenValues:
     string[] = []
 ): void {
+  const geminiApiKey =
+    'CLI_CONFIGURATION_GEMINI_API_KEY_SENTINEL';
   const result =
     runCli(
-      args
+      args,
+      {
+        ...process.env,
+        GEMINI_API_KEY:
+          geminiApiKey
+      }
     );
 
   assert.notEqual(
@@ -108,7 +121,10 @@ function assertConfigurationFailure(
 
   for (
     const forbiddenValue of
-      forbiddenValues
+      [
+        geminiApiKey,
+        ...forbiddenValues
+      ]
   ) {
     assert.equal(
       result.output.includes(
@@ -118,6 +134,62 @@ function assertConfigurationFailure(
       `${label}: public output exposed a caller-supplied sentinel.`
     );
   }
+}
+
+function assertMissingGeminiCredentialFailure():
+  void {
+  const unusedGoogleApiKey =
+    'CLI_GOOGLE_API_KEY_MUST_NOT_LEAK';
+  const environment:
+    NodeJS.ProcessEnv = {
+      ...process.env,
+      GOOGLE_API_KEY:
+        unusedGoogleApiKey
+    };
+
+  delete environment
+    .GEMINI_API_KEY;
+
+  const result =
+    runCli(
+      [
+        'aidoc'
+      ],
+      environment
+    );
+
+  assert.notEqual(
+    result.status,
+    0,
+    'Missing Gemini credential: expected a non-zero exit code.'
+  );
+  assert.match(
+    result.output,
+    /CheckQuest failed: \[MODEL\]/
+  );
+  assert.match(
+    result.output,
+    /GEMINI_API_KEY is required for Gemini-backed CheckQuest operations\./
+  );
+  assert.match(
+    result.output,
+    /phase=gemini-credential-resolution/
+  );
+  assert.doesNotMatch(
+    result.output,
+    /\[CONFIGURATION\]/
+  );
+  assert.doesNotMatch(
+    result.output,
+    /unexpected CheckQuest failure/i
+  );
+  assert.equal(
+    result.output.includes(
+      unusedGoogleApiKey
+    ),
+    false,
+    'Missing Gemini credential: public output exposed an API key value.'
+  );
 }
 
 function main(): void {
@@ -209,6 +281,8 @@ function main(): void {
       urlSecret
     ]
   );
+
+  assertMissingGeminiCredentialFailure();
 
   const unexpectedSecret =
     'UNEXPECTED_INTERNAL_SECRET_SENTINEL';
