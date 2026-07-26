@@ -1,7 +1,7 @@
 # CheckQuest Roadmap v2 — Public Landing + Local GUI / Product Shell
 
 **Status:** In progress
-**Current stage:** G0 — Public landing & brand presence
+**Current stage:** G1 — GUI/core boundary
 **Roadmap v1:** Complete (Stages 1–10)
 **Roadmap v2 started:** 2026-07-26
 
@@ -25,6 +25,8 @@ Roadmap v2 is primarily a **product-shell roadmap**, not a new engine roadmap. I
 
 ### G0 — Public landing & brand presence
 
+**Completed:** 2026-07-26
+
 Create a small public front door for CheckQuest before the local application shell.
 
 The landing page is a **product/marketing surface**, not the CheckQuest GUI and not a hosted execution environment.
@@ -43,7 +45,9 @@ No accounts, backend, cloud browser execution, billing, hosted scans, or SaaS in
 
 **Done when:** a public GitHub Pages site is deployed, works well on desktop and mobile, communicates the product in a few seconds without overstating its capabilities, and routes users cleanly to the repository/documentation.
 
-G0 is intentionally bounded. It should establish CheckQuest's public identity without becoming a detour from the local product shell.
+**Closeout:** PASS. The public landing page is live at `https://bootnihil.github.io/checkquest/` through GitHub Pages, with the repository deployment workflow and quality gates green. The final site is responsive across mobile, tablet, desktop, and wide-desktop acceptance sizes; representative text/background combinations pass WCAG AA contrast checks; and the public messaging now leads with the plain-English proposition that CheckQuest is an AI website tester that explores on its own, while preserving the more precise autonomous exploratory-QA positioning below it. The repository About text, website link, README, banner, and social-preview branding were aligned to the same product story. The page remains static and dependency-light and introduces no hosted CheckQuest execution or other SaaS scope.
+
+G0 is intentionally bounded. It established CheckQuest's public identity without becoming a detour from the local product shell.
 
 ### G1 — GUI/core boundary
 

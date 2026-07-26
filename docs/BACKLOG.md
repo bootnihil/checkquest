@@ -7,6 +7,7 @@
 **Current roadmap stage:** G1 - GUI/core boundary
 **Completed roadmap:** Roadmap v1 - Stages 1-10 accepted
 **Current execution focus:** Expose the completed engine cleanly to a GUI without changing Stage 1–10 semantics
+**Most recently completed:** Roadmap v2 G0 — Public landing & brand presence (2026-07-26)
 
 This is the single project-wide parking place for work that should not silently interrupt the current roadmap stage. It persists across Roadmap v1, v2, and future roadmap versions.
 
@@ -32,6 +33,8 @@ A newly added backlog item does **not** become immediate work merely because it 
 # Active and queued backlog
 
 Roadmap v2 stages G1–G7 are the committed execution plan and are intentionally not duplicated as backlog rows. New defects, refinements, or product ideas discovered while executing them belong here unless they are true blockers for the current stage.
+
+G0 — Public landing & brand presence — completed on 2026-07-26. The public GitHub Pages site, aligned repository/branding presentation, responsive/contrast acceptance, and Pages deployment are complete.
 
 Current execution starts with **G1 — GUI/core boundary** in `ROADMAP-V2.md`.
 
