@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1050 220" role="img" aria-labelledby="title desc">
+  <title id="title">CheckQuest wordmark</title>
+  <desc id="desc">CheckQuest wordmark in navy and blue.</desc>
+  <defs>
+    <linearGradient id="quest" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#6EA8FF"/>
+      <stop offset="0.5" stop-color="#3679ED"/>
+      <stop offset="1" stop-color="#5F5BEA"/>
+    </linearGradient>
+  </defs>
+  <text x="24" y="155" font-family="Segoe UI, Arial, sans-serif" font-size="150" font-weight="700" letter-spacing="-6" fill="#0A1730">Check<tspan fill="url(#quest)">Quest</tspan></text>
+</svg>

@@ -1,24 +1,26 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 320" role="img" aria-labelledby="title desc">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1420 330" role="img" aria-labelledby="title desc">
   <title id="title">CheckQuest logo</title>
-  <desc id="desc">Magnifying glass with checkmark beside the CheckQuest wordmark and Explore. Check. Prove. tagline.</desc>
+  <desc id="desc">CheckQuest wordmark with compass investigation icon and Explore. Investigate. Report. slogan.</desc>
   <defs>
-    <linearGradient id="cqGradient" x1="0%" y1="100%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#2563eb"/>
-      <stop offset="48%" stop-color="#6366f1"/>
-      <stop offset="100%" stop-color="#8b5cf6"/>
+    <linearGradient id="needle" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#20C7E8"/>
+      <stop offset="0.55" stop-color="#3B82F6"/>
+      <stop offset="1" stop-color="#6D5DFB"/>
+    </linearGradient>
+    <linearGradient id="quest" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#7AB8FF"/>
+      <stop offset="0.5" stop-color="#3B82F6"/>
+      <stop offset="1" stop-color="#6D5DFB"/>
     </linearGradient>
   </defs>
-
-  <!-- Transparent background by design. -->
-  <g transform="translate(30 32)">
-    <circle cx="118" cy="105" r="82" fill="none" stroke="url(#cqGradient)" stroke-width="28"/>
-    <path d="M177 164 L235 222" fill="none" stroke="url(#cqGradient)" stroke-width="30" stroke-linecap="round"/>
-    <path d="M78 104 L107 133 L158 78" fill="none" stroke="url(#cqGradient)" stroke-width="27" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect width="1420" height="330" fill="transparent"/>
+  <g transform="translate(22 28) scale(.53)">
+    <circle cx="256" cy="256" r="158" fill="none" stroke="#A8C9F6" stroke-width="22"/>
+    <circle cx="256" cy="256" r="10" fill="#D7E9FF"/>
+    <path d="M168 344 L218 219 L344 168 L294 293 Z" fill="url(#needle)"/>
+    <path d="M218 219 L256 256 L344 168" fill="none" stroke="#E4F8FF" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M132 256h28M352 256h28M256 132v28M256 352v28" stroke="#89AFE9" stroke-width="8" stroke-linecap="round"/>
   </g>
-
-  <text x="300" y="162" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="128" font-weight="750" letter-spacing="-5">
-    <tspan fill="#0b132b">Check</tspan><tspan fill="url(#cqGradient)">Quest</tspan>
-  </text>
-
-  <text x="309" y="229" font-family="Inter, Segoe UI, Arial, sans-serif" font-size="32" font-weight="650" letter-spacing="8" fill="#596274">EXPLORE. CHECK. PROVE.</text>
+  <text x="315" y="168" font-family="Segoe UI, Arial, sans-serif" font-size="126" font-weight="700" letter-spacing="-5" fill="#F7FAFF">Check<tspan fill="url(#quest)">Quest</tspan></text>
+  <text x="325" y="242" font-family="Segoe UI, Arial, sans-serif" font-size="28" font-weight="600" letter-spacing="9" fill="#A7B5C9">EXPLORE. <tspan fill="#6EA3FF">INVESTIGATE.</tspan> REPORT.</text>
 </svg>

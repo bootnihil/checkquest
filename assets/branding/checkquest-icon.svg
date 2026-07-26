@@ -1,14 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 320" role="img" aria-labelledby="title desc">
-  <title id="title">CheckQuest icon</title>
-  <desc id="desc">Magnifying glass with checkmark.</desc>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">CheckQuest compass icon</title>
+  <desc id="desc">A clear compass ring with a directional investigation needle.</desc>
   <defs>
-    <linearGradient id="cqGradient" x1="0%" y1="100%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#2563eb"/>
-      <stop offset="48%" stop-color="#6366f1"/>
-      <stop offset="100%" stop-color="#8b5cf6"/>
+    <linearGradient id="needle" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#20C7E8"/>
+      <stop offset="0.55" stop-color="#3B82F6"/>
+      <stop offset="1" stop-color="#6D5DFB"/>
+    </linearGradient>
+    <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9BC7FF"/>
+      <stop offset="1" stop-color="#4F7EEB"/>
     </linearGradient>
   </defs>
-  <circle cx="135" cy="125" r="88" fill="none" stroke="url(#cqGradient)" stroke-width="30"/>
-  <path d="M198 188 L270 260" fill="none" stroke="url(#cqGradient)" stroke-width="32" stroke-linecap="round"/>
-  <path d="M88 125 L121 158 L178 96" fill="none" stroke="url(#cqGradient)" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect width="512" height="512" rx="104" fill="#08111F"/>
+  <circle cx="256" cy="256" r="158" fill="none" stroke="url(#ring)" stroke-width="22"/>
+  <circle cx="256" cy="256" r="10" fill="#D7E9FF"/>
+  <path d="M168 344 L218 219 L344 168 L294 293 Z" fill="url(#needle)"/>
+  <path d="M218 219 L256 256 L344 168" fill="none" stroke="#D8F6FF" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.9"/>
+  <path d="M132 256h28M352 256h28M256 132v28M256 352v28" stroke="#7FA9E8" stroke-width="8" stroke-linecap="round" opacity="0.85"/>
 </svg>

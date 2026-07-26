@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 480" role="img" aria-labelledby="title desc">
+  <title id="title">CheckQuest README banner</title>
+  <desc id="desc">A dark CheckQuest banner showing a compass mark and a focused website inspection beam revealing findings.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07101D"/>
+      <stop offset="1" stop-color="#0A1628"/>
+    </linearGradient>
+    <linearGradient id="quest" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#78B7FF"/>
+      <stop offset="0.52" stop-color="#3B82F6"/>
+      <stop offset="1" stop-color="#6A5DF5"/>
+    </linearGradient>
+    <linearGradient id="beam" x1="0" y1="0.5" x2="1" y2="0.5">
+      <stop offset="0" stop-color="#83EFFF" stop-opacity="0.78"/>
+      <stop offset="0.55" stop-color="#3FC4F3" stop-opacity="0.30"/>
+      <stop offset="1" stop-color="#3B82F6" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="beamGlow" cx="0.15" cy="0.5" r="0.75">
+      <stop offset="0" stop-color="#8CF5FF" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#3B82F6" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="9" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="amberGlow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="7" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="1920" height="480" rx="22" fill="url(#bg)"/>
+
+  <!-- subtle technical field, kept quiet -->
+  <g opacity="0.12" stroke="#5A789A" stroke-width="1">
+    <path d="M950 42V438M1040 42V438M1130 42V438M1220 42V438M1310 42V438M1400 42V438M1490 42V438M1580 42V438M1670 42V438M1760 42V438"/>
+    <path d="M920 90H1860M920 160H1860M920 230H1860M920 300H1860M920 370H1860"/>
+  </g>
+
+  <!-- compass logo -->
+  <g transform="translate(58 92) scale(.42)">
+    <circle cx="256" cy="256" r="158" fill="none" stroke="#9FC7F5" stroke-width="22"/>
+    <circle cx="256" cy="256" r="10" fill="#E2F6FF"/>
+    <path d="M168 344 L218 219 L344 168 L294 293 Z" fill="url(#quest)"/>
+    <path d="M218 219 L256 256 L344 168" fill="none" stroke="#E9FBFF" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M132 256h28M352 256h28M256 132v28M256 352v28" stroke="#7EA8E4" stroke-width="8" stroke-linecap="round"/>
+  </g>
+
+  <!-- brand copy -->
+  <text x="285" y="192" font-family="Segoe UI, Arial, sans-serif" font-size="112" font-weight="700" letter-spacing="-5" fill="#F7FAFF">Check<tspan fill="url(#quest)">Quest</tspan></text>
+  <text x="292" y="255" font-family="Segoe UI, Arial, sans-serif" font-size="25" font-weight="600" letter-spacing="8" fill="#B6C2D2">EXPLORE. <tspan fill="#70A5FF">INVESTIGATE.</tspan> REPORT.</text>
+  <text x="294" y="320" font-family="Segoe UI, Arial, sans-serif" font-size="27" font-weight="400" fill="#D2DAE6">Autonomous website QA with evidence-backed findings.</text>
+
+  <!-- browser target -->
+  <g transform="translate(965 120)" fill="none" stroke="#648CB9" stroke-width="3" opacity="0.95">
+    <rect x="0" y="0" width="230" height="190" rx="16"/>
+    <line x1="0" y1="42" x2="230" y2="42"/>
+    <circle cx="25" cy="22" r="5" fill="#72CFF2" stroke="none"/>
+    <circle cx="45" cy="22" r="5" fill="#5FA9E8" stroke="none"/>
+    <circle cx="65" cy="22" r="5" fill="#567BC4" stroke="none"/>
+    <path d="M28 76h102M28 103h166M28 130h142M28 157h84" opacity="0.7"/>
+  </g>
+
+  <!-- focused scan beam -->
+  <path d="M1152 212 L1575 117 L1575 352 Z" fill="url(#beam)"/>
+  <ellipse cx="1235" cy="234" rx="240" ry="135" fill="url(#beamGlow)" opacity="0.35"/>
+  <path d="M1152 212 L1575 117M1152 212 L1575 352" stroke="#8AEAFF" stroke-width="2" opacity="0.65"/>
+  <circle cx="1152" cy="212" r="7" fill="#A3F3FF" filter="url(#glow)"/>
+
+  <!-- inspection boundary -->
+  <g fill="none" stroke="#78CDEB" stroke-width="3" opacity="0.9">
+    <path d="M1500 98h-28v28M1690 98h28v28M1500 370h-28v-28M1690 370h28v-28"/>
+  </g>
+
+  <!-- findings cluster: abstract, no extra copy -->
+  <g opacity="0.55" fill="none" stroke="#426A8F" stroke-width="2">
+    <path d="M1523 136l27-16 27 16v32l-27 16-27-16z"/>
+    <path d="M1577 136l27-16 27 16v32l-27 16-27-16z"/>
+    <path d="M1631 136l27-16 27 16v32l-27 16-27-16z"/>
+    <path d="M1496 184l27-16 27 16v32l-27 16-27-16z"/>
+    <path d="M1550 184l27-16 27 16v32l-27 16-27-16z"/>
+    <path d="M1604 184l27-16 27 16v32l-27 16-27-16z"/>
+    <path d="M1658 184l27-16 27 16v32l-27 16-27-16z"/>
+    <path d="M1523 232l27-16 27 16v32l-27 16-27-16z"/>
+    <path d="M1577 232l27-16 27 16v32l-27 16-27-16z"/>
+    <path d="M1631 232l27-16 27 16v32l-27 16-27-16z"/>
+    <path d="M1496 280l27-16 27 16v32l-27 16-27-16z"/>
+    <path d="M1550 280l27-16 27 16v32l-27 16-27-16z"/>
+    <path d="M1604 280l27-16 27 16v32l-27 16-27-16z"/>
+    <path d="M1658 280l27-16 27 16v32l-27 16-27-16z"/>
+  </g>
+
+  <g fill="#F0B94A" stroke="#FFD77B" stroke-width="4" filter="url(#amberGlow)">
+    <path d="M1550 184l27-16 27 16v32l-27 16-27-16z"/>
+    <path d="M1631 232l27-16 27 16v32l-27 16-27-16z"/>
+    <path d="M1577 280l27-16 27 16v32l-27 16-27-16z"/>
+  </g>
+  <g fill="#07101D" font-family="Segoe UI, Arial, sans-serif" font-size="30" font-weight="800" text-anchor="middle">
+    <text x="1577" y="208">!</text>
+    <text x="1658" y="256">!</text>
+    <text x="1604" y="304">!</text>
+  </g>
+</svg>
