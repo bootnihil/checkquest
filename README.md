@@ -93,17 +93,9 @@ For the deeper execution model, finding lifecycle, events, errors, and safety bo
 
 ### Evidence stays honest
 
-A browser action succeeding does not automatically prove the broader QA assertion.
+A browser action succeeding does not automatically prove the broader QA claim. CheckQuest keeps interaction evidence separate from finding verification, so successful mechanics are not automatically promoted into verified conclusions.
 
-The project’s regression sentinel is the option text `Equador`:
-
-```text
-target|select-option|country|equador
-```
-
-CheckQuest can mechanically verify that the observed option can be selected (`VERIFIED`) while leaving the semantic claim that the text is incorrect as `INCONCLUSIVE` until verification-capable evidence actually proves it.
-
-In other words: **mechanical success ≠ semantic proof**.
+**Mechanical success ≠ semantic proof.**
 
 ## 🛡️ Safety by design
 
