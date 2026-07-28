@@ -54,6 +54,72 @@ export const exploratoryQaEvidenceTargetSchema =
     tabStateEvidenceTargetSchema
   ]);
 
+export const findingPresentationTargetSchema =
+  z.object({
+    kind:
+      z.literal(
+        'visible-text'
+      ),
+    elementKind:
+      z.enum([
+        'heading',
+        'link',
+        'button'
+      ]),
+    text:
+      z.string()
+        .min(1)
+        .max(500)
+  }).strict();
+
+export const findingStructuredIdentitySchema =
+  z.object({
+    mechanism:
+      z.enum([
+        'unresolved-token',
+        'unexpected-value',
+        'duplicate-value',
+        'missing-value',
+        'state-mismatch',
+        'accessibility-semantics',
+        'other'
+      ]),
+    observedValue:
+      z.string()
+        .min(1)
+        .max(500),
+    source:
+      z.literal(
+        'accessible-name'
+      ),
+    subject:
+      z.object({
+        kind:
+          z.literal(
+            'semantic-control'
+          ),
+        controlType:
+          z.enum([
+            'tab',
+            'disclosure'
+          ]),
+        controlId:
+          z.string()
+            .min(1)
+            .max(500),
+        componentId:
+          z.string()
+            .min(1)
+            .max(500)
+            .nullable(),
+        locator:
+          z.string()
+            .min(1)
+            .max(1_000)
+            .nullable()
+      }).strict()
+  }).strict();
+
 export const exploratoryQaFindingSchema = z.object({
   /*
    * Optional model-supplied relationship to a run-local
@@ -141,7 +207,31 @@ export const exploratoryQaFindingSchema = z.object({
    */
   evidenceTarget:
     exploratoryQaEvidenceTargetSchema
+      .nullable(),
+
+  /*
+   * Optional presentation-only target used to capture focused human evidence.
+   *
+   * It is not an investigation action and has no effect on verification.
+   * The text and element kind must be copied from structured page evidence.
+   */
+  presentationTarget:
+    findingPresentationTargetSchema
       .nullable()
+      .optional(),
+
+  /*
+   * Optional identity evidence for a non-actionable semantic control.
+   *
+   * Runtime reconciliation accepts this only when the exact control id,
+   * accessible name, control type, and component relationship are present in
+   * the current page's extracted structured evidence. Generated prose and the
+   * optional page-specific locator are never substantive finding identity.
+   */
+  structuredIdentity:
+    findingStructuredIdentitySchema
+      .nullable()
+      .optional()
 });
 
 export const exploratoryQaAnalysisSchema = z.object({
@@ -168,6 +258,16 @@ export type DisclosureStateEvidenceTarget =
 export type TabStateEvidenceTarget =
   z.infer<
     typeof tabStateEvidenceTargetSchema
+  >;
+
+export type FindingPresentationTarget =
+  z.infer<
+    typeof findingPresentationTargetSchema
+  >;
+
+export type FindingStructuredIdentity =
+  z.infer<
+    typeof findingStructuredIdentitySchema
   >;
 
 export type ExploratoryQaFinding =

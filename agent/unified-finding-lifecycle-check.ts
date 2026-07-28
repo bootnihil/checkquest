@@ -683,13 +683,14 @@ async function main():
   assert.equal(
     duplicateReconciliation
       .findings.length,
-    1
+    2,
+    'Targetless model prose does not establish shared finding identity.'
   );
 
   assert.equal(
     duplicateReconciliation
       .candidateFindings.length,
-    1
+    2
   );
 
   const distinctReconciliation =
@@ -751,11 +752,11 @@ async function main():
   );
 
   assert.equal(
-    byFingerprint
-      .get(
-        createExploratoryFindingFingerprint(
-          modelOnly
-        )
+    findings
+      .find(
+        finding =>
+          finding.title ===
+          modelOnly.title
       )
       ?.verification.state,
     'inconclusive'
@@ -989,10 +990,10 @@ async function main():
   );
 
   const modelOnlyFinding =
-    byFingerprint.get(
-      createExploratoryFindingFingerprint(
-        modelOnly
-      )
+    findings.find(
+      finding =>
+        finding.title ===
+        modelOnly.title
     );
 
   assert.equal(
@@ -1164,11 +1165,6 @@ async function main():
       .verification.state
   );
 
-  assert.match(
-    markdown,
-    /verification-capable:\*\* .*contradict/i
-  );
-
   assert.equal(
     markdown.includes(
       '## Rule-Based Findings'
@@ -1176,37 +1172,35 @@ async function main():
     false
   );
 
-  assert.match(
-    markdown,
-    /KNOWN, NOT REINVESTIGATED/
+  assert.equal(
+    /verification-capable|KNOWN, NOT REINVESTIGATED|Deterministic evidence contradicted/i.test(
+      markdown
+    ),
+    false,
+    'Human Markdown must not expose internal lifecycle evidence.'
   );
 
   assert.match(
     markdown,
-    /The issue was deterministically demonstrated/
+    /### \d+ — Conflicting disclosure state result[\s\S]*\*\*Low · Needs review\*\*/
   );
 
   assert.match(
     markdown,
-    /Deterministic evidence contradicted the asserted issue/
+    /### \d+ — Known exact disclosure target[\s\S]*\*\*Low · Confirmed issue\*\*/
   );
 
   assert.match(
     markdown,
-    /does not have sufficient deterministic evidence/
+    /### \d+ — Page has no browser title[\s\S]*\*\*Medium · Confirmed issue\*\*/
   );
-
-  const linkedHeading =
-    'VERIFIED - Page has no browser title';
 
   assert.equal(
-    markdown
-      .split(
-        linkedHeading
-      )
-      .length -
-      1,
-    1
+    /(?:VERIFIED|INCONCLUSIVE|NOT VERIFIED)\s*-\s*/.test(
+      markdown
+    ),
+    false,
+    'Human finding titles must not be status-prefixed.'
   );
 
   console.log(

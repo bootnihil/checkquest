@@ -6,7 +6,7 @@
 **Current roadmap document:** `ROADMAP-V2.md`
 **Current roadmap stage:** G2 - Local GUI MVP
 **Completed roadmap:** Roadmap v1 - Stages 1-10 accepted
-**Current execution focus:** Build the smallest useful local interface with URL, page/navigation/investigation budgets, Gemini key, optional model override, Run, Cancel, and basic status
+**Current execution focus:** G2 acceptance and remediation - validate the Local GUI MVP with real runs, including finding reconciliation, focused evidence, report accounting, report usability, and desktop smoke follow-up
 **Most recently completed:** Roadmap v2 G1 — GUI/core boundary (2026-07-26)
 
 This is the single project-wide parking place for work that should not silently interrupt the current roadmap stage. It persists across Roadmap v1, v2, and future roadmap versions.
@@ -47,7 +47,13 @@ credentials and nested causes from crossing public event, error, report, or
 result boundaries. The CLI now delegates execution and persistence to this
 shared boundary.
 
-Current execution continues with **G2 — Local GUI MVP** in `ROADMAP-V2.md`.
+Current execution remains **G2 — Local GUI MVP** in `ROADMAP-V2.md`. The
+local Electron GUI MVP is implemented, and the major finding-reconciliation,
+focused-evidence, accounting, and human-report remediation discovered during
+G2 acceptance is now implemented with the main deterministic and browser
+checks passing. G2 remains open pending a fresh real model-backed acceptance
+run and follow-up on the unresolved Electron desktop smoke-process crash. This
+is G2 acceptance remediation, not a roadmap-stage change.
 
 ---
 

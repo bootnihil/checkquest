@@ -264,18 +264,6 @@ function createPageResult(
   };
 }
 
-function countOccurrences(
-  text: string,
-  value: string
-): number {
-  return text
-    .split(
-      value
-    )
-    .length -
-    1;
-}
-
 async function main(): Promise<void> {
   const inspectedPages:
     InspectedPageResult[] = [
@@ -746,51 +734,54 @@ async function main(): Promise<void> {
 
   if (
     !markdown.includes(
-      '| Logical findings | 1 |'
+      '- **0** confirmed'
+    ) ||
+    !markdown.includes(
+      '- **1** review'
     )
   ) {
     throw new Error(
-      'Markdown summary does not contain the unique exploratory finding count.'
+      'Markdown summary does not contain the human finding counts.'
     );
   }
 
   if (
     !markdown.includes(
-      '| Finding occurrences | 3 |'
+      '| [01](#item-01) | [Misspelled country name in selection list](#item-01) | Finding | Low | 3 pages | Needs review |'
     )
   ) {
     throw new Error(
-      'Markdown summary does not contain the expected finding occurrence count.'
+      'Markdown at-a-glance table does not contain the human finding.'
     );
   }
 
   if (
     !markdown.includes(
-      '**Observed on:** 3 pages (3 occurrences)'
+      '**Pages:** [/radiology](https://example.com/radiology), [/platform](https://example.com/platform), [/solutions](https://example.com/solutions)'
     )
   ) {
     throw new Error(
-      'Markdown finding does not contain the expected affected-page summary.'
+      'Markdown finding does not contain the expected affected pages.'
     );
   }
 
   if (
     !markdown.includes(
-      '### 1. INCONCLUSIVE - Misspelled country name in selection list'
+      '### 01 — Misspelled country name in selection list'
     )
   ) {
     throw new Error(
-      'Markdown finding must not treat selectability as proof of the semantic typo assertion.'
+      'Markdown finding does not use the clean human-facing title.'
     );
   }
 
   if (
     !markdown.includes(
-      '**Occurrence status:** INCONCLUSIVE'
+      '**Low · Needs review**'
     )
   ) {
     throw new Error(
-      'Markdown finding does not contain the conservative occurrence status.'
+      'Markdown finding does not map the internal inconclusive state to Needs review.'
     );
   }
 
@@ -842,7 +833,7 @@ async function main(): Promise<void> {
 
   if (
     !markdown.includes(
-      '## Pages Inspected'
+      '## Pages inspected'
     )
   ) {
     throw new Error(
@@ -852,34 +843,34 @@ async function main(): Promise<void> {
 
   if (
     !markdown.includes(
-      '| [Radiology](https://example.com/radiology) | Configured start URL |'
+      '| [/radiology](https://example.com/radiology) | Start URL | [01](#item-01) |'
     ) ||
     !markdown.includes(
-      '| [Platform](https://example.com/platform) | Agent-selected navigation (depth 1, value neutral, neutral-unseen-area) |'
+      '| [/platform](https://example.com/platform) | Exploration | [01](#item-01) |'
     )
   ) {
     throw new Error(
-      'Markdown page reporting does not distinguish the start page or expose selected Stage 6.2 navigation value.'
+      'Markdown page reporting does not distinguish the start page from exploration.'
     );
   }
 
   if (
-    !markdown.includes(
+    markdown.includes(
       'observed-v1:synthetic-form'
     )
   ) {
     throw new Error(
-      'Markdown page summary does not expose the observed template identity.'
+      'Markdown page summary exposes an internal page-identity heuristic.'
     );
   }
 
   if (
     !markdown.includes(
-      '## Technical Health'
+      '## Technical observations'
     )
   ) {
     throw new Error(
-      'Markdown report does not contain the technical-health summary.'
+      'Markdown report does not contain the technical-observations section.'
     );
   }
 
@@ -938,14 +929,12 @@ async function main(): Promise<void> {
   }
 
   if (
-    countOccurrences(
-      markdown,
+    markdown.includes(
       'KNOWN, NOT REINVESTIGATED'
-    ) <
-    2
+    )
   ) {
     throw new Error(
-      'Markdown report does not distinguish skipped known occurrences from independent verification.'
+      'Markdown report exposes internal occurrence lifecycle text.'
     );
   }
 

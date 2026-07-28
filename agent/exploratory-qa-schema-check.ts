@@ -15,7 +15,15 @@ const validResponse = {
         'Placeholder copy may indicate unfinished content.',
       suggestedCheck:
         'Confirm whether the text is intentionally published.',
-      evidenceTarget: null
+      evidenceTarget: null,
+      presentationTarget: {
+        kind:
+          'visible-text',
+        elementKind:
+          'heading',
+        text:
+          'Built for Modern Teams'
+      }
     }
   ],
   summary:
@@ -42,7 +50,9 @@ const targetedResponse = {
         controlName: 'country',
         controlId: 'country',
         optionText: 'Equador'
-      }
+      },
+      presentationTarget:
+        null
     }
   ],
   summary:

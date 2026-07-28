@@ -2509,6 +2509,12 @@ function runUiStateChecks():
           3,
         findingCount:
           2,
+        confirmedFindingCount:
+          1,
+        reviewFindingCount:
+          1,
+        technicalObservationCount:
+          1,
         occurrenceCount:
           4
       }
@@ -2529,21 +2535,25 @@ function runUiStateChecks():
   );
   assert.equal(
     completed.detail,
-    '3 pages inspected · 2 findings'
+    '3 pages inspected · 2 findings · 1 technical observation'
   );
   assert.equal(
     formatDesktopCompletionSummary(
       1,
+      1,
+      0,
       1
     ),
-    '1 page inspected · 1 finding'
+    '1 page inspected · 1 finding · 1 technical observation'
   );
   assert.equal(
     formatDesktopCompletionSummary(
       2,
+      0,
+      0,
       0
     ),
-    '2 pages inspected · 0 findings'
+    '2 pages inspected · 0 findings · 0 technical observations'
   );
   assert.equal(
     completed.detail.includes(

@@ -1,9 +1,13 @@
 import type {
   DisclosureStateEvidenceTarget,
   ExploratoryQaFinding,
+  FindingStructuredIdentity,
   SelectOptionEvidenceTarget,
   TabStateEvidenceTarget
 } from '../analysis/exploratory-qa-schema';
+import type {
+  ExtractedPageContent
+} from '../browser/extract-page-content';
 
 type SelectControlIdentity = {
   controlLabel: string | null;
@@ -134,6 +138,86 @@ export function createTabStateTargetFingerprint(
   ].join('|');
 }
 
+function getStructuredSubjectIdentity(
+  identity:
+    FindingStructuredIdentity
+): string {
+  return normalizeFingerprintText(
+    identity.subject
+      .componentId ??
+    identity.subject
+      .controlId
+  );
+}
+
+export function createStructuredIdentityFingerprint(
+  identity:
+    FindingStructuredIdentity
+): string {
+  return [
+    'identity',
+    normalizeFingerprintText(
+      identity.mechanism
+    ),
+    normalizeFingerprintText(
+      identity.observedValue
+    ),
+    normalizeFingerprintText(
+      identity.source
+    ),
+    normalizeFingerprintText(
+      identity.subject
+        .controlType
+    ),
+    getStructuredSubjectIdentity(
+      identity
+    )
+  ].join('|');
+}
+
+export function validateStructuredIdentity(
+  identity:
+    FindingStructuredIdentity,
+  content:
+    ExtractedPageContent
+): boolean {
+  const subject =
+    identity.subject;
+
+  if (
+    subject.controlType ===
+      'tab'
+  ) {
+    return content.tabs.some(
+      control =>
+        control.controlId ===
+          subject.controlId &&
+        control.accessibleName ===
+          identity.observedValue &&
+        (
+          subject.componentId ===
+            null ||
+          control.tabListId ===
+            subject.componentId
+        )
+    );
+  }
+
+  return content.disclosures.some(
+    control =>
+      control.controlId ===
+        subject.controlId &&
+      control.accessibleName ===
+        identity.observedValue &&
+      (
+        subject.componentId ===
+          null ||
+        control.ariaControls ===
+          subject.componentId
+      )
+  );
+}
+
 /*
  * Machine-readable evidence targets provide the strongest
  * available basis for run-level and cross-page identity.
@@ -143,7 +227,11 @@ export function createTabStateTargetFingerprint(
  *   target|select-option|country|equador
  */
 export function createExploratoryFindingFingerprint(
-  finding: ExploratoryQaFinding
+  finding: ExploratoryQaFinding,
+  content?:
+    ExtractedPageContent,
+  unstructuredDiscriminator =
+    'no-stable-identity'
 ): string {
   const target =
     finding.evidenceTarget;
@@ -167,24 +255,36 @@ export function createExploratoryFindingFingerprint(
     }
   }
 
+  const structuredIdentity =
+    finding.structuredIdentity ??
+    null;
+
+  if (
+    structuredIdentity !==
+      null &&
+    (
+      content ===
+        undefined ||
+      validateStructuredIdentity(
+        structuredIdentity,
+        content
+      )
+    )
+  ) {
+    return createStructuredIdentityFingerprint(
+      structuredIdentity
+    );
+  }
+
   /*
-   * Findings without a machine-readable target use a
-   * deliberately conservative fallback.
-   *
-   * Category is retained here because, without structured
-   * target information, it helps prevent unrelated findings
-   * from being incorrectly merged.
+   * Generated prose is deliberately absent. Without validated structured
+   * identity, the caller must supply an observation-scoped discriminator and
+   * must not infer sameness from wording.
    */
   return [
-    'fallback',
+    'unstructured',
     normalizeFingerprintText(
-      finding.category
-    ),
-    normalizeFingerprintText(
-      finding.title
-    ),
-    normalizeFingerprintText(
-      finding.evidence
+      unstructuredDiscriminator
     )
   ].join('|');
 }

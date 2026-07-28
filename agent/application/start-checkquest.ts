@@ -109,6 +109,12 @@ function emitCompletedEvent(
       event.inspectedPageCount,
     findingCount:
       event.findingCount,
+    confirmedFindingCount:
+      event.confirmedFindingCount,
+    reviewFindingCount:
+      event.reviewFindingCount,
+    technicalObservationCount:
+      event.technicalObservationCount,
     occurrenceCount:
       event.occurrenceCount
   });

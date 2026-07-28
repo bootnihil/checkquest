@@ -239,9 +239,17 @@ function preserveCancellation(
 export function formatDesktopCompletionSummary(
   inspectedPageCount:
     number,
-  findingCount:
+  confirmedFindingCount:
+    number,
+  reviewFindingCount:
+    number,
+  technicalObservationCount:
     number
 ): string {
+  const findingCount =
+    confirmedFindingCount +
+    reviewFindingCount;
+
   return `${inspectedPageCount} ${
     inspectedPageCount ===
       1
@@ -252,6 +260,11 @@ export function formatDesktopCompletionSummary(
       1
       ? 'finding'
       : 'findings'
+  } · ${technicalObservationCount} technical ${
+    technicalObservationCount ===
+      1
+      ? 'observation'
+      : 'observations'
   }`;
 }
 
@@ -347,7 +360,11 @@ export function reduceDesktopUiState(
             event
               .inspectedPageCount,
             event
-              .findingCount
+              .confirmedFindingCount,
+            event
+              .reviewFindingCount,
+            event
+              .technicalObservationCount
           ),
         runActive:
           false

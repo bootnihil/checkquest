@@ -1,129 +1,33 @@
 import {
+  copyFile,
   mkdir,
   writeFile
 } from 'node:fs/promises';
-
 import {
   join
 } from 'node:path';
 
+import {
+  buildHumanReportPresentation,
+  type HumanFindingPresentation,
+  type HumanIndexItem,
+  type HumanPageReference,
+  type HumanReportPresentation
+} from './human-report-model';
 import type {
   SiteAgentReport
 } from './report-types';
 
 export interface WrittenMarkdownReport {
-  directoryPath: string;
-  filePath: string;
-}
-
-function formatHttpStatus(
-  status: number | null
-): string {
-  return status === null
-    ? 'Unknown'
-    : String(status);
-}
-
-function formatVerificationState(
-  state:
-    SiteAgentReport[
-      'findings'
-    ][number][
-      'verification'
-    ][
-      'state'
-    ]
-): string {
-  return state ===
-    'not-verified'
-    ? 'NOT VERIFIED'
-    : state.toUpperCase();
-}
-
-function describeVerificationState(
-  state:
-    SiteAgentReport[
-      'findings'
-    ][number][
-      'verification'
-    ][
-      'state'
-    ]
-): string {
-  switch (
-    state
-  ) {
-    case 'verified':
-      return 'The issue was deterministically demonstrated.';
-
-    case 'not-verified':
-      return 'Deterministic evidence contradicted the asserted issue.';
-
-    case 'inconclusive':
-      return 'The observation exists, but CheckQuest does not have sufficient deterministic evidence to confirm or disprove it.';
-  }
-}
-
-function formatSeverity(
-  severity: string
-): string {
-  return severity.toUpperCase();
-}
-
-function formatHeaderValues(
-  values:
-    readonly string[]
-): string {
-  if (
-    values.length ===
-    0
-  ) {
-    return '';
-  }
-
-  return (
-    ` Values: ${values
-      .map(
-        value => {
-          const longestBacktickRun =
-            Math.max(
-              0,
-              ...(
-                value.match(
-                  /`+/g
-                ) ??
-                []
-              ).map(
-                run =>
-                  run.length
-              )
-            );
-
-          const fence =
-            '`'.repeat(
-              longestBacktickRun +
-              1
-            );
-
-          const needsPadding =
-            value.startsWith(
-              '`'
-            ) ||
-            value.endsWith(
-              '`'
-            );
-
-          return (
-            `${fence}${needsPadding ? ' ' : ''}${value}${needsPadding ? ' ' : ''}${fence}`
-          );
-        }
-      )
-      .join(', ')}.`
-  );
+  directoryPath:
+    string;
+  filePath:
+    string;
 }
 
 function escapeMarkdownInlineText(
-  value: string
+  value:
+    string
 ): string {
   return value
     .replace(
@@ -165,7 +69,8 @@ function escapeMarkdownInlineText(
 }
 
 function formatMarkdownProse(
-  value: string
+  value:
+    string
 ): string {
   return value
     .replace(
@@ -200,31 +105,19 @@ function formatMarkdownProse(
 }
 
 function escapeTableCell(
-  value: string
+  value:
+    string
 ): string {
-  return value
-    .replace(
-      /\|/g,
-      '\\|'
-    )
-    .replace(
-      /\r?\n/g,
-      ' '
-    )
-    .replace(
-      /</g,
-      '&lt;'
-    )
-    .replace(
-      />/g,
-      '&gt;'
-    );
+  return escapeMarkdownInlineText(
+    value
+  );
 }
 
 function escapeMarkdownLinkDestination(
-  url: string
+  value:
+    string
 ): string {
-  return url
+  return value
     .replace(
       / /g,
       '%20'
@@ -239,493 +132,654 @@ function escapeMarkdownLinkDestination(
     );
 }
 
-function createPageLink(
-  title: string,
-  url: string
+function formatSeverity(
+  severity:
+    string
 ): string {
-  const displayTitle =
-    title.trim().length >
-    0
-      ? title
-      : url;
-
   return (
-    `[${escapeMarkdownInlineText(displayTitle)}](${escapeMarkdownLinkDestination(url)})`
+    `${severity
+      .charAt(
+        0
+      )
+      .toUpperCase()}${severity.slice(
+        1
+      )}`
   );
 }
 
-function createScreenshotLink(
-  screenshotPath:
-    string | null
+function createPageLink(
+  page:
+    HumanPageReference
 ): string {
+  return (
+    `[${escapeMarkdownInlineText(
+      page.label
+    )}](${escapeMarkdownLinkDestination(
+      page.url
+    )})`
+  );
+}
+
+function createPagesLabel(
+  pages:
+    readonly HumanPageReference[]
+): string {
+  return pages
+    .map(
+      createPageLink
+    )
+    .join(
+      ', '
+    );
+}
+
+function pluralize(
+  count:
+    number,
+  singular:
+    string,
+  plural =
+    `${singular}s`
+): string {
+  return (
+    `${count} ${count === 1 ? singular : plural}`
+  );
+}
+
+function createFindingCountSummary(
+  report:
+    HumanReportPresentation
+): string[] {
+  return [
+    '**CheckQuest found:**',
+    '',
+    `- **${report.confirmedIssueCount}** confirmed`,
+    `- **${report.needsReviewCount}** review`,
+    `- **${report.technicalObservationCount}** technical`
+  ];
+}
+
+function pushAtAGlanceTable(
+  lines:
+    string[],
+  findings:
+    readonly HumanIndexItem[]
+): void {
+  lines.push(
+    '| # | Finding / observation | Type | Severity | Page(s) | Status |',
+    '| --- | --- | --- | --- | --- | --- |'
+  );
+
+  for (
+    const finding of
+      findings
+  ) {
+    const pageLabel =
+      finding.pages.length ===
+        1
+        ? createPageLink(
+          finding.pages[0] as
+            HumanPageReference
+        )
+        : `${finding.pages.length} pages`;
+
+    lines.push(
+      `| [${finding.displayId}](#${finding.anchor}) | [${escapeTableCell(finding.title)}](#${finding.anchor}) | ${finding.type} | ${formatSeverity(finding.severity)} | ${pageLabel} | ${finding.status} |`
+    );
+  }
+
+  lines.push(
+    ''
+  );
+}
+
+function pushAtAGlance(
+  lines:
+    string[],
+  findings:
+    readonly HumanIndexItem[]
+): void {
+  lines.push(
+    '## At a glance',
+    ''
+  );
+
   if (
-    screenshotPath ===
+    findings.length ===
+    0
+  ) {
+    lines.push(
+      'No reportable findings or technical observations were identified.',
+      ''
+    );
+    return;
+  }
+
+  if (
+    findings.length <=
+      30
+  ) {
+    pushAtAGlanceTable(
+      lines,
+      findings
+    );
+    return;
+  }
+
+  pushAtAGlanceTable(
+    lines,
+    findings
+  );
+}
+
+function pushObservation(
+  lines:
+    string[],
+  observation:
+    string
+): void {
+  const formatted =
+    formatMarkdownProse(
+      observation
+    );
+
+  for (
+    const line of
+      formatted.split(
+        '\n'
+      )
+  ) {
+    lines.push(
+      `> ${line}`
+    );
+  }
+
+  lines.push(
+    ''
+  );
+}
+
+function pushFocusedEvidence(
+  lines:
+    string[],
+  finding:
+    HumanFindingPresentation
+): void {
+  if (
+    finding.focusedEvidence
+      .length ===
+    0
+  ) {
+    return;
+  }
+
+  lines.push(
+    '**Evidence**',
+    ''
+  );
+
+  if (
+    finding.focusedEvidence
+      .length >
+    0
+  ) {
+    for (
+      const [
+        index,
+        evidence
+      ] of finding
+        .focusedEvidence
+        .entries()
+    ) {
+      const suffix =
+        finding
+          .focusedEvidence
+          .length >
+          1
+          ? `, region ${index + 1}`
+          : '';
+
+      lines.push(
+        `![Focused evidence for ${escapeMarkdownInlineText(finding.title)}${suffix}](${escapeMarkdownLinkDestination(evidence.relativePath)})`,
+        ''
+      );
+    }
+
+    if (
+      finding.visualTargetCount >
+      finding.visuallyShownTargetCount
+    ) {
+      lines.push(
+        `${finding.visuallyShownTargetCount} of ${finding.visualTargetCount} observed instances are shown.`,
+        ''
+      );
+    }
+
+    return;
+  }
+
+}
+
+function pushDetailedFinding(
+  lines:
+    string[],
+  finding:
+    HumanFindingPresentation
+): void {
+  lines.push(
+    `<a id="${finding.anchor}"></a>`,
+    `### ${finding.displayId} — ${escapeMarkdownInlineText(finding.title)}`,
+    '',
+    `**${formatSeverity(finding.severity)} · ${finding.status}**  `,
+    `**${finding.pages.length === 1 ? 'Page' : 'Pages'}:** ${createPagesLabel(finding.pages)}`,
+    '',
+    '**What I saw**',
+    ''
+  );
+  pushObservation(
+    lines,
+    finding.observation
+  );
+  pushFocusedEvidence(
+    lines,
+    finding
+  );
+  if (
+    finding.whyItMayMatter !==
+      null
+  ) {
+    lines.push(
+      '**Why it may matter**',
+      '',
+      formatMarkdownProse(
+        finding.whyItMayMatter
+      ),
+      ''
+    );
+  }
+
+  if (
+    finding.whatToCheck !==
+      null
+  ) {
+    lines.push(
+      '**What to check**',
+      '',
+      formatMarkdownProse(
+        finding.whatToCheck
+      ),
+      ''
+    );
+  }
+
+  lines.push(
+    '---',
+    ''
+  );
+}
+
+function pushAdditionalFinding(
+  lines:
+    string[],
+  finding:
+    HumanFindingPresentation
+): void {
+  const pageLabel =
+    finding.pages.length ===
+      1
+      ? createPageLink(
+        finding.pages[0] as
+          HumanPageReference
+      )
+      : `${finding.pages.length} pages`;
+
+  lines.push(
+    `<a id="${finding.anchor}"></a>`,
+    `### ${finding.displayId} — ${escapeMarkdownInlineText(finding.title)}`,
+    '',
+    `**${formatSeverity(finding.severity)} · ${finding.status} · ${pageLabel}**`,
+    ''
+  );
+  pushObservation(
+    lines,
+    finding.observation
+  );
+
+  if (
+    finding.focusedEvidence
+      .length >
+    0
+  ) {
+    for (
+      const evidence of
+        finding
+          .focusedEvidence
+    ) {
+      lines.push(
+        `![Focused evidence for ${escapeMarkdownInlineText(finding.title)}](${escapeMarkdownLinkDestination(evidence.relativePath)})`,
+        ''
+      );
+    }
+  }
+
+  lines.push(
+    '---',
+    ''
+  );
+}
+
+export function renderHumanMarkdownReport(
+  report:
+    SiteAgentReport
+): string {
+  const presentation =
+    buildHumanReportPresentation(
+      report
+    );
+  const lines: string[] = [
+    `# CheckQuest report — ${escapeMarkdownInlineText(presentation.siteName)}`,
+    '',
+    `CheckQuest inspected ${pluralize(presentation.pagesInspected, 'page')} in ${presentation.duration}.`,
+    '',
+    ...createFindingCountSummary(
+      presentation
+    ),
+    ''
+  ];
+
+  if (
+    presentation.notableSummary !==
     null
   ) {
-    return 'Not captured';
-  }
-
-  const parts =
-    screenshotPath.split(
-      /[\\/]/
+    lines.push(
+      formatMarkdownProse(
+        presentation
+          .notableSummary
+      ),
+      ''
     );
-
-  const filename =
-    parts.at(-1);
+  }
 
   if (
-    !filename
+    presentation.outcomeNote !==
+      null
   ) {
-    return escapeTableCell(
-      screenshotPath
+    lines.push(
+      formatMarkdownProse(
+        presentation.outcomeNote
+      ),
+      ''
     );
   }
 
-  return (
-    `[${escapeMarkdownInlineText(filename)}](evidence/${escapeMarkdownLinkDestination(filename)})`
+  pushAtAGlance(
+    lines,
+    presentation.atAGlance
   );
-}
 
-function getPageTechnicalStatus(
-  report:
-    SiteAgentReport,
-  pageIndex:
-    number
-): string {
-  const page =
-    report.inspectedPages[
-      pageIndex
-    ];
-
-  const actionableCount =
-    page
-      .classifiedDiagnostics
-      .failedRequests
-      .filter(
-        item =>
-          item.disposition ===
-          'actionable'
-      )
-      .length;
-
-  const needsReviewCount =
-    page
-      .classifiedDiagnostics
-      .failedRequests
-      .filter(
-        item =>
-          item.disposition ===
-          'needs-review'
-      )
-      .length;
+  lines.push(
+    '## Findings',
+    ''
+  );
 
   if (
-    actionableCount >
+    presentation
+      .detailedFindings
+      .length ===
     0
   ) {
-    return (
-      `ACTIONABLE (${actionableCount})`
+    lines.push(
+      'No confirmed issues or items needing review were identified.',
+      ''
     );
+  } else {
+    for (
+      const finding of
+        presentation
+          .detailedFindings
+    ) {
+      pushDetailedFinding(
+        lines,
+        finding
+      );
+    }
   }
 
   if (
-    needsReviewCount >
+    presentation
+      .additionalFindings
+      .length >
     0
   ) {
-    return (
-      `REVIEW (${needsReviewCount})`
+    lines.push(
+      '## Additional findings',
+      ''
+    );
+
+    for (
+      const finding of
+        presentation
+          .additionalFindings
+    ) {
+      pushAdditionalFinding(
+        lines,
+        finding
+      );
+    }
+  }
+
+  lines.push(
+    '## Technical observations',
+    ''
+  );
+
+  if (
+    presentation
+      .technicalObservations
+      .length ===
+    0
+  ) {
+    lines.push(
+      'No lower-level technical observations were promoted into the human report.',
+      '',
+      'Additional browser and diagnostic details are available in `report.json`.',
+      ''
+    );
+  } else {
+    for (
+      const observation of
+        presentation
+          .technicalObservations
+    ) {
+      lines.push(
+        `<a id="${observation.anchor}"></a>`,
+        `### ${observation.displayId} — ${escapeMarkdownInlineText(observation.title)}`,
+        '',
+        `**${formatSeverity(observation.severity)} · Technical observation**  `,
+        `**${observation.pages.length === 1 ? 'Page' : 'Pages'}:** ${createPagesLabel(observation.pages)}`,
+        '',
+        `[Structured technical evidence](${escapeMarkdownLinkDestination(observation.evidencePath)})`,
+        ''
+      );
+      pushObservation(
+        lines,
+        observation.observation
+      );
+      lines.push(
+        '---',
+        ''
+      );
+    }
+
+    lines.push(
+      'Additional browser and diagnostic details are available in `report.json`.',
+      ''
     );
   }
 
-  return 'OK';
+  lines.push(
+    '## Security observations',
+    '',
+    formatMarkdownProse(
+      presentation
+        .securityDisclaimer
+    ),
+ ''
+  );
+
+  if (
+    presentation
+      .securityObservations
+      .length ===
+    0
+  ) {
+    lines.push(
+      'No passive security observations were produced.',
+      ''
+    );
+  } else {
+    lines.push(
+      '| # | Observation | Severity | Scope |',
+      '| --- | --- | --- | --- |'
+    );
+
+    for (
+      const observation of
+        presentation
+          .securityObservations
+    ) {
+      lines.push(
+        `| [${observation.displayId}](#${observation.anchor}) | [${escapeTableCell(observation.title)}](#${observation.anchor}) | ${formatSeverity(observation.severity)} | ${escapeTableCell(observation.scope)} |`
+      );
+    }
+
+    lines.push(
+      ''
+    );
+
+    for (
+      const observation of
+        presentation
+          .securityObservations
+    ) {
+      lines.push(
+        `<a id="${observation.anchor}"></a>`,
+        `### ${observation.displayId} — ${escapeMarkdownInlineText(observation.title)}`,
+        '',
+        `**${formatSeverity(observation.severity)} · Security observation · ${observation.scope}**`,
+        '',
+        formatMarkdownProse(
+          observation.description
+        ),
+ '',
+        `[Security evidence file](${escapeMarkdownLinkDestination(observation.evidencePath)})`,
+        '',
+        '<details>',
+        '<summary>Technical header evidence</summary>',
+        ''
+      );
+
+      for (
+        const evidence of
+          observation.evidence
+      ) {
+        lines.push(
+          `- ${formatMarkdownProse(evidence)}`
+        );
+      }
+
+      lines.push(
+        '',
+        '</details>',
+        ''
+      );
+
+      if (
+        observation.whatToCheck !==
+        null
+      ) {
+        lines.push(
+          '**What to check:**',
+          '',
+          formatMarkdownProse(
+            observation.whatToCheck
+          ),
+          ''
+        );
+      }
+
+      lines.push(
+        '---',
+        ''
+      );
+    }
+  }
+
+  lines.push(
+    '## Pages inspected',
+    '',
+    '| Page | Reached via | Related items |',
+    '| --- | --- | --- |'
+  );
+
+  if (
+    presentation
+      .inspectedPages
+      .length ===
+    0
+  ) {
+    lines.push(
+      '| No pages were inspected | - | - |'
+    );
+  } else {
+    for (
+      const page of
+        presentation
+          .inspectedPages
+    ) {
+      lines.push(
+        `| ${createPageLink(page.page)} | ${page.reachedVia} | ${page.relatedItems.length === 0
+          ? 'None'
+          : page.relatedItems.map(
+            item =>
+              `[${item.displayId}](#${item.anchor})`
+          ).join(', ')} |`
+      );
+    }
+  }
+
+  lines.push(
+    '',
+    'Full machine-readable evidence, diagnostics, verification states, and execution details are available in `report.json`.',
+    ''
+  );
+
+  return `${lines.join('\n')}\n`;
 }
 
 export async function writeMarkdownReport(
-  report: SiteAgentReport
+  report:
+    SiteAgentReport
 ): Promise<WrittenMarkdownReport> {
   const directoryPath =
     join(
       'agent-results',
       report.runId
     );
-
   const filePath =
     join(
       directoryPath,
       'report.md'
     );
-
-  const lines: string[] = [
-    '# CheckQuest Report',
-    '',
-    `**Site:** ${report.site.name}  `,
-    `**Start URL:** ${report.site.startUrl}  `,
-    `**Run ID:** ${report.runId}  `,
-    `**Started:** ${report.startedAt}  `,
-    `**Finished:** ${report.finishedAt}`,
-    '',
-    '## Summary',
-    '',
-    '| Metric | Result |',
-    '| --- | --- |',
-    `| Pages inspected | ${report.summary.pagesInspected} |`,
-    `| Logical findings | ${report.summary.logicalFindingsCount} |`,
-    `| Finding occurrences | ${report.summary.findingOccurrencesCount} |`,
-    `| New candidate findings | ${report.summary.newCandidateFindingsCount} |`,
-    `| Known finding occurrences | ${report.summary.knownFindingOccurrencesCount} |`,
-    `| Known context items supplied | ${report.summary.knownFindingsSuppliedToAnalysisCount} |`,
-    `| Redundant investigations skipped | ${report.summary.redundantInvestigationsSkippedCount} |`,
-    `| Highest exploratory severity | ${formatSeverity(report.summary.highestExploratoryQaSeverity)} |`,
-    `| Actionable diagnostics | ${report.summary.actionableDiagnosticsCount} |`,
-    `| Diagnostics needing review | ${report.summary.diagnosticsNeedingReviewCount} |`,
-    `| Passive security observations | ${report.passiveSecurity.summary.observationsCount} |`,
-    `| Passive security medium / low / info | ${report.passiveSecurity.summary.bySeverity.medium} / ${report.passiveSecurity.summary.bySeverity.low} / ${report.passiveSecurity.summary.bySeverity.info} |`,
-    `| Run outcome | ${report.outcome.type.toUpperCase()} |`,
-    '',
-    formatMarkdownProse(
-      report.outcome.summary
-    ),
-    '',
-    '## Findings',
-    ''
-  ];
-
-  if (
-    report
-      .findings
-      .length ===
-    0
-  ) {
-    lines.push(
-      'No canonical findings were identified.',
-      ''
-    );
-  } else {
-    report
-      .findings
-      .forEach(
-        (
-          finding,
-          findingIndex
-        ) => {
-          const occurrenceCount =
-            finding
-              .occurrences
-              .length;
-
-          const affectedPageCount =
-            new Set(
-              finding
-                .occurrences
-                .map(
-                  occurrence =>
-                    occurrence.pageUrl
-                )
-            ).size;
-
-          lines.push(
-            `### ${findingIndex + 1}. ${formatVerificationState(finding.verification.state)} - ${escapeMarkdownInlineText(finding.title)}`,
-            '',
-            `**Severity:** ${formatSeverity(finding.severity)}  `,
-            `**Category:** ${finding.category}  `,
-            `**Observed on:** ${affectedPageCount} page${affectedPageCount === 1 ? '' : 's'} (${occurrenceCount} occurrence${occurrenceCount === 1 ? '' : 's'})`,
-            '',
-            formatMarkdownProse(
-              finding.description
-            ),
-            '',
-            `**Verification:** ${formatVerificationState(finding.verification.state)} - ${describeVerificationState(finding.verification.state)}`,
-            '',
-            `**Derivation:** ${formatMarkdownProse(finding.verification.reason)}`,
-            ''
-          );
-
-          if (
-            finding.suggestedCheck !==
-            null
-          ) {
-            lines.push(
-              `**Recommended next step:** ${formatMarkdownProse(finding.suggestedCheck)}`,
-              ''
-            );
-          }
-
-          lines.push(
-            '#### Occurrences',
-            ''
-          );
-
-          finding
-            .occurrences
-            .forEach(
-              occurrence => {
-                const suppressedLabel =
-                  occurrence
-                    .redundantInvestigationSkipped
-                    ? ' — KNOWN, NOT REINVESTIGATED'
-                    : '';
-
-              lines.push(
-                `##### ${createPageLink(occurrence.pageTitle, occurrence.pageUrl)}`,
-                '',
-                `**Occurrence status:** ${formatVerificationState(occurrence.verification.state)}${suppressedLabel}  `,
-                `**Derivation:** ${formatMarkdownProse(occurrence.verification.reason)}  `,
-                `**Screenshot:** ${createScreenshotLink(occurrence.screenshotReferences[0] ?? null)}`,
-                '',
-                '**Evidence:**',
-                ''
-              );
-
-                occurrence
-                  .evidence
-                  .forEach(
-                    evidence => {
-                      const capability =
-                        evidence
-                          .verificationCapable
-                          ? 'verification-capable'
-                          : 'context only';
-
-                      lines.push(
-                        `- **${evidence.source} / ${evidence.relation} / ${capability}:** ${formatMarkdownProse(evidence.summary)}`
-                      );
-                    }
-                  );
-
-                lines.push(
-                  ''
-                );
-              }
-            );
-
-          lines.push(
-            ''
-          );
-        }
-      );
-  }
-
-  lines.push(
-    '## Passive Security Posture',
-    '',
-    report
-      .passiveSecurity
-      .disclaimer,
-    '',
-    `**Origins observed:** ${report.passiveSecurity.summary.originsObserved}  `,
-    `**Logical observations:** ${report.passiveSecurity.summary.observationsCount}  `,
-    `**Severity counts:** MEDIUM ${report.passiveSecurity.summary.bySeverity.medium}, LOW ${report.passiveSecurity.summary.bySeverity.low}, INFO ${report.passiveSecurity.summary.bySeverity.info}`,
-    '',
-    '### Category Summary',
-    '',
-    '| Category | Observations |',
-    '| --- | ---: |'
-  );
-
-  for (
-    const [
-      category,
-      count
-    ] of Object.entries(
+  const presentation =
+    buildHumanReportPresentation(
       report
-        .passiveSecurity
-        .summary
-        .byCategory
-    )
-  ) {
-    lines.push(
-      `| ${category} | ${count} |`
     );
-  }
-
-  lines.push(
-    ''
-  );
-
-  if (
-    report
-      .passiveSecurity
-      .observations
-      .length ===
-    0
-  ) {
-    lines.push(
-      'No passive main-document security posture observations were produced.',
-      ''
+  const evidenceDirectoryPath =
+    join(
+      directoryPath,
+      'evidence'
     );
-  } else {
-    for (
-      const observation of
-        report
-          .passiveSecurity
-          .observations
-    ) {
-      const affectedPageCount =
-        new Set(
-          observation
-            .occurrences
-            .map(
-              occurrence =>
-                occurrence.pageUrl
-            )
-        ).size;
-
-      lines.push(
-        `### ${observation.observationReference} - ${escapeMarkdownInlineText(observation.title)}`,
-        '',
-        `**Code:** ${observation.code}  `,
-        `**Posture:** ${observation.posture}  `,
-        `**Severity:** ${formatSeverity(observation.severity)}  `,
-        `**Confidence:** ${formatSeverity(observation.confidence)}  `,
-        `**Category:** ${observation.category}  `,
-        `**Scope:** ${observation.scope.type} — ${observation.scope.key}  `,
-        `**Observed on:** ${affectedPageCount} page${affectedPageCount === 1 ? '' : 's'} (${observation.occurrences.length} occurrence${observation.occurrences.length === 1 ? '' : 's'})`,
-        '',
-        formatMarkdownProse(
-          observation.description
-        ),
-        ''
-      );
-
-      if (
-        observation.remediation !==
-        null
-      ) {
-        lines.push(
-          `**Conservative remediation:** ${formatMarkdownProse(observation.remediation)}`,
-          ''
-        );
-      }
-
-      lines.push(
-        '#### Passive occurrences',
-        ''
-      );
-
-      for (
-        const occurrence of
-          observation
-            .occurrences
-      ) {
-        lines.push(
-          `##### ${createPageLink(occurrence.pageTitle, occurrence.pageUrl)}`,
-          '',
-          `**Response:** ${occurrence.responseUrl}`,
-          '',
-          '**Deterministic evidence:**',
-          ''
-        );
-
-        for (
-          const evidence of
-            occurrence.evidence
-        ) {
-          lines.push(
-            `- **${evidence.kind} / ${evidence.subject}:** ${formatMarkdownProse(evidence.summary)}${formatHeaderValues(evidence.headerValues ?? [])}`
-          );
-        }
-
-        lines.push(
-          ''
-        );
-      }
-    }
-  }
-
-  lines.push(
-    '## Pages Inspected',
-    '',
-    '| Page | Reached via | Predicted area / route family | Observed template | HTTP | Exploratory occurrences | Rule-based findings | Technical health |',
-    '| --- | --- | --- | --- | ---: | ---: | ---: | --- |'
-  );
-
-  report.inspectedPages.forEach(
-    (
-      pageResult,
-      pageIndex
-    ) => {
-      const predictedIdentity =
-        pageResult
-          .pageNovelty
-          .predictedIdentity;
-
-      const predictedIdentityLabel =
-        escapeTableCell(
-          `${predictedIdentity.areaKey} / ${predictedIdentity.routeFamilyKey}`
-        );
-
-      const observedTemplateKey =
-        escapeTableCell(
-          pageResult
-            .pageNovelty
-            .observedTemplateKey
-        );
-
-      const inspectionSource =
-        pageResult.selection.type ===
-          'start-url'
-          ? 'Configured start URL'
-          : pageResult
-            .selection
-              .navigationAudit
-            ? `Agent-selected navigation (depth ${pageResult.selection.navigationAudit.traversalDepth}, value ${pageResult.selection.navigationAudit.valueClass ?? 'not-applicable'}, ${pageResult.selection.navigationAudit.policyBand}${pageResult.selection.navigationAudit.valueReasons.length > 0 ? `; reasons: ${pageResult.selection.navigationAudit.valueReasons.join(', ')}` : ''})`
-            : 'Agent-selected navigation';
-
-      lines.push(
-        `| ${createPageLink(pageResult.observation.title, pageResult.observation.finalUrl)} | ${escapeTableCell(inspectionSource)} | ${predictedIdentityLabel} | ${observedTemplateKey} | ${formatHttpStatus(pageResult.observation.httpStatus)} | ${pageResult.exploratoryQaAnalysis.findings.length + pageResult.knownFindingOccurrences.length} | ${pageResult.findings.length} | ${getPageTechnicalStatus(report, pageIndex)} |`
-      );
-    }
-  );
-
-  if (
-    report.inspectedPages.length ===
-    0
-  ) {
-    lines.push(
-      '| No pages were inspected | - | - | - | - | - | - | - |'
-    );
-  }
-
-  lines.push(
-    '',
-    '## Technical Health',
-    ''
-  );
-
-  if (
-    report.summary
-      .actionableDiagnosticsCount ===
-      0 &&
-    report.summary
-      .diagnosticsNeedingReviewCount ===
-      0
-  ) {
-    lines.push(
-      'No actionable browser or network diagnostics were detected.'
-    );
-  } else {
-    lines.push(
-      `- Actionable diagnostics: ${report.summary.actionableDiagnosticsCount}`,
-      `- Diagnostics needing review: ${report.summary.diagnosticsNeedingReviewCount}`
-    );
-  }
-
-  if (
-    report.summary
-      .ignoredDiagnosticNoiseCount >
-    0
-  ) {
-    lines.push(
-      '',
-      `${report.summary.ignoredDiagnosticNoiseCount} diagnostic event${report.summary.ignoredDiagnosticNoiseCount === 1 ? '' : 's'} were classified as ignored browser, telemetry, advertising, or third-party noise.`
-    );
-  }
-
-  lines.push(
-    '',
-    'Full execution details, raw diagnostics, exploratory analysis, investigation steps, and deterministic evidence are retained in `report.json`.',
-    ''
-  );
 
   await mkdir(
     directoryPath,
@@ -734,10 +788,109 @@ export async function writeMarkdownReport(
         true
     }
   );
+  await mkdir(
+    evidenceDirectoryPath,
+    {
+      recursive:
+        true
+    }
+  );
+
+  for (
+    const finding of
+      presentation.atAGlance
+  ) {
+    const detailedFinding =
+      [
+        ...presentation
+          .detailedFindings,
+        ...presentation
+          .additionalFindings
+      ].find(
+        item =>
+          item.displayId ===
+          finding.displayId
+      );
+
+    for (
+      const evidence of
+        detailedFinding
+          ?.focusedEvidence ??
+        []
+    ) {
+      await copyFile(
+        evidence.sourcePath,
+        join(
+          directoryPath,
+          evidence.relativePath
+        )
+      );
+    }
+  }
+
+  for (
+    const observation of
+      presentation
+        .technicalObservations
+  ) {
+    await writeFile(
+      join(
+        directoryPath,
+        observation.evidencePath
+      ),
+      `${JSON.stringify(
+        {
+          id:
+            observation.displayId,
+          title:
+            observation.title,
+          severity:
+            observation.severity,
+          pages:
+            observation.pages.map(
+              page =>
+                page.url
+            ),
+          observation:
+            observation.observation
+        },
+        null,
+        2
+      )}\n`,
+      'utf8'
+    );
+  }
+
+  for (
+    const observation of
+      presentation
+        .securityObservations
+  ) {
+    await writeFile(
+      join(
+        directoryPath,
+        observation.evidencePath
+      ),
+      [
+        `${observation.displayId} — ${observation.title}`,
+        `Severity: ${formatSeverity(observation.severity)}`,
+        `Scope: ${observation.scope}`,
+        '',
+        observation.description,
+        '',
+        ...observation.evidence
+      ].join(
+        '\n'
+      ),
+      'utf8'
+    );
+  }
 
   await writeFile(
     filePath,
-    `${lines.join('\n')}\n`,
+    renderHumanMarkdownReport(
+      report
+    ),
     'utf8'
   );
 

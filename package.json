@@ -75,6 +75,7 @@
     "agent:known-findings-check": "tsx agent/known-findings-check.ts",
     "agent:unified-findings-check": "tsx agent/unified-findings-check.ts",
     "agent:finding-reconciliation-check": "tsx agent/finding-reconciliation-check.ts",
+    "agent:finding-identity-check": "tsx agent/finding-identity-check.ts",
     "agent:unified-lifecycle-check": "tsx agent/unified-finding-lifecycle-check.ts",
     "agent:run-finding-lifecycle-check": "tsx agent/run-finding-lifecycle-check.ts",
     "agent:run-finding-lifecycle-integrity-check": "tsx agent/run-finding-lifecycle-integrity-check.ts",
@@ -84,7 +85,9 @@
     "agent:cli-configuration-error-check": "tsx agent/cli-configuration-error-check.ts",
     "agent:passive-security-check": "tsx agent/passive-security-check.ts",
     "agent:passive-security-browser-check": "tsx agent/passive-security-browser-acceptance-check.ts",
-    "agent:passive-security-report-check": "tsx agent/passive-security-report-check.ts"
+    "agent:passive-security-report-check": "tsx agent/passive-security-report-check.ts",
+    "agent:human-report-check": "tsx agent/human-report-check.ts",
+    "agent:focused-evidence-browser-check": "tsx agent/focused-evidence-browser-check.ts"
   },
   "keywords": [
     "qa",

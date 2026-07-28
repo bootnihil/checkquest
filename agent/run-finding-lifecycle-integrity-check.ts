@@ -1109,22 +1109,13 @@ function checkAliasIntegrity(): void {
     assert.equal(
       lifecycle
         .unifiedFingerprintAliases
-        .get(
+        .has(
           createExploratoryFindingFingerprint(
             emptyTitleModel
           )
         ),
-      'rule|EMPTY_PAGE_TITLE'
-    );
-    assert.equal(
-      lifecycle
-        .unifiedFingerprintAliases
-        .get(
-          createExploratoryFindingFingerprint(
-            noHeadingsModel
-          )
-        ),
-      'rule|NO_PRIMARY_HEADINGS'
+      false,
+      'Generated targetless prose is not retained as a substantive fingerprint alias.'
     );
     assert.deepEqual(
       new Set(

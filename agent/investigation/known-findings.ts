@@ -615,6 +615,24 @@ export function reconcilePageFindings(
     const modelFinding of
       geminiFindings
   ) {
+    if (
+      modelFinding.evidenceTarget ===
+        null &&
+      (
+        modelFinding.structuredIdentity ===
+          null ||
+        modelFinding.structuredIdentity ===
+          undefined
+      )
+    ) {
+      newFindings.push({
+        ...modelFinding,
+        knownFindingReference:
+          null
+      });
+      continue;
+    }
+
     const fingerprint =
       createExploratoryFindingFingerprint(
         modelFinding
@@ -997,6 +1015,7 @@ export function registerNewFinding(
   state: KnownFindingState,
   input: {
     finding: ExploratoryQaFinding;
+    fingerprint?: string;
     pageUrl: string;
     pageTitle: string;
     screenshotPath: string | null;
@@ -1007,6 +1026,7 @@ export function registerNewFinding(
     state,
     {
       fingerprint:
+        input.fingerprint ??
         createExploratoryFindingFingerprint(
           input.finding
         ),

@@ -109,6 +109,8 @@ export interface ReconciledRunPageFindings {
 export interface ReconcileRunPageFindingsInput {
   pageUrl: string;
   pageTitle: string;
+  pageContent?:
+    ExtractedPageContent;
   ruleFindings:
     PageFinding[];
   rawExploratoryQaAnalysis:
@@ -291,13 +293,8 @@ function createModelFindingIdentity(
   finding:
     ExploratoryQaFinding
 ): string {
-  return [
-    createExploratoryFindingFingerprint(
-      finding
-    ),
-    finding.relatedRuleCode ?? ''
-  ].join(
-    '|related-rule|'
+  return JSON.stringify(
+    finding
   );
 }
 
@@ -373,7 +370,9 @@ export function reconcileRunPageFindings(
       modelFindings:
         input
           .rawExploratoryQaAnalysis
-          .findings
+          .findings,
+      pageContent:
+        input.pageContent
     });
 
   const reconciledPageFindings =
@@ -431,15 +430,24 @@ export function reconcileRunPageFindings(
               .fingerprint
           );
 
-        state
-          .unifiedFingerprintAliases
-          .set(
-            createExploratoryFindingFingerprint(
-              finding
-            ),
-            reconciliation
-              .fingerprint
+        const modelFingerprint =
+          createExploratoryFindingFingerprint(
+            finding
           );
+
+        if (
+          !modelFingerprint.startsWith(
+            'unstructured|'
+          )
+        ) {
+          state
+            .unifiedFingerprintAliases
+            .set(
+              modelFingerprint,
+              reconciliation
+                .fingerprint
+            );
+        }
       }
     );
 
@@ -774,6 +782,12 @@ export function commitRunPageFindings(
       {
         finding:
           candidate.finding,
+        fingerprint:
+          input.page
+            .unifiedFingerprintByCandidateReference
+            .get(
+              candidate.reference
+            ),
         pageUrl:
           input.pageUrl,
         pageTitle:

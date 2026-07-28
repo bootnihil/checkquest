@@ -14,6 +14,9 @@ import {
 import {
   capturePageScreenshot
 } from '../browser/capture-page-screenshot';
+import {
+  captureFindingPresentationEvidence
+} from '../browser/capture-finding-presentation-evidence';
 import type {
   PageDiagnosticsCollector
 } from '../browser/collect-page-diagnostics';
@@ -47,8 +50,12 @@ import {
   evaluateFindingInvestigationOutcome
 } from '../investigation/evaluate-finding-investigation-outcome';
 import {
+  normalizeRunCancellation,
   waitForRunDelay
 } from '../errors/run-cancellation';
+import {
+  CheckQuestError
+} from '../errors/checkquest-error';
 import type {
   GeminiRequestEvent
 } from '../ai/run-gemini-request';
@@ -65,6 +72,7 @@ import type {
   planNextAction
 } from '../planning/plan-next-action';
 import type {
+  FindingPresentationEvidence,
   InspectedPageResult
 } from '../reporting/report-types';
 import type {
@@ -193,26 +201,6 @@ export async function inspectPage(
     classifyDiagnostics(
       diagnostics
     );
-
-  const actionableRequestCount =
-    classifiedDiagnostics
-      .failedRequests
-      .filter(
-        item =>
-          item.disposition ===
-          'actionable'
-      )
-      .length;
-
-  const needsReviewCount =
-    classifiedDiagnostics
-      .failedRequests
-      .filter(
-        item =>
-          item.disposition ===
-          'needs-review'
-      )
-      .length;
 
   const findings =
     evaluatePageObservation(
@@ -355,6 +343,7 @@ export async function inspectPage(
           pageObservation.finalUrl,
         pageTitle:
           pageObservation.title,
+        pageContent,
         ruleFindings:
           findings,
         rawExploratoryQaAnalysis,
@@ -468,35 +457,149 @@ export async function inspectPage(
       })
     );
 
-  const investigationPerformedAction =
-
-    exploratoryInvestigation
-      ?.steps
-      .some(
-        step =>
-          step.decision.action.kind !==
-            'stop' &&
-          step.executionResult.status ===
-            'executed'
-      ) ??
+  /*
+   * A generic page image does not prove a specific claim. Human-facing
+   * screenshots are now captured only for exact focused targets below.
+   * Investigation and diagnostic facts remain structured non-visual evidence.
+   */
+  const shouldCaptureScreenshot =
     false;
 
-  const shouldCaptureScreenshot =
-    findings.length >
-      0 ||
-    actionableRequestCount >
-      0 ||
-    needsReviewCount >
-      0 ||
-    exploratoryQaAnalysis
-      .findings
-      .length >
-      0 ||
-    reconciledPageFindings
-      .knownOccurrenceDrafts
-      .length >
-      0 ||
-    investigationPerformedAction;
+  const presentationEvidence:
+    FindingPresentationEvidence[] =
+      [];
+
+  for (
+    const [
+      candidateIndex,
+      exploratoryFindingResult
+    ] of
+    exploratoryFindingResults.entries()
+  ) {
+    const target =
+      exploratoryFindingResult
+        .finding
+        .presentationTarget ??
+      (
+        exploratoryFindingResult
+          .finding
+          .evidenceTarget
+          ?.kind ===
+        'select-option'
+          ? exploratoryFindingResult
+              .finding
+              .evidenceTarget
+          : null
+      );
+
+    if (
+      exploratoryFindingResult
+        .outcome
+        .status ===
+        'not-verified' ||
+      target ===
+        null ||
+      target ===
+        undefined
+    ) {
+      continue;
+    }
+
+    try {
+      const allowObservedStateReplay =
+        target.kind ===
+          'select-option' &&
+        (
+          exploratoryInvestigation
+            ?.steps.some(
+              step =>
+                step.decision
+                  .candidateReference ===
+                  exploratoryFindingResult
+                    .candidateReference &&
+                step.decision
+                  .action.kind ===
+                  'select-option' &&
+                step.decision
+                  .action.optionText ===
+                  target.optionText &&
+                step.executionResult
+                  .status ===
+                  'executed'
+            ) ??
+          false
+        );
+      const focusedEvidence =
+        await captureFindingPresentationEvidence(
+          page,
+          {
+            runId,
+            pageNumber:
+              pageIndex +
+              1,
+            candidateNumber:
+              candidateIndex +
+              1,
+            target,
+            allowObservedStateReplay,
+            signal:
+              input
+                .dependencies
+                ?.signal
+          }
+        );
+
+      if (
+        focusedEvidence
+          .totalTargetCount >
+          0
+      ) {
+        presentationEvidence.push({
+          candidateReference:
+            exploratoryFindingResult
+              .candidateReference,
+          pageUrl:
+            pageObservation
+              .finalUrl,
+          target,
+          screenshotPaths:
+            focusedEvidence
+              .screenshotPaths,
+          totalTargetCount:
+            focusedEvidence
+              .totalTargetCount,
+          shownTargetCount:
+            focusedEvidence
+              .shownTargetCount,
+          replay:
+            focusedEvidence
+              .replay
+        });
+      }
+    } catch (
+      error:
+        unknown
+    ) {
+      const normalizedError =
+        normalizeRunCancellation(
+          error,
+          input
+            .dependencies
+            ?.signal,
+          runId,
+          'focused-evidence-screenshot'
+        );
+
+      if (
+        normalizedError instanceof
+          CheckQuestError &&
+        normalizedError.code ===
+          'CANCELLED'
+      ) {
+        throw normalizedError;
+      }
+    }
+  }
 
   let screenshotPath:
     string | null =
@@ -565,6 +668,8 @@ export async function inspectPage(
     classifiedDiagnostics,
 
     screenshotPath,
+
+    presentationEvidence,
 
     findings,
 

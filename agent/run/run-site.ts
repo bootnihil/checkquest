@@ -77,6 +77,9 @@ import type {
   SiteAgentReport
 } from '../reporting/report-types';
 import {
+  buildReconciledRunSummaryProjection
+} from '../reporting/run-summary-projection';
+import {
   captureMainDocumentSecurity
 } from '../security/capture-main-document-security';
 import {
@@ -218,6 +221,11 @@ export async function runSite(
       'run-completion'
     );
 
+    const runSummary =
+      buildReconciledRunSummaryProjection(
+        report
+      );
+
     emit({
       type:
         'run-completed',
@@ -226,11 +234,20 @@ export async function runSite(
       outcome:
         report.outcome.type,
       inspectedPageCount:
-        report.summary
-          .pagesInspected,
+        runSummary
+          .inspectedPageCount,
       findingCount:
-        report.summary
-          .logicalFindingsCount,
+        runSummary
+          .primaryFindingCount,
+      confirmedFindingCount:
+        runSummary
+          .confirmedFindingCount,
+      reviewFindingCount:
+        runSummary
+          .reviewFindingCount,
+      technicalObservationCount:
+        runSummary
+          .technicalObservationCount,
       occurrenceCount:
         report.summary
           .findingOccurrencesCount

@@ -108,6 +108,9 @@ export type RunEvent =
           | 'finished';
         inspectedPageCount: number;
         findingCount: number;
+        confirmedFindingCount: number;
+        reviewFindingCount: number;
+        technicalObservationCount: number;
         occurrenceCount: number;
       }
     )

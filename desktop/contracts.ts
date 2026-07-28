@@ -242,6 +242,12 @@ export type DesktopRunEvent =
           number;
         findingCount:
           number;
+        confirmedFindingCount:
+          number;
+        reviewFindingCount:
+          number;
+        technicalObservationCount:
+          number;
         occurrenceCount:
           number;
       }
@@ -963,6 +969,12 @@ const desktopRunEventSchemas:
         inspectedPageCount:
           nonNegativeInteger,
         findingCount:
+          nonNegativeInteger,
+        confirmedFindingCount:
+          nonNegativeInteger,
+        reviewFindingCount:
+          nonNegativeInteger,
+        technicalObservationCount:
           nonNegativeInteger,
         occurrenceCount:
           nonNegativeInteger

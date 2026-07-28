@@ -23,25 +23,28 @@ CheckQuest is organized around a small reusable core with these constraints:
 - explicit, privacy-safe progress and failure contracts; and
 - required cleanup that does not hide an earlier operational failure.
 
-The current CLI is one adapter around that core. A future desktop or web
-frontend can call the same coordinator and consume its events and in-memory
-report without moving CLI rendering, filesystem persistence, environment-based
-credential resolution, or process-exit behavior into the engine.
+The current CLI and local Electron desktop GUI MVP are presentation adapters
+around the same application and reusable-core boundaries. Both can consume
+structured progress, categorized failures, reconciled run summaries, and
+persisted report artifacts without moving presentation logic, credential
+storage, or process-exit behavior into the engine. A future web frontend can
+reuse the same boundary without becoming another finding or reporting
+authority.
 
 ## Execution overview
 
 ```mermaid
 flowchart TD
-  CLI["CLI adapter"] --> CFG["Parse arguments and resolve SiteConfig"]
-  CLI --> CREDS["Resolve CLI Gemini credential"]
-  CFG --> RUN["runSite reusable coordinator"]
-  CREDS --> RUN
-  RUN -. "RunEvent progress" .-> PRESENT["Caller or CLI renderer"]
-  RUN -. "CheckQuestError failure" .-> PRESENT
+  CLI["CLI adapter"] --> CLIIN["Parse CLI arguments and adapt environment"]
+  DESK["Electron desktop GUI"] --> GUIIN["Collect target, budgets, key, and model"]
+  CLIIN --> APP["startCheckQuest application boundary"]
+  GUIIN --> APP
+  APP --> RUN["runSite reusable coordinator"]
+  RUN -. "RunEvent progress / CheckQuestError" .-> APP
   RUN --> PRE["Validate input and preflight per-run Gemini credential when required"]
   PRE --> BROWSER["Launch Chromium and visit the start page"]
   BROWSER --> PAGE["inspectPage pipeline"]
-  PAGE --> WORK["Observe, analyze, reconcile, investigate, and commit"]
+  PAGE --> WORK["Observe, analyze, reconcile, investigate, evidence, and commit"]
   WORK --> MORE{"Eligible page and budgets remain?"}
   MORE -->|"Yes"| NAV["Deterministic navigation policy"]
   NAV --> CHOICE["Bounded Gemini choice within eligible band"]
@@ -49,7 +52,9 @@ flowchart TD
   MORE -->|"No"| REPORT["Build schema-v3 SiteAgentReport"]
   REPORT --> CLEAN["Dispose diagnostics and close browser"]
   CLEAN --> RETURN["Return in-memory report"]
-  RETURN --> PERSIST["CLI-only JSON and Markdown persistence"]
+  RETURN --> APP
+  APP --> PERSIST["Persist JSON and Markdown reports"]
+  APP -. "Shared summary / artifacts / terminal state" .-> PRESENT["CLI or desktop presentation"]
 ```
 
 The configured start page is always the first inspected page. Page count,
@@ -65,10 +70,16 @@ The [CLI entry point](../agent/run-site-agent.ts) owns:
 - resolving `GEMINI_API_KEY` from the invoking environment and adapting it into
   the explicit per-run credential contract;
 - creating CLI-oriented run metadata;
-- rendering `RunEvent` values;
-- writing JSON and Markdown reports after a successful core run;
+- calling the shared application boundary;
+- rendering `RunEvent` values and returned artifact paths;
 - printing the final public error; and
 - setting process exit behavior.
+
+The local Electron desktop adapter owns its window, renderer state, user input,
+and presentation of the same application events/results. It supplies target,
+budgets, transient per-run Gemini credentials, optional model selection, and
+cancellation without becoming a second execution, finding, or reporting
+authority.
 
 The [run coordinator](../agent/run/run-site.ts) owns:
 
@@ -147,8 +158,8 @@ before a later failure may still exist on disk.
 ## Application run boundary
 
 [`startCheckQuest(...)`](../agent/application/start-checkquest.ts) is the
-presentation-agnostic boundary intended for a local GUI or another product
-shell:
+presentation-agnostic boundary used by the current CLI and local Electron
+desktop GUI MVP and intended for any other product shell:
 
 ```ts
 const run = startCheckQuest({
@@ -184,7 +195,9 @@ than replacing cancellation.
 
 The CLI is a thin adapter over `startCheckQuest(...)`: it parses arguments,
 adapts `GEMINI_API_KEY` and `GEMINI_MODEL` from its environment, renders
-events, and prints the returned artifact paths.
+events, and prints the returned artifact paths. The Electron desktop GUI uses
+the same boundary with renderer-supplied run inputs and transient credentials;
+neither adapter owns canonical finding reconciliation or report accounting.
 
 ## Configuration and input validation
 
@@ -243,6 +256,13 @@ Direct `runSite(...)` callers receive core completion before any caller-owned
 persistence. `startCheckQuest(...)` holds that terminal completion event until
 report persistence succeeds, so application callers receive exactly one
 terminal completion or failure for the full application run.
+
+Completed-run accounting distinguishes confirmed findings, review findings,
+and technical observations instead of flattening them into one ambiguous
+"findings" count. The application/desktop presentation and human report derive
+those categories from the shared
+[`run-summary-projection`](../agent/reporting/run-summary-projection.ts), so
+presentation surfaces do not independently recompute logical totals.
 
 Event payloads contain bounded operational context and sanitized display URLs.
 They do not contain API keys, prompts, raw model responses, SDK causes, page
@@ -308,7 +328,9 @@ coordinator. For each already-navigated page it performs this ordered work:
    run;
 9. perform bounded, candidate-linked investigation when eligible;
 10. deterministically derive an outcome for every candidate;
-11. capture a screenshot only when the evidence policy calls for one;
+11. capture finding-focused presentation evidence when the claim and evidence
+    policy support it, rather than taking a generic screenshot merely because a
+    page has findings or diagnostics;
 12. validate and commit the complete page finding lifecycle; and
 13. update the navigation frontier and inspected-final-URL state.
 
@@ -348,6 +370,21 @@ The [unified finding model](../agent/findings/finding-model.ts) is the
 authoritative functional finding contract. A logical finding has a stable
 fingerprint, one or more occurrences, traceable evidence, and a conservative
 verification state.
+
+Reconciliation is based on validated structured identity rather than
+human-facing prose. Where applicable, identity uses a composite of the defect
+mechanism, exact observed value, evidence source, semantic control type, and
+stable component/control identity. Model-supplied identity is validated
+against browser-extracted page content before it can participate. Generated
+title, description, reasoning, remediation text, and page-specific locator
+wording do not define logical equivalence. If trustworthy structured identity
+is unavailable, observations remain separate rather than being merged by
+similar prose. Existing explicit structured targets, including the native
+country-option sentinel, remain authoritative where valid.
+
+Canonical human wording is derived only after logical identity is established,
+so page-to-page paraphrase drift cannot create new logical findings or mutate
+an accessibility-only observation into a visual claim.
 
 The [run finding lifecycle](../agent/findings/run-finding-lifecycle.ts):
 
@@ -400,6 +437,23 @@ bounded viewport count; perform a guarded disclosure or tab interaction; or
 stop. Stop is an explicit structured decision when no useful permitted
 candidate-linked action remains. CheckQuest does not expose arbitrary
 selectors, arbitrary clicks, or arbitrary JavaScript execution.
+
+## Focused presentation evidence
+
+[`capture-finding-presentation-evidence`](../agent/browser/capture-finding-presentation-evidence.ts)
+captures human-facing visual evidence for the finding itself rather than
+routine screenshots of every visited page. Visual claims require visual
+support; accessibility-only, network, technical, and security observations use
+evidence appropriate to those claims instead of a meaningless page image.
+
+A transient state may be replayed only when the same benign action was already
+executed during normal candidate investigation and the existing safety policy
+permits it. The current replay path supports previously executed native
+select-option actions, restores the original state after capture, and records
+replay metadata. Other transient states are withheld when CheckQuest cannot
+safely and deterministically restore them; evidence capture does not grant new
+exploration authority. Focused visual evidence is bounded to at most three
+images per logical finding.
 
 ## Guarded click-like interaction boundary
 
@@ -470,9 +524,10 @@ The CLI is an adapter around this boundary. It reads `GEMINI_API_KEY` from the
 invoking process environment and passes the resolved value into `runSite`.
 `GOOGLE_API_KEY` is not accepted as an implicit fallback.
 
-A future desktop adapter can supply a transient user credential directly. A
-hosted worker can likewise supply a different credential for each run without
-changing process-global environment state.
+The current Electron desktop adapter supplies a transient user credential
+directly through the application boundary. A hosted worker could likewise
+supply a different credential for each run without changing process-global
+environment state.
 
 The key belongs to the user and is not persisted by CheckQuest or included in
 events, reports, prompts, diagnostics, public errors, or reusable site
@@ -508,11 +563,28 @@ constructs the successful in-memory report. The
 - the separate passive-security report; and
 - aggregate finding, occurrence, diagnostic, and exploration metrics.
 
-The CLI writes `report.json` first and then the Markdown projection under
-`agent-results/<runId>/`. Screenshots are evidence captured during execution,
-not a persistence concern of `runSite`. A persistence failure is a
-`REPORTING` delivery failure after core execution has completed; it does not
-retroactively produce a partial successful core report.
+The application reporting boundary writes `report.json` first and then the
+Markdown projection under `agent-results/<runId>/`; both the CLI and desktop
+GUI receive the resulting artifact paths from `startCheckQuest(...)`.
+Screenshots are evidence captured during execution, not a persistence concern
+of `runSite`. A persistence failure is a `REPORTING` delivery failure after
+core execution has completed; it does not retroactively produce a partial
+successful core report.
+
+The human report is a projection of the canonical report rather than another
+finding authority. [`human-report-model`](../agent/reporting/human-report-model.ts)
+assigns run-scoped display IDs such as `01`, `02`, and `S01` only after
+canonical reconciliation. Those IDs provide report navigation, page-to-item
+correlation, and readable evidence filenames; they do not replace stable
+machine-level finding fingerprints and are not cross-run identity.
+
+[`run-summary-projection`](../agent/reporting/run-summary-projection.ts)
+provides the shared reconciled counts used by human reporting and product
+presentation. The primary report index accounts for functional findings and
+technical observations, while passive-security observations remain a separate
+numbered category. Evidence filenames are derived from the final display
+identity/title for human correlation, while the evidence type remains matched
+to the claim.
 
 Reports and screenshots can contain target URLs, visible site content,
 diagnostics, and model-derived observations. They should be handled as
@@ -537,6 +609,11 @@ widening the production API or requiring a Gemini credential. Most lower-level
 policies and registries are plain deterministic modules and can be tested
 directly.
 
+Current report-quality coverage also exercises structured finding identity,
+under- and over-merge cases, accessibility claim precision, focused evidence
+capture/replay, deterministic evidence naming, shared GUI/report accounting,
+run-scoped report navigation, and verification-state non-regression.
+
 Stage 9 credential-boundary coverage additionally verifies that reusable
 execution does not silently consume `process.env.GEMINI_API_KEY`, distinct
 per-run values remain isolated, process environment state is not mutated, and
@@ -560,7 +637,11 @@ The following boundaries are intentional:
 - `runGeminiRequest` is credential-neutral and does not act as a credential
   store or client factory;
 - canonical findings and passive-security observations remain separate;
-- compatibility report projections are derived, not parallel authorities;
+- generated human prose is not a canonical finding-identity mechanism;
+- run-scoped report item numbers are presentation identities, not cross-run
+  finding fingerprints;
+- compatibility and human-report projections are derived, not parallel
+  authorities;
 - deterministic policy constrains every model-assisted navigation or action;
 - failed runs reject instead of returning an apparently successful partial
   report;
@@ -570,7 +651,8 @@ The following boundaries are intentional:
 - the source-level API is reusable but is not yet a versioned package or a
   published SDK contract.
 
-CheckQuest currently provides a CLI, not a Windows GUI, browser frontend, SaaS
-control plane, general crawler, active security scanner, or arbitrary browser
-automation platform. Those possible presentation and deployment choices do
-not belong in the core execution model.
+CheckQuest currently provides a CLI and a local Electron desktop GUI MVP. It
+does not yet provide a packaged Windows release, browser frontend, SaaS control
+plane, general crawler, active security scanner, or arbitrary browser
+automation platform. Those presentation and deployment choices do not belong
+in the core execution model.

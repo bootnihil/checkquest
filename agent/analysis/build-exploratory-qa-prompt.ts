@@ -147,7 +147,7 @@ Materially useful additional evidence includes a new affected page, direct struc
 8A. Every finding MUST include a "relatedRuleCode" field.
 
 - Set relatedRuleCode to the exact code of one supplied ruleBasedFindings item only when the model observation repeats that same narrow targetless assertion on this page.
-- When relatedRuleCode is non-null, copy that rule finding's title and evidence exactly and set evidenceTarget to null. Runtime requires this exact assertion identity.
+- When relatedRuleCode is non-null, copy that rule finding's title and evidence exactly and set evidenceTarget, presentationTarget, and structuredIdentity to null. Runtime requires this exact assertion identity.
 - Otherwise set relatedRuleCode to null.
 - Do not infer a relationship from similar wording alone.
 - relatedRuleCode is advisory. It does not make model evidence deterministic or verification-capable.
@@ -233,6 +233,73 @@ When the finding cannot be tied to a currently supported machine-readable UI tar
 
 Do NOT force an evidence target when the evidence does not support one.
 
+9A. Every finding MUST include a "presentationTarget" field.
+
+This target is used only to create focused human-facing screenshot evidence.
+It never changes finding verification and it is never executed as an action.
+
+Use a presentation target only when the finding concerns exact text supplied in
+one of these structured collections:
+
+- content.headings
+- content.links
+- content.buttons
+
+Supported shape:
+
+{
+  "kind": "visible-text",
+  "elementKind": "heading" | "link" | "button",
+  "text": "Exact supplied visible text"
+}
+
+Copy text exactly. Do not create a target from an inferred label, a partial
+substring, flattened bodyText, a URL, or text that is not present in the
+matching structured collection.
+
+Use the same exact target for repeated instances of the same supplied heading,
+link, or button text. The presentation layer will deterministically group and
+cap focused images.
+
+When no exact supported visible-text target exists, return:
+
+"presentationTarget": null
+
+Do not force or guess a presentation target.
+
+9B. Every finding MUST include a "structuredIdentity" field.
+
+This field provides stable, non-actionable identity for an issue directly
+observed in an accessibility name on one supplied tab or disclosure control.
+It is not an action and does not make a finding verified.
+
+Supported shape:
+
+{
+  "mechanism": "unresolved-token" | "unexpected-value" | "duplicate-value" | "missing-value" | "state-mismatch" | "accessibility-semantics" | "other",
+  "observedValue": "Exact supplied accessibleName",
+  "source": "accessible-name",
+  "subject": {
+    "kind": "semantic-control",
+    "controlType": "tab" | "disclosure",
+    "controlId": "Exact supplied controlId",
+    "componentId": "Exact tabListId or ariaControls, or null",
+    "locator": null
+  }
+}
+
+- Copy observedValue and controlId exactly from content.tabs or
+  content.disclosures.
+- For a tab, copy tabListId into componentId when present.
+- For a disclosure, copy ariaControls into componentId when present.
+- Set locator to null; no selector is supplied to the reasoning layer.
+- Use the narrowest mechanism that describes the observed defect.
+- Generated title, evidence, reasoning, and suggestedCheck prose are never
+  finding identity.
+- Do not use this field for visible text, flattened body text, a generic
+  component, or a control without an exact non-empty controlId.
+- Otherwise return "structuredIdentity": null.
+
 10. It is completely acceptable and preferred to return zero findings when the evidence does not support an issue.
 
 11. Treat findings as candidate QA issues requiring appropriate verification, not automatically as confirmed defects.
@@ -296,7 +363,9 @@ Return ONLY valid JSON with this exact structure:
         "controlName": "country",
         "controlId": "country",
         "optionText": "Equador"
-      }
+      },
+      "presentationTarget": null,
+      "structuredIdentity": null
     }
   ],
   "summary": "Concise summary of the exploratory QA review"
@@ -314,7 +383,9 @@ For a finding with no supported machine-readable target, use:
   "evidence": "Specific directly observed evidence",
   "reasoning": "Why it may represent a QA issue",
   "suggestedCheck": "A concrete verification step",
-  "evidenceTarget": null
+  "evidenceTarget": null,
+  "presentationTarget": null,
+  "structuredIdentity": null
 }
 
 When there are no evidence-grounded candidate issues, return:

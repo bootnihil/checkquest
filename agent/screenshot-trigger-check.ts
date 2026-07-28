@@ -1,3 +1,4 @@
+import assert from 'node:assert/strict';
 import { chromium } from '@playwright/test';
 
 import type {
@@ -11,10 +12,6 @@ import type {
 import {
   classifyDiagnostics
 } from './analysis/classify-diagnostics';
-
-import {
-  capturePageScreenshot
-} from './browser/capture-page-screenshot';
 
 import type {
   PageDiagnostics
@@ -162,30 +159,15 @@ async function main(): Promise<void> {
       SiteAgentReport['inspectedPages'][number]['exploratoryFindingResults'] =
         [];
 
-    const shouldCaptureScreenshot =
-      findings.length >
-        0 ||
-      actionableRequestCount >
-        0 ||
-      needsReviewCount >
-        0;
+    const screenshotPath:
+      string | null =
+        null;
 
-    let screenshotPath:
-      string | null = null;
-
-    if (
-      shouldCaptureScreenshot
-    ) {
-      const screenshot =
-        await capturePageScreenshot(
-          page,
-          runId,
-          1
-        );
-
-      screenshotPath =
-        screenshot.filePath;
-    }
+    assert.equal(
+      screenshotPath,
+      null,
+      'Generic diagnostic or visited-page screenshots are not human evidence.'
+    );
 
     /*
      * Build the same site-wide exploratory finding view used

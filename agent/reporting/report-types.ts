@@ -8,7 +8,8 @@ import type {
 
 import type {
   ExploratoryQaAnalysis,
-  ExploratoryQaFinding
+  ExploratoryQaFinding,
+  FindingPresentationTarget
 } from '../analysis/exploratory-qa-schema';
 
 import type {
@@ -129,6 +130,32 @@ export interface ExploratoryFindingResult {
     FindingInvestigationOutcome;
 }
 
+export interface FindingPresentationEvidence {
+  candidateReference:
+    PageCandidateReference;
+  pageUrl:
+    string;
+  target:
+    FindingPresentationTarget |
+    ExploratoryQaFinding[
+      'evidenceTarget'
+    ];
+  screenshotPaths:
+    string[];
+  totalTargetCount:
+    number;
+  shownTargetCount:
+    number;
+  replay?:
+    {
+      action:
+        'select-option';
+      restored:
+        boolean;
+    } |
+    null;
+}
+
 export interface InspectedPageResult {
   selection: PageInspectionSelection;
 
@@ -156,6 +183,16 @@ export interface InspectedPageResult {
    * has something potentially worth investigating.
    */
   screenshotPath: string | null;
+
+  /*
+   * Focused screenshots created only for human presentation.
+   *
+   * These do not participate in verification, reconciliation, or finding
+   * identity. The field is optional so existing schema-v3 JSON remains
+   * readable without migration.
+   */
+  presentationEvidence?:
+    FindingPresentationEvidence[];
 
   /*
    * Deterministic findings produced by explicit rules.

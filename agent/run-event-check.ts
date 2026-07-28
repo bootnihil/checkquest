@@ -98,6 +98,12 @@ async function main(): Promise<void> {
           1,
         findingCount:
           0,
+        confirmedFindingCount:
+          0,
+        reviewFindingCount:
+          0,
+        technicalObservationCount:
+          0,
         occurrenceCount:
           0
       });
@@ -130,6 +136,12 @@ async function main(): Promise<void> {
     inspectedPageCount:
       1,
     findingCount:
+      0,
+    confirmedFindingCount:
+      0,
+    reviewFindingCount:
+      0,
+    technicalObservationCount:
       0,
     occurrenceCount:
       0

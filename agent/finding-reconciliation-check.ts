@@ -458,22 +458,22 @@ function runChecks(): void {
 
   assert.equal(
     duplicateFallback.findings.length,
-    1,
-    '16. exact fallback fingerprints produce one logical finding'
+    2,
+    '16. unstructured model prose never supplies substantive merge identity'
   );
 
   assert.equal(
     duplicateFallback.findings[0]
       .occurrences[0].evidence.length,
-    2,
-    '17. materially different source observations survive an exact merge'
+    1,
+    '17. each unstructured observation retains its own source evidence'
   );
 
   assert.equal(
     duplicateFallback
       .candidateFindings.length,
-    1,
-    '18. an exact model group creates only one legacy candidate'
+    2,
+    '18. unstructured observations remain separate candidates'
   );
 
   const exactDuplicateSource =
@@ -489,7 +489,7 @@ function runChecks(): void {
     exactDuplicateSource.findings[0]
       .occurrences[0].evidence.length,
     1,
-    '19. byte-equivalent duplicate source observations are not copied twice'
+    '19. each byte-equivalent but unstructured observation keeps one evidence item'
   );
 
   const distinctFallback =

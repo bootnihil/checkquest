@@ -630,7 +630,7 @@ async function main():
 
   assert.match(
     markdown,
-    /## Passive Security Posture/
+    /## Security observations/
   );
 
   assert.match(
@@ -640,17 +640,27 @@ async function main():
 
   assert.match(
     markdown,
-    /PS_HSTS_NOT_OBSERVED/
+    /\| \[S01\]\(#security-s01\) \| \[HSTS response header was not observed\]\(#security-s01\) \| Low \| 2 pages \|/
   );
 
   assert.match(
     markdown,
-    /Observed on:\*\* 2 pages \(2 occurrences\)/
+    /### S01 — HSTS response header was not observed/
   );
 
   assert.match(
     markdown,
-    /VERIFIED - Page \\\[docs\\\] \(legacy\) #1 \\\| \\`status\\` ## injected heading/
+    /\[Security evidence file\]\(evidence\/S01-HSTS-RESPONSE-HEADER-WAS-NOT-OBSERVED-evidence\.txt\)/
+  );
+
+  assert.match(
+    markdown,
+    /\*\*Low · Security observation · 2 pages\*\*/
+  );
+
+  assert.match(
+    markdown,
+    /\*\*High · Confirmed issue\*\*/
   );
 
   assert.equal(
@@ -676,17 +686,12 @@ async function main():
 
   assert.match(
     markdown,
-    /&lt;literal&gt;/
+    /Values: fixture`server \| \[edge\]\./
   );
 
   assert.match(
     markdown,
-    /Values: ``fixture`server \| \[edge\]``\./
-  );
-
-  assert.match(
-    markdown,
-    /\[Missing \\\[docs\\\] \(draft\) \\\| details\]\(https:\/\/example\.com\/missing_%28draft%29\?functional-page-token=retained\)/
+    /\[\/missing_\(draft\)\?functional-page-token=retained\]\(https:\/\/example\.com\/missing_%28draft%29\?functional-page-token=retained\)/
   );
 
   assert.equal(
@@ -727,15 +732,28 @@ async function main():
       markdown,
       new RegExp(
         observation
-          .observationReference
+          .title.replace(
+            /[.*+?^${}()|[\]\\]/g,
+            '\\$&'
+          )
       )
     );
 
-    assert.match(
-      markdown,
-      new RegExp(
+    assert.equal(
+      markdown.includes(
         observation.code
-      )
+      ),
+      false,
+      'Human Markdown must not expose internal security codes.'
+    );
+
+    assert.equal(
+      markdown.includes(
+        observation
+          .observationReference
+      ),
+      false,
+      'Human Markdown must not expose internal security references.'
     );
   }
 

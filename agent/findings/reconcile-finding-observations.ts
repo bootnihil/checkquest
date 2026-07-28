@@ -1,11 +1,15 @@
 import type { ExploratoryQaFinding } from '../analysis/exploratory-qa-schema';
 import type { PageFinding } from '../analysis/evaluate-page';
+import type {
+  ExtractedPageContent
+} from '../browser/extract-page-content';
 import {
   createDisclosureStateTargetFingerprint,
   createExploratoryFindingFingerprint,
   createSelectOptionTargetFingerprint,
   createTabStateTargetFingerprint,
-  normalizeFingerprintText
+  normalizeFingerprintText,
+  validateStructuredIdentity
 } from '../investigation/finding-fingerprint';
 import {
   adaptExploratoryQaFinding,
@@ -24,6 +28,7 @@ import type {
 export type FindingObservationMatchingBasis =
   | 'same-page-rule'
   | 'structured-target'
+  | 'structured-identity'
   | 'fallback-fingerprint';
 
 export interface ModelObservationReconciliation {
@@ -47,6 +52,7 @@ export interface ReconcileFindingObservationsInput {
   pageTitle: string;
   ruleFindings: PageFinding[];
   modelFindings: ExploratoryQaFinding[];
+  pageContent?: ExtractedPageContent;
   screenshotReferences?: string[];
   evidenceContributions?: ExplicitFindingEvidenceContribution[];
 }
@@ -268,6 +274,12 @@ function hasExactRuleAssertionIdentity(
    */
   return (
     modelFinding.evidenceTarget === null &&
+    (
+      modelFinding.structuredIdentity ===
+        null ||
+      modelFinding.structuredIdentity ===
+        undefined
+    ) &&
     normalizeFingerprintText(
       modelFinding.title
     ) ===
@@ -281,6 +293,65 @@ function hasExactRuleAssertionIdentity(
         ruleFinding.evidence
       )
   );
+}
+
+function canonicalizeStructuredObservation(
+  finding:
+    ExploratoryQaFinding,
+  content:
+    ExtractedPageContent | undefined
+): ExploratoryQaFinding {
+  const identity =
+    finding.structuredIdentity ??
+    null;
+
+  if (
+    identity ===
+      null
+  ) {
+    return finding;
+  }
+
+  if (
+    content ===
+      undefined ||
+    !validateStructuredIdentity(
+      identity,
+      content
+    )
+  ) {
+    return {
+      ...finding,
+      structuredIdentity:
+        null
+    };
+  }
+
+  const subject =
+    `${identity.subject.controlType} control with id "${identity.subject.controlId}"`;
+  const mechanismTitle =
+    identity.mechanism
+      .split(
+        '-'
+      )
+      .join(
+        ' '
+      );
+
+  return {
+    ...finding,
+    title:
+      `${mechanismTitle.charAt(0).toUpperCase()}${mechanismTitle.slice(1)} in ${identity.subject.controlType} accessible name`,
+    evidence:
+      `The ${subject} has the accessible name "${identity.observedValue}".`,
+    reasoning:
+      identity.mechanism ===
+        'unresolved-token'
+        ? 'People using assistive technology may hear the unresolved token instead of a meaningful control name.'
+        : finding.reasoning,
+    suggestedCheck:
+      `Review the accessible-name source for the ${subject} and confirm that "${identity.observedValue}" is the intended name.`
+  };
 }
 
 export function reconcileFindingObservations(
@@ -324,8 +395,13 @@ export function reconcileFindingObservations(
 
   input.modelFindings.forEach(
     (modelFinding, index) => {
+      const canonicalFinding =
+        canonicalizeStructuredObservation(
+          modelFinding,
+          input.pageContent
+        );
       const requestedRuleCode =
-        modelFinding.relatedRuleCode ?? null;
+        canonicalFinding.relatedRuleCode ?? null;
 
       const requestedRule =
         requestedRuleCode === null
@@ -338,7 +414,7 @@ export function reconcileFindingObservations(
         requestedRule !== undefined &&
         hasExactRuleAssertionIdentity(
           requestedRule,
-          modelFinding
+          canonicalFinding
         )
           ? requestedRuleCode
           : null;
@@ -346,7 +422,9 @@ export function reconcileFindingObservations(
       const fingerprint =
         acceptedRelatedRuleCode === null
           ? createExploratoryFindingFingerprint(
-              modelFinding
+              canonicalFinding,
+              input.pageContent,
+              `${input.pageUrl}|model-${index + 1}`
             )
           : `rule|${acceptedRelatedRuleCode}`;
 
@@ -354,16 +432,27 @@ export function reconcileFindingObservations(
         FindingObservationMatchingBasis =
           acceptedRelatedRuleCode !== null
             ? 'same-page-rule'
-            : modelFinding.evidenceTarget !==
+            : canonicalFinding.evidenceTarget !==
                   null &&
-                modelFinding.evidenceTarget !==
+                canonicalFinding.evidenceTarget !==
                   undefined
               ? 'structured-target'
+              : canonicalFinding.structuredIdentity !==
+                    null &&
+                  canonicalFinding.structuredIdentity !==
+                    undefined &&
+                  createExploratoryFindingFingerprint(
+                    canonicalFinding,
+                    input.pageContent
+                  ).startsWith(
+                    'identity|'
+                  )
+                ? 'structured-identity'
               : 'fallback-fingerprint';
 
       const adapted =
         adaptExploratoryQaFinding(
-          modelFinding,
+          canonicalFinding,
           {
             findingReference:
               `finding-${
@@ -410,7 +499,7 @@ export function reconcileFindingObservations(
         ) {
           applyModelPresentation(
             existing.finding,
-            modelFinding
+            canonicalFinding
           );
 
           existing.modelPresentationApplied =
@@ -428,7 +517,9 @@ export function reconcileFindingObservations(
           fingerprint
         )
       ) {
-        candidateFindings.push(modelFinding);
+        candidateFindings.push(
+          canonicalFinding
+        );
         candidateFingerprints.add(
           fingerprint
         );

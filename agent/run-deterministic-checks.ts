@@ -30,11 +30,13 @@ const deterministicChecks = [
   'agent:site-wide-report-check',
   'agent:unified-findings-check',
   'agent:finding-reconciliation-check',
+  'agent:finding-identity-check',
   'agent:unified-lifecycle-check',
   'agent:run-finding-lifecycle-check',
   'agent:run-finding-lifecycle-integrity-check',
   'agent:passive-security-check',
   'agent:passive-security-report-check',
+  'agent:human-report-check',
   'desktop:check'
 ] as const;
 
