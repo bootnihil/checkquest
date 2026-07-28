@@ -54,16 +54,18 @@ If you want the current plan, start with **[Roadmap v2](docs/ROADMAP-V2.md)**. I
 
 ## 🎯 Where CheckQuest fits
 
-CheckQuest is most useful as an **evidence-oriented exploratory pass alongside a normal QA stack**. It does not replace scripted regression, manual exploratory testing, security testing, or site-quality tooling.
+CheckQuest is most useful as an **evidence-oriented exploratory pass alongside a normal QA stack**. The useful distinction is not simply whether AI or automation is involved, but what determines what gets investigated during a run.
 
-- **Playwright / Cypress / Selenium** execute tests you already defined. CheckQuest starts from a URL and decides where a bounded exploratory budget is worth spending.
-- **Crawlers and site-quality platforms** are better suited to broad inventory and exhaustive rule-based scanning. CheckQuest deliberately favors representative coverage and evidence-gathering investigation over exhaustive crawling.
-- **AI test-authoring tools** primarily help create or maintain test cases. CheckQuest's current product is the exploratory run and its evidence-backed report, not generated regression code.
-- **Generic browser agents / thin AI wrappers** can ask a model to operate a browser and describe what it sees. CheckQuest adds the QA system around that intelligence: bounded exploration, deterministic action authority, evidence capture, finding reconciliation, and explicit verification semantics.
-- **Security scanners** actively probe for vulnerabilities. CheckQuest does not: its current security posture layer is passive and observational.
-- **Manual exploratory QA** retains richer human judgment and product context. CheckQuest trades some of that depth for a repeatable, bounded pass that can run without a predefined test suite.
+| Approach | What determines what is investigated? | What it does | Typical output |
+|---|---|---|---|
+| **Human + general-purpose AI assistant** | Human judgment | Helps analyze, generate test ideas or code, interpret inputs, and reason about potential issues | Advice, analysis, test cases, automation code |
+| **AI-assisted QA practices / training** | Human judgment | Helps testers learn and apply AI within their existing QA workflow | Workflows, prompts, exercises, examples |
+| **Website crawler / site-quality scanner** | Predefined rules and configuration | Systematically scans for known classes of technical, content, accessibility, SEO, or structural issues | Rule-based audit findings |
+| **CheckQuest** | **Runtime exploration within user-defined bounds** | **Selects what merits investigation, explores and interacts cautiously, investigates suspicious signals it encounters, gathers evidence, and evaluates what can actually be supported** | **Evidence-backed `VERIFIED` or `INCONCLUSIVE` findings** |
 
-That makes CheckQuest a complement to existing QA automation rather than a claim that one agent should replace the rest of the testing stack.
+With an AI assistant or AI-assisted QA workflow, the tester still decides what to examine and directs the investigation. A crawler can automate broad coverage, but primarily evaluates predefined classes of checks. CheckQuest instead makes decisions about what merits further investigation at runtime, while maintaining a strict distinction between what was observed and what was actually proven.
+
+It does not replace scripted regression, manual exploratory testing, security testing, or site-quality tooling. Playwright, Cypress, and Selenium remain better suited to predefined regression; dedicated security scanners actively probe for vulnerabilities; and human exploratory testing retains richer product context and judgment. CheckQuest complements those tools rather than claiming one system should replace the rest of the QA stack.
 
 ## 🧠 How it works
 
