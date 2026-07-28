@@ -6,6 +6,9 @@ import type {
 import {
   captureMainDocumentSecurity
 } from '../security/capture-main-document-security';
+import {
+  gotoWithCancellation
+} from './goto-with-cancellation';
 
 import type {
   PassivePageSecuritySnapshot
@@ -38,7 +41,9 @@ interface ApprovedPageVisitCore {
 async function visitApprovedLinkCore(
   page: Page,
   link: NavigationLink,
-  allowedHosts: string[]
+  allowedHosts: string[],
+  signal?:
+    AbortSignal
 ): Promise<ApprovedPageVisitCore> {
   const requestedUrl = new URL(link.url);
 
@@ -48,10 +53,22 @@ async function visitApprovedLinkCore(
     );
   }
 
-  const response = await page.goto(requestedUrl.toString(), {
-    waitUntil: 'domcontentloaded',
-    timeout: 30_000
-  });
+  const response =
+    await gotoWithCancellation(
+      page,
+      requestedUrl.toString(),
+      {
+        waitUntil:
+          'domcontentloaded',
+        timeout:
+          30_000
+      },
+      {
+        signal,
+        phase:
+          'agent-navigation'
+      }
+    );
 
   const finalUrl = new URL(page.url());
 
@@ -87,13 +104,16 @@ async function visitApprovedLinkCore(
 export async function visitApprovedLink(
   page: Page,
   link: NavigationLink,
-  allowedHosts: string[]
+  allowedHosts: string[],
+  signal?:
+    AbortSignal
 ): Promise<VisitedPageObservation> {
   return (
     await visitApprovedLinkCore(
       page,
       link,
-      allowedHosts
+      allowedHosts,
+      signal
     )
   ).observation;
 }
@@ -101,7 +121,9 @@ export async function visitApprovedLink(
 export async function visitApprovedLinkWithPassiveSecurity(
   page: Page,
   link: NavigationLink,
-  allowedHosts: string[]
+  allowedHosts: string[],
+  signal?:
+    AbortSignal
 ): Promise<PassiveApprovedPageVisit> {
   const {
     observation,
@@ -110,7 +132,8 @@ export async function visitApprovedLinkWithPassiveSecurity(
     await visitApprovedLinkCore(
       page,
       link,
-      allowedHosts
+      allowedHosts,
+      signal
     );
 
   return {

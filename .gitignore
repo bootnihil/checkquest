@@ -12,6 +12,9 @@ node_modules/
 /playwright/.cache/
 /playwright/.auth/
 
+# Local Electron build output
+/.desktop-dist/
+
 # Agent-generated reports
 /agent-results/
 

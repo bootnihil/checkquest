@@ -3,6 +3,7 @@ import tseslint from 'typescript-eslint';
 
 const authoredTypeScriptFiles = [
   'agent/**/*.ts',
+  'desktop/**/*.ts',
   'tests/**/*.ts',
   'pages/**/*.ts',
   'playwright.config.ts'
@@ -12,6 +13,7 @@ export default [
   {
     ignores: [
       'agent-results/**',
+      '.desktop-dist/**',
       'node_modules/**',
       'playwright-report/**',
       'test-results/**'

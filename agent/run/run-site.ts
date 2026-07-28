@@ -9,6 +9,9 @@ import {
   collectPageDiagnostics
 } from '../browser/collect-page-diagnostics';
 import {
+  gotoWithCancellation
+} from '../browser/goto-with-cancellation';
+import {
   preparePageForGuardedInteractions
 } from '../browser/guarded-interaction-safety-boundary';
 import {
@@ -470,7 +473,8 @@ async function executeRunSite(
         );
 
         homepageResponse =
-          await page.goto(
+          await gotoWithCancellation(
+            page,
             site.startUrl,
             {
               waitUntil:
@@ -478,6 +482,13 @@ async function executeRunSite(
 
               timeout:
                 30_000
+            },
+            {
+              signal:
+                input.signal,
+              runId,
+              phase:
+                'start-page-navigation'
             }
           );
       } catch (
@@ -843,7 +854,8 @@ async function executeRunSite(
                         return await visitApprovedLinkWithPassiveSecurity(
                           page,
                           decision.link,
-                          site.allowedHosts
+                          site.allowedHosts,
+                          input.signal
                         );
                       } catch (
                         error:

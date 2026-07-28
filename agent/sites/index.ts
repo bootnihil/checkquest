@@ -1,6 +1,9 @@
 import type {
   SiteConfig
 } from '../config/site-config';
+import {
+  runtimeSiteDefaults
+} from '../config/site-config';
 
 import {
   CheckQuestError
@@ -18,27 +21,6 @@ const sites:
     [aidocSite.id]:
       aidocSite
   };
-
-/*
- * Conservative defaults for an ad-hoc URL supplied at runtime.
- *
- * These deliberately give the autonomous agent a relatively small
- * exploration budget until the user explicitly asks for broader or
- * deeper exploration.
- */
-const runtimeSiteDefaults = {
-  maxPages:
-    3,
-
-  maxAgentSteps:
-    4,
-
-  maxExploratoryStepsPerPage:
-    3,
-
-  allowFormSubmission:
-    false
-} as const;
 
 function createSiteConfigurationError(
   message: string,

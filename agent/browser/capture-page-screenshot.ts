@@ -1,6 +1,9 @@
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Page } from '@playwright/test';
+import {
+  runPageOperationWithCancellation
+} from './run-page-operation-with-cancellation';
 
 export interface CapturedScreenshot {
   filePath: string;
@@ -15,7 +18,9 @@ function formatPageNumber(
 export async function capturePageScreenshot(
   page: Page,
   runId: string,
-  pageNumber: number
+  pageNumber: number,
+  signal?:
+    AbortSignal
 ): Promise<CapturedScreenshot> {
   const evidenceDirectory = join(
     'agent-results',
@@ -35,10 +40,22 @@ export async function capturePageScreenshot(
     }
   );
 
-  await page.screenshot({
-    path: filePath,
-    fullPage: true
-  });
+  await runPageOperationWithCancellation(
+    page,
+    () =>
+      page.screenshot({
+        path:
+          filePath,
+        fullPage:
+          true
+      }),
+    {
+      signal,
+      runId,
+      phase:
+        'page-screenshot'
+    }
+  );
 
   return {
     filePath

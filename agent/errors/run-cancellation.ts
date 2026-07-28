@@ -86,3 +86,67 @@ export function normalizeRunCancellation(
 
   return error;
 }
+
+export async function waitForRunDelay(
+  delayMs:
+    number,
+  signal:
+    AbortSignal | undefined,
+  runId:
+    string | undefined,
+  phase:
+    string
+): Promise<void> {
+  throwIfRunCancelled(
+    signal,
+    runId,
+    phase
+  );
+
+  await new Promise<void>(
+    (
+      resolve,
+      reject
+    ) => {
+      const cleanup =
+        (): void => {
+          clearTimeout(
+            timeout
+          );
+          signal?.removeEventListener(
+            'abort',
+            rejectCancellation
+          );
+        };
+      const resolveDelay =
+        (): void => {
+          cleanup();
+          resolve();
+        };
+      const rejectCancellation =
+        (): void => {
+          cleanup();
+          reject(
+            createRunCancelledError(
+              runId,
+              phase
+            )
+          );
+        };
+
+      const timeout =
+        setTimeout(
+          resolveDelay,
+          delayMs
+        );
+      signal?.addEventListener(
+        'abort',
+        rejectCancellation,
+        {
+          once:
+            true
+        }
+      );
+    }
+  );
+}

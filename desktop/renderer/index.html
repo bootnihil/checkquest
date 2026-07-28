@@ -1,0 +1,460 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta
+    http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'"
+  >
+  <meta name="theme-color" content="#071321">
+  <title>CheckQuest</title>
+  <link rel="icon" type="image/png" href="checkquest-icon.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="desktop-shell">
+    <header class="product-bar">
+      <div class="brand">
+        <img src="checkquest-icon.png" width="32" height="32" alt="">
+        <div class="brand-copy">
+          <span class="brand-name">Check<span>Quest</span></span>
+          <span class="brand-tagline">
+            Explore <span aria-hidden="true">•</span>
+            Investigate <span aria-hidden="true">•</span>
+            Report
+          </span>
+        </div>
+      </div>
+
+      <div class="product-tools">
+        <button
+          id="vocabulary-button"
+          class="vocabulary-button"
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded="false"
+          aria-controls="vocabulary-popover"
+        >
+          <svg viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M2.25 3.25c1.9-.45 3.55-.12 5 1v8.25c-1.45-1.12-3.1-1.45-5-1V3.25Z"></path>
+            <path d="M13.75 3.25c-1.9-.45-3.55-.12-5 1v8.25c1.45-1.12 3.1-1.45 5-1V3.25Z"></path>
+          </svg>
+          Vocabulary
+        </button>
+        <span class="product-version">v0.1 alpha</span>
+      </div>
+
+      <section
+        id="vocabulary-popover"
+        class="vocabulary-popover"
+        role="dialog"
+        aria-label="CheckQuest vocabulary"
+        tabindex="-1"
+        hidden
+      >
+        <span class="popover-arrow" aria-hidden="true"></span>
+        <div class="vocabulary-grid">
+          <div>
+            <h2>Page</h2>
+            <p>A page CheckQuest inspects during the run.</p>
+          </div>
+          <div>
+            <h2>Navigation</h2>
+            <p>
+              Moving to another approved page while exploring, for example by
+              following an allowed link.
+            </p>
+          </div>
+          <div>
+            <h2>Investigation step</h2>
+            <p>
+              A bounded interaction CheckQuest uses on a page to gather evidence
+              about a potential issue.
+            </p>
+          </div>
+          <div>
+            <h2>Finding</h2>
+            <p>A potential issue CheckQuest identifies and reconciles.</p>
+          </div>
+        </div>
+      </section>
+    </header>
+
+    <div class="shell-body">
+      <nav class="navigation-rail" aria-label="Primary">
+        <button
+          class="navigation-item"
+          type="button"
+          data-destination-button="run"
+          aria-controls="destination-run"
+          aria-current="page"
+        >
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="m7 5 7 5-7 5V5Z"></path>
+          </svg>
+          <span>Run</span>
+        </button>
+        <button
+          class="navigation-item"
+          type="button"
+          data-destination-button="explore"
+          aria-controls="destination-explore"
+        >
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <circle cx="9" cy="9" r="5"></circle>
+            <path d="m13 13 4 4"></path>
+          </svg>
+          <span>Explore</span>
+          <span class="wip-badge">WIP</span>
+        </button>
+        <button
+          class="navigation-item"
+          type="button"
+          data-destination-button="reports"
+          aria-controls="destination-reports"
+        >
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M5 3.5h7l3 3v10H5v-13Z"></path>
+            <path d="M8 9h4M8 12h4"></path>
+          </svg>
+          <span>Reports</span>
+          <span class="wip-badge">WIP</span>
+        </button>
+        <button
+          class="navigation-item"
+          type="button"
+          data-destination-button="settings"
+          aria-controls="destination-settings"
+        >
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <circle cx="10" cy="10" r="2.5"></circle>
+            <path d="M10 3.5v2M10 14.5v2M3.5 10h2M14.5 10h2M5.4 5.4l1.4 1.4M13.2 13.2l1.4 1.4M14.6 5.4l-1.4 1.4M6.8 13.2l-1.4 1.4"></path>
+          </svg>
+          <span>Settings</span>
+          <span class="wip-badge">WIP</span>
+        </button>
+      </nav>
+
+      <main class="workspace">
+        <section
+          id="destination-run"
+          class="destination destination-run"
+          data-destination-panel="run"
+          aria-labelledby="run-configuration-title"
+        >
+          <form id="run-form" class="run-form" autocomplete="off" novalidate>
+            <div class="workspace-heading">
+              <div>
+                <p class="eyebrow">NEW CHECK</p>
+                <h1 id="run-configuration-title">Run Configuration</h1>
+              </div>
+              <p class="required-note"><span aria-hidden="true">*</span> Required</p>
+            </div>
+
+            <section class="settings-section" aria-labelledby="target-heading">
+              <h2 id="target-heading">TARGET</h2>
+              <div class="field target-field">
+                <label for="target-url">
+                  Target URL <span class="required-marker" aria-hidden="true">*</span>
+                  <span class="sr-only">required</span>
+                </label>
+                <input
+                  id="target-url"
+                  name="target-url"
+                  type="text"
+                  inputmode="url"
+                  placeholder="https://example.com/"
+                  maxlength="2048"
+                  aria-describedby="target-url-help target-url-error"
+                  required
+                >
+                <small id="target-url-help">Enter a website address, such as example.com.</small>
+                <p id="target-url-error" class="field-error" aria-live="polite" hidden></p>
+              </div>
+            </section>
+
+            <section class="settings-section budget-section" aria-labelledby="exploration-budgets-heading">
+              <div class="section-heading">
+                <h2 id="exploration-budgets-heading">EXPLORATION BUDGETS</h2>
+                <button
+                  id="reset-defaults"
+                  class="text-button reset-settings-button"
+                  type="button"
+                  title="Reset Pages, Navigation, and Investigation steps to their defaults."
+                  aria-label="Reset exploration budgets to their defaults."
+                >
+                  <svg viewBox="0 0 16 16" aria-hidden="true">
+                    <path d="M3.2 5.5A5.2 5.2 0 1 1 3 10.1"></path>
+                    <path d="M2.7 2.7v3.2h3.2"></path>
+                  </svg>
+                  Reset to defaults
+                </button>
+              </div>
+
+              <div class="budget-settings">
+                <div class="budget-setting">
+                  <div class="budget-copy">
+                    <label for="page-budget">
+                      Pages <span class="required-marker" aria-hidden="true">*</span>
+                      <span class="sr-only">required</span>
+                    </label>
+                    <p id="pages-description">
+                      Maximum pages CheckQuest may inspect during this run.
+                    </p>
+                  </div>
+                  <div class="budget-control">
+                    <div class="number-stepper">
+                      <button
+                        id="page-budget-decrement"
+                        class="stepper-button"
+                        type="button"
+                        data-stepper-target="page-budget"
+                        data-stepper-direction="-1"
+                        aria-label="Decrease Pages"
+                        aria-controls="page-budget"
+                      >−</button>
+                      <input
+                        id="page-budget"
+                        name="page-budget"
+                        type="number"
+                        step="1"
+                        aria-describedby="pages-description page-budget-range page-budget-error"
+                        required
+                      >
+                      <button
+                        id="page-budget-increment"
+                        class="stepper-button"
+                        type="button"
+                        data-stepper-target="page-budget"
+                        data-stepper-direction="1"
+                        aria-label="Increase Pages"
+                        aria-controls="page-budget"
+                      >+</button>
+                    </div>
+                    <small id="page-budget-range" class="range-help"></small>
+                    <p id="page-budget-error" class="field-error" aria-live="polite" hidden></p>
+                  </div>
+                </div>
+
+                <div class="budget-setting">
+                  <div class="budget-copy">
+                    <label for="navigation-budget">
+                      Navigation <span class="required-marker" aria-hidden="true">*</span>
+                      <span class="sr-only">required</span>
+                    </label>
+                    <p id="navigation-description">
+                      Maximum moves to another approved page while exploring.
+                    </p>
+                  </div>
+                  <div class="budget-control">
+                    <div class="number-stepper">
+                      <button
+                        id="navigation-budget-decrement"
+                        class="stepper-button"
+                        type="button"
+                        data-stepper-target="navigation-budget"
+                        data-stepper-direction="-1"
+                        aria-label="Decrease Navigation"
+                        aria-controls="navigation-budget"
+                      >−</button>
+                      <input
+                        id="navigation-budget"
+                        name="navigation-budget"
+                        type="number"
+                        step="1"
+                        aria-describedby="navigation-description navigation-budget-range navigation-budget-error"
+                        required
+                      >
+                      <button
+                        id="navigation-budget-increment"
+                        class="stepper-button"
+                        type="button"
+                        data-stepper-target="navigation-budget"
+                        data-stepper-direction="1"
+                        aria-label="Increase Navigation"
+                        aria-controls="navigation-budget"
+                      >+</button>
+                    </div>
+                    <small id="navigation-budget-range" class="range-help"></small>
+                    <p id="navigation-budget-error" class="field-error" aria-live="polite" hidden></p>
+                  </div>
+                </div>
+
+                <div class="budget-setting">
+                  <div class="budget-copy">
+                    <label for="investigation-budget">
+                      Investigation steps <span class="required-marker" aria-hidden="true">*</span>
+                      <span class="sr-only">required</span>
+                    </label>
+                    <p id="investigation-description">
+                      Maximum bounded evidence-gathering interactions per page.
+                    </p>
+                  </div>
+                  <div class="budget-control">
+                    <div class="number-stepper">
+                      <button
+                        id="investigation-budget-decrement"
+                        class="stepper-button"
+                        type="button"
+                        data-stepper-target="investigation-budget"
+                        data-stepper-direction="-1"
+                        aria-label="Decrease Investigation steps"
+                        aria-controls="investigation-budget"
+                      >−</button>
+                      <input
+                        id="investigation-budget"
+                        name="investigation-budget"
+                        type="number"
+                        step="1"
+                        aria-describedby="investigation-description investigation-budget-range investigation-budget-error"
+                        required
+                      >
+                      <button
+                        id="investigation-budget-increment"
+                        class="stepper-button"
+                        type="button"
+                        data-stepper-target="investigation-budget"
+                        data-stepper-direction="1"
+                        aria-label="Increase Investigation steps"
+                        aria-controls="investigation-budget"
+                      >+</button>
+                    </div>
+                    <small id="investigation-budget-range" class="range-help"></small>
+                    <p id="investigation-budget-error" class="field-error" aria-live="polite" hidden></p>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section class="settings-section ai-section" aria-labelledby="ai-configuration-heading">
+              <h2 id="ai-configuration-heading">AI CONFIGURATION</h2>
+              <div class="field ai-field">
+                <label for="gemini-api-key">
+                  Gemini API key
+                  <span id="gemini-requirement" class="conditional-requirement">— Required</span>
+                </label>
+                <input
+                  id="gemini-api-key"
+                  name="gemini-api-key"
+                  type="password"
+                  autocomplete="off"
+                  spellcheck="false"
+                  maxlength="4096"
+                  aria-describedby="gemini-api-key-session-state gemini-api-key-help gemini-api-key-error"
+                  required
+                >
+                <span
+                  id="gemini-api-key-session-state"
+                  class="sr-only"
+                  aria-live="polite"
+                ></span>
+                <small id="gemini-api-key-help" aria-live="polite">
+                  Kept only until you close CheckQuest
+                </small>
+                <p id="gemini-api-key-error" class="field-error" aria-live="polite" hidden></p>
+              </div>
+            </section>
+
+            <div class="actions">
+              <p id="run-eligibility-hint" class="action-hint" aria-live="polite">
+                Complete the required fields to run CheckQuest.
+              </p>
+              <div class="action-buttons">
+                <button
+                  id="cancel-button"
+                  class="button button-secondary"
+                  type="button"
+                  disabled
+                >
+                  Cancel
+                </button>
+                <button id="run-button" class="button button-primary" type="submit" disabled>
+                  <span class="button-spinner" aria-hidden="true" hidden></span>
+                  <span id="run-button-label">Run CheckQuest</span>
+                </button>
+              </div>
+            </div>
+          </form>
+        </section>
+
+        <section
+          id="destination-explore"
+          class="destination wip-destination"
+          data-destination-panel="explore"
+          aria-labelledby="explore-title"
+          hidden
+        >
+          <p class="eyebrow">WORK IN PROGRESS</p>
+          <h1 id="explore-title">Explore</h1>
+          <p>Run history and previous CheckQuest runs will live here.</p>
+        </section>
+
+        <section
+          id="destination-reports"
+          class="destination wip-destination"
+          data-destination-panel="reports"
+          aria-labelledby="reports-title"
+          hidden
+        >
+          <p class="eyebrow">WORK IN PROGRESS</p>
+          <h1 id="reports-title">Reports</h1>
+          <p>Findings, evidence, and saved CheckQuest reports will live here.</p>
+        </section>
+
+        <section
+          id="destination-settings"
+          class="destination wip-destination"
+          data-destination-panel="settings"
+          aria-labelledby="settings-title"
+          hidden
+        >
+          <p class="eyebrow">WORK IN PROGRESS</p>
+          <h1 id="settings-title">Settings</h1>
+          <p>Persistent local CheckQuest preferences will live here.</p>
+        </section>
+      </main>
+    </div>
+
+    <aside
+      id="run-status"
+      class="status-bar"
+      data-phase="ready"
+      aria-live="polite"
+      aria-atomic="true"
+    >
+      <span class="sr-only">Run status:</span>
+      <span class="status-primary">
+        <span class="status-dot" aria-hidden="true"></span>
+        <strong id="status-label">Ready</strong>
+      </span>
+      <span id="status-detail" class="status-segment" hidden>
+        Configure a run to begin.
+      </span>
+      <span id="status-counters" class="status-counters status-segment" hidden>
+        <span>
+          <span class="counter-label">Pages</span>
+          <strong id="status-pages">0 of 0</strong>
+        </span>
+        <span>
+          <span class="counter-label">Navigation</span>
+          <strong id="status-navigation">0 of 0</strong>
+        </span>
+      </span>
+      <span
+        id="status-elapsed"
+        class="status-elapsed status-segment"
+        aria-hidden="true"
+        hidden
+      ></span>
+      <span
+        id="status-readiness"
+        class="status-readiness status-segment"
+        hidden
+      ></span>
+    </aside>
+  </div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

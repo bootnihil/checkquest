@@ -10,6 +10,9 @@ const deterministicChecks = [
   'agent:application-run-contract-check',
   'agent:error-handling-check',
   'agent:gemini-hardening-check',
+  'agent:gemini-credential-preflight-check',
+  'agent:target-reachability-preflight-check',
+  'agent:cancellation-propagation-check',
   'agent:gemini-credential-boundary-check',
   'agent:run-event-check',
   'agent:evaluation-check',
@@ -31,7 +34,8 @@ const deterministicChecks = [
   'agent:run-finding-lifecycle-check',
   'agent:run-finding-lifecycle-integrity-check',
   'agent:passive-security-check',
-  'agent:passive-security-report-check'
+  'agent:passive-security-report-check',
+  'desktop:check'
 ] as const;
 
 function runCheck(

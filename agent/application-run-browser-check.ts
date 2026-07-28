@@ -22,6 +22,9 @@ import {
   type CheckQuestRun
 } from './application/start-checkquest';
 import {
+  preflightTargetReachability
+} from './application/preflight-target-reachability';
+import {
   CheckQuestError
 } from './errors/checkquest-error';
 import type {
@@ -41,6 +44,45 @@ function createFixtureServer():
       request,
       response
     ) => {
+      if (
+        request.url ===
+          '/preflight-hang'
+      ) {
+        return;
+      }
+
+      if (
+        request.url ===
+          '/preflight-redirect'
+      ) {
+        response.writeHead(
+          302,
+          {
+            location:
+              '/success'
+          }
+        );
+        response.end();
+        return;
+      }
+
+      if (
+        request.url ===
+          '/preflight-forbidden'
+      ) {
+        response.writeHead(
+          403,
+          {
+            'content-type':
+              'text/html; charset=utf-8'
+          }
+        );
+        response.end(
+          '<!doctype html><title>Forbidden but reachable</title>'
+        );
+        return;
+      }
+
       response.writeHead(
         200,
         {
@@ -182,6 +224,110 @@ async function main():
       processModelSentinel;
 
   try {
+    assert.deepEqual(
+      await preflightTargetReachability({
+        target:
+          `${baseUrl}/success`
+      }),
+      {
+        accepted:
+          true,
+        target:
+          `${baseUrl}/success`
+      }
+    );
+    assert.deepEqual(
+      await preflightTargetReachability({
+        target:
+          `${baseUrl}/preflight-redirect`
+      }),
+      {
+        accepted:
+          true,
+        target:
+          `${baseUrl}/success`
+      }
+    );
+    assert.deepEqual(
+      await preflightTargetReachability({
+        target:
+          `${baseUrl}/preflight-forbidden`
+      }),
+      {
+        accepted:
+          true,
+        target:
+          `${baseUrl}/preflight-forbidden`
+      }
+    );
+
+    const refusedServer =
+      createServer();
+
+    await listenOnBrowserSafeLoopbackPort(
+      refusedServer,
+      'target reachability refusal fixture'
+    );
+    const refusedAddress =
+      refusedServer.address();
+
+    assert.ok(
+      refusedAddress !==
+        null &&
+      typeof refusedAddress !==
+        'string'
+    );
+    const refusedUrl =
+      `http://${allowedHost}:${refusedAddress.port}/`;
+
+    await closeServer(
+      refusedServer
+    );
+
+    assert.deepEqual(
+      await preflightTargetReachability({
+        target:
+          refusedUrl
+      }),
+      {
+        accepted:
+          false,
+        message:
+          'Could not reach this website. Check the address and try again.'
+      }
+    );
+
+    const targetPreflightCancellation =
+      new AbortController();
+    const cancellableTargetPreflight =
+      preflightTargetReachability({
+        target:
+          `${baseUrl}/preflight-hang`,
+        signal:
+          targetPreflightCancellation
+            .signal
+      });
+
+    setTimeout(
+      () => {
+        targetPreflightCancellation
+          .abort();
+      },
+      100
+    );
+
+    await assert.rejects(
+      cancellableTargetPreflight,
+      error =>
+        error instanceof
+          CheckQuestError &&
+      error.code ===
+        'CANCELLED'
+    );
+    await waitForNoConnections(
+      server
+    );
+
     const credential =
       'G1_TRANSIENT_CREDENTIAL_SENTINEL';
     const model =
@@ -721,7 +867,7 @@ async function main():
     );
 
     console.log(
-      'G1 application success, persistence, event isolation, and cancellation browser checks passed.'
+      'G1 application success, persistence, event isolation, cancellation, and target reachability browser checks passed.'
     );
   } finally {
     if (

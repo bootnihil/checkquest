@@ -23,6 +23,9 @@ import {
 import {
   inspectNavigation
 } from '../browser/inspect-navigation';
+import {
+  runPageOperationWithCancellation
+} from '../browser/run-page-operation-with-cancellation';
 import type {
   SiteConfig
 } from '../config/site-config';
@@ -43,6 +46,9 @@ import {
 import {
   evaluateFindingInvestigationOutcome
 } from '../investigation/evaluate-finding-investigation-outcome';
+import {
+  waitForRunDelay
+} from '../errors/run-cancellation';
 import type {
   GeminiRequestEvent
 } from '../ai/run-gemini-request';
@@ -171,8 +177,13 @@ export async function inspectPage(
     passiveSecuritySnapshot
   );
 
-  await page.waitForTimeout(
-    1_000
+  await waitForRunDelay(
+    1_000,
+    input
+      .dependencies
+      ?.signal,
+    runId,
+    'page-observation-settle'
   );
 
   const diagnostics =
@@ -214,9 +225,22 @@ export async function inspectPage(
     );
 
   const discoveredLinks =
-    await inspectNavigation(
+    await runPageOperationWithCancellation(
       page,
-      site.allowedHosts
+      () =>
+        inspectNavigation(
+          page,
+          site.allowedHosts
+        ),
+      {
+        signal:
+          input
+            .dependencies
+            ?.signal,
+        runId,
+        phase:
+          'navigation-inspection'
+      }
     );
 
   const effectivePredictedIdentity =
@@ -488,7 +512,10 @@ export async function inspectPage(
       await capturePageScreenshot(
         page,
         runId,
-        pageNumber
+        pageNumber,
+        input
+          .dependencies
+          ?.signal
       );
 
     screenshotPath =
