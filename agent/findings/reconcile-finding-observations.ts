@@ -328,6 +328,25 @@ function canonicalizeStructuredObservation(
     };
   }
 
+  /*
+   * An admitted accessibility finding already carries a browser-grounded
+   * defect basis. Preserve its concrete observation/conflict wording rather
+   * than collapsing it back to the neutral accessible-name property used for
+   * stable identity.
+   */
+  if (
+    finding.category ===
+      'accessibility' &&
+    finding
+      .accessibilityDefectBasis !==
+      null &&
+    finding
+      .accessibilityDefectBasis !==
+      undefined
+  ) {
+    return finding;
+  }
+
   const subject =
     `${identity.subject.controlType} control with id "${identity.subject.controlId}"`;
   const mechanismTitle =

@@ -1141,7 +1141,7 @@ function checkRejectedStructuredIdentityCommit(): void {
       knownFindingReference:
         null,
       category:
-        'accessibility',
+        'other',
       severity:
         'low',
       confidence:

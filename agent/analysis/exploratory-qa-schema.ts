@@ -120,6 +120,54 @@ export const findingStructuredIdentitySchema =
       }).strict()
   }).strict();
 
+export const accessibilityEvidenceFactSchema =
+  z.object({
+    controlType:
+      z.enum([
+        'tab',
+        'disclosure'
+      ]),
+    controlId:
+      z.string()
+        .min(1)
+        .max(500),
+    property:
+      z.enum([
+        'visible-text',
+        'accessible-name',
+        'aria-expanded',
+        'aria-selected',
+        'aria-controls',
+        'controlled-content-exists',
+        'controlled-content-visible'
+      ]),
+    value:
+      z.union([
+        z.string()
+          .max(1_000),
+        z.boolean(),
+        z.null()
+      ])
+  }).strict();
+
+export const accessibilityDefectBasisSchema =
+  z.object({
+    expectation:
+      z.string()
+        .min(1)
+        .max(1_000),
+    conflict:
+      z.string()
+        .min(1)
+        .max(1_000),
+    supportingEvidence:
+      z.array(
+        accessibilityEvidenceFactSchema
+      )
+        .min(1)
+        .max(8)
+  }).strict();
+
 export const technicalFailedRequestIdentitySchema =
   z.object({
     kind:
@@ -263,6 +311,17 @@ export const exploratoryQaFindingSchema = z.object({
       .optional(),
 
   /*
+   * Accessibility findings need a concrete defect basis in addition to a
+   * neutral property observation. Runtime admission validates every supplied
+   * fact against the current structured control evidence and requires an
+   * actual omission, negative relationship fact, or conflicting pair.
+   */
+  accessibilityDefectBasis:
+    accessibilityDefectBasisSchema
+      .nullable()
+      .optional(),
+
+  /*
    * Model-supplied references are advisory pointers to exact failed-request
    * groups included in the current prompt. Runtime resolves them against the
    * current browser diagnostics before any technical identity is accepted.
@@ -323,6 +382,16 @@ export type FindingPresentationTarget =
 export type FindingStructuredIdentity =
   z.infer<
     typeof findingStructuredIdentitySchema
+  >;
+
+export type AccessibilityEvidenceFact =
+  z.infer<
+    typeof accessibilityEvidenceFactSchema
+  >;
+
+export type AccessibilityDefectBasis =
+  z.infer<
+    typeof accessibilityDefectBasisSchema
   >;
 
 export type TechnicalFailedRequestIdentity =

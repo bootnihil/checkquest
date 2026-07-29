@@ -64,6 +64,7 @@ export interface PageDisclosureControl {
   role: string | null;
   buttonType: string | null;
   controlId: string | null;
+  visibleText?: string | null;
   accessibleName: string | null;
   ariaExpanded: 'true' | 'false' | null;
   ariaControls: string | null;
@@ -86,6 +87,7 @@ export interface PageTabControl {
   tagName: string;
   role: 'tab';
   controlId: string | null;
+  visibleText?: string | null;
   accessibleName: string | null;
   tabListId: string | null;
   ariaSelected: 'true' | 'false' | null;
@@ -1023,6 +1025,9 @@ export async function extractPageContent(
           role,
           buttonType,
           controlId,
+          visibleText:
+            visibleText ||
+            null,
           accessibleName,
           ariaExpanded,
           ariaControls,
@@ -1616,6 +1621,9 @@ export async function extractPageContent(
           tagName,
           role: 'tab' as const,
           controlId,
+          visibleText:
+            visibleText ||
+            null,
           accessibleName,
           tabListId,
           ariaSelected,

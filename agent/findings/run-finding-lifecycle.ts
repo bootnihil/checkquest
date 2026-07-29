@@ -2,6 +2,9 @@ import type {
   ExploratoryQaAnalysis,
   ExploratoryQaFinding
 } from '../analysis/exploratory-qa-schema';
+import {
+  admitAccessibilityFindings
+} from '../analysis/accessibility-finding-admission';
 import type {
   ClassifiedDiagnostics
 } from '../analysis/classify-diagnostics';
@@ -463,6 +466,11 @@ export function reconcileRunPageFindings(
             .classifiedDiagnostics,
           input.pageUrl
         );
+  const admittedExploratoryQaAnalysis =
+    admitAccessibilityFindings(
+      normalizedExploratoryQaAnalysis,
+      input.pageContent
+    );
   const reconciledFindingObservations =
     reconcileFindingObservations({
       pageUrl:
@@ -472,7 +480,7 @@ export function reconcileRunPageFindings(
       ruleFindings:
         input.ruleFindings,
       modelFindings:
-        normalizedExploratoryQaAnalysis
+        admittedExploratoryQaAnalysis
           .findings,
       pageContent:
         input.pageContent
@@ -489,7 +497,7 @@ export function reconcileRunPageFindings(
     );
 
   const exploratoryQaAnalysis = {
-    ...normalizedExploratoryQaAnalysis,
+    ...admittedExploratoryQaAnalysis,
 
     /*
      * Keep page-local analysis findings limited to genuinely
@@ -505,7 +513,7 @@ export function reconcileRunPageFindings(
       reconciledFindingObservations
     );
 
-  normalizedExploratoryQaAnalysis
+  admittedExploratoryQaAnalysis
     .findings
     .forEach(
       (

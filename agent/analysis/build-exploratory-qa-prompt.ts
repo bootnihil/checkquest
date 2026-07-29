@@ -166,7 +166,7 @@ Materially useful additional evidence includes a new affected page, direct struc
 8A. Every finding MUST include a "relatedRuleCode" field.
 
 - Set relatedRuleCode to the exact code of one supplied ruleBasedFindings item only when the model observation repeats that same narrow targetless assertion on this page.
-- When relatedRuleCode is non-null, copy that rule finding's title and evidence exactly and set evidenceTarget, presentationTarget, and structuredIdentity to null. Runtime requires this exact assertion identity.
+- When relatedRuleCode is non-null, copy that rule finding's title and evidence exactly and set evidenceTarget, presentationTarget, structuredIdentity, and accessibilityDefectBasis to null. Runtime requires this exact assertion identity.
 - Otherwise set relatedRuleCode to null.
 - Do not infer a relationship from similar wording alone.
 - relatedRuleCode is advisory. It does not make model evidence deterministic or verification-capable.
@@ -319,6 +319,44 @@ Supported shape:
   component, or a control without an exact non-empty controlId.
 - Otherwise return "structuredIdentity": null.
 
+9B.1. Every finding MUST include an "accessibilityDefectBasis" field.
+
+For every accessibility finding, this field must explain the concrete defect
+basis, not merely repeat a neutral accessibility property.
+
+Supported shape:
+
+{
+  "expectation": "The specific accessibility expectation relevant to this control",
+  "conflict": "How the supplied observations concretely conflict with that expectation",
+  "supportingEvidence": [
+    {
+      "controlType": "tab" | "disclosure",
+      "controlId": "Exact supplied controlId",
+      "property": "visible-text" | "accessible-name" | "aria-expanded" | "aria-selected" | "aria-controls" | "controlled-content-exists" | "controlled-content-visible",
+      "value": "Exact supplied value, boolean, or null"
+    }
+  ]
+}
+
+- Copy every supporting-evidence fact exactly from one supplied tab or
+  disclosure.
+- A neutral property is not a defect basis by itself. An accessible name such
+  as "Product", role=button, aria-expanded=false, an element id, or an
+  accessibility-tree entry does not establish a problem.
+- The supplied facts must demonstrate a concrete omission, invalid
+  relationship, or conflicting condition. Examples include a required name or
+  state being absent, visible text materially disagreeing with the accessible
+  name, or exposed state disagreeing with controlled-content visibility.
+- Generic references to WCAG, WAI-ARIA, assistive technology, screen readers,
+  labeling, or semantics do not supply a defect basis.
+- Model confidence does not supply a defect basis.
+- Do not invent an expected value or a conflicting observation.
+- If the evidence supplies only a neutral property and no concrete conflict,
+  do not return an accessibility finding.
+- For every non-accessibility finding, return
+  "accessibilityDefectBasis": null.
+
 9C. Every finding MUST include a "technicalEvidenceReferences" field.
 
 This field links a technical finding to exact failed-request evidence supplied
@@ -408,6 +446,7 @@ Return ONLY valid JSON with this exact structure:
       },
       "presentationTarget": null,
       "structuredIdentity": null,
+      "accessibilityDefectBasis": null,
       "technicalEvidenceReferences": null
     }
   ],
@@ -429,6 +468,7 @@ For a finding with no supported machine-readable target, use:
   "evidenceTarget": null,
   "presentationTarget": null,
   "structuredIdentity": null,
+  "accessibilityDefectBasis": null,
   "technicalEvidenceReferences": null
 }
 

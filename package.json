@@ -45,6 +45,7 @@
     "agent:navigation-policy-check": "tsx agent/navigation-policy-check.ts",
     "agent:navigation-policy-browser-check": "tsx agent/navigation-policy-browser-check.ts",
     "agent:exploratory-qa-schema-check": "tsx agent/exploratory-qa-schema-check.ts",
+    "agent:accessibility-finding-admission-check": "tsx agent/accessibility-finding-admission-check.ts",
     "agent:exploratory-qa-prompt-check": "tsx agent/exploratory-qa-prompt-check.ts",
     "agent:exploratory-qa-analysis-check": "tsx agent/exploratory-qa-analysis-check.ts",
     "agent:action-schema-check": "tsx agent/action-schema-check.ts",

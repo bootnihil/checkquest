@@ -22,6 +22,7 @@ const deterministicChecks = [
   'agent:route-value-check',
   'agent:navigation-policy-check',
   'agent:exploratory-qa-schema-check',
+  'agent:accessibility-finding-admission-check',
   'agent:action-schema-check',
   'agent:planner-schema-check',
   'agent:planner-prompt-check',
