@@ -3,9 +3,13 @@ import assert from 'node:assert/strict';
 import type {
   ClassifiedDiagnostics
 } from './analysis/classify-diagnostics';
-import type {
-  ExploratoryQaAnalysis,
-  ExploratoryQaFinding
+import {
+  buildExploratoryQaPrompt
+} from './analysis/build-exploratory-qa-prompt';
+import {
+  exploratoryQaAnalysisSchema,
+  type ExploratoryQaAnalysis,
+  type ExploratoryQaFinding
 } from './analysis/exploratory-qa-schema';
 import type {
   ExtractedPageContent
@@ -30,6 +34,19 @@ interface FailedRequestFixture {
   disposition?:
     'actionable' |
     'needs-review';
+}
+
+interface CorsDiagnosticFixture {
+  resourceUrl?: string;
+  mechanism?: string;
+  method?: string;
+  resourceType?:
+    'fetch' |
+    'xhr';
+  includeMatchingRequest?:
+    boolean;
+  reverseDiagnosticOrder?:
+    boolean;
 }
 
 function createContent(
@@ -73,6 +90,115 @@ function createDiagnostics(
             'Synthetic deterministic technical observation.'
         })
       )
+  };
+}
+
+function createCorsDiagnostics(
+  pageUrl:
+    string,
+  fixture:
+    CorsDiagnosticFixture =
+    {}
+): ClassifiedDiagnostics {
+  const resourceUrl =
+    fixture.resourceUrl ??
+    'https://tr.capterra.com/events/';
+  const mechanism =
+    fixture.mechanism ??
+    "Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource.";
+  const resourceType =
+    fixture.resourceType ??
+    'xhr';
+  const requestKind =
+    resourceType ===
+      'xhr'
+      ? 'XMLHttpRequest'
+      : 'fetch';
+  const requestingOrigin =
+    new URL(
+      pageUrl
+    ).origin;
+  const corsConsoleError = {
+    text:
+      `Access to ${requestKind} at '${resourceUrl}' from origin '${requestingOrigin}' has been blocked by CORS policy: ${mechanism}`,
+    sourceUrl:
+      pageUrl,
+    lineNumber:
+      0,
+    columnNumber:
+      0
+  };
+  const unrelatedConsoleError = {
+    text:
+      'Synthetic unrelated console error.',
+    sourceUrl:
+      pageUrl,
+    lineNumber:
+      1,
+    columnNumber:
+      1
+  };
+  const matchingRequest = {
+    request: {
+      url:
+        resourceUrl,
+      method:
+        fixture.method ??
+        'POST',
+      resourceType,
+      failureText:
+        'net::ERR_FAILED'
+    },
+    disposition:
+      'needs-review' as const,
+    reason:
+      'Synthetic browser failure paired with the CORS console diagnostic.'
+  };
+  const unrelatedRequest = {
+    request: {
+      url:
+        'https://unrelated.example.net/noise.png',
+      method:
+        'GET',
+      resourceType:
+        'image',
+      failureText:
+        'net::ERR_ABORTED'
+    },
+    disposition:
+      'needs-review' as const,
+    reason:
+      'Synthetic unrelated browser failure.'
+  };
+  const consoleErrors =
+    fixture.reverseDiagnosticOrder
+      ? [
+          unrelatedConsoleError,
+          corsConsoleError
+        ]
+      : [
+          corsConsoleError,
+          unrelatedConsoleError
+        ];
+  const failedRequests =
+    fixture.includeMatchingRequest ===
+      false
+      ? [
+          unrelatedRequest
+        ]
+      : fixture.reverseDiagnosticOrder
+        ? [
+            unrelatedRequest,
+            matchingRequest
+          ]
+        : [
+            matchingRequest,
+            unrelatedRequest
+          ];
+
+  return {
+    consoleErrors,
+    failedRequests
   };
 }
 
@@ -301,6 +427,352 @@ function checkCrossPageReconciliation(): void {
   );
 }
 
+function checkCorsCrossPageReconciliation(): void {
+  const lifecycle =
+    createRunFindingLifecycle();
+  const pageUrls = [
+    'https://monday.com/operations',
+    'https://monday.com/w/nonprofits'
+  ];
+  const promptDiagnostics =
+    createCorsDiagnostics(
+      pageUrls[0]!
+    );
+  const prompt =
+    buildExploratoryQaPrompt({
+      observation: {
+        requestedUrl:
+          pageUrls[0]!,
+        finalUrl:
+          pageUrls[0]!,
+        title:
+          'Monday operations',
+        httpStatus:
+          200,
+        headings:
+          []
+      },
+      content:
+        createContent(
+          'Monday operations'
+        ),
+      classifiedDiagnostics:
+        promptDiagnostics,
+      ruleBasedFindings:
+        []
+    });
+
+  assert.match(
+    prompt,
+    /"technicalObservationReference": "technical-cors-1"/,
+    'Eligible deterministic CORS evidence must expose an exact reference to the model.'
+  );
+
+  pageUrls.forEach(
+    (
+      pageUrl,
+      index
+    ) => {
+      const page =
+        reconcilePage(
+          lifecycle,
+          {
+            pageUrl,
+            diagnostics:
+              createCorsDiagnostics(
+                pageUrl,
+                {
+                  reverseDiagnosticOrder:
+                    index ===
+                    1
+                }
+              ),
+            finding:
+              createTechnicalFinding([
+                'technical-cors-1'
+              ])
+          }
+        );
+
+      assert.equal(
+        page.exploratoryQaAnalysis
+          .findings[0]
+          ?.technicalIdentity
+          ?.kind,
+        'cors',
+        'A model reference receives CORS identity only from the matched deterministic diagnostic.'
+      );
+      assert.equal(
+        exploratoryQaAnalysisSchema
+          .safeParse(
+            page.exploratoryQaAnalysis
+          )
+          .success,
+        true,
+        'The runtime-derived CORS identity must retain the analysis schema.'
+      );
+
+      commitPage(
+        lifecycle,
+        page,
+        pageUrl
+      );
+    }
+  );
+
+  const findings =
+    getRunFindings(
+      lifecycle
+    );
+
+  assert.equal(
+    findings.length,
+    1,
+    'The same trusted CORS phenomenon must reconcile across inspected pages.'
+  );
+  assert.match(
+    findings[0]
+      ?.fingerprint ??
+      '',
+    /^technical\|cors\|/
+  );
+  assert.deepEqual(
+    findings[0]
+      ?.occurrences
+      .map(
+        occurrence =>
+          occurrence.pageUrl
+      ),
+    pageUrls,
+    'Page and diagnostic ordering must not alter the logical CORS identity.'
+  );
+  assert.equal(
+    findings[0]
+      ?.verification
+      .state,
+    'inconclusive',
+    'Structured CORS identity must not upgrade verification.'
+  );
+}
+
+function checkCorsIdentitySeparation(): void {
+  const lifecycle =
+    createRunFindingLifecycle();
+  const cases: Array<{
+    pageUrl: string;
+    fixture:
+      CorsDiagnosticFixture;
+  }> = [
+    {
+      pageUrl:
+        'https://monday.com/base',
+      fixture:
+        {}
+    },
+    {
+      pageUrl:
+        'https://monday.com/other-endpoint',
+      fixture: {
+        resourceUrl:
+          'https://tr.capterra.com/other-events/'
+      }
+    },
+    {
+      pageUrl:
+        'https://monday.com/other-mechanism',
+      fixture: {
+        mechanism:
+          "No 'Access-Control-Allow-Origin' header is present on the requested resource."
+      }
+    },
+    {
+      pageUrl:
+        'https://other.example.com/other-origin',
+      fixture:
+        {}
+    }
+  ];
+
+  for (
+    const item of
+      cases
+  ) {
+    const page =
+      reconcilePage(
+        lifecycle,
+        {
+          pageUrl:
+            item.pageUrl,
+          diagnostics:
+            createCorsDiagnostics(
+              item.pageUrl,
+              item.fixture
+            ),
+          finding:
+            createTechnicalFinding([
+              'technical-cors-1'
+            ])
+        }
+      );
+
+    commitPage(
+      lifecycle,
+      page,
+      item.pageUrl
+    );
+  }
+
+  const failedRequestPageUrl =
+    'https://monday.com/non-cors-failure';
+  const failedRequestPage =
+    reconcilePage(
+      lifecycle,
+      {
+        pageUrl:
+          failedRequestPageUrl,
+        diagnostics:
+          createDiagnostics([
+            {
+              url:
+                'https://tr.capterra.com/events/',
+              resourceType:
+                'script',
+              failureText:
+                'net::ERR_BLOCKED_BY_ORB'
+            }
+          ]),
+        finding:
+          createTechnicalFinding([
+            'technical-request-1'
+          ])
+      }
+    );
+
+  commitPage(
+    lifecycle,
+    failedRequestPage,
+    failedRequestPageUrl
+  );
+
+  const findings =
+    getRunFindings(
+      lifecycle
+    );
+
+  assert.equal(
+    findings.length,
+    5,
+    'Different CORS endpoints, mechanisms, origins, and non-CORS failures must remain distinct.'
+  );
+  assert.equal(
+    new Set(
+      findings.map(
+        finding =>
+          finding.fingerprint
+      )
+    ).size,
+    5
+  );
+  assert.equal(
+    findings.filter(
+      finding =>
+        finding.fingerprint
+          .startsWith(
+            'technical|cors|'
+          )
+    ).length,
+    4
+  );
+  assert.equal(
+    findings.filter(
+      finding =>
+        finding.fingerprint
+          .startsWith(
+            'technical|failed-request|'
+          )
+    ).length,
+    1,
+    'CORS identity must not merge with ORB or other requestfailed mechanisms.'
+  );
+}
+
+function checkUnmatchedCorsFallback(): void {
+  const lifecycle =
+    createRunFindingLifecycle();
+  const pageUrls = [
+    'https://monday.com/model-only',
+    'https://monday.com/unmatched-console'
+  ];
+  const diagnostics = [
+    createDiagnostics(
+      []
+    ),
+    createCorsDiagnostics(
+      pageUrls[1]!,
+      {
+        includeMatchingRequest:
+          false
+      }
+    )
+  ];
+
+  pageUrls.forEach(
+    (
+      pageUrl,
+      index
+    ) => {
+      const page =
+        reconcilePage(
+          lifecycle,
+          {
+            pageUrl,
+            diagnostics:
+              diagnostics[index]!,
+            finding:
+              createTechnicalFinding([
+                'technical-cors-1'
+              ])
+          }
+        );
+
+      assert.equal(
+        page.exploratoryQaAnalysis
+          .findings[0]
+          ?.technicalIdentity,
+        null,
+        'An unmatched or model-only CORS claim must not receive structured identity.'
+      );
+
+      commitPage(
+        lifecycle,
+        page,
+        pageUrl
+      );
+    }
+  );
+
+  const findings =
+    getRunFindings(
+      lifecycle
+    );
+
+  assert.equal(
+    findings.length,
+    2,
+    'Ungrounded CORS claims must retain page-scoped fallback identity.'
+  );
+  assert.equal(
+    findings.every(
+      finding =>
+        finding.fingerprint
+          .startsWith(
+            'unstructured|'
+          )
+    ),
+    true
+  );
+}
+
 function checkHeterogeneousBundleSplitting(): void {
   const lifecycle =
     createRunFindingLifecycle();
@@ -478,6 +950,9 @@ function checkConservativeFallback(): void {
 
 function main(): void {
   checkCrossPageReconciliation();
+  checkCorsCrossPageReconciliation();
+  checkCorsIdentitySeparation();
+  checkUnmatchedCorsFallback();
   checkHeterogeneousBundleSplitting();
   checkConservativeFallback();
 

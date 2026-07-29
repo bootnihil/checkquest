@@ -3,6 +3,7 @@ import {
 } from 'node:crypto';
 
 import type {
+  ConsoleErrorObservation,
   FailedRequestObservation
 } from '../browser/collect-page-diagnostics';
 import type {
@@ -12,7 +13,9 @@ import type {
 import type {
   ExploratoryQaAnalysis,
   ExploratoryQaFinding,
-  TechnicalFailedRequestIdentity
+  TechnicalCorsIdentity,
+  TechnicalFailedRequestIdentity,
+  TechnicalObservationIdentity
 } from './exploratory-qa-schema';
 
 export interface ReferencedTechnicalRequestGroup {
@@ -29,6 +32,24 @@ export interface ReferencedTechnicalRequests {
   referenceByRequest:
     Map<
       FailedRequestObservation,
+      string
+  >;
+}
+
+export interface ReferencedTechnicalCorsGroup {
+  reference: string;
+  identity:
+    TechnicalCorsIdentity;
+  consoleErrors:
+    ConsoleErrorObservation[];
+}
+
+export interface ReferencedTechnicalCorsDiagnostics {
+  groups:
+    ReferencedTechnicalCorsGroup[];
+  referenceByConsoleError:
+    Map<
+      ConsoleErrorObservation,
       string
     >;
 }
@@ -118,11 +139,262 @@ function createTechnicalIdentity(
 
 function identityKey(
   identity:
-    TechnicalFailedRequestIdentity
+    TechnicalObservationIdentity
 ): string {
   return JSON.stringify(
     identity
   );
+}
+
+function parseHttpUrl(
+  value:
+    string
+): URL | null {
+  try {
+    const parsed =
+      new URL(
+        value
+      );
+
+    if (
+      parsed.protocol !==
+        'http:' &&
+      parsed.protocol !==
+        'https:'
+    ) {
+      return null;
+    }
+
+    parsed.hash =
+      '';
+
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function createCorsIdentity(
+  consoleError:
+    ConsoleErrorObservation,
+  failedRequests:
+    ClassifiedFailedRequest[],
+  pageUrl:
+    string
+): TechnicalCorsIdentity | null {
+  const match =
+    /^Access to (XMLHttpRequest|fetch) at '([^'\r\n]+)' from origin '([^'\r\n]+)' has been blocked by CORS policy:\s*(.+)$/u
+      .exec(
+        consoleError.text
+      );
+
+  if (
+    match ===
+      null
+  ) {
+    return null;
+  }
+
+  const requestKind =
+    match[1];
+  const resourceUrl =
+    parseHttpUrl(
+      match[2] ??
+      ''
+    );
+  const requestingOriginUrl =
+    parseHttpUrl(
+      match[3] ??
+      ''
+    );
+  const inspectedPageUrl =
+    parseHttpUrl(
+      pageUrl
+    );
+  const consoleSourceUrl =
+    consoleError.sourceUrl ===
+      null
+      ? null
+      : parseHttpUrl(
+          consoleError.sourceUrl
+        );
+  const mechanism =
+    (
+      match[4] ??
+      ''
+    )
+      .replace(
+        /\s+/g,
+        ' '
+      )
+      .trim();
+
+  if (
+    resourceUrl ===
+      null ||
+    requestingOriginUrl ===
+      null ||
+    inspectedPageUrl ===
+      null ||
+    consoleSourceUrl ===
+      null ||
+    mechanism.length ===
+      0 ||
+    requestingOriginUrl.origin !==
+      inspectedPageUrl.origin ||
+    consoleSourceUrl.origin !==
+      inspectedPageUrl.origin ||
+    resourceUrl.origin ===
+      requestingOriginUrl.origin
+  ) {
+    return null;
+  }
+
+  const resourceType =
+    requestKind ===
+      'XMLHttpRequest'
+      ? 'xhr'
+      : 'fetch';
+  const matchingRequests =
+    failedRequests.filter(
+      item => {
+        const failedUrl =
+          parseHttpUrl(
+            item.request.url
+          );
+
+        return (
+          failedUrl !==
+            null &&
+          failedUrl.href ===
+            resourceUrl.href &&
+          item.request
+            .resourceType
+            .trim()
+            .toLowerCase() ===
+            resourceType &&
+          item.request
+            .failureText
+            .trim() ===
+            'net::ERR_FAILED'
+        );
+      }
+    );
+
+  if (
+    matchingRequests.length !==
+      1
+  ) {
+    return null;
+  }
+
+  const method =
+    matchingRequests[0]
+      ?.request
+      .method
+      .trim()
+      .toUpperCase() ??
+    '';
+
+  if (
+    method.length ===
+      0
+  ) {
+    return null;
+  }
+
+  return {
+    kind:
+      'cors',
+    mechanism,
+    method,
+    resourceType,
+    resourceUrl:
+      resourceUrl.href,
+    requestingOrigin:
+      requestingOriginUrl.origin,
+    originRelation:
+      'cross-origin'
+  };
+}
+
+export function createReferencedTechnicalCorsDiagnostics(
+  diagnostics:
+    ClassifiedDiagnostics,
+  pageUrl:
+    string
+): ReferencedTechnicalCorsDiagnostics {
+  const groupsByIdentity =
+    new Map<
+      string,
+      ReferencedTechnicalCorsGroup
+    >();
+  const referenceByConsoleError =
+    new Map<
+      ConsoleErrorObservation,
+      string
+    >();
+
+  for (
+    const consoleError of
+      diagnostics.consoleErrors
+  ) {
+    const identity =
+      createCorsIdentity(
+        consoleError,
+        diagnostics.failedRequests,
+        pageUrl
+      );
+
+    if (
+      identity ===
+        null
+    ) {
+      continue;
+    }
+
+    const key =
+      identityKey(
+        identity
+      );
+    let group =
+      groupsByIdentity.get(
+        key
+      );
+
+    if (
+      group ===
+        undefined
+    ) {
+      group = {
+        reference:
+          `technical-cors-${groupsByIdentity.size + 1}`,
+        identity,
+        consoleErrors: []
+      };
+      groupsByIdentity.set(
+        key,
+        group
+      );
+    }
+
+    group.consoleErrors.push(
+      consoleError
+    );
+    referenceByConsoleError.set(
+      consoleError,
+      group.reference
+    );
+  }
+
+  return {
+    groups:
+      Array.from(
+        groupsByIdentity
+          .values()
+      ),
+    referenceByConsoleError
+  };
 }
 
 export function createReferencedTechnicalRequests(
@@ -247,9 +519,17 @@ export function normalizeTechnicalObservations(
       diagnostics,
       pageUrl
     );
+  const referencedCors =
+    createReferencedTechnicalCorsDiagnostics(
+      diagnostics,
+      pageUrl
+    );
   const groupByReference =
     new Map(
-      referenced.groups.map(
+      [
+        ...referenced.groups,
+        ...referencedCors.groups
+      ].map(
         group => [
           group.reference,
           group
@@ -331,9 +611,12 @@ export function normalizeTechnicalObservations(
       findings.push({
         ...finding,
         evidence:
-          createTechnicalEvidenceSummary(
-            group.identity
-          ),
+          group.identity.kind ===
+            'failed-request'
+            ? createTechnicalEvidenceSummary(
+                group.identity
+              )
+            : finding.evidence,
         evidenceTarget:
           null,
         presentationTarget:
@@ -357,7 +640,7 @@ export function normalizeTechnicalObservations(
 
 export function createTechnicalObservationFingerprint(
   identity:
-    TechnicalFailedRequestIdentity
+    TechnicalObservationIdentity
 ): string {
   const resourceUrl =
     new URL(
@@ -378,15 +661,38 @@ export function createTechnicalObservationFingerprint(
         16
       );
 
+  if (
+    identity.kind ===
+      'failed-request'
+  ) {
+    return [
+      'technical',
+      identity.kind,
+      identity.failureText
+        .toLowerCase(),
+      identity.method
+        .toLowerCase(),
+      identity.resourceType,
+      identity.originRelation,
+      resourceUrl.hostname
+        .toLowerCase(),
+      resourceDigest
+    ].join(
+      '|'
+    );
+  }
+
   return [
     'technical',
     identity.kind,
-    identity.failureText
+    identity.mechanism
       .toLowerCase(),
     identity.method
       .toLowerCase(),
     identity.resourceType,
     identity.originRelation,
+    identity.requestingOrigin
+      .toLowerCase(),
     resourceUrl.hostname
       .toLowerCase(),
     resourceDigest

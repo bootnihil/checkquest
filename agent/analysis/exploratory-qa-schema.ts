@@ -197,6 +197,48 @@ export const technicalFailedRequestIdentitySchema =
       ])
   }).strict();
 
+export const technicalCorsIdentitySchema =
+  z.object({
+    kind:
+      z.literal(
+        'cors'
+      ),
+    mechanism:
+      z.string()
+        .min(1)
+        .max(1_000),
+    method:
+      z.string()
+        .min(1)
+        .max(50),
+    resourceType:
+      z.enum([
+        'fetch',
+        'xhr'
+      ]),
+    resourceUrl:
+      z.string()
+        .url()
+        .max(4_000),
+    requestingOrigin:
+      z.string()
+        .url()
+        .max(4_000),
+    originRelation:
+      z.literal(
+        'cross-origin'
+      )
+  }).strict();
+
+export const technicalObservationIdentitySchema =
+  z.discriminatedUnion(
+    'kind',
+    [
+      technicalFailedRequestIdentitySchema,
+      technicalCorsIdentitySchema
+    ]
+  );
+
 export const exploratoryQaFindingSchema = z.object({
   /*
    * Optional model-supplied relationship to a run-local
@@ -322,15 +364,15 @@ export const exploratoryQaFindingSchema = z.object({
       .optional(),
 
   /*
-   * Model-supplied references are advisory pointers to exact failed-request
-   * groups included in the current prompt. Runtime resolves them against the
-   * current browser diagnostics before any technical identity is accepted.
+   * Model-supplied references are advisory pointers to exact deterministic
+   * diagnostic groups included in the current prompt. Runtime resolves them
+   * against current browser diagnostics before accepting technical identity.
    */
   technicalEvidenceReferences:
     z.array(
       z.string()
         .regex(
-          /^technical-request-\d+$/
+          /^technical-(?:request|cors)-\d+$/
         )
         .max(100)
     )
@@ -343,7 +385,7 @@ export const exploratoryQaFindingSchema = z.object({
    * reconciliation and never receive identity authority.
    */
   technicalIdentity:
-    technicalFailedRequestIdentitySchema
+    technicalObservationIdentitySchema
       .nullable()
       .optional()
 });
@@ -397,6 +439,16 @@ export type AccessibilityDefectBasis =
 export type TechnicalFailedRequestIdentity =
   z.infer<
     typeof technicalFailedRequestIdentitySchema
+  >;
+
+export type TechnicalCorsIdentity =
+  z.infer<
+    typeof technicalCorsIdentitySchema
+  >;
+
+export type TechnicalObservationIdentity =
+  z.infer<
+    typeof technicalObservationIdentitySchema
   >;
 
 export type ExploratoryQaFinding =

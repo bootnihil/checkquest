@@ -6,6 +6,7 @@ import type {
   KnownFindingPromptContext
 } from '../investigation/known-findings';
 import {
+  createReferencedTechnicalCorsDiagnostics,
   createReferencedTechnicalRequests
 } from './technical-observation-reconciliation';
 
@@ -36,6 +37,11 @@ export function buildExploratoryQaPrompt(
     );
   const referencedTechnicalRequests =
     createReferencedTechnicalRequests(
+      classifiedDiagnostics,
+      observation.finalUrl
+    );
+  const referencedTechnicalCors =
+    createReferencedTechnicalCorsDiagnostics(
       classifiedDiagnostics,
       observation.finalUrl
     );
@@ -78,7 +84,18 @@ export function buildExploratoryQaPrompt(
 
     browserDiagnostics: {
       consoleErrors:
-        classifiedDiagnostics.consoleErrors,
+        classifiedDiagnostics.consoleErrors.map(
+          consoleError => ({
+            technicalObservationReference:
+              referencedTechnicalCors
+                .referenceByConsoleError
+                .get(
+                  consoleError
+                ) ??
+              null,
+            ...consoleError
+          })
+        ),
 
       failedRequests:
         relevantFailedRequests.map(
@@ -359,24 +376,26 @@ Supported shape:
 
 9C. Every finding MUST include a "technicalEvidenceReferences" field.
 
-This field links a technical finding to exact failed-request evidence supplied
-in browserDiagnostics.failedRequests.
+This field links a technical finding to exact deterministic browser evidence
+supplied in browserDiagnostics.
 
-For a technical finding about one or more failed requests:
+For a technical finding about one or more failed requests or a referenced CORS
+console diagnostic:
 
 - Set technicalEvidenceReferences to the exact non-null
-  technicalObservationReference values for every failed request group described
-  by that finding.
+  technicalObservationReference values for every deterministic diagnostic
+  group described by that finding.
 - Copy references exactly; never invent or modify one.
 - Include only references actually described by the finding.
-- Different failure mechanisms or resources may have different references even
-  when they share a generated title.
+- Different diagnostic mechanisms, origins, or resources may have different
+  references even when they share a generated title.
 - Runtime validates the references and may normalize a heterogeneous bundle
   into separate homogeneous technical observations.
 - A reference provides identity only; it does not make the finding verified.
 
-For console-only technical findings, findings without an exact supplied
-technicalObservationReference, and every non-technical finding, return:
+For console-only technical findings without an exact supplied
+technicalObservationReference, other unreferenced diagnostics, and every
+non-technical finding, return:
 
 "technicalEvidenceReferences": null
 
