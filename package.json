@@ -65,6 +65,7 @@
     "agent:application-run-contract-check": "tsx agent/application-run-contract-check.ts",
     "agent:application-run-browser-check": "tsx agent/application-run-browser-check.ts",
     "agent:error-handling-check": "tsx agent/error-handling-check.ts",
+    "agent:application-error-diagnostics-check": "tsx agent/application-error-diagnostics-check.ts",
     "agent:gemini-hardening-check": "tsx agent/gemini-hardening-check.ts",
     "agent:gemini-credential-preflight-check": "tsx agent/gemini-credential-preflight-check.ts",
     "agent:target-reachability-preflight-check": "tsx agent/target-reachability-preflight-check.ts",

@@ -197,7 +197,9 @@ export function sanitizeApplicationError(
       {
         phase:
           'application-run',
-        runId
+        runId,
+        cause:
+          error
       }
     );
   const cleanupError =

@@ -64,6 +64,7 @@ export interface ReconciledPageFindingObservations {
    * There is at most one representative for each exact reconciled model group.
    */
   candidateFindings: ExploratoryQaFinding[];
+  candidateFingerprints: string[];
   modelReconciliations: ModelObservationReconciliation[];
 }
 
@@ -389,6 +390,8 @@ export function reconcileFindingObservations(
 
   const candidateFingerprints =
     new Set<string>();
+  const orderedCandidateFingerprints:
+    string[] = [];
 
   const modelReconciliations:
     ModelObservationReconciliation[] = [];
@@ -520,6 +523,10 @@ export function reconcileFindingObservations(
         candidateFindings.push(
           canonicalFinding
         );
+        orderedCandidateFingerprints
+          .push(
+            fingerprint
+          );
         candidateFingerprints.add(
           fingerprint
         );
@@ -565,6 +572,8 @@ export function reconcileFindingObservations(
       group => group.finding
     ),
     candidateFindings,
+    candidateFingerprints:
+      orderedCandidateFingerprints,
     modelReconciliations
   };
 }

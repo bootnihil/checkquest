@@ -1131,6 +1131,120 @@ function checkAliasIntegrity(): void {
   }
 }
 
+function checkRejectedStructuredIdentityCommit(): void {
+  const lifecycle =
+    createRunFindingLifecycle();
+  const pageUrl =
+    'https://monday.com/w/enterprise';
+  const finding:
+    ExploratoryQaFinding = {
+      knownFindingReference:
+        null,
+      category:
+        'accessibility',
+      severity:
+        'low',
+      confidence:
+        'medium',
+      title:
+        'Potential semantic control issue',
+      evidence:
+        'The model proposed an identity that is absent from current browser evidence.',
+      reasoning:
+        'The observation requires browser-grounded confirmation.',
+      suggestedCheck:
+        'Confirm the control identity before treating the observation as verified.',
+      evidenceTarget:
+        null,
+      presentationTarget:
+        null,
+      structuredIdentity: {
+        mechanism:
+          'unexpected-value',
+        observedValue:
+          'Invented enterprise control',
+        source:
+          'accessible-name',
+        subject: {
+          kind:
+            'semantic-control',
+          controlType:
+            'tab',
+          controlId:
+            'missing-enterprise-tab',
+          componentId:
+            'missing-enterprise-tab-list',
+          locator:
+            null
+        }
+      }
+    };
+  const page =
+    reconcilePage(
+      lifecycle,
+      {
+        pageUrl,
+        pageTitle:
+          'Enterprise',
+        fixtures: [],
+        findings: [
+          finding
+        ]
+      }
+    );
+  const fingerprint =
+    page
+      .unifiedFingerprintByCandidateReference
+      .get(
+        'candidate-1'
+      );
+
+  assert.ok(
+    fingerprint
+  );
+  assert.match(
+    fingerprint,
+    /^unstructured\|/
+  );
+  assert.notEqual(
+    fingerprint,
+    'unstructured|no stable identity',
+    'Rejected structured identity must retain its observation-scoped canonical fingerprint.'
+  );
+
+  commitRunPageFindings(
+    lifecycle,
+    {
+      page,
+      pageUrl,
+      pageTitle:
+        'Enterprise',
+      screenshotPath:
+        null,
+      exploratoryFindingResults: [
+        createResult(
+          page,
+          'candidate-1',
+          createOutcome(
+            'inconclusive',
+            'Rejected structured identity'
+          )
+        )
+      ]
+    }
+  );
+
+  assert.equal(
+    getRawOutcomeStatus(
+      lifecycle,
+      fingerprint,
+      pageUrl
+    ),
+    'inconclusive',
+    'The canonical occurrence receives the investigation outcome without manufacturing verification.'
+  );
+}
+
 function checkVerifiedKnownSuppression(): void {
   const lifecycle =
     createRunFindingLifecycle();
@@ -1335,6 +1449,7 @@ function main(): void {
   checkMixedReorderedResults();
   checkMalformedResultsFailClosed();
   checkAliasIntegrity();
+  checkRejectedStructuredIdentityCommit();
   checkVerifiedKnownSuppression();
 
   console.log(

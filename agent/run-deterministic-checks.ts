@@ -9,6 +9,7 @@ const deterministicChecks = [
   'agent:run-site-api-check',
   'agent:application-run-contract-check',
   'agent:error-handling-check',
+  'agent:application-error-diagnostics-check',
   'agent:gemini-hardening-check',
   'agent:gemini-credential-preflight-check',
   'agent:target-reachability-preflight-check',

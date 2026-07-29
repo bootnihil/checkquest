@@ -293,9 +293,93 @@ function createModelFindingIdentity(
   finding:
     ExploratoryQaFinding
 ): string {
+  const {
+    knownFindingReference:
+      _knownFindingReference,
+    ...identity
+  } = finding;
+
   return JSON.stringify(
-    finding
+    identity
   );
+}
+
+function createCandidateFingerprintQueues(
+  page:
+    ReconciledPageFindingObservations
+): Map<string, string[]> {
+  const queues =
+    new Map<string, string[]>();
+
+  page.candidateFindings.forEach(
+    (
+      finding,
+      index
+    ) => {
+      const fingerprint =
+        page
+          .candidateFingerprints[
+            index
+          ];
+
+      if (
+        fingerprint ===
+        undefined
+      ) {
+        throw new Error(
+          `Reconciled candidate at index ${index} is missing its unified finding identity.`
+        );
+      }
+
+      const identity =
+        createModelFindingIdentity(
+          finding
+        );
+      const queue =
+        queues.get(
+          identity
+        ) ??
+        [];
+
+      queue.push(
+        fingerprint
+      );
+      queues.set(
+        identity,
+        queue
+      );
+    }
+  );
+
+  return queues;
+}
+
+function takeCandidateFingerprint(
+  queues:
+    Map<string, string[]>,
+  finding:
+    ExploratoryQaFinding
+): string {
+  const identity =
+    createModelFindingIdentity(
+      finding
+    );
+  const fingerprint =
+    queues.get(
+      identity
+    )
+      ?.shift();
+
+  if (
+    fingerprint ===
+    undefined
+  ) {
+    throw new Error(
+      'Reconciled candidate is missing its unified finding identity.'
+    );
+  }
+
+  return fingerprint;
 }
 
 export function createRunFindingLifecycle():
@@ -397,8 +481,10 @@ export function reconcileRunPageFindings(
         .newFindings
   };
 
-  const unifiedFingerprintByModelIdentity =
-    new Map<string, string>();
+  const candidateFingerprintQueues =
+    createCandidateFingerprintQueues(
+      reconciledFindingObservations
+    );
 
   input
     .rawExploratoryQaAnalysis
@@ -420,15 +506,6 @@ export function reconcileRunPageFindings(
         ) {
           return;
         }
-
-        unifiedFingerprintByModelIdentity
-          .set(
-            createModelFindingIdentity(
-              finding
-            ),
-            reconciliation
-              .fingerprint
-          );
 
         const modelFingerprint =
           createExploratoryFindingFingerprint(
@@ -461,13 +538,8 @@ export function reconcileRunPageFindings(
             knownFingerprint:
               null,
             unifiedFingerprint:
-              unifiedFingerprintByModelIdentity
-                .get(
-                  createModelFindingIdentity(
-                    finding
-                  )
-                ) ??
-              createExploratoryFindingFingerprint(
+              takeCandidateFingerprint(
+                candidateFingerprintQueues,
                 finding
               )
           })

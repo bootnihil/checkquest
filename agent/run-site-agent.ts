@@ -8,6 +8,10 @@ import {
   formatPublicError
 } from './errors/checkquest-error';
 import {
+  formatDeveloperErrorDiagnostic,
+  isDeveloperDiagnosticsEnabled
+} from './errors/format-developer-diagnostic';
+import {
   resolveRunSiteCredentials
 } from './cli/resolve-run-site-credentials';
 import {
@@ -124,6 +128,24 @@ main().catch(
         error
       )}`
     );
+
+    if (
+      isDeveloperDiagnosticsEnabled(
+        process.env
+      )
+    ) {
+      console.error(
+        formatDeveloperErrorDiagnostic(
+          error,
+          {
+            secrets: [
+              process.env
+                .GEMINI_API_KEY
+            ]
+          }
+        )
+      );
+    }
 
     process.exitCode =
       1;
