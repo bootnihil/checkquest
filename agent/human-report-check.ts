@@ -477,6 +477,148 @@ function createReport(): SiteAgentReport {
     SiteAgentReport;
 }
 
+function setFindingPages(
+  finding:
+    UnifiedFinding,
+  pageNumbers:
+    readonly number[]
+): void {
+  const template =
+    finding.occurrences[0]!;
+
+  finding.occurrences =
+    pageNumbers.map(
+      (
+        pageNumber,
+        occurrenceIndex
+      ) => ({
+        ...structuredClone(
+          template
+        ),
+        occurrenceReference:
+          `occurrence-${pageNumber * 100 + occurrenceIndex}`,
+        pageUrl:
+          `https://example.com/page-${pageNumber}`,
+        pageTitle:
+          `Page ${pageNumber}`
+      })
+    );
+}
+
+function createTechnicalGroupingReport():
+  SiteAgentReport {
+  const report =
+    createReport();
+  const analyticsTitle =
+    'Failed network requests for analytics script';
+  const trackingTitle =
+    'Failed network requests for tracking and analytics scripts';
+  const findings = [
+    createFinding(
+      1,
+      {
+        severity:
+          'medium',
+        title:
+          'Product finding'
+      }
+    ),
+    createFinding(
+      2,
+      {
+        category:
+          'technical',
+        severity:
+          'medium',
+        title:
+          analyticsTitle
+      }
+    ),
+    createFinding(
+      3,
+      {
+        category:
+          'technical',
+        severity:
+          'medium',
+        title:
+          analyticsTitle
+      }
+    ),
+    ...Array.from(
+      {
+        length:
+          5
+      },
+      (
+        _value,
+        index
+      ) =>
+        createFinding(
+          index +
+            4,
+          {
+            category:
+              'technical',
+            severity:
+              'medium',
+            title:
+              trackingTitle
+          }
+        )
+    )
+  ];
+  const pageSets = [
+    [
+      1,
+      2,
+      3
+    ],
+    [
+      2,
+      3,
+      4
+    ],
+    [
+      1,
+      2
+    ],
+    [
+      2,
+      3
+    ],
+    [
+      3,
+      4
+    ],
+    [
+      4,
+      5
+    ],
+    [
+      1,
+      5
+    ]
+  ];
+
+  for (
+    const [
+      index,
+      pages
+    ] of pageSets.entries()
+  ) {
+    setFindingPages(
+      findings[index + 1]!,
+      pages
+    );
+  }
+
+  report.findings =
+    findings;
+
+  return report;
+}
+
 function countOccurrences(
   value:
     string,
@@ -571,6 +713,93 @@ function main(): void {
     buildHumanReportPresentation(
       duplicateTitleReport
     );
+  const duplicateTitleMarkdown =
+    renderHumanMarkdownReport(
+      duplicateTitleReport
+    );
+  const groupingReport =
+    createTechnicalGroupingReport();
+  const groupingCanonicalBefore =
+    JSON.stringify(
+      groupingReport
+    );
+  const groupingMarkdown =
+    renderHumanMarkdownReport(
+      groupingReport
+    );
+  const groupingPresentation =
+    buildHumanReportPresentation(
+      groupingReport
+    );
+  const groupingAtAGlance =
+    groupingMarkdown.slice(
+      groupingMarkdown.indexOf(
+        '## At a glance'
+      ),
+      groupingMarkdown.indexOf(
+        '## Findings'
+      )
+    );
+  const groupingTechnicalSection =
+    groupingMarkdown.slice(
+      groupingMarkdown.indexOf(
+        '## Technical observations'
+      ),
+      groupingMarkdown.indexOf(
+        '## Security observations'
+      )
+    );
+  const distinctTechnicalReport =
+    createReport();
+
+  distinctTechnicalReport.findings = [
+    createFinding(
+      31,
+      {
+        category:
+          'technical',
+        title:
+          'Distinct technical title A'
+      }
+    ),
+    createFinding(
+      32,
+      {
+        category:
+          'technical',
+        title:
+          'Distinct technical title B'
+      }
+    )
+  ];
+  const distinctTechnicalMarkdown =
+    renderHumanMarkdownReport(
+      distinctTechnicalReport
+    );
+  const duplicateSecurityReport =
+    createReport();
+  const duplicateSecurityObservation =
+    structuredClone(
+      duplicateSecurityReport
+        .passiveSecurity
+        .observations[0]!
+    );
+
+  duplicateSecurityObservation
+    .observationReference =
+      'security-observation-2';
+  duplicateSecurityObservation
+    .fingerprint =
+      'security|header|strict-transport-security|second';
+  duplicateSecurityReport
+    .passiveSecurity
+    .observations.push(
+      duplicateSecurityObservation
+    );
+  const duplicateSecurityMarkdown =
+    renderHumanMarkdownReport(
+      duplicateSecurityReport
+    );
 
   assert.notEqual(
     duplicateTitlePresentation
@@ -589,6 +818,169 @@ function main(): void {
       .atAGlance[1]
       ?.displayId,
     'Display numbering is assigned independently of canonical titles and fingerprints.'
+  );
+  assert.equal(
+    JSON.stringify(
+      groupingReport
+    ),
+    groupingCanonicalBefore,
+    'Technical title grouping must not mutate canonical findings or occurrences.'
+  );
+  assert.equal(
+    groupingPresentation
+      .technicalObservationCount,
+    7,
+    'Grouping must not change the canonical technical-observation count.'
+  );
+  assert.equal(
+    groupingPresentation
+      .technicalObservations
+      .length,
+    7,
+    'All canonical technical observations must remain present in the human presentation model.'
+  );
+  assert.match(
+    groupingMarkdown,
+    /- \*\*7\*\* technical observations/,
+    'The human summary must retain the canonical technical-observation count.'
+  );
+  assert.equal(
+    countOccurrences(
+      groupingAtAGlance,
+      '| Technical |'
+    ),
+    2,
+    'Seven repeated-title technical observations must render as two umbrella rows.'
+  );
+  assert.match(
+    groupingAtAGlance,
+    /\| \[02\]\(#item-02\), \[03\]\(#item-03\) \| \[Failed network requests for analytics script \(2 related\)\]\(#technical-group-item-02\) \| Technical \| Medium \| 4 pages \| 2 distinct observations \|/
+  );
+  assert.doesNotMatch(
+    groupingAtAGlance,
+    /analytics script \(2 related\)[^\n]*\| 6 pages \|/,
+    'Overlapping occurrence pages must be unioned rather than summed.'
+  );
+  assert.match(
+    groupingAtAGlance,
+    /\| \[04\]\(#item-04\), \[05\]\(#item-05\), \[06\]\(#item-06\), \[07\]\(#item-07\), \[08\]\(#item-08\) \| \[Failed network requests for tracking and analytics scripts \(5 related\)\]\(#technical-group-item-04\) \| Technical \| Medium \| 5 pages \| 5 distinct observations \|/
+  );
+  assert.doesNotMatch(
+    groupingMarkdown,
+    /\(7 related\)/,
+    'Near-identical technical titles must remain separate exact-title groups.'
+  );
+  assert.equal(
+    countOccurrences(
+      groupingTechnicalSection,
+      '### Failed network requests for analytics script (2 related)'
+    ),
+    1
+  );
+  assert.equal(
+    countOccurrences(
+      groupingTechnicalSection,
+      '### Failed network requests for tracking and analytics scripts (5 related)'
+    ),
+    1
+  );
+  assert.equal(
+    countOccurrences(
+      groupingTechnicalSection,
+      '#### Observation '
+    ),
+    7,
+    'Each grouped canonical observation must retain a distinct body sub-entry.'
+  );
+
+  for (
+    let displayId =
+      2;
+    displayId <=
+      8;
+    displayId +=
+      1
+  ) {
+    const paddedId =
+      String(
+        displayId
+      ).padStart(
+        2,
+        '0'
+      );
+
+    assert.match(
+      groupingTechnicalSection,
+      new RegExp(
+        `<a id="item-${paddedId}"></a>\\n#### Observation ${paddedId}`
+      ),
+      `Technical observation ${paddedId} must keep its individual anchor and ID.`
+    );
+    assert.match(
+      groupingAtAGlance,
+      new RegExp(
+        `\\[${paddedId}\\]\\(#item-${paddedId}\\)`
+      ),
+      `Technical observation ${paddedId} must remain individually linkable from At a glance.`
+    );
+  }
+
+  assert.equal(
+    countOccurrences(
+      groupingTechnicalSection,
+      '[Structured technical evidence]'
+    ),
+    7,
+    'Every grouped technical observation must retain its evidence link.'
+  );
+  assert.match(
+    distinctTechnicalMarkdown,
+    /\| \[01\]\(#item-01\) \| \[Distinct technical title A\]\(#item-01\) \| Technical/
+  );
+  assert.match(
+    distinctTechnicalMarkdown,
+    /### 01 — Distinct technical title A/
+  );
+  assert.match(
+    distinctTechnicalMarkdown,
+    /### 02 — Distinct technical title B/
+  );
+  assert.doesNotMatch(
+    distinctTechnicalMarkdown,
+    /\(\d+ related\)/,
+    'All-distinct technical titles must retain the existing rendering.'
+  );
+  assert.equal(
+    countOccurrences(
+      duplicateTitleMarkdown,
+      '### 01 — Identical title'
+    ),
+    1
+  );
+  assert.equal(
+    countOccurrences(
+      duplicateTitleMarkdown,
+      '### 02 — Identical title'
+    ),
+    1
+  );
+  assert.doesNotMatch(
+    duplicateTitleMarkdown,
+    /Identical title \(2 related\)/,
+    'Product findings must not be grouped by title.'
+  );
+  assert.match(
+    duplicateSecurityMarkdown,
+    /### S01 — HSTS response header was not observed/
+  );
+  assert.match(
+    duplicateSecurityMarkdown,
+    /### S02 — HSTS response header was not observed/
+  );
+  assert.doesNotMatch(
+    duplicateSecurityMarkdown,
+    /HSTS response header was not observed \(2 related\)/,
+    'Security observations must not be grouped by title.'
   );
 
   assert.deepEqual(

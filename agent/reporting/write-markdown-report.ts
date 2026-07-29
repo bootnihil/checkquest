@@ -12,7 +12,8 @@ import {
   type HumanFindingPresentation,
   type HumanIndexItem,
   type HumanPageReference,
-  type HumanReportPresentation
+  type HumanReportPresentation,
+  type HumanTechnicalObservation
 } from './human-report-model';
 import type {
   SiteAgentReport
@@ -170,7 +171,38 @@ function createPagesLabel(
     )
     .join(
       ', '
-    );
+  );
+}
+
+function uniquePageReferences(
+  pages:
+    readonly HumanPageReference[]
+): HumanPageReference[] {
+  const pagesByUrl =
+    new Map<
+      string,
+      HumanPageReference
+    >();
+
+  for (
+    const page of
+      pages
+  ) {
+    if (
+      !pagesByUrl.has(
+        page.url
+      )
+    ) {
+      pagesByUrl.set(
+        page.url,
+        page
+      );
+    }
+  }
+
+  return [
+    ...pagesByUrl.values()
+  ];
 }
 
 function pluralize(
@@ -183,6 +215,169 @@ function pluralize(
 ): string {
   return (
     `${count} ${count === 1 ? singular : plural}`
+  );
+}
+
+interface TechnicalObservationGroup<
+  Item extends {
+    title:
+      string;
+    pages:
+      readonly HumanPageReference[];
+  }
+> {
+  title:
+    string;
+  items:
+    Item[];
+  pages:
+    HumanPageReference[];
+}
+
+type GroupedTechnicalItem<
+  Item extends {
+    title:
+      string;
+    pages:
+      readonly HumanPageReference[];
+  }
+> =
+  | {
+      type:
+        'single';
+      item:
+        Item;
+    }
+  | {
+      type:
+        'group';
+      group:
+        TechnicalObservationGroup<
+          Item
+        >;
+    };
+
+function groupRepeatedTechnicalItems<
+  Item extends {
+    title:
+      string;
+    pages:
+      readonly HumanPageReference[];
+  }
+>(
+  items:
+    readonly Item[]
+): GroupedTechnicalItem<
+  Item
+>[] {
+  const itemsByTitle =
+    new Map<
+      string,
+      Item[]
+    >();
+
+  for (
+    const item of
+      items
+  ) {
+    const matchingItems =
+      itemsByTitle.get(
+        item.title
+      ) ??
+      [];
+
+    matchingItems.push(
+      item
+    );
+    itemsByTitle.set(
+      item.title,
+      matchingItems
+    );
+  }
+
+  const emittedTitles =
+    new Set<
+      string
+    >();
+  const result:
+    GroupedTechnicalItem<
+      Item
+    >[] =
+      [];
+
+  for (
+    const item of
+      items
+  ) {
+    const matchingItems =
+      itemsByTitle.get(
+        item.title
+      ) as Item[];
+
+    if (
+      matchingItems.length ===
+        1
+    ) {
+      result.push({
+        type:
+          'single',
+        item
+      });
+      continue;
+    }
+
+    if (
+      emittedTitles.has(
+        item.title
+      )
+    ) {
+      continue;
+    }
+
+    emittedTitles.add(
+      item.title
+    );
+    result.push({
+      type:
+        'group',
+      group: {
+        title:
+          item.title,
+        items:
+          matchingItems,
+        pages:
+          uniquePageReferences(
+            matchingItems.flatMap(
+              matchingItem =>
+                matchingItem.pages
+            )
+          )
+      }
+    });
+  }
+
+  return result;
+}
+
+function createAtAGlancePageLabel(
+  pages:
+    readonly HumanPageReference[]
+): string {
+  return pages.length ===
+    1
+    ? createPageLink(
+      pages[0] as
+        HumanPageReference
+    )
+    : `${pages.length} pages`;
+}
+
+function createTechnicalGroupAnchor(
+  displayId:
+    string
+): string {
+  return (
+    `technical-group-item-${displayId.toLowerCase()}`
   );
 }
 
@@ -242,21 +437,106 @@ function pushAtAGlanceTable(
     '| --- | --- | --- | --- | --- | --- |'
   );
 
+  const technicalGroups =
+    groupRepeatedTechnicalItems(
+      findings.filter(
+        finding =>
+          finding.type ===
+          'Technical'
+      )
+    );
+  const groupedTechnicalByDisplayId =
+    new Map<
+      string,
+      GroupedTechnicalItem<
+        HumanIndexItem
+      >
+    >();
+
+  for (
+    const groupedItem of
+      technicalGroups
+  ) {
+    if (
+      groupedItem.type ===
+        'single'
+    ) {
+      groupedTechnicalByDisplayId.set(
+        groupedItem.item
+          .displayId,
+        groupedItem
+      );
+      continue;
+    }
+
+    groupedTechnicalByDisplayId.set(
+      groupedItem.group
+        .items[0]!
+        .displayId,
+      groupedItem
+    );
+  }
+
   for (
     const finding of
       findings
   ) {
-    const pageLabel =
-      finding.pages.length ===
-        1
-        ? createPageLink(
-          finding.pages[0] as
-            HumanPageReference
-        )
-        : `${finding.pages.length} pages`;
+    if (
+      finding.type ===
+        'Technical'
+    ) {
+      const groupedItem =
+        groupedTechnicalByDisplayId.get(
+          finding.displayId
+        );
+
+      if (
+        groupedItem ===
+          undefined
+      ) {
+        continue;
+      }
+
+      if (
+        groupedItem.type ===
+          'group'
+      ) {
+        const {
+          group
+        } =
+          groupedItem;
+        const firstItem =
+          group.items[0]!;
+        const ids =
+          group.items.map(
+            item =>
+              `[${item.displayId}](#${item.anchor})`
+          ).join(
+            ', '
+          );
+        const severities =
+          [
+            ...new Set(
+              group.items.map(
+                item =>
+                  formatSeverity(
+                    item.severity
+                  )
+              )
+            )
+          ].join(
+            ', '
+          );
+
+        lines.push(
+          `| ${ids} | [${escapeTableCell(group.title)} (${group.items.length} related)](#${createTechnicalGroupAnchor(firstItem.displayId)}) | Technical | ${severities} | ${createAtAGlancePageLabel(group.pages)} | ${group.items.length} distinct observations |`
+        );
+        continue;
+      }
+    }
 
     lines.push(
-      `| [${finding.displayId}](#${finding.anchor}) | [${escapeTableCell(finding.title)}](#${finding.anchor}) | ${finding.type} | ${formatSeverity(finding.severity)} | ${pageLabel} | ${finding.status} |`
+      `| [${finding.displayId}](#${finding.anchor}) | [${escapeTableCell(finding.title)}](#${finding.anchor}) | ${finding.type} | ${formatSeverity(finding.severity)} | ${createAtAGlancePageLabel(finding.pages)} | ${finding.status} |`
     );
   }
 
@@ -541,6 +821,99 @@ function pushAdditionalFinding(
   );
 }
 
+function pushTechnicalObservationDetails(
+  lines:
+    string[],
+  observation:
+    HumanTechnicalObservation,
+  heading:
+    string
+): void {
+  lines.push(
+    `<a id="${observation.anchor}"></a>`,
+    heading,
+    '',
+    `**${formatSeverity(observation.severity)} · Technical observation**  `,
+    `**${observation.pages.length === 1 ? 'Page' : 'Pages'}:** ${createPagesLabel(observation.pages)}`,
+    '',
+    `[Structured technical evidence](${escapeMarkdownLinkDestination(observation.evidencePath)})`,
+    ''
+  );
+  pushObservation(
+    lines,
+    observation.observation
+  );
+}
+
+function pushTechnicalObservations(
+  lines:
+    string[],
+  observations:
+    readonly HumanTechnicalObservation[]
+): void {
+  const groupedObservations =
+    groupRepeatedTechnicalItems(
+      observations
+    );
+
+  for (
+    const groupedItem of
+      groupedObservations
+  ) {
+    if (
+      groupedItem.type ===
+        'single'
+    ) {
+      const {
+        item
+      } =
+        groupedItem;
+
+      pushTechnicalObservationDetails(
+        lines,
+        item,
+        `### ${item.displayId} — ${escapeMarkdownInlineText(item.title)}`
+      );
+      lines.push(
+        '---',
+        ''
+      );
+      continue;
+    }
+
+    const {
+      group
+    } =
+      groupedItem;
+    const firstItem =
+      group.items[0]!;
+
+    lines.push(
+      `<a id="${createTechnicalGroupAnchor(firstItem.displayId)}"></a>`,
+      `### ${escapeMarkdownInlineText(group.title)} (${group.items.length} related)`,
+      '',
+      `${group.items.length} distinct technical observations share this title.`,
+      ''
+    );
+
+    for (
+      const observation of
+        group.items
+    ) {
+      pushTechnicalObservationDetails(
+        lines,
+        observation,
+        `#### Observation ${observation.displayId}`
+      );
+    }
+
+    lines.push(
+      '---',
+      ''
+    );
+  }
+}
+
 export function renderHumanMarkdownReport(
   report:
     SiteAgentReport
@@ -663,30 +1036,11 @@ export function renderHumanMarkdownReport(
       ''
     );
   } else {
-    for (
-      const observation of
-        presentation
-          .technicalObservations
-    ) {
-      lines.push(
-        `<a id="${observation.anchor}"></a>`,
-        `### ${observation.displayId} — ${escapeMarkdownInlineText(observation.title)}`,
-        '',
-        `**${formatSeverity(observation.severity)} · Technical observation**  `,
-        `**${observation.pages.length === 1 ? 'Page' : 'Pages'}:** ${createPagesLabel(observation.pages)}`,
-        '',
-        `[Structured technical evidence](${escapeMarkdownLinkDestination(observation.evidencePath)})`,
-        ''
-      );
-      pushObservation(
-        lines,
-        observation.observation
-      );
-      lines.push(
-        '---',
-        ''
-      );
-    }
+    pushTechnicalObservations(
+      lines,
+      presentation
+        .technicalObservations
+    );
 
     lines.push(
       'Additional browser and diagnostic details are available in `report.json`.',
