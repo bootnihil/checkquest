@@ -120,6 +120,35 @@ export const findingStructuredIdentitySchema =
       }).strict()
   }).strict();
 
+export const technicalFailedRequestIdentitySchema =
+  z.object({
+    kind:
+      z.literal(
+        'failed-request'
+      ),
+    failureText:
+      z.string()
+        .min(1)
+        .max(1_000),
+    method:
+      z.string()
+        .min(1)
+        .max(50),
+    resourceType:
+      z.string()
+        .min(1)
+        .max(100),
+    resourceUrl:
+      z.string()
+        .url()
+        .max(4_000),
+    originRelation:
+      z.enum([
+        'same-origin',
+        'cross-origin'
+      ])
+  }).strict();
+
 export const exploratoryQaFindingSchema = z.object({
   /*
    * Optional model-supplied relationship to a run-local
@@ -231,6 +260,32 @@ export const exploratoryQaFindingSchema = z.object({
   structuredIdentity:
     findingStructuredIdentitySchema
       .nullable()
+      .optional(),
+
+  /*
+   * Model-supplied references are advisory pointers to exact failed-request
+   * groups included in the current prompt. Runtime resolves them against the
+   * current browser diagnostics before any technical identity is accepted.
+   */
+  technicalEvidenceReferences:
+    z.array(
+      z.string()
+        .regex(
+          /^technical-request-\d+$/
+        )
+        .max(100)
+    )
+      .max(100)
+      .nullable()
+      .optional(),
+
+  /*
+   * Runtime-derived only. Model-supplied values are cleared before
+   * reconciliation and never receive identity authority.
+   */
+  technicalIdentity:
+    technicalFailedRequestIdentitySchema
+      .nullable()
       .optional()
 });
 
@@ -268,6 +323,11 @@ export type FindingPresentationTarget =
 export type FindingStructuredIdentity =
   z.infer<
     typeof findingStructuredIdentitySchema
+  >;
+
+export type TechnicalFailedRequestIdentity =
+  z.infer<
+    typeof technicalFailedRequestIdentitySchema
   >;
 
 export type ExploratoryQaFinding =

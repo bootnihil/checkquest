@@ -3,6 +3,12 @@ import type {
   ExploratoryQaFinding
 } from '../analysis/exploratory-qa-schema';
 import type {
+  ClassifiedDiagnostics
+} from '../analysis/classify-diagnostics';
+import {
+  normalizeTechnicalObservations
+} from '../analysis/technical-observation-reconciliation';
+import type {
   PageFinding
 } from '../analysis/evaluate-page';
 import type {
@@ -115,6 +121,8 @@ export interface ReconcileRunPageFindingsInput {
     PageFinding[];
   rawExploratoryQaAnalysis:
     ExploratoryQaAnalysis;
+  classifiedDiagnostics?:
+    ClassifiedDiagnostics;
   knownFindingPreparation:
     KnownFindingAnalysisPreparation;
 }
@@ -443,6 +451,18 @@ export function reconcileRunPageFindings(
   input:
     ReconcileRunPageFindingsInput
 ): ReconciledRunPageFindings {
+  const normalizedExploratoryQaAnalysis =
+    input.classifiedDiagnostics ===
+      undefined
+      ? input
+          .rawExploratoryQaAnalysis
+      : normalizeTechnicalObservations(
+          input
+            .rawExploratoryQaAnalysis,
+          input
+            .classifiedDiagnostics,
+          input.pageUrl
+        );
   const reconciledFindingObservations =
     reconcileFindingObservations({
       pageUrl:
@@ -452,8 +472,7 @@ export function reconcileRunPageFindings(
       ruleFindings:
         input.ruleFindings,
       modelFindings:
-        input
-          .rawExploratoryQaAnalysis
+        normalizedExploratoryQaAnalysis
           .findings,
       pageContent:
         input.pageContent
@@ -470,7 +489,7 @@ export function reconcileRunPageFindings(
     );
 
   const exploratoryQaAnalysis = {
-    ...input.rawExploratoryQaAnalysis,
+    ...normalizedExploratoryQaAnalysis,
 
     /*
      * Keep page-local analysis findings limited to genuinely
@@ -486,8 +505,7 @@ export function reconcileRunPageFindings(
       reconciledFindingObservations
     );
 
-  input
-    .rawExploratoryQaAnalysis
+  normalizedExploratoryQaAnalysis
     .findings
     .forEach(
       (

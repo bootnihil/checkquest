@@ -347,6 +347,7 @@ export async function inspectPage(
         ruleFindings:
           findings,
         rawExploratoryQaAnalysis,
+        classifiedDiagnostics,
         knownFindingPreparation
       }
     );

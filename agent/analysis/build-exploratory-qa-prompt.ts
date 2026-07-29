@@ -5,6 +5,9 @@ import type { VisitedPageObservation } from '../browser/visit-approved-link';
 import type {
   KnownFindingPromptContext
 } from '../investigation/known-findings';
+import {
+  createReferencedTechnicalRequests
+} from './technical-observation-reconciliation';
 
 export interface ExploratoryQaPromptInput {
   observation: VisitedPageObservation;
@@ -30,6 +33,11 @@ export function buildExploratoryQaPrompt(
     classifiedDiagnostics.failedRequests.filter(
       (item) =>
         item.disposition !== 'ignored-noise'
+    );
+  const referencedTechnicalRequests =
+    createReferencedTechnicalRequests(
+      classifiedDiagnostics,
+      observation.finalUrl
     );
 
   const evidence = {
@@ -73,7 +81,18 @@ export function buildExploratoryQaPrompt(
         classifiedDiagnostics.consoleErrors,
 
       failedRequests:
-        relevantFailedRequests
+        relevantFailedRequests.map(
+          item => ({
+            technicalObservationReference:
+              referencedTechnicalRequests
+                .referenceByRequest
+                .get(
+                  item.request
+                ) ??
+              null,
+            ...item
+          })
+        )
     },
 
     ruleBasedFindings,
@@ -300,6 +319,29 @@ Supported shape:
   component, or a control without an exact non-empty controlId.
 - Otherwise return "structuredIdentity": null.
 
+9C. Every finding MUST include a "technicalEvidenceReferences" field.
+
+This field links a technical finding to exact failed-request evidence supplied
+in browserDiagnostics.failedRequests.
+
+For a technical finding about one or more failed requests:
+
+- Set technicalEvidenceReferences to the exact non-null
+  technicalObservationReference values for every failed request group described
+  by that finding.
+- Copy references exactly; never invent or modify one.
+- Include only references actually described by the finding.
+- Different failure mechanisms or resources may have different references even
+  when they share a generated title.
+- Runtime validates the references and may normalize a heterogeneous bundle
+  into separate homogeneous technical observations.
+- A reference provides identity only; it does not make the finding verified.
+
+For console-only technical findings, findings without an exact supplied
+technicalObservationReference, and every non-technical finding, return:
+
+"technicalEvidenceReferences": null
+
 10. It is completely acceptable and preferred to return zero findings when the evidence does not support an issue.
 
 11. Treat findings as candidate QA issues requiring appropriate verification, not automatically as confirmed defects.
@@ -365,7 +407,8 @@ Return ONLY valid JSON with this exact structure:
         "optionText": "Equador"
       },
       "presentationTarget": null,
-      "structuredIdentity": null
+      "structuredIdentity": null,
+      "technicalEvidenceReferences": null
     }
   ],
   "summary": "Concise summary of the exploratory QA review"
@@ -385,7 +428,8 @@ For a finding with no supported machine-readable target, use:
   "suggestedCheck": "A concrete verification step",
   "evidenceTarget": null,
   "presentationTarget": null,
-  "structuredIdentity": null
+  "structuredIdentity": null,
+  "technicalEvidenceReferences": null
 }
 
 When there are no evidence-grounded candidate issues, return:

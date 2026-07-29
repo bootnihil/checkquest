@@ -8,6 +8,9 @@ import type {
 import type {
   ExtractedPageContent
 } from '../browser/extract-page-content';
+import {
+  createTechnicalObservationFingerprint
+} from '../analysis/technical-observation-reconciliation';
 
 type SelectControlIdentity = {
   controlLabel: string | null;
@@ -253,6 +256,19 @@ export function createExploratoryFindingFingerprint(
           target
         );
     }
+  }
+
+  const technicalIdentity =
+    finding.technicalIdentity ??
+    null;
+
+  if (
+    technicalIdentity !==
+    null
+  ) {
+    return createTechnicalObservationFingerprint(
+      technicalIdentity
+    );
   }
 
   const structuredIdentity =
