@@ -39,6 +39,12 @@ export interface VisualTargetBox {
     number;
 }
 
+interface ResolvedVisualTargetBox extends
+  VisualTargetBox {
+  targetIndex:
+    number;
+}
+
 export interface FocusedEvidenceTargetGroup {
   boxes:
     VisualTargetBox[];
@@ -90,6 +96,12 @@ const focusedEvidencePadding =
   28;
 const annotationAttribute =
   'data-checkquest-presentation-evidence';
+const targetAttribute =
+  'data-checkquest-presentation-evidence-target';
+const highlightAttribute =
+  'data-checkquest-presentation-evidence-highlight';
+const annotationStyleAttribute =
+  'data-checkquest-presentation-evidence-style';
 
 function formatSequenceNumber(
   value:
@@ -291,9 +303,9 @@ async function resolveVisualTargetBoxes(
     Page,
   target:
     FindingVisualTarget
-): Promise<VisualTargetBox[]> {
+): Promise<ResolvedVisualTargetBox[]> {
   return page.evaluate(
-    targetValue => {
+    input => {
       /*
        * Object methods remain browser-native when TS runtime loaders
        * serialize this callback. Assigned helper functions may be
@@ -326,6 +338,19 @@ async function resolveVisualTargetBoxes(
           const rectangle =
             element
               .getBoundingClientRect();
+
+          if (
+            'checkVisibility' in
+              element &&
+            !element.checkVisibility({
+              checkOpacity:
+                true,
+              checkVisibilityCSS:
+                true
+            })
+          ) {
+            return false;
+          }
 
           return (
             style.display !==
@@ -393,6 +418,8 @@ async function resolveVisualTargetBoxes(
           );
         }
       };
+      const targetValue =
+        input.target;
       let candidates:
         Element[];
 
@@ -547,7 +574,8 @@ async function resolveVisualTargetBoxes(
           );
       }
 
-      return candidates
+      const visibleCandidates =
+        candidates
         .filter(
           (
             element,
@@ -561,12 +589,35 @@ async function resolveVisualTargetBoxes(
               element
             ) ===
               index
-        )
+        );
+
+      for (
+        const staleTarget of
+          document.querySelectorAll(
+            `[${input.targetAttribute}]`
+          )
+      ) {
+        staleTarget.removeAttribute(
+          input.targetAttribute
+        );
+      }
+
+      return visibleCandidates
         .map(
-          element => {
+          (
+            element,
+            targetIndex
+          ) => {
             const rectangle =
               element
                 .getBoundingClientRect();
+
+            element.setAttribute(
+              input.targetAttribute,
+              String(
+                targetIndex
+              )
+            );
 
             return {
               x:
@@ -578,12 +629,16 @@ async function resolveVisualTargetBoxes(
               width:
                 rectangle.width,
               height:
-                rectangle.height
+                rectangle.height,
+              targetIndex
             };
           }
         );
     },
-    target
+    {
+      target,
+      targetAttribute
+    }
   );
 }
 
@@ -591,12 +646,154 @@ async function addEvidenceAnnotations(
   page:
     Page,
   boxes:
-    readonly VisualTargetBox[]
-): Promise<void> {
-  await page.evaluate(
+    readonly ResolvedVisualTargetBox[],
+  target:
+    FindingVisualTarget
+): Promise<ResolvedVisualTargetBox[]> {
+  return page.evaluate(
     (
       input
     ) => {
+      const browserUtilities = {
+        normalize(
+          value:
+            string | null
+        ): string {
+          return (
+            value ??
+            ''
+          )
+            .replace(
+              /\s+/g,
+              ' '
+            )
+            .trim();
+        },
+        isVisible(
+          element:
+            Element
+        ): boolean {
+          const rectangle =
+            element
+              .getBoundingClientRect();
+
+          if (
+            rectangle.width <=
+              0 ||
+            rectangle.height <=
+              0
+          ) {
+            return false;
+          }
+
+          if (
+            'checkVisibility' in
+              element &&
+            !element.checkVisibility({
+              checkOpacity:
+                true,
+              checkVisibilityCSS:
+                true
+            })
+          ) {
+            return false;
+          }
+
+          return true;
+        },
+        accessibleName(
+          element:
+            Element
+        ): string {
+          const labelledBy =
+            element.getAttribute(
+              'aria-labelledby'
+            );
+
+          if (
+            labelledBy !==
+              null
+          ) {
+            const labelledText =
+              labelledBy
+                .split(
+                  /\s+/
+                )
+                .map(
+                  id =>
+                    document
+                      .getElementById(
+                        id
+                      )
+                      ?.textContent ??
+                    ''
+                )
+                .join(
+                  ' '
+                );
+
+            if (
+              browserUtilities.normalize(
+                labelledText
+              ) !==
+                ''
+            ) {
+              return browserUtilities.normalize(
+                labelledText
+              );
+            }
+          }
+
+          return browserUtilities.normalize(
+            element.getAttribute(
+              'aria-label'
+            ) ??
+            element.textContent
+          );
+        },
+        matchesTarget(
+          element:
+            Element
+        ): boolean {
+          if (
+            input.target.kind !==
+              'visible-text'
+          ) {
+            return true;
+          }
+
+          return (
+            browserUtilities.accessibleName(
+              element
+            ) ===
+            browserUtilities.normalize(
+              input.target.text
+            )
+          );
+        }
+      };
+      const style =
+        document.createElement(
+          'style'
+        );
+      style.setAttribute(
+        input.styleAttribute,
+        'true'
+      );
+      style.textContent = `
+        [${input.highlightAttribute}] {
+          outline: 3px solid #e11d48 !important;
+          outline-offset: 0 !important;
+        }
+      `;
+      document.documentElement
+        .append(
+          style
+        );
+      const shownBoxes:
+        ResolvedVisualTargetBox[] =
+        [];
+
       for (
         const [
           index,
@@ -604,61 +801,55 @@ async function addEvidenceAnnotations(
         ] of
         input.boxes.entries()
       ) {
+        const element =
+          document.querySelector(
+            `[${input.targetAttribute}="${box.targetIndex}"]`
+          );
+
+        if (
+          element ===
+            null ||
+          !browserUtilities.isVisible(
+            element
+          ) ||
+          !browserUtilities.matchesTarget(
+            element
+          )
+        ) {
+          continue;
+        }
+
+        const rectangle =
+          element
+            .getBoundingClientRect();
+
+        element.setAttribute(
+          input.highlightAttribute,
+          'true'
+        );
         const annotation =
           document.createElement(
             'div'
           );
         annotation.setAttribute(
-          input.attribute,
-          'true'
+          input.annotationAttribute,
+          String(
+            box.targetIndex
+          )
         );
+        annotation.textContent =
+          `CheckQuest evidence ${index + 1}`;
         Object.assign(
           annotation.style,
           {
             position:
-              'absolute',
+              'fixed',
             zIndex:
               '2147483647',
             pointerEvents:
               'none',
             boxSizing:
               'border-box',
-            left:
-              `${box.x - 3}px`,
-            top:
-              `${box.y - 3}px`,
-            width:
-              `${box.width + 6}px`,
-            height:
-              `${box.height + 6}px`,
-            border:
-              '3px solid #e11d48',
-            borderRadius:
-              '4px',
-            background:
-              'transparent',
-            overflow:
-              'visible'
-          }
-        );
-        const label =
-          document.createElement(
-            'span'
-          );
-        label.textContent =
-          `CheckQuest evidence ${index + 1}`;
-        Object.assign(
-          label.style,
-          {
-            position:
-              'absolute',
-            left:
-              '-3px',
-            top:
-              box.y >
-                24
-                ? '-24px'
-                : `${box.height + 6}px`,
             color:
               '#ffffff',
             background:
@@ -673,18 +864,37 @@ async function addEvidenceAnnotations(
               'nowrap'
           }
         );
-        annotation.append(
-          label
-        );
-        document.body.append(
-          annotation
-        );
+        document.documentElement
+          .append(
+            annotation
+          );
+
+        shownBoxes.push({
+          x:
+            rectangle.left +
+            window.scrollX,
+          y:
+            rectangle.top +
+            window.scrollY,
+          width:
+            rectangle.width,
+          height:
+            rectangle.height,
+          targetIndex:
+            box.targetIndex
+        });
       }
+
+      return shownBoxes;
     },
     {
       boxes,
-      attribute:
-        annotationAttribute
+      target,
+      targetAttribute,
+      highlightAttribute,
+      annotationAttribute,
+      styleAttribute:
+        annotationStyleAttribute
     }
   );
 }
@@ -712,6 +922,29 @@ async function removeEvidenceAnnotations(
         annotation.remove();
       }
 
+      for (
+        const target of
+          document.querySelectorAll(
+            `[${input.targetAttribute}]`
+          )
+      ) {
+        target.removeAttribute(
+          input.targetAttribute
+        );
+        target.removeAttribute(
+          input.highlightAttribute
+        );
+      }
+
+      for (
+        const style of
+          document.querySelectorAll(
+            `[${input.styleAttribute}]`
+          )
+      ) {
+        style.remove();
+      }
+
       window.scrollTo(
         input.scrollPosition.x,
         input.scrollPosition.y
@@ -720,7 +953,301 @@ async function removeEvidenceAnnotations(
     {
       attribute:
         annotationAttribute,
+      targetAttribute,
+      highlightAttribute,
+      styleAttribute:
+        annotationStyleAttribute,
       scrollPosition
+    }
+  );
+}
+
+async function retainCaptureableEvidenceAnnotations(
+  page:
+    Page,
+  boxes:
+    readonly ResolvedVisualTargetBox[],
+  clip:
+    FocusedEvidenceClip,
+  sequenceOffset:
+    number
+): Promise<number[]> {
+  return page.evaluate(
+    input => {
+      const captureableTargetIndices:
+        number[] =
+        [];
+
+      for (
+        const box of
+          input.boxes
+      ) {
+        const element =
+          document.querySelector(
+            `[${input.targetAttribute}="${box.targetIndex}"]`
+          );
+
+        if (
+          element ===
+            null ||
+          element.getAttribute(
+            input.highlightAttribute
+          ) !==
+            'true'
+        ) {
+          continue;
+        }
+
+        const rectangle =
+          element
+            .getBoundingClientRect();
+        const isInsideClip =
+          rectangle.left >=
+            input.clip.x &&
+          rectangle.top >=
+            input.clip.y &&
+          rectangle.right <=
+            input.clip.x +
+              input.clip.width &&
+          rectangle.bottom <=
+            input.clip.y +
+              input.clip.height;
+        const topmostAtCenter =
+          document.elementFromPoint(
+            rectangle.left +
+              rectangle.width /
+                2,
+            rectangle.top +
+              rectangle.height /
+                2
+          );
+        const isUnobscuredAtCenter =
+          topmostAtCenter !==
+            null &&
+          (
+            topmostAtCenter ===
+              element ||
+            element.contains(
+              topmostAtCenter
+            )
+          );
+
+        if (
+          isInsideClip &&
+          isUnobscuredAtCenter
+        ) {
+          captureableTargetIndices
+            .push(
+              box.targetIndex
+            );
+          continue;
+        }
+
+        element.removeAttribute(
+          input.highlightAttribute
+        );
+        document.querySelector(
+          `[${input.annotationAttribute}="${box.targetIndex}"]`
+        )?.remove();
+      }
+
+      for (
+        const [
+          index,
+          targetIndex
+        ] of
+        captureableTargetIndices
+          .entries()
+      ) {
+        const element =
+          document.querySelector(
+            `[${input.targetAttribute}="${targetIndex}"]`
+          );
+        const annotation =
+          document.querySelector(
+            `[${input.annotationAttribute}="${targetIndex}"]`
+          ) as
+            HTMLElement |
+            null;
+
+        if (
+          element ===
+            null ||
+          annotation ===
+            null
+        ) {
+          continue;
+        }
+
+        const rectangle =
+          element
+            .getBoundingClientRect();
+        annotation.textContent =
+          `CheckQuest evidence ${input.sequenceOffset + index + 1}`;
+        annotation.style.left =
+          `${rectangle.left - 3}px`;
+        annotation.style.top =
+          rectangle.top >
+            24
+            ? `${rectangle.top - 24}px`
+            : `${rectangle.bottom + 6}px`;
+      }
+
+      return captureableTargetIndices;
+    },
+    {
+      boxes,
+      clip,
+      sequenceOffset,
+      targetAttribute,
+      highlightAttribute,
+      annotationAttribute
+    }
+  );
+}
+
+async function resolveAnnotatedTargetViewportBoxes(
+  page:
+    Page,
+  boxes:
+    readonly ResolvedVisualTargetBox[]
+): Promise<ResolvedVisualTargetBox[]> {
+  return page.evaluate(
+    input =>
+      input.boxes.flatMap(
+        box => {
+          const element =
+            document.querySelector(
+              `[${input.targetAttribute}="${box.targetIndex}"]`
+            );
+
+          if (
+            element ===
+              null ||
+            element.getAttribute(
+              input.highlightAttribute
+            ) !==
+              'true'
+          ) {
+            return [];
+          }
+
+          const rectangle =
+            element
+              .getBoundingClientRect();
+
+          return [{
+            x:
+              rectangle.left,
+            y:
+              rectangle.top,
+            width:
+              rectangle.width,
+            height:
+              rectangle.height,
+            targetIndex:
+              box.targetIndex
+          }];
+        }
+      ),
+    {
+      boxes,
+      targetAttribute,
+      highlightAttribute
+    }
+  );
+}
+
+async function waitForPresentationLayoutStability(
+  page:
+    Page
+): Promise<void> {
+  await page.evaluate(
+    input =>
+      new Promise<void>(
+        resolve => {
+          let previousSignature =
+            '';
+          let stableFrameCount =
+            0;
+          let remainingFrameCount =
+            60;
+          const tracker = {
+            check(): void {
+              const targetRectangles =
+                [
+                  ...document
+                    .querySelectorAll(
+                      `[${input.targetAttribute}]`
+                    )
+                ].map(
+                  element => {
+                    const rectangle =
+                      element
+                        .getBoundingClientRect();
+
+                    return [
+                      rectangle.x,
+                      rectangle.y,
+                      rectangle.width,
+                      rectangle.height
+                    ]
+                      .map(
+                        value =>
+                          value.toFixed(
+                            2
+                          )
+                      )
+                      .join(
+                        ','
+                      );
+                  }
+                );
+              const signature =
+                [
+                  window.scrollX,
+                  window.scrollY,
+                  ...targetRectangles
+                ].join(
+                  '|'
+                );
+
+              stableFrameCount =
+                signature ===
+                  previousSignature
+                  ? stableFrameCount +
+                    1
+                  : 0;
+              previousSignature =
+                signature;
+              remainingFrameCount -=
+                1;
+
+              if (
+                stableFrameCount >=
+                  3 ||
+                remainingFrameCount <=
+                  0
+              ) {
+                resolve();
+                return;
+              }
+
+              window.requestAnimationFrame(
+                () =>
+                  tracker.check()
+              );
+            }
+          };
+
+          window.requestAnimationFrame(
+            () =>
+              tracker.check()
+          );
+        }
+      ),
+    {
+      targetAttribute
     }
   );
 }
@@ -830,7 +1357,7 @@ export async function captureFindingPresentationEvidence(
     };
   }
 
-  const selectedGroups =
+  const selectedCandidateGroups =
     groupFocusedEvidenceTargets(
       boxes,
       viewport.height
@@ -839,10 +1366,11 @@ export async function captureFindingPresentationEvidence(
       maximumFocusedEvidenceImages
     );
   const selectedBoxes =
-    selectedGroups.flatMap(
+    selectedCandidateGroups.flatMap(
       group =>
         group.boxes
-    );
+    ) as
+      ResolvedVisualTargetBox[];
   const screenshotPaths:
     string[] =
       [];
@@ -958,6 +1486,13 @@ export async function captureFindingPresentationEvidence(
       replayOriginalValue ===
         null
     ) {
+      await removeEvidenceAnnotations(
+        page,
+        scrollPosition
+      ).catch(
+        () => undefined
+      );
+
       return {
         screenshotPaths:
           [],
@@ -971,11 +1506,24 @@ export async function captureFindingPresentationEvidence(
     }
   }
 
+  const capturedTargetIndices =
+    new Set<number>();
+
   try {
-    await addEvidenceAnnotations(
-      page,
-      selectedBoxes
-    );
+    const shownBoxes =
+      await addEvidenceAnnotations(
+        page,
+        selectedBoxes,
+        input.target
+      );
+    const selectedGroups =
+      groupFocusedEvidenceTargets(
+        shownBoxes,
+        viewport.height
+      ).slice(
+        0,
+        maximumFocusedEvidenceImages
+      );
 
     for (
       const [
@@ -995,14 +1543,40 @@ export async function captureFindingPresentationEvidence(
             groupIndex + 1
           )}.png`
         );
-      const clip =
-        calculateFocusedEvidenceClip(
-          group,
-          documentSize
+      const groupTop =
+        Math.min(
+          ...group.boxes.map(
+            box =>
+              box.y
+          )
+        );
+      const groupBottom =
+        Math.max(
+          ...group.boxes.map(
+            box =>
+              box.y +
+              box.height
+          )
+        );
+      const centeredGroupTop =
+        Math.max(
+          focusedEvidencePadding,
+          (
+            viewport.height -
+            (
+              groupBottom -
+              groupTop
+            )
+          ) /
+            2
         );
       const desiredScrollY =
         Math.min(
-          clip.y,
+          Math.max(
+            0,
+            groupTop -
+              centeredGroupTop
+          ),
           Math.max(
             0,
             documentSize.height -
@@ -1018,38 +1592,52 @@ export async function captureFindingPresentationEvidence(
           ),
         desiredScrollY
       );
-      const actualScrollY =
-        await page.evaluate(
-          () =>
-            window.scrollY
+      await waitForPresentationLayoutStability(
+        page
+      );
+      const currentViewportBoxes =
+        await resolveAnnotatedTargetViewportBoxes(
+          page,
+          group.boxes as
+            ResolvedVisualTargetBox[]
         );
-      const viewportY =
-        Math.max(
-          0,
-          clip.y -
-            actualScrollY
+
+      if (
+        currentViewportBoxes
+          .length ===
+          0
+      ) {
+        continue;
+      }
+
+      const viewportClip =
+        calculateFocusedEvidenceClip(
+          {
+            boxes:
+              currentViewportBoxes
+          },
+          {
+            width:
+              viewport.width,
+            height:
+              viewport.height
+          }
         );
-      const viewportClip: FocusedEvidenceClip = {
-        x:
-          clip.x,
-        y:
-          viewportY,
-        width:
-          Math.min(
-            clip.width,
-            viewport.width -
-              clip.x
-          ),
-        height:
-          Math.max(
-            1,
-            Math.min(
-              clip.height,
-              viewport.height -
-                viewportY
-            )
-          )
-      };
+      const captureableTargetIndices =
+        await retainCaptureableEvidenceAnnotations(
+          page,
+          currentViewportBoxes,
+          viewportClip,
+          capturedTargetIndices.size
+        );
+
+      if (
+        captureableTargetIndices
+          .length ===
+          0
+      ) {
+        continue;
+      }
 
       await runPageOperationWithCancellation(
         page,
@@ -1081,6 +1669,15 @@ export async function captureFindingPresentationEvidence(
       screenshotPaths.push(
         filePath
       );
+
+      for (
+        const targetIndex of
+          captureableTargetIndices
+      ) {
+        capturedTargetIndices.add(
+          targetIndex
+        );
+      }
     }
   } finally {
     if (
@@ -1184,7 +1781,7 @@ export async function captureFindingPresentationEvidence(
     totalTargetCount:
       boxes.length,
     shownTargetCount:
-      selectedBoxes.length,
+      capturedTargetIndices.size,
     replay:
       input.target.kind ===
         'select-option'
