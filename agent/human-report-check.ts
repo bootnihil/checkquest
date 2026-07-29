@@ -5,6 +5,7 @@ import {
   groupFocusedEvidenceTargets
 } from './browser/capture-finding-presentation-evidence';
 import type {
+  FindingEvidence,
   UnifiedFinding
 } from './findings/finding-model';
 import {
@@ -50,6 +51,70 @@ function createFinding(
     'inconclusive';
   const candidateReference =
     `candidate-${index}`;
+  const evidence:
+    FindingEvidence[] =
+      [
+        {
+          evidenceReference:
+            `evidence-${index}`,
+          source:
+            'model',
+          kind:
+            'model-observation',
+          relation:
+            'inconclusive',
+          verificationCapable:
+            false,
+          summary:
+            `Observed text for finding ${index}.`,
+          rawReference: {
+            pageNumber:
+              1,
+            candidateReference
+          },
+          rawSource: {
+            type:
+              'exploratory-qa-finding',
+            value: {
+              evidence:
+                `Concrete observation ${index}.`,
+              reasoning:
+                'An unsupported root cause.'
+            }
+          }
+        }
+      ];
+  const verificationEvidenceReferences:
+    FindingEvidence[
+      'evidenceReference'
+    ][] =
+      [];
+
+  if (
+    state ===
+    'verified'
+  ) {
+    const evidenceReference =
+      `evidence-${index}-verification` as
+        const;
+
+    evidence.push({
+      evidenceReference,
+      source:
+        'deterministic-rule',
+      kind:
+        'rule-observation',
+      relation:
+        'supports',
+      verificationCapable:
+        true,
+      summary:
+        `Deterministic confirmation for finding ${index}.`
+    });
+    verificationEvidenceReferences.push(
+      evidenceReference
+    );
+  }
 
   return {
     findingReference:
@@ -80,49 +145,13 @@ function createFinding(
             'Example page',
           target:
             null,
-          evidence:
-            [
-              {
-                evidenceReference:
-                  `evidence-${index}`,
-                source:
-                  'model',
-                kind:
-                  'model-observation',
-                relation:
-                  state ===
-                    'verified'
-                    ? 'supports'
-                    : 'inconclusive',
-                verificationCapable:
-                  false,
-                summary:
-                  `Observed text for finding ${index}.`,
-                rawReference: {
-                  pageNumber:
-                    1,
-                  candidateReference
-                },
-                rawSource: {
-                  type:
-                    'exploratory-qa-finding',
-                  value: {
-                    evidence:
-                      `Concrete observation ${index}.`,
-                    reasoning:
-                      'An unsupported root cause.'
-                  }
-                }
-              }
-            ],
+          evidence,
           verification: {
             state,
             reason:
               'Internal verification reason.',
             evidenceReferences:
-              [
-                `evidence-${index}`
-              ]
+              verificationEvidenceReferences
           },
           screenshotReferences:
             [
@@ -137,9 +166,7 @@ function createFinding(
       reason:
         'Internal aggregate verification reason.',
       evidenceReferences:
-        [
-          `evidence-${index}`
-        ]
+        verificationEvidenceReferences
     }
   };
 }
@@ -193,6 +220,62 @@ function createReport(): SiteAgentReport {
       }
     )
   );
+  findings[1]
+    ?.occurrences.push({
+      occurrenceReference:
+        'occurrence-102',
+      pageUrl:
+        'https://example.com/other',
+      pageTitle:
+        'Other example page',
+      target:
+        null,
+      evidence:
+        [
+          {
+            evidenceReference:
+              'evidence-2-other',
+            source:
+              'model',
+            kind:
+              'model-observation',
+            relation:
+              'inconclusive',
+            verificationCapable:
+              false,
+            summary:
+              'A second occurrence was observed without confirmation evidence.',
+            rawReference: {
+              pageNumber:
+                2,
+              candidateReference:
+                'candidate-2-other'
+            },
+            rawSource: {
+              type:
+                'exploratory-qa-finding',
+              value: {
+                evidence:
+                  'A similar pattern was observed on another page.',
+                reasoning:
+                  'The second occurrence was not independently confirmed.'
+              }
+            }
+          }
+        ],
+      verification: {
+        state:
+          'inconclusive',
+        reason:
+          'The second occurrence was not confirmed.',
+        evidenceReferences:
+          []
+      },
+      screenshotReferences:
+        [],
+      redundantInvestigationSkipped:
+        false
+    });
 
   return {
     reportSchemaVersion:
@@ -259,6 +342,28 @@ function createReport(): SiteAgentReport {
                   7,
                 shownTargetCount:
                   4
+              },
+              {
+                candidateReference:
+                  'candidate-2',
+                pageUrl:
+                  'https://example.com/path',
+                target: {
+                  kind:
+                    'visible-text',
+                  elementKind:
+                    'heading',
+                  text:
+                    'Verified example'
+                },
+                screenshotPaths:
+                  [
+                    'agent-results/human-report-check/evidence/focused-confirmed.png'
+                  ],
+                totalTargetCount:
+                  1,
+                shownTargetCount:
+                  1
               }
             ]
         } as unknown as
@@ -277,21 +382,80 @@ function createReport(): SiteAgentReport {
       pageSnapshots:
         [],
       observations:
-        [],
+        [
+          {
+            observationReference:
+              'security-observation-1',
+            fingerprint:
+              'security|header|strict-transport-security',
+            code:
+              'HSTS_NOT_OBSERVED',
+            category:
+              'transport',
+            posture:
+              'defense-in-depth-gap',
+            severity:
+              'low',
+            confidence:
+              'high',
+            source:
+              'deterministic-passive',
+            scope: {
+              type:
+                'origin',
+              key:
+                'https://example.com'
+            },
+            subject:
+              'strict-transport-security',
+            title:
+              'HSTS response header was not observed',
+            description:
+              'The inspected HTTPS response did not include an HSTS header.',
+            remediation:
+              'Confirm whether HSTS is intended for this origin.',
+            occurrences:
+              [
+                {
+                  pageUrl:
+                    'https://example.com/path',
+                  pageTitle:
+                    'Example page',
+                  responseUrl:
+                    'https://example.com/path',
+                  evidence:
+                    [
+                      {
+                        kind:
+                          'response-header',
+                        subject:
+                          'strict-transport-security',
+                        summary:
+                          'No Strict-Transport-Security response header was observed.',
+                        headerName:
+                          'strict-transport-security',
+                        headerValues:
+                          []
+                      }
+                    ]
+                }
+              ]
+          }
+        ],
       summary: {
         observationsCount:
-          0,
+          1,
         bySeverity: {
           medium:
             0,
           low:
-            0,
+            1,
           info:
             0
         },
         byCategory: {
           transport:
-            0,
+            1,
           'response-policy':
             0,
           'frame-protection':
@@ -356,6 +520,38 @@ function main(): void {
   const markdown =
     renderHumanMarkdownReport(
       report
+    );
+  const mixedFindingSection =
+    markdown.slice(
+      markdown.indexOf(
+        '### 02 — Finding 2'
+      ),
+      markdown.indexOf(
+        '### 03 — Finding 3'
+      )
+    );
+  const fullyConfirmedReport =
+    createReport();
+  fullyConfirmedReport.findings[1]!
+    .occurrences =
+      fullyConfirmedReport
+        .findings[1]!
+        .occurrences.slice(
+          0,
+          1
+        );
+  const fullyConfirmedMarkdown =
+    renderHumanMarkdownReport(
+      fullyConfirmedReport
+    );
+  const fullyConfirmedFindingSection =
+    fullyConfirmedMarkdown.slice(
+      fullyConfirmedMarkdown.indexOf(
+        '### 02 — Finding 2'
+      ),
+      fullyConfirmedMarkdown.indexOf(
+        '### 03 — Finding 3'
+      )
     );
   const summaryProjection =
     buildReconciledRunSummaryProjection(
@@ -439,15 +635,127 @@ function main(): void {
   );
   assert.match(
     markdown,
-    /- \*\*19\*\* review/
+    /- \*\*19\*\* findings needing review/
   );
   assert.match(
     markdown,
-    /- \*\*1\*\* confirmed/
+    /- \*\*1\*\* confirmed finding/
   );
   assert.match(
     markdown,
-    /- \*\*1\*\* technical/
+    /- \*\*1\*\* technical observation/
+  );
+  assert.equal(
+    countOccurrences(
+      markdown,
+      '### How to read this report'
+    ),
+    1,
+    'The compact report vocabulary must render exactly once.'
+  );
+  assert.match(
+    markdown,
+    /\*\*Finding:\*\* a potential product issue worth human attention\. Item type is separate from evidence status\./
+  );
+  assert.match(
+    markdown,
+    /\*\*Technical observation:\*\* browser, network, or runtime diagnostic context; an item type, not a confidence level or automatic product defect\./
+  );
+  assert.match(
+    markdown,
+    /\*\*Security observation:\*\* passive security or configuration information; not automatically a vulnerability\./
+  );
+  assert.match(
+    markdown,
+    /\*\*Confirmed issue \/ Verified:\*\* sufficient evidence under CheckQuest’s verification rules\./
+  );
+  assert.match(
+    markdown,
+    /\*\*Needs review \/ Inconclusive:\*\* relevant observation, but insufficient evidence to prove the full claim\./
+  );
+  assert.equal(
+    countOccurrences(
+      markdown,
+      'CheckQuest did not gather enough evidence to confirm this finding.'
+    ),
+    19,
+    'Each unconfirmed finding must communicate that CheckQuest could not confirm the claim.'
+  );
+  assert.equal(
+    countOccurrences(
+      markdown,
+      'CheckQuest confirmed some occurrences of this finding, but not all.'
+    ),
+    1,
+    'A mixed-evidence finding must communicate partial occurrence confirmation once.'
+  );
+  assert.equal(
+    countOccurrences(
+      markdown,
+      '**Evidence status**'
+    ),
+    20,
+    'Evidence status must be scoped to unconfirmed or partially confirmed human-facing findings.'
+  );
+  assert.doesNotMatch(
+    markdown,
+    /\bno evidence\b/i,
+    'The report must not collapse non-verifying observation or context into a claim that no evidence exists.'
+  );
+  assert.doesNotMatch(
+    markdown,
+    /verification-capable/i,
+    'Human Markdown must not expose internal evidence-model terminology.'
+  );
+  assert.match(
+    markdown,
+    /### 01 — Finding 1[\s\S]*\*\*What I saw\*\*[\s\S]*Concrete observation 1\.[\s\S]*\*\*Evidence\*\*[\s\S]*01-FINDING-1-evidence-01\.png[\s\S]*\*\*Evidence status\*\*[\s\S]*CheckQuest did not gather enough evidence to confirm this finding\./
+  );
+  assert.match(
+    mixedFindingSection,
+    /\*\*Evidence status\*\*[\s\S]*CheckQuest confirmed some occurrences of this finding, but not all\./
+  );
+  assert.match(
+    markdown,
+    /### 02 — Finding 2[\s\S]*\*\*What I saw\*\*[\s\S]*Concrete observation 2\.[\s\S]*\*\*Evidence\*\*[\s\S]*02-FINDING-2-evidence-01\.png/
+  );
+  assert.match(
+    mixedFindingSection,
+    /\*\*Pages:\*\* \[\/path\]\(https:\/\/example\.com\/path\), \[\/other\]\(https:\/\/example\.com\/other\)/
+  );
+  assert.equal(
+    humanPresentation
+      .detailedFindings
+      .find(
+        finding =>
+          finding.title ===
+          'Finding 2'
+      )
+      ?.confirmationCoverage,
+    'partial',
+    'The mixed fixture must contain one confirmed and one unconfirmed occurrence.'
+  );
+  assert.match(
+    fullyConfirmedFindingSection,
+    /02-FINDING-2-evidence-01\.png/
+  );
+  assert.doesNotMatch(
+    fullyConfirmedFindingSection,
+    /\*\*Evidence status\*\*/,
+    'A fully confirmed finding must keep its evidence without redundant status boilerplate.'
+  );
+  assert.match(
+    markdown,
+    /## Security observations[\s\S]*HSTS response header was not observed/
+  );
+  assert.doesNotMatch(
+    markdown.slice(
+      markdown.indexOf(
+        '## Technical observations'
+      )
+    ),
+    /\*\*Evidence status\*\*/,
+    'Finding-specific evidence status must not be added to technical or security observations.'
   );
   assert.match(
     markdown,

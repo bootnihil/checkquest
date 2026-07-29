@@ -31,6 +31,11 @@ export type HumanFindingStatus =
   | 'Confirmed issue'
   | 'Needs review';
 
+export type HumanFindingConfirmationCoverage =
+  | 'none'
+  | 'partial'
+  | 'all';
+
 export interface HumanFocusedEvidence {
   sourcePath:
     string;
@@ -63,6 +68,8 @@ export interface HumanFindingPresentation {
     string | null;
   focusedEvidence:
     HumanFocusedEvidence[];
+  confirmationCoverage:
+    HumanFindingConfirmationCoverage;
   visualTargetCount:
     number;
   visuallyShownTargetCount:
@@ -674,6 +681,23 @@ function buildHumanFinding(
     getStructuredIdentity(
       finding
     );
+  const confirmedOccurrenceCount =
+    finding.occurrences.filter(
+      occurrence =>
+        occurrence.verification
+          .state ===
+        'verified'
+    ).length;
+  const confirmationCoverage:
+    HumanFindingConfirmationCoverage =
+      confirmedOccurrenceCount ===
+        0
+        ? 'none'
+        : confirmedOccurrenceCount <
+          finding.occurrences
+            .length
+          ? 'partial'
+          : 'all';
 
   return {
     displayId,
@@ -714,6 +738,7 @@ function buildHumanFinding(
         structuredIdentity
       ),
     focusedEvidence,
+    confirmationCoverage,
     visualTargetCount:
       presentationEvidence
         .reduce(

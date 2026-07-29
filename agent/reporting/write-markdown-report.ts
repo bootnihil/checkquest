@@ -190,13 +190,45 @@ function createFindingCountSummary(
   report:
     HumanReportPresentation
 ): string[] {
+  const confirmedLabel =
+    report.confirmedIssueCount ===
+      1
+      ? 'confirmed finding'
+      : 'confirmed findings';
+  const reviewLabel =
+    report.needsReviewCount ===
+      1
+      ? 'finding needing review'
+      : 'findings needing review';
+  const technicalLabel =
+    report.technicalObservationCount ===
+      1
+      ? 'technical observation'
+      : 'technical observations';
+
   return [
     '**CheckQuest found:**',
     '',
-    `- **${report.confirmedIssueCount}** confirmed`,
-    `- **${report.needsReviewCount}** review`,
-    `- **${report.technicalObservationCount}** technical`
+    `- **${report.confirmedIssueCount}** ${confirmedLabel}`,
+    `- **${report.needsReviewCount}** ${reviewLabel}`,
+    `- **${report.technicalObservationCount}** ${technicalLabel}`
   ];
+}
+
+function pushReportVocabulary(
+  lines:
+    string[]
+): void {
+  lines.push(
+    '### How to read this report',
+    '',
+    '> - **Finding:** a potential product issue worth human attention. Item type is separate from evidence status.',
+    '> - **Technical observation:** browser, network, or runtime diagnostic context; an item type, not a confidence level or automatic product defect.',
+    '> - **Security observation:** passive security or configuration information; not automatically a vulnerability.',
+    '> - **Confirmed issue / Verified:** sufficient evidence under CheckQuest’s verification rules.',
+    '> - **Needs review / Inconclusive:** relevant observation, but insufficient evidence to prove the full claim.',
+    ''
+  );
 }
 
 function pushAtAGlanceTable(
@@ -360,6 +392,38 @@ function pushFocusedEvidence(
 
 }
 
+function pushFindingEvidenceStatus(
+  lines:
+    string[],
+  finding:
+    HumanFindingPresentation
+): void {
+  switch (
+    finding.confirmationCoverage
+  ) {
+    case 'none':
+      lines.push(
+        '**Evidence status**',
+        '',
+        'CheckQuest did not gather enough evidence to confirm this finding.',
+        ''
+      );
+      return;
+
+    case 'partial':
+      lines.push(
+        '**Evidence status**',
+        '',
+        'CheckQuest confirmed some occurrences of this finding, but not all.',
+        ''
+      );
+      return;
+
+    case 'all':
+      return;
+  }
+}
+
 function pushDetailedFinding(
   lines:
     string[],
@@ -381,6 +445,10 @@ function pushDetailedFinding(
     finding.observation
   );
   pushFocusedEvidence(
+    lines,
+    finding
+  );
+  pushFindingEvidenceStatus(
     lines,
     finding
   );
@@ -462,6 +530,11 @@ function pushAdditionalFinding(
     }
   }
 
+  pushFindingEvidenceStatus(
+    lines,
+    finding
+  );
+
   lines.push(
     '---',
     ''
@@ -486,6 +559,10 @@ export function renderHumanMarkdownReport(
     ),
     ''
   ];
+
+  pushReportVocabulary(
+    lines
+  );
 
   if (
     presentation.notableSummary !==

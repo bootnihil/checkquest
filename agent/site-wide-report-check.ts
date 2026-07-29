@@ -734,10 +734,10 @@ async function main(): Promise<void> {
 
   if (
     !markdown.includes(
-      '- **0** confirmed'
+      '- **0** confirmed findings'
     ) ||
     !markdown.includes(
-      '- **1** review'
+      '- **1** finding needing review'
     )
   ) {
     throw new Error(
