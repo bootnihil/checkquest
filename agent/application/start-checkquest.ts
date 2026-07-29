@@ -27,6 +27,9 @@ import {
   getSiteConfig
 } from '../sites';
 import {
+  persistDeveloperErrorDiagnostic
+} from '../errors/format-developer-diagnostic';
+import {
   throwIfRunCancelled
 } from '../errors/run-cancellation';
 import {
@@ -54,6 +57,11 @@ export interface StartCheckQuestInput {
     string;
   onEvent?:
     RunEventObserver;
+  developerDiagnostics?:
+    {
+      enabled:
+        boolean;
+    };
 
   /*
    * This remains the existing narrow collaborator seam used by local,
@@ -290,6 +298,28 @@ async function executeCheckQuestRun(
     error:
       unknown
   ) {
+    try {
+      await persistDeveloperErrorDiagnostic(
+        error,
+        {
+          enabled:
+            input
+              .developerDiagnostics
+              ?.enabled ===
+            true,
+          runId,
+          secrets: [
+            geminiApiKey
+          ]
+        }
+      );
+    } catch {
+      /*
+       * Developer-only diagnostic persistence cannot replace or alter the
+       * authoritative run failure.
+       */
+    }
+
     const sanitizedError =
       sanitizeApplicationError(
         error,

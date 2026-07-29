@@ -1,15 +1,35 @@
 import assert from 'node:assert/strict';
+import {
+  access,
+  mkdtemp,
+  readFile,
+  rm
+} from 'node:fs/promises';
+import {
+  tmpdir
+} from 'node:os';
+import {
+  join
+} from 'node:path';
+import {
+  z
+} from 'zod';
 
 import {
   sanitizeApplicationError
 } from './application/sanitize-application-boundary';
+import {
+  parseModelJsonResponse
+} from './ai/parse-model-json-response';
 import {
   CheckQuestError,
   formatPublicError
 } from './errors/checkquest-error';
 import {
   formatDeveloperErrorDiagnostic,
-  isDeveloperDiagnosticsEnabled
+  isDeveloperDiagnosticsEnabled,
+  maximumDeveloperDiagnosticLength,
+  persistDeveloperErrorDiagnostic
 } from './errors/format-developer-diagnostic';
 import {
   completeRequiredCleanup,
@@ -144,6 +164,314 @@ async function main():
     }),
     false
   );
+
+  const embeddedApiKey =
+    'EMBEDDED_API_KEY_SENTINEL';
+  const embeddedBearerToken =
+    'EMBEDDED_BEARER_SENTINEL';
+  const invalidModelResponse =
+    JSON.stringify({
+      findings: [
+        {
+          severity:
+            'critical',
+          title:
+            42,
+          apiKey:
+            embeddedApiKey,
+          authorization:
+            `Bearer ${embeddedBearerToken}`
+        }
+      ],
+      summary:
+        `Summary ${geminiApiKey}`,
+      padding:
+        'x'.repeat(
+          10_000
+        )
+    });
+  const modelResponseSchema =
+    z.object({
+      findings:
+        z.array(
+          z.object({
+            severity:
+              z.enum([
+                'high',
+                'medium',
+                'low'
+              ]),
+            title:
+              z.string()
+          })
+        ),
+      summary:
+        z.string()
+    });
+  let schemaError:
+    unknown;
+
+  try {
+    parseModelJsonResponse(
+      invalidModelResponse,
+      'exploratory-qa-analysis-response',
+      modelResponseSchema
+    );
+  } catch (
+    error:
+      unknown
+  ) {
+    schemaError =
+      error;
+  }
+
+  assert.ok(
+    schemaError instanceof
+      CheckQuestError
+  );
+  assert.equal(
+    schemaError.code,
+    'MODEL_RESPONSE'
+  );
+  assert.equal(
+    formatPublicError(
+      schemaError
+    ),
+    '[MODEL_RESPONSE] Gemini returned JSON that did not match the required response schema. Operation: exploratory-qa-analysis-response. (phase=exploratory-qa-analysis-response)'
+  );
+
+  const publicSchemaError =
+    formatPublicError(
+      schemaError
+    );
+
+  for (
+    const privateValue of
+      [
+        'findings[0].severity',
+        'invalid_value',
+        'critical',
+        geminiApiKey,
+        embeddedApiKey,
+        embeddedBearerToken
+      ]
+  ) {
+    assert.equal(
+      publicSchemaError.includes(
+        privateValue
+      ),
+      false
+    );
+  }
+
+  const schemaDiagnostic =
+    formatDeveloperErrorDiagnostic(
+      schemaError,
+      {
+        secrets: [
+          geminiApiKey
+        ]
+      }
+    );
+
+  assert.match(
+    schemaDiagnostic,
+    /ModelResponseSchemaDiagnosticError/
+  );
+  assert.match(
+    schemaDiagnostic,
+    /findings\[0\]\.severity/
+  );
+  assert.match(
+    schemaDiagnostic,
+    /"code":"invalid_value"/
+  );
+  assert.match(
+    schemaDiagnostic,
+    /findings\[0\]\.title/
+  );
+  assert.match(
+    schemaDiagnostic,
+    /"code":"invalid_type"/
+  );
+  assert.match(
+    schemaDiagnostic,
+    /"expected":"string"/
+  );
+  assert.match(
+    schemaDiagnostic,
+    /"responseLength":\d+/
+  );
+  assert.match(
+    schemaDiagnostic,
+    /critical/
+  );
+  assert.match(
+    schemaDiagnostic,
+    /characters omitted/
+  );
+  assert.ok(
+    schemaDiagnostic.length <=
+      maximumDeveloperDiagnosticLength
+  );
+
+  for (
+    const secret of
+      [
+        geminiApiKey,
+        embeddedApiKey,
+        embeddedBearerToken
+      ]
+  ) {
+    assert.equal(
+      schemaDiagnostic.includes(
+        secret
+      ),
+      false
+    );
+  }
+
+  assert.deepEqual(
+    parseModelJsonResponse(
+      JSON.stringify({
+        findings: [
+          {
+            severity:
+              'low',
+            title:
+              'Valid finding'
+          }
+        ],
+        summary:
+          'Valid response'
+      }),
+      'exploratory-qa-analysis-response',
+      modelResponseSchema
+    ),
+    {
+      findings: [
+        {
+          severity:
+            'low',
+          title:
+            'Valid finding'
+        }
+      ],
+      summary:
+        'Valid response'
+    }
+  );
+
+  const diagnosticRoot =
+    await mkdtemp(
+      join(
+        tmpdir(),
+        'checkquest-developer-diagnostic-'
+      )
+    );
+
+  try {
+    const debugOffPath =
+      await persistDeveloperErrorDiagnostic(
+        schemaError,
+        {
+          enabled:
+            false,
+          runId:
+            'debug-off-run',
+          outputRootDirectoryPath:
+            diagnosticRoot,
+          secrets: [
+            geminiApiKey
+          ]
+        }
+      );
+
+    assert.equal(
+      debugOffPath,
+      null
+    );
+    await assert.rejects(
+      access(
+        join(
+          diagnosticRoot,
+          'debug-off-run',
+          'developer-diagnostic.txt'
+        )
+      )
+    );
+
+    const debugPath =
+      await persistDeveloperErrorDiagnostic(
+        schemaError,
+        {
+          enabled:
+            true,
+          runId:
+            'debug-on-run',
+          outputRootDirectoryPath:
+            diagnosticRoot,
+          secrets: [
+            geminiApiKey
+          ]
+        }
+      );
+
+    assert.equal(
+      debugPath,
+      join(
+        diagnosticRoot,
+        'debug-on-run',
+        'developer-diagnostic.txt'
+      )
+    );
+
+    const persistedDiagnostic =
+      await readFile(
+        debugPath,
+        'utf8'
+      );
+
+    assert.match(
+      persistedDiagnostic,
+      /findings\[0\]\.severity/
+    );
+    assert.match(
+      persistedDiagnostic,
+      /"code":"invalid_value"/
+    );
+    assert.ok(
+      persistedDiagnostic.length <=
+        maximumDeveloperDiagnosticLength +
+        1
+    );
+
+    for (
+      const secret of
+        [
+          geminiApiKey,
+          embeddedApiKey,
+          embeddedBearerToken
+        ]
+    ) {
+      assert.equal(
+        persistedDiagnostic.includes(
+          secret
+        ),
+        false
+      );
+    }
+  } finally {
+    await rm(
+      diagnosticRoot,
+      {
+        recursive:
+          true,
+        force:
+          true
+      }
+    );
+  }
 
   const arbitraryCause = {
     apiKey:

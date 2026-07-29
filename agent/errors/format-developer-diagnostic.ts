@@ -1,4 +1,12 @@
 import {
+  mkdir,
+  writeFile
+} from 'node:fs/promises';
+import {
+  join
+} from 'node:path';
+
+import {
   CheckQuestError
 } from './checkquest-error';
 import {
@@ -18,12 +26,24 @@ export interface DeveloperDiagnosticOptions {
     )[];
 }
 
+export interface PersistDeveloperDiagnosticOptions
+  extends DeveloperDiagnosticOptions {
+  enabled:
+    boolean;
+  runId:
+    string;
+  outputRootDirectoryPath?:
+    string;
+}
+
 const maximumCauseDepth =
   6;
 const maximumStackFrames =
   30;
 const maximumMessageLength =
   2_000;
+export const maximumDeveloperDiagnosticLength =
+  32_000;
 
 export function isDeveloperDiagnosticsEnabled(
   environment:
@@ -67,6 +87,22 @@ function redactDiagnosticText(
   }
 
   return redacted
+    .replace(
+      /(\\"(?:authorization|cookie|set-cookie|x-goog-api-key|api[_-]?key)\\"\s*:\s*\\").*?(\\")/gi,
+      '$1[REDACTED]$2'
+    )
+    .replace(
+      /("(?:authorization|cookie|set-cookie|x-goog-api-key|api[_-]?key)"\s*:\s*)"(?:\\.|[^"\\])*"/gi,
+      '$1"[REDACTED]"'
+    )
+    .replace(
+      /(\\'(?:authorization|cookie|set-cookie|x-goog-api-key|api[_-]?key)\\'\s*:\s*\\').*?(\\')/gi,
+      '$1[REDACTED]$2'
+    )
+    .replace(
+      /('(?:authorization|cookie|set-cookie|x-goog-api-key|api[_-]?key)'\s*:\s*)'(?:\\.|[^'\\])*'/gi,
+      "$1'[REDACTED]'"
+    )
     .replace(
       /\b(authorization|cookie|set-cookie|x-goog-api-key|api[_-]?key)\s*[:=]\s*(?:Bearer\s+)?[^\s,;]+/gi,
       '$1=[REDACTED]'
@@ -310,9 +346,10 @@ function pushErrorChain(
 }
 
 /**
- * Produces an explicitly developer-only diagnostic. It reads only Error
- * metadata and stack-frame lines. Arbitrary thrown objects, request payloads,
- * headers, cookies, and environment state are never serialized.
+ * Produces an explicitly developer-only diagnostic from Error metadata,
+ * bounded messages, and stack-frame lines. A trusted internal error may carry
+ * an intentionally bounded response excerpt in its message. Arbitrary thrown
+ * objects, headers, cookies, and environment state are never serialized.
  */
 export function formatDeveloperErrorDiagnostic(
   error:
@@ -352,7 +389,74 @@ export function formatDeveloperErrorDiagnostic(
     );
   }
 
-  return lines.join(
-    '\n'
+  const diagnostic =
+    lines.join(
+      '\n'
+    );
+
+  if (
+    diagnostic.length <=
+      maximumDeveloperDiagnosticLength
+  ) {
+    return diagnostic;
+  }
+
+  const truncationMarker =
+    '\n<developer diagnostic truncated>';
+
+  return (
+    diagnostic.slice(
+      0,
+      maximumDeveloperDiagnosticLength -
+        truncationMarker.length
+    ) +
+    truncationMarker
   );
+}
+
+export async function persistDeveloperErrorDiagnostic(
+  error:
+    unknown,
+  options:
+    PersistDeveloperDiagnosticOptions
+): Promise<string | null> {
+  if (
+    !options.enabled
+  ) {
+    return null;
+  }
+
+  const directoryPath =
+    join(
+      options
+        .outputRootDirectoryPath ??
+        'agent-results',
+      options.runId
+    );
+  const filePath =
+    join(
+      directoryPath,
+      'developer-diagnostic.txt'
+    );
+
+  await mkdir(
+    directoryPath,
+    {
+      recursive:
+        true
+    }
+  );
+  await writeFile(
+    filePath,
+    `${formatDeveloperErrorDiagnostic(
+      error,
+      {
+        secrets:
+          options.secrets
+      }
+    )}\n`,
+    'utf8'
+  );
+
+  return filePath;
 }

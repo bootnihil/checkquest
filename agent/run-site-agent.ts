@@ -66,7 +66,13 @@ async function main(): Promise<void> {
         process.env
           .GEMINI_MODEL,
       onEvent:
-        renderRunEvent
+        renderRunEvent,
+      developerDiagnostics: {
+        enabled:
+          isDeveloperDiagnosticsEnabled(
+            process.env
+          )
+      }
     });
 
   const cancelRun =
