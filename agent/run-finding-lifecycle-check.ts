@@ -218,6 +218,8 @@ function main(): void {
         firstUrl,
       pageTitle:
         'First page',
+      pageNumber:
+        1,
       screenshotPath:
         'page-01.png',
       exploratoryFindingResults: [
@@ -352,6 +354,8 @@ function main(): void {
           secondUrl,
         pageTitle:
           'Second page',
+        pageNumber:
+          2,
         screenshotPath:
           'page-02.png',
         exploratoryFindingResults: [

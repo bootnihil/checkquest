@@ -704,6 +704,27 @@ function pushFindingEvidenceStatus(
   }
 }
 
+function pushFindingProvenance(
+  lines:
+    string[],
+  finding:
+    HumanFindingPresentation
+): void {
+  if (
+    !finding
+      .modelCandidateProvenance
+  ) {
+    return;
+  }
+
+  lines.push(
+    '**Evidence provenance**',
+    '',
+    'This item originated as a model candidate and was not matched to browser, network, console, or runtime diagnostics.',
+    ''
+  );
+}
+
 function pushDetailedFinding(
   lines:
     string[],
@@ -729,6 +750,10 @@ function pushDetailedFinding(
     finding
   );
   pushFindingEvidenceStatus(
+    lines,
+    finding
+  );
+  pushFindingProvenance(
     lines,
     finding
   );
@@ -811,6 +836,10 @@ function pushAdditionalFinding(
   }
 
   pushFindingEvidenceStatus(
+    lines,
+    finding
+  );
+  pushFindingProvenance(
     lines,
     finding
   );

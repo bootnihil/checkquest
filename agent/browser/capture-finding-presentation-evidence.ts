@@ -410,11 +410,57 @@ async function resolveVisualTargetBoxes(
             }
           }
 
+          const ariaLabel =
+            browserUtilities.normalize(
+              element.getAttribute(
+                'aria-label'
+              )
+            );
+
+          if (
+            ariaLabel !==
+              ''
+          ) {
+            return ariaLabel;
+          }
+
+          const visibleText =
+            browserUtilities.normalize(
+              (
+                element as
+                  HTMLElement
+              ).innerText ||
+              element.textContent
+            );
+
+          if (
+            visibleText !==
+              ''
+          ) {
+            return visibleText;
+          }
+
+          if (
+            element instanceof
+              HTMLInputElement
+          ) {
+            const inputValue =
+              browserUtilities.normalize(
+                element.value
+              );
+
+            if (
+              inputValue !==
+                ''
+            ) {
+              return inputValue;
+            }
+          }
+
           return browserUtilities.normalize(
             element.getAttribute(
-              'aria-label'
-            ) ??
-            element.textContent
+              'title'
+            )
           );
         }
       };
@@ -477,8 +523,12 @@ async function resolveVisualTargetBoxes(
                 ]
                   .filter(
                     label =>
-                      label.htmlFor ===
-                        select.id ||
+                      (
+                        select.id !==
+                          '' &&
+                        label.htmlFor ===
+                          select.id
+                      ) ||
                       label.contains(
                         select
                       )
@@ -493,23 +543,34 @@ async function resolveVisualTargetBoxes(
                 (
                   targetValue
                     .controlId !==
-                    null &&
+                    null ||
+                  targetValue
+                    .controlName !==
+                    null ||
+                  targetValue
+                    .controlLabel !==
+                    null
+                ) &&
+                (
+                  targetValue
+                    .controlId ===
+                    null ||
                   select.id ===
                     targetValue
                       .controlId
-                ) ||
+                ) &&
                 (
                   targetValue
-                    .controlName !==
-                    null &&
+                    .controlName ===
+                    null ||
                   select.name ===
                     targetValue
                       .controlName
-                ) ||
+                ) &&
                 (
                   targetValue
-                    .controlLabel !==
-                    null &&
+                    .controlLabel ===
+                    null ||
                   labels.includes(
                     browserUtilities.normalize(
                       targetValue
@@ -537,40 +598,202 @@ async function resolveVisualTargetBoxes(
               );
             }
           );
-      } else {
-        const expectedRole =
-          targetValue.kind ===
-            'tab-state'
-            ? 'tab'
-            : 'button';
+      } else if (
+        targetValue.kind ===
+          'disclosure-state'
+      ) {
         candidates =
           [
             ...document
               .querySelectorAll(
-                `[role="${expectedRole}"],button,[id]`
+                '[id]'
               )
           ].filter(
-            element =>
-              (
-                targetValue
-                  .controlId !==
-                  null &&
+            element => {
+              const role =
+                browserUtilities.normalize(
+                  element.getAttribute(
+                    'role'
+                  )
+                ).toLowerCase();
+              const type =
+                browserUtilities.normalize(
+                  element.getAttribute(
+                    'type'
+                  )
+                ).toLowerCase();
+              const approvedControl =
+                (
+                  element instanceof
+                    HTMLButtonElement &&
+                  type ===
+                    'button'
+                ) ||
+                role ===
+                  'button';
+              const controlledIds =
+                browserUtilities.normalize(
+                  element.getAttribute(
+                    'aria-controls'
+                  )
+                )
+                  .split(
+                    /\s+/
+                  )
+                  .filter(
+                    value =>
+                      value.length >
+                      0
+                  );
+              const controlledRegions =
+                [
+                  ...document
+                    .querySelectorAll(
+                      '[id]'
+                    )
+                ].filter(
+                  candidate =>
+                    candidate.id ===
+                      targetValue
+                        .controlledRegionId
+                );
+              const expanded =
+                browserUtilities.normalize(
+                  element.getAttribute(
+                    'aria-expanded'
+                  )
+                ).toLowerCase();
+
+              return (
                 element.id ===
                   targetValue
-                    .controlId
-              ) ||
-              (
-                targetValue
-                  .accessibleName !==
-                  null &&
+                    .controlId &&
                 browserUtilities.accessibleName(
                   element
                 ) ===
                   browserUtilities.normalize(
                     targetValue
                       .accessibleName
-                  )
+                  ) &&
+                approvedControl &&
+                (
+                  expanded ===
+                    'true' ||
+                  expanded ===
+                    'false'
+                ) &&
+                controlledIds.length ===
+                  1 &&
+                controlledIds[0] ===
+                  targetValue
+                    .controlledRegionId &&
+                controlledRegions.length ===
+                  1
+              );
+            }
+          );
+      } else {
+        candidates =
+          [
+            ...document
+              .querySelectorAll(
+                '[role="tab"]'
               )
+          ].filter(
+            element => {
+              const controlledIds =
+                browserUtilities.normalize(
+                  element.getAttribute(
+                    'aria-controls'
+                  )
+                )
+                  .split(
+                    /\s+/
+                  )
+                  .filter(
+                    value =>
+                      value.length >
+                      0
+                  );
+              const controlledPanels =
+                [
+                  ...document
+                    .querySelectorAll(
+                      '[id]'
+                    )
+                ].filter(
+                  candidate =>
+                    candidate.id ===
+                      targetValue
+                        .controlledPanelId
+                );
+              const tabLists =
+                [
+                  ...document
+                    .querySelectorAll(
+                      '[id]'
+                    )
+                ].filter(
+                  candidate =>
+                    candidate.id ===
+                      targetValue
+                        .tabListId
+                );
+              const selected =
+                browserUtilities.normalize(
+                  element.getAttribute(
+                    'aria-selected'
+                  )
+                ).toLowerCase();
+
+              return (
+                element.id ===
+                  targetValue
+                    .controlId &&
+                browserUtilities.accessibleName(
+                  element
+                ) ===
+                  browserUtilities.normalize(
+                    targetValue
+                      .accessibleName
+                  ) &&
+                (
+                  selected ===
+                    'true' ||
+                  selected ===
+                    'false'
+                ) &&
+                controlledIds.length ===
+                  1 &&
+                controlledIds[0] ===
+                  targetValue
+                    .controlledPanelId &&
+                controlledPanels.length ===
+                  1 &&
+                browserUtilities.normalize(
+                  controlledPanels[0]
+                    ?.getAttribute(
+                      'role'
+                    ) ??
+                    null
+                ).toLowerCase() ===
+                  'tabpanel' &&
+                tabLists.length ===
+                  1 &&
+                browserUtilities.normalize(
+                  tabLists[0]
+                    ?.getAttribute(
+                      'role'
+                    ) ??
+                    null
+                ).toLowerCase() ===
+                  'tablist' &&
+                element.closest(
+                  '[role="tablist"]'
+                ) ===
+                  tabLists[0]
+              );
+            }
           );
       }
 
@@ -600,6 +823,15 @@ async function resolveVisualTargetBoxes(
         staleTarget.removeAttribute(
           input.targetAttribute
         );
+      }
+
+      if (
+        targetValue.kind !==
+          'visible-text' &&
+        visibleCandidates.length !==
+          1
+      ) {
+        return [];
       }
 
       return visibleCandidates
@@ -1401,31 +1633,24 @@ export async function captureFindingPresentationEvidence(
   ) {
     replayOriginalValue =
       await page.evaluate(
-        target => {
-          const select =
+        replay => {
+          const matchingSelects =
             [
               ...document.querySelectorAll(
                 'select'
               )
-            ].find(
+            ].filter(
               candidate =>
-                (
-                  target.controlId !==
-                    null &&
-                  candidate.id ===
-                    target.controlId
-                ) ||
-                (
-                  target.controlName !==
-                    null &&
-                  candidate.getAttribute(
-                    'name'
-                  ) ===
-                    target.controlName
-                )
-            ) as
-              HTMLSelectElement |
-              undefined;
+                candidate.getAttribute(
+                  replay.targetAttribute
+                ) ===
+                  '0'
+            );
+          const select =
+            matchingSelects.length ===
+              1
+              ? matchingSelects[0]
+              : undefined;
           const option =
             select ===
               undefined
@@ -1443,7 +1668,7 @@ export async function captureFindingPresentationEvidence(
                         ' '
                       )
                       .trim() ===
-                    target.optionText
+                    replay.optionText
                 );
 
           if (
@@ -1479,7 +1704,12 @@ export async function captureFindingPresentationEvidence(
           );
           return originalValue;
         },
-        input.target
+        {
+          optionText:
+            input.target
+              .optionText,
+          targetAttribute
+        }
       );
 
     if (
@@ -1683,13 +1913,6 @@ export async function captureFindingPresentationEvidence(
     if (
       !page.isClosed()
     ) {
-      await removeEvidenceAnnotations(
-        page,
-        scrollPosition
-      ).catch(
-        () => undefined
-      );
-
       if (
         input.target.kind ===
           'select-option' &&
@@ -1701,30 +1924,24 @@ export async function captureFindingPresentationEvidence(
             (
               restore
             ) => {
-              const select =
+              const matchingSelects =
                 [
                   ...document.querySelectorAll(
                     'select'
                   )
-                ].find(
+                ].filter(
                   candidate =>
-                    (
-                      restore.controlId !==
-                        null &&
-                      candidate.id ===
-                        restore.controlId
-                    ) ||
-                    (
-                      restore.controlName !==
-                        null &&
-                      candidate.getAttribute(
-                        'name'
-                      ) ===
-                        restore.controlName
-                    )
-                ) as
-                  HTMLSelectElement |
-                  undefined;
+                    candidate.getAttribute(
+                      restore
+                        .targetAttribute
+                    ) ===
+                      '0'
+                );
+              const select =
+                matchingSelects.length ===
+                  1
+                  ? matchingSelects[0]
+                  : undefined;
 
               if (
                 select ===
@@ -1759,20 +1976,22 @@ export async function captureFindingPresentationEvidence(
               );
             },
             {
-              controlId:
-                input.target
-                  .controlId,
-              controlName:
-                input.target
-                  .controlName,
               value:
-                replayOriginalValue
+                replayOriginalValue,
+              targetAttribute
             }
           ).catch(
             () =>
               false
           );
       }
+
+      await removeEvidenceAnnotations(
+        page,
+        scrollPosition
+      ).catch(
+        () => undefined
+      );
     }
   }
 

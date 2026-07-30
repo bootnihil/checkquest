@@ -1,6 +1,12 @@
 import type {
   UnifiedFinding
 } from '../findings/finding-model';
+import {
+  exploratoryQaFindingSchema
+} from '../analysis/exploratory-qa-schema';
+import {
+  createTechnicalObservationFingerprint
+} from '../analysis/technical-observation-reconciliation';
 import type {
   SiteAgentReport
 } from './report-types';
@@ -20,6 +26,69 @@ export interface ReconciledRunSummaryProjection {
     number;
 }
 
+export function hasRuntimeTechnicalGrounding(
+  finding:
+    UnifiedFinding
+): boolean {
+  if (
+    finding.category !==
+      'technical'
+  ) {
+    return false;
+  }
+
+  for (
+    const occurrence of
+      finding.occurrences
+  ) {
+    for (
+      const evidence of
+        occurrence.evidence
+    ) {
+      if (
+        evidence.source ===
+          'deterministic-rule'
+      ) {
+        return true;
+      }
+
+      if (
+        evidence.rawSource
+          ?.type !==
+          'exploratory-qa-finding'
+      ) {
+        continue;
+      }
+
+      const parsed =
+        exploratoryQaFindingSchema
+          .safeParse(
+            evidence.rawSource
+              .value
+          );
+      const technicalIdentity =
+        parsed.success
+          ? parsed.data
+              .technicalIdentity ??
+            null
+          : null;
+
+      if (
+        technicalIdentity !==
+          null &&
+        finding.fingerprint ===
+          createTechnicalObservationFingerprint(
+            technicalIdentity
+          )
+      ) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
 export function isPrimaryHumanFinding(
   finding:
     UnifiedFinding
@@ -31,7 +100,10 @@ export function isPrimaryHumanFinding(
       finding.category !==
         'technical' ||
       finding.verification.state ===
-        'verified'
+        'verified' ||
+      !hasRuntimeTechnicalGrounding(
+        finding
+      )
     )
   );
 }
@@ -44,7 +116,10 @@ export function isHumanTechnicalObservation(
     finding.category ===
       'technical' &&
     finding.verification.state ===
-      'inconclusive'
+      'inconclusive' &&
+    hasRuntimeTechnicalGrounding(
+      finding
+    )
   );
 }
 

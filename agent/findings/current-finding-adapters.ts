@@ -15,6 +15,7 @@ import {
   deriveOccurrenceVerification
 } from './derive-verification-state';
 import type {
+  CandidateFindingRawReference,
   FindingEvidence,
   FindingEvidenceReference,
   FindingEvidenceRelation,
@@ -477,7 +478,13 @@ export function adaptExploratoryFindingResult(
   result:
     ExploratoryFindingResult,
   context:
-    FindingAdapterContext,
+    FindingAdapterContext & {
+      rawReference:
+        Pick<
+          CandidateFindingRawReference,
+          'pageNumber'
+        >;
+    },
   assessment:
     InvestigationEvidenceAssessment
 ): UnifiedFinding {

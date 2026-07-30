@@ -19,6 +19,7 @@ import {
   deriveOccurrenceVerification
 } from './derive-verification-state';
 import type {
+  CandidateFindingRawReference,
   FindingEvidence,
   FindingOccurrence,
   FindingTarget,
@@ -45,7 +46,7 @@ export interface RegisterCompatibilityOccurrenceInput {
   redundantInvestigationSkipped: boolean;
 }
 
-export interface AttachInvestigationOutcomeInput {
+interface AttachInvestigationOutcomeBase {
   fingerprint: string;
   pageUrl: string;
   target: FindingTarget;
@@ -59,8 +60,19 @@ export interface AttachInvestigationOutcomeInput {
    */
   assessment?:
     InvestigationEvidenceAssessment;
-  candidateReference?: string;
 }
+
+export type AttachInvestigationOutcomeInput =
+  AttachInvestigationOutcomeBase &
+  (
+    | CandidateFindingRawReference
+    | {
+        pageNumber?:
+          undefined;
+        candidateReference?:
+          undefined;
+      }
+  );
 
 export function createUnifiedFindingRegistry():
   UnifiedFindingRegistry {
@@ -561,6 +573,45 @@ export function attachInvestigationOutcome(
       input.finding,
       input.outcome
     );
+  const candidateRawReference:
+    CandidateFindingRawReference |
+    undefined =
+      input.candidateReference ===
+        undefined ||
+      input.pageNumber ===
+        undefined
+        ? undefined
+        : {
+            pageNumber:
+              input.pageNumber,
+            candidateReference:
+              input
+                .candidateReference
+          };
+
+  if (
+    candidateRawReference !==
+      undefined
+  ) {
+    for (
+      const evidence of
+        occurrence.evidence
+    ) {
+      if (
+        evidence.kind !==
+          'model-observation' ||
+        evidence.source !==
+          'model'
+      ) {
+        continue;
+      }
+
+      evidence.rawReference = {
+        ...evidence.rawReference,
+        ...candidateRawReference
+      };
+    }
+  }
 
   mergeEvidence(
     registry,
@@ -573,11 +624,8 @@ export function attachInvestigationOutcome(
             occurrence
               .occurrenceReference,
           assessment,
-          rawReference: {
-            candidateReference:
-              input
-                .candidateReference
-          }
+          rawReference:
+            candidateRawReference
         }
       )
     ]

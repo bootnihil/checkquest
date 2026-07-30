@@ -150,6 +150,7 @@ export interface CommitRunPageFindingsInput {
 
   pageUrl: string;
   pageTitle: string;
+  pageNumber: number;
 
   screenshotPath:
     string | null;
@@ -778,7 +779,9 @@ export function commitRunPageFindings(
         outcome:
           result.outcome,
         candidateReference:
-          candidate.reference
+          candidate.reference,
+        pageNumber:
+          input.pageNumber
       }
     );
   }

@@ -4,6 +4,10 @@ import {
   calculateFocusedEvidenceClip,
   groupFocusedEvidenceTargets
 } from './browser/capture-finding-presentation-evidence';
+import {
+  exploratoryQaFindingSchema,
+  type ExploratoryQaFinding
+} from './analysis/exploratory-qa-schema';
 import type {
   FindingEvidence,
   UnifiedFinding
@@ -16,6 +20,15 @@ import {
 import {
   buildReconciledRunSummaryProjection
 } from './reporting/run-summary-projection';
+import {
+  createTechnicalObservationFingerprint
+} from './analysis/technical-observation-reconciliation';
+import {
+  commitRunPageFindings,
+  createRunFindingLifecycle,
+  getRunFindings,
+  reconcileRunPageFindings
+} from './findings/run-finding-lifecycle';
 import type {
   SiteAgentReport
 } from './reporting/report-types';
@@ -43,6 +56,10 @@ function createFinding(
       ];
     title?:
       string;
+    runtimeGroundedTechnical?:
+      boolean;
+    modelSuppliedTechnicalIdentity?:
+      boolean;
   } =
     {}
 ): UnifiedFinding {
@@ -51,6 +68,30 @@ function createFinding(
     'inconclusive';
   const candidateReference =
     `candidate-${index}`;
+  const technicalIdentity = {
+    kind:
+      'failed-request' as const,
+    failureText:
+      'net::ERR_FAILED',
+    method:
+      'GET',
+    resourceType:
+      'script',
+    resourceUrl:
+      `https://telemetry.example.net/request-${index}.js`,
+    originRelation:
+      'cross-origin' as const
+  };
+  const hasTechnicalIdentity =
+    options
+      .runtimeGroundedTechnical ===
+      true ||
+    options
+      .modelSuppliedTechnicalIdentity ===
+      true;
+  const isTechnicalCandidate =
+    options.category ===
+      'technical';
   const evidence:
     FindingEvidence[] =
       [
@@ -75,12 +116,50 @@ function createFinding(
           rawSource: {
             type:
               'exploratory-qa-finding',
-            value: {
-              evidence:
-                `Concrete observation ${index}.`,
-              reasoning:
-                'An unsupported root cause.'
-            }
+            value:
+              isTechnicalCandidate
+                ? {
+                    category:
+                      'technical',
+                    severity:
+                      options.severity ??
+                      'low',
+                    confidence:
+                      'medium',
+                    title:
+                      options.title ??
+                      `Finding ${index}`,
+                    evidence:
+                      `Concrete observation ${index}.`,
+                    reasoning:
+                      'Runtime-grounded technical context.',
+                    suggestedCheck:
+                      'Review the exact runtime diagnostic.',
+                    evidenceTarget:
+                      null,
+                    presentationTarget:
+                      null,
+                    structuredIdentity:
+                      null,
+                    technicalEvidenceReferences:
+                      [
+                        options
+                          .runtimeGroundedTechnical ===
+                          true
+                          ? 'technical-request-1'
+                          : 'technical-request-99'
+                      ],
+                    technicalIdentity:
+                      hasTechnicalIdentity
+                        ? technicalIdentity
+                        : null
+                  }
+                : {
+                    evidence:
+                      `Concrete observation ${index}.`,
+                    reasoning:
+                      'An unsupported root cause.'
+                  }
           }
         }
       ];
@@ -120,7 +199,13 @@ function createFinding(
     findingReference:
       `finding-${index}`,
     fingerprint:
-      `fingerprint-${index}`,
+      options
+        .runtimeGroundedTechnical ===
+        true
+        ? createTechnicalObservationFingerprint(
+            technicalIdentity
+          )
+        : `fingerprint-${index}`,
     category:
       options.category ??
       'content',
@@ -207,7 +292,9 @@ function createReport(): SiteAgentReport {
         category:
           'technical',
         title:
-          'Third-party telemetry request failed'
+          'Third-party telemetry request failed',
+        runtimeGroundedTechnical:
+          true
       }
     ),
     createFinding(
@@ -322,6 +409,8 @@ function createReport(): SiteAgentReport {
               {
                 candidateReference:
                   'candidate-1',
+                pageNumber:
+                  1,
                 pageUrl:
                   'https://example.com/path',
                 target: {
@@ -346,6 +435,8 @@ function createReport(): SiteAgentReport {
               {
                 candidateReference:
                   'candidate-2',
+                pageNumber:
+                  1,
                 pageUrl:
                   'https://example.com/path',
                 target: {
@@ -531,7 +622,9 @@ function createTechnicalGroupingReport():
         severity:
           'medium',
         title:
-          analyticsTitle
+          analyticsTitle,
+        runtimeGroundedTechnical:
+          true
       }
     ),
     createFinding(
@@ -542,7 +635,9 @@ function createTechnicalGroupingReport():
         severity:
           'medium',
         title:
-          analyticsTitle
+          analyticsTitle,
+        runtimeGroundedTechnical:
+          true
       }
     ),
     ...Array.from(
@@ -563,7 +658,9 @@ function createTechnicalGroupingReport():
             severity:
               'medium',
             title:
-              trackingTitle
+              trackingTitle,
+            runtimeGroundedTechnical:
+              true
           }
         )
     )
@@ -759,7 +856,9 @@ function main(): void {
         category:
           'technical',
         title:
-          'Distinct technical title A'
+          'Distinct technical title A',
+        runtimeGroundedTechnical:
+          true
       }
     ),
     createFinding(
@@ -768,7 +867,9 @@ function main(): void {
         category:
           'technical',
         title:
-          'Distinct technical title B'
+          'Distinct technical title B',
+        runtimeGroundedTechnical:
+          true
       }
     )
   ];
@@ -799,6 +900,242 @@ function main(): void {
   const duplicateSecurityMarkdown =
     renderHumanMarkdownReport(
       duplicateSecurityReport
+    );
+  const ungroundedTechnicalReport =
+    createReport();
+
+  ungroundedTechnicalReport.findings = [
+    createFinding(
+      41,
+      {
+        category:
+          'technical',
+        title:
+          'Browser network request definitely failed'
+      }
+    )
+  ];
+  const ungroundedTechnicalPresentation =
+    buildHumanReportPresentation(
+      ungroundedTechnicalReport
+    );
+  const ungroundedTechnicalMarkdown =
+    renderHumanMarkdownReport(
+      ungroundedTechnicalReport
+    );
+  const modelIdentityReport =
+    createReport();
+
+  modelIdentityReport.findings = [
+    createFinding(
+      42,
+      {
+        category:
+          'technical',
+        title:
+          'Model-supplied technical identity',
+        modelSuppliedTechnicalIdentity:
+          true
+      }
+    )
+  ];
+  const modelIdentityPresentation =
+    buildHumanReportPresentation(
+      modelIdentityReport
+    );
+  const collisionReport =
+    createReport();
+  const collisionLifecycle =
+    createRunFindingLifecycle();
+  const collisionFixtures = [
+    {
+      pageNumber:
+        1,
+      pageUrl:
+        'https://example.com/#/home',
+      pageTitle:
+        'Home route',
+      findingTitle:
+        'Home route candidate',
+      screenshotPath:
+        'agent-results/exact-home.png'
+    },
+    {
+      pageNumber:
+        2,
+      pageUrl:
+        'https://example.com/#/settings',
+      pageTitle:
+        'Settings route',
+      findingTitle:
+        'Settings route candidate',
+      screenshotPath:
+        'agent-results/exact-settings.png'
+    }
+  ] as const;
+
+  collisionReport.inspectedPages =
+    collisionFixtures.map(
+      fixture => {
+        const modelFinding:
+          ExploratoryQaFinding = {
+            category:
+              'content',
+            severity:
+              'low',
+            confidence:
+              'medium',
+            title:
+              fixture.findingTitle,
+            evidence:
+              `${fixture.pageTitle} contains a candidate observation.`,
+            reasoning:
+              'The candidate requires human review.',
+            suggestedCheck:
+              'Review the focused page evidence.',
+            evidenceTarget:
+              null,
+            presentationTarget: {
+              kind:
+                'visible-text',
+              elementKind:
+                'heading',
+              text:
+                fixture.pageTitle
+            }
+          };
+        const reconciledPage =
+          reconcileRunPageFindings(
+            collisionLifecycle,
+            {
+              pageUrl:
+                fixture.pageUrl,
+              pageTitle:
+                fixture.pageTitle,
+              ruleFindings:
+                [],
+              rawExploratoryQaAnalysis: {
+                findings: [
+                  modelFinding
+                ],
+                summary:
+                  'One candidate.'
+              },
+              knownFindingPreparation: {
+                deterministicKnownOccurrenceDrafts:
+                  [],
+                knownFindingContext:
+                  []
+              }
+            }
+          );
+        const candidate =
+          reconciledPage
+            .pageCandidates[0]!;
+
+        assert.equal(
+          candidate.reference,
+          'candidate-1',
+          'Candidate references must remain page-local in the hash-route integration fixture.'
+        );
+
+        commitRunPageFindings(
+          collisionLifecycle,
+          {
+            page:
+              reconciledPage,
+            pageUrl:
+              fixture.pageUrl,
+            pageTitle:
+              fixture.pageTitle,
+            pageNumber:
+              fixture.pageNumber,
+            screenshotPath:
+              null,
+            exploratoryFindingResults: [
+              {
+                candidateReference:
+                  candidate.reference,
+                finding:
+                  candidate.finding,
+                outcome: {
+                  status:
+                    'inconclusive',
+                  summary:
+                    'No deterministic confirmation was collected.',
+                  evidence:
+                    []
+                }
+              }
+            ]
+          }
+        );
+
+        return {
+          selection: {
+            type:
+              'start-url',
+            url:
+              fixture.pageUrl
+          },
+          observation: {
+            title:
+              fixture.pageTitle,
+            finalUrl:
+              fixture.pageUrl
+          },
+          presentationEvidence: [
+            {
+              candidateReference:
+                candidate.reference,
+              pageNumber:
+                fixture.pageNumber,
+              pageUrl:
+                fixture.pageUrl,
+              target:
+                modelFinding
+                  .presentationTarget!,
+              screenshotPaths: [
+                fixture
+                  .screenshotPath
+              ],
+              totalTargetCount:
+                1,
+              shownTargetCount:
+                1
+            }
+          ]
+        } as unknown as
+          SiteAgentReport[
+            'inspectedPages'
+          ][
+            number
+          ];
+      }
+    );
+  collisionReport.findings =
+    getRunFindings(
+      collisionLifecycle
+    );
+  const collisionPresentation =
+    buildHumanReportPresentation(
+      collisionReport
+    );
+  const collisionEvidenceByUrl =
+    new Map(
+      collisionPresentation
+        .detailedFindings.map(
+          finding => [
+            finding.pages[0]!
+              .url,
+            finding.focusedEvidence
+              .map(
+                evidence =>
+                  evidence
+                    .sourcePath
+              )
+          ] as const
+        )
     );
 
   assert.notEqual(
@@ -982,6 +1319,181 @@ function main(): void {
     /HSTS response header was not observed \(2 related\)/,
     'Security observations must not be grouped by title.'
   );
+  assert.deepEqual(
+    {
+      needsReview:
+        ungroundedTechnicalPresentation
+          .needsReviewCount,
+      technical:
+        ungroundedTechnicalPresentation
+          .technicalObservationCount,
+      provenance:
+        ungroundedTechnicalPresentation
+          .detailedFindings[0]
+          ?.modelCandidateProvenance
+    },
+    {
+      needsReview:
+        1,
+      technical:
+        0,
+      provenance:
+        true
+    },
+    'An ungrounded model-only technical candidate remains an ordinary Needs review finding with explicit provenance.'
+  );
+  assert.equal(
+    ungroundedTechnicalReport
+      .findings[0]
+      ?.verification.state,
+    'inconclusive',
+    'Presentation projection must not alter canonical verification for an ungrounded technical candidate.'
+  );
+  assert.equal(
+    exploratoryQaFindingSchema
+      .safeParse(
+        ungroundedTechnicalReport
+          .findings[0]
+          ?.occurrences[0]
+          ?.evidence[0]
+          ?.rawSource
+          ?.value
+      )
+      .success,
+    true,
+    'The ungrounded regression fixture must remain a schema-valid model candidate.'
+  );
+  assert.match(
+    ungroundedTechnicalMarkdown,
+    /Low · Needs review[\s\S]*The model proposed “Browser network request definitely failed” as a technical candidate\. CheckQuest did not match it to browser, network, console, or runtime diagnostics\.[\s\S]*\*\*Evidence provenance\*\*[\s\S]*originated as a model candidate and was not matched to browser, network, console, or runtime diagnostics\./
+  );
+  assert.doesNotMatch(
+    ungroundedTechnicalMarkdown,
+    /Structured technical evidence|Concrete observation 41/
+  );
+  assert.match(
+    ungroundedTechnicalMarkdown,
+    /\| \[01\]\(#item-01\) \| \[Model candidate: Browser network request definitely failed\]\(#item-01\) \| Finding \| Low \| [^|]+ \| Needs review \|/
+  );
+  assert.doesNotMatch(
+    ungroundedTechnicalMarkdown.slice(
+      ungroundedTechnicalMarkdown
+        .indexOf(
+          '## Technical observations'
+        ),
+      ungroundedTechnicalMarkdown
+        .indexOf(
+          '## Security observations'
+        )
+    ),
+    /Browser network request definitely failed/
+  );
+  assert.deepEqual(
+    {
+      needsReview:
+        modelIdentityPresentation
+          .needsReviewCount,
+      technical:
+        modelIdentityPresentation
+          .technicalObservationCount,
+      provenance:
+        modelIdentityPresentation
+          .detailedFindings[0]
+          ?.modelCandidateProvenance
+    },
+    {
+      needsReview:
+        1,
+      technical:
+        0,
+      provenance:
+        true
+    },
+    'A model-supplied technical identity without the runtime-derived fingerprint must not qualify as technical grounding.'
+  );
+  assert.equal(
+    humanPresentation
+      .technicalObservations
+      .some(
+        observation =>
+          observation.title ===
+            'Third-party telemetry request failed'
+      ),
+    true,
+    'A runtime-grounded technical candidate remains a technical observation.'
+  );
+  for (
+    const fixture of
+      collisionFixtures
+  ) {
+    assert.deepEqual(
+      collisionEvidenceByUrl.get(
+        fixture.pageUrl
+      ),
+      [
+        fixture.screenshotPath
+      ],
+      'Each hash-route screenshot must attach only through its production page-number and page-local candidate-reference pair.'
+    );
+
+    const canonicalFinding =
+      collisionReport.findings
+        .find(
+          finding =>
+            finding.occurrences
+              .some(
+                occurrence =>
+                  occurrence
+                    .pageUrl ===
+                  fixture.pageUrl
+              )
+        );
+    const candidateLinkedEvidence =
+      canonicalFinding
+        ?.occurrences[0]
+        ?.evidence.filter(
+          evidence =>
+            evidence.kind ===
+              'model-observation' ||
+            evidence.kind ===
+              'investigation-outcome'
+        ) ??
+      [];
+
+    assert.deepEqual(
+      candidateLinkedEvidence.map(
+        evidence => ({
+          kind:
+            evidence.kind,
+          pageNumber:
+            evidence.rawReference
+              ?.pageNumber,
+          candidateReference:
+            evidence.rawReference
+              ?.candidateReference
+        })
+      ),
+      [
+        {
+          kind:
+            'model-observation',
+          pageNumber:
+            fixture.pageNumber,
+          candidateReference:
+            'candidate-1'
+        },
+        {
+          kind:
+            'investigation-outcome',
+          pageNumber:
+            fixture.pageNumber,
+          candidateReference:
+            'candidate-1'
+        }
+      ],
+      'The production lifecycle must stamp both model and investigation evidence with complete candidate provenance.'
+    );
+  }
 
   assert.deepEqual(
     {

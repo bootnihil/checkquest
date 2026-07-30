@@ -342,6 +342,8 @@ function commitPage(
       pageUrl,
       pageTitle:
         'Technical observations',
+      pageNumber:
+        1,
       screenshotPath:
         null,
       exploratoryFindingResults:

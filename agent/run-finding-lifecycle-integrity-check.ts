@@ -441,6 +441,8 @@ function checkMultipleNewFindings(): void {
       pageUrl,
       pageTitle:
         'Multiple new findings',
+      pageNumber:
+        1,
       screenshotPath:
         null,
       exploratoryFindingResults: [
@@ -625,6 +627,8 @@ function checkMixedReorderedResults(): void {
         firstUrl,
       pageTitle:
         'First page',
+      pageNumber:
+        1,
       screenshotPath:
         null,
       exploratoryFindingResults: [
@@ -723,6 +727,8 @@ function checkMixedReorderedResults(): void {
           secondUrl,
         pageTitle:
           'Mixed page',
+        pageNumber:
+          2,
         screenshotPath:
           null,
 
@@ -915,6 +921,8 @@ function commitMalformed(
         fixture.pageUrl,
       pageTitle:
         'Malformed results',
+      pageNumber:
+        1,
       screenshotPath:
         null,
       exploratoryFindingResults
@@ -1219,6 +1227,8 @@ function checkRejectedStructuredIdentityCommit(): void {
       pageUrl,
       pageTitle:
         'Enterprise',
+      pageNumber:
+        1,
       screenshotPath:
         null,
       exploratoryFindingResults: [
@@ -1315,6 +1325,8 @@ function checkVerifiedKnownSuppression(): void {
         summary:
           'Trusted assertion-specific evidence proves this exact finding.'
       },
+      pageNumber:
+        1,
       candidateReference:
         'candidate-1'
     }
@@ -1401,6 +1413,8 @@ function checkVerifiedKnownSuppression(): void {
           secondUrl,
         pageTitle:
           'Verified second page',
+        pageNumber:
+          2,
         screenshotPath:
           null,
         exploratoryFindingResults:

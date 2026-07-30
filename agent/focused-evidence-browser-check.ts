@@ -49,6 +49,74 @@ async function main(): Promise<void> {
             <option value="ecuador">Ecuador</option>
             <option value="equador">Equador</option>
           </select>
+          <label for="clone-country">Clone Country</label>
+          <select id="clone-country" name="clone-country">
+            <option value="original">Original option</option>
+            <option value="changed">Changed option</option>
+          </select>
+          <select name="shared-control">
+            <option value="shared">Shared option</option>
+          </select>
+          <select name="shared-control">
+            <option value="shared">Shared option</option>
+          </select>
+          <button
+            id="disclosure-id-only"
+            type="button"
+            aria-expanded="false"
+            aria-controls="disclosure-conflict-region"
+          >Different disclosure name</button>
+          <button
+            id="disclosure-name-only"
+            type="button"
+            aria-expanded="false"
+            aria-controls="disclosure-conflict-region"
+          >Conflicting disclosure name</button>
+          <div id="disclosure-conflict-region">Conflict region</div>
+          <button
+            id="wrong-region-disclosure"
+            type="button"
+            aria-expanded="false"
+            aria-controls="actual-disclosure-region"
+          >Wrong region disclosure</button>
+          <div id="actual-disclosure-region">Actual region</div>
+          <div id="claimed-disclosure-region">Claimed region</div>
+          <button
+            id="exact-disclosure"
+            type="button"
+            aria-expanded="false"
+            aria-controls="exact-disclosure-region"
+          >Exact disclosure</button>
+          <div id="exact-disclosure-region">Exact disclosure region</div>
+          <span id="labelled-disclosure-name">Labelled disclosure name</span>
+          <button
+            id="label-precedence-disclosure"
+            type="button"
+            aria-labelledby="labelled-disclosure-name"
+            aria-label="Conflicting aria label"
+            aria-expanded="false"
+            aria-controls="label-precedence-region"
+          >Visible disclosure text</button>
+          <div id="label-precedence-region">Label precedence region</div>
+          <div id="exact-tab-list" role="tablist">
+            <button
+              id="wrong-panel-tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="actual-tab-panel"
+            >Wrong panel tab</button>
+            <button
+              id="exact-tab"
+              type="button"
+              role="tab"
+              aria-selected="false"
+              aria-controls="exact-tab-panel"
+            >Exact tab</button>
+          </div>
+          <div id="actual-tab-panel" role="tabpanel">Actual tab panel</div>
+          <div id="claimed-tab-panel" role="tabpanel">Claimed tab panel</div>
+          <div id="exact-tab-panel" role="tabpanel">Exact tab panel</div>
           <div class="nearby">
             <button>Repeated nearby target</button>
             <button>Repeated nearby target</button>
@@ -579,6 +647,383 @@ async function main(): Promise<void> {
     );
 
     await page.evaluate(
+      () => {
+        const select =
+          document.getElementById(
+            'clone-country'
+          ) as
+            HTMLSelectElement |
+            null;
+
+        select?.addEventListener(
+          'change',
+          () => {
+            if (
+              document.querySelector(
+                '[data-restoration-clone]'
+              ) !==
+                null
+            ) {
+              return;
+            }
+
+            const clone =
+              select.cloneNode(
+                true
+              ) as
+                HTMLSelectElement;
+
+            clone.id =
+              'clone-country-copy';
+            clone.setAttribute(
+              'data-restoration-clone',
+              'true'
+            );
+            select.after(
+              clone
+            );
+          }
+        );
+      }
+    );
+    const ambiguousRestoration =
+      await captureFindingPresentationEvidence(
+        page,
+        {
+          runId,
+          pageNumber:
+            1,
+          candidateNumber:
+            13,
+          target: {
+            kind:
+              'select-option',
+            controlLabel:
+              'Clone Country',
+            controlName:
+              'clone-country',
+            controlId:
+              'clone-country',
+            optionText:
+              'Changed option'
+          },
+          allowObservedStateReplay:
+            true
+        },
+        {
+          captureScreenshot:
+            async () =>
+              undefined
+        }
+      );
+
+    assert.equal(
+      ambiguousRestoration
+        .replay
+        ?.restored,
+      false,
+      'Restoration must fail closed when a change listener creates multiple exactly annotated selects.'
+    );
+    assert.equal(
+      await page.locator(
+        '#clone-country'
+      ).inputValue(),
+      'changed',
+      'Ambiguous restoration must not report success after restoring an arbitrary annotated select.'
+    );
+    assert.equal(
+      await page.locator(
+        'select[data-restoration-clone]'
+      ).count(),
+      1,
+      'The regression fixture must create a second annotated restoration candidate during replay.'
+    );
+    assert.equal(
+      await page.locator(
+        '[data-checkquest-presentation-evidence-target]'
+      ).count(),
+      0,
+      'Replay annotations must still be cleaned up after ambiguous restoration.'
+    );
+
+    const ambiguousSelect =
+      await captureFindingPresentationEvidence(
+        page,
+        {
+          runId,
+          pageNumber:
+            1,
+          candidateNumber:
+            6,
+          target: {
+            kind:
+              'select-option',
+            controlLabel:
+              null,
+            controlName:
+              'shared-control',
+            controlId:
+              null,
+            optionText:
+              'Shared option'
+          },
+          allowObservedStateReplay:
+            true
+        }
+      );
+
+    assert.equal(
+      ambiguousSelect
+        .screenshotPaths
+        .length,
+      0,
+      'Multiple visible controls sharing the supplied identity must not produce presentation evidence.'
+    );
+
+    const conflictingDisclosure =
+      await captureFindingPresentationEvidence(
+        page,
+        {
+          runId,
+          pageNumber:
+            1,
+          candidateNumber:
+            7,
+          target: {
+            kind:
+              'disclosure-state',
+            controlId:
+              'disclosure-id-only',
+            accessibleName:
+              'Conflicting disclosure name',
+            controlledRegionId:
+              'disclosure-conflict-region',
+            desiredState:
+              'expanded'
+          }
+        }
+      );
+
+    assert.equal(
+      conflictingDisclosure
+        .screenshotPaths
+        .length,
+      0,
+      'A control ID match and accessible-name match on different elements must fail closed.'
+    );
+
+    const conflictingAriaLabel =
+      await captureFindingPresentationEvidence(
+        page,
+        {
+          runId,
+          pageNumber:
+            1,
+          candidateNumber:
+            14,
+          target: {
+            kind:
+              'disclosure-state',
+            controlId:
+              'label-precedence-disclosure',
+            accessibleName:
+              'Conflicting aria label',
+            controlledRegionId:
+              'label-precedence-region',
+            desiredState:
+              'expanded'
+          }
+        }
+      );
+
+    assert.equal(
+      conflictingAriaLabel
+        .screenshotPaths
+        .length,
+      0,
+      'aria-label must not override a valid aria-labelledby accessible name.'
+    );
+
+    const labelledByDisclosure =
+      await captureFindingPresentationEvidence(
+        page,
+        {
+          runId,
+          pageNumber:
+            1,
+          candidateNumber:
+            15,
+          target: {
+            kind:
+              'disclosure-state',
+            controlId:
+              'label-precedence-disclosure',
+            accessibleName:
+              'Labelled disclosure name',
+            controlledRegionId:
+              'label-precedence-region',
+            desiredState:
+              'expanded'
+          }
+        },
+        {
+          captureScreenshot:
+            async () =>
+              undefined
+        }
+      );
+
+    assert.equal(
+      labelledByDisclosure
+        .screenshotPaths
+        .length,
+      1,
+      'A valid aria-labelledby name must take precedence and remain capturable.'
+    );
+
+    const wrongDisclosureRegion =
+      await captureFindingPresentationEvidence(
+        page,
+        {
+          runId,
+          pageNumber:
+            1,
+          candidateNumber:
+            8,
+          target: {
+            kind:
+              'disclosure-state',
+            controlId:
+              'wrong-region-disclosure',
+            accessibleName:
+              'Wrong region disclosure',
+            controlledRegionId:
+              'claimed-disclosure-region',
+            desiredState:
+              'expanded'
+          }
+        }
+      );
+
+    assert.equal(
+      wrongDisclosureRegion
+        .screenshotPaths
+        .length,
+      0,
+      'A disclosure matching by name and ID but not its claimed region must not produce presentation evidence.'
+    );
+
+    const wrongTabPanel =
+      await captureFindingPresentationEvidence(
+        page,
+        {
+          runId,
+          pageNumber:
+            1,
+          candidateNumber:
+            9,
+          target: {
+            kind:
+              'tab-state',
+            controlId:
+              'wrong-panel-tab',
+            accessibleName:
+              'Wrong panel tab',
+            tabListId:
+              'exact-tab-list',
+            controlledPanelId:
+              'claimed-tab-panel',
+            desiredState:
+              'selected'
+          }
+        }
+      );
+
+    assert.equal(
+      wrongTabPanel
+        .screenshotPaths
+        .length,
+      0,
+      'A tab matching by name and ID but not its claimed panel must not produce presentation evidence.'
+    );
+
+    const exactDisclosure =
+      await captureFindingPresentationEvidence(
+        page,
+        {
+          runId,
+          pageNumber:
+            1,
+          candidateNumber:
+            10,
+          target: {
+            kind:
+              'disclosure-state',
+            controlId:
+              'exact-disclosure',
+            accessibleName:
+              'Exact disclosure',
+            controlledRegionId:
+              'exact-disclosure-region',
+            desiredState:
+              'expanded'
+          }
+        },
+        {
+          captureScreenshot:
+            async () =>
+              undefined
+        }
+      );
+
+    assert.equal(
+      exactDisclosure
+        .screenshotPaths
+        .length,
+      1,
+      'One unique disclosure matching every supplied field and component relationship remains capturable.'
+    );
+
+    const exactTab =
+      await captureFindingPresentationEvidence(
+        page,
+        {
+          runId,
+          pageNumber:
+            1,
+          candidateNumber:
+            11,
+          target: {
+            kind:
+              'tab-state',
+            controlId:
+              'exact-tab',
+            accessibleName:
+              'Exact tab',
+            tabListId:
+              'exact-tab-list',
+            controlledPanelId:
+              'exact-tab-panel',
+            desiredState:
+              'selected'
+          }
+        },
+        {
+          captureScreenshot:
+            async () =>
+              undefined
+        }
+      );
+
+    assert.equal(
+      exactTab
+        .screenshotPaths
+        .length,
+      1,
+      'One unique tab matching every supplied field and component relationship remains capturable.'
+    );
+
+    await page.evaluate(
       () =>
         window.scrollTo(
           0,
@@ -599,7 +1044,7 @@ async function main(): Promise<void> {
           pageNumber:
             1,
           candidateNumber:
-            6,
+            12,
           target: {
             kind:
               'visible-text',

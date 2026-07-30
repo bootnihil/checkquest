@@ -20,6 +20,7 @@ import type {
 } from './report-types';
 import {
   buildReconciledRunSummaryProjection,
+  hasRuntimeTechnicalGrounding,
   isHumanTechnicalObservation,
   isPrimaryHumanFinding
 } from './run-summary-projection';
@@ -75,6 +76,8 @@ export interface HumanFindingPresentation {
   visuallyShownTargetCount:
     number;
   visualEvidenceExpected:
+    boolean;
+  modelCandidateProvenance:
     boolean;
 }
 
@@ -531,42 +534,61 @@ function getPresentationEvidenceForFinding(
   finding:
     UnifiedFinding
 ): FindingPresentationEvidence[] {
-  const candidateReferences =
-    new Set(
+  const createPairKey = (
+    pageNumber:
+      number,
+    candidateReference:
+      string
+  ): string =>
+    JSON.stringify([
+      pageNumber,
+      candidateReference
+    ]);
+  const occurrencePairs =
+    new Set<string>();
+
+  for (
+    const occurrence of
       finding.occurrences
-        .flatMap(
-          occurrence =>
-            occurrence.evidence
-        )
-        .map(
-          evidence =>
-            evidence
-              .rawReference
-              ?.candidateReference
-        )
-        .filter(
-          (
-            reference
-          ): reference is string =>
-            reference !==
-            undefined
-        )
-    );
+  ) {
+    for (
+      const evidence of
+        occurrence.evidence
+    ) {
+      const candidateReference =
+        evidence.rawReference
+          ?.candidateReference;
+      const pageNumber =
+        evidence.rawReference
+          ?.pageNumber;
+
+      if (
+        candidateReference ===
+          undefined ||
+        pageNumber ===
+          undefined
+      ) {
+        continue;
+      }
+
+      const pairKey =
+        createPairKey(
+          pageNumber,
+          candidateReference
+        );
+
+      occurrencePairs.add(
+        pairKey
+      );
+    }
+  }
 
   if (
-    candidateReferences.size ===
+    occurrencePairs.size ===
     0
   ) {
     return [];
   }
-
-  const occurrenceUrls =
-    new Set(
-      finding.occurrences.map(
-        occurrence =>
-          occurrence.pageUrl
-      )
-    );
 
   return report.inspectedPages
     .flatMap(
@@ -576,14 +598,19 @@ function getPresentationEvidenceForFinding(
         []
     )
     .filter(
-      evidence =>
-        candidateReferences.has(
-          evidence
-            .candidateReference
-        ) &&
-        occurrenceUrls.has(
-          evidence.pageUrl
-        )
+      evidence => {
+        const pairKey =
+          createPairKey(
+            evidence
+              .pageNumber,
+            evidence
+              .candidateReference
+          );
+
+        return occurrencePairs.has(
+          pairKey
+        );
+      }
     );
 }
 
@@ -597,6 +624,18 @@ function buildHumanFinding(
   displayId:
     string
 ): HumanFindingPresentation {
+  const modelCandidateProvenance =
+    finding.category ===
+      'technical' &&
+    finding.verification.state ===
+      'inconclusive' &&
+    !hasRuntimeTechnicalGrounding(
+      finding
+    );
+  const cleanedTitle =
+    cleanFindingTitle(
+      finding.title
+    );
   const presentationEvidence =
     getPresentationEvidenceForFinding(
       report,
@@ -706,9 +745,9 @@ function buildHumanFinding(
     findingReference:
       finding.findingReference,
     title:
-      cleanFindingTitle(
-        finding.title
-      ),
+      modelCandidateProvenance
+        ? `Model candidate: ${cleanedTitle}`
+        : cleanedTitle,
     severity:
       finding.severity,
     status,
@@ -726,9 +765,14 @@ function buildHumanFinding(
           )
       ),
     observation:
-      getRawObservation(
-        finding
-      ),
+      modelCandidateProvenance
+        ? (
+            `The model proposed “${cleanedTitle}” as a technical candidate. ` +
+            'CheckQuest did not match it to browser, network, console, or runtime diagnostics.'
+          )
+        : getRawObservation(
+            finding
+          ),
     whyItMayMatter:
       getWhyItMayMatter(
         structuredIdentity
@@ -754,7 +798,9 @@ function buildHumanFinding(
       visuallyShownTargetCount,
     visualEvidenceExpected:
       focusedEvidence.length >
-      0
+      0,
+    modelCandidateProvenance:
+      modelCandidateProvenance
   };
 }
 

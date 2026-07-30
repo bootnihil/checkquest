@@ -515,7 +515,11 @@ function main(): void {
         pageUrl:
           'https://example.com/cannot-select',
         pageTitle:
-          'Cannot select'
+          'Cannot select',
+        rawReference: {
+          pageNumber:
+            1
+        }
       },
       {
         relation:
@@ -562,7 +566,11 @@ function main(): void {
         pageUrl:
           'https://example.com/selectable',
         pageTitle:
-          'Selectable'
+          'Selectable',
+        rawReference: {
+          pageNumber:
+            2
+        }
       },
       {
         relation:
@@ -620,7 +628,11 @@ function main(): void {
         pageUrl:
           'https://example.com/investigation',
         pageTitle:
-          'Investigation result'
+          'Investigation result',
+        rawReference: {
+          pageNumber:
+            3
+        }
       },
       semanticSelectAssessment
     );

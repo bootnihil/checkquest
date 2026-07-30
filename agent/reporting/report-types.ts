@@ -133,6 +133,8 @@ export interface ExploratoryFindingResult {
 export interface FindingPresentationEvidence {
   candidateReference:
     PageCandidateReference;
+  pageNumber:
+    number;
   pageUrl:
     string;
   target:

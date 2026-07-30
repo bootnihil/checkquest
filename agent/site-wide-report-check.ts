@@ -447,6 +447,8 @@ async function main(): Promise<void> {
         inspectedPages[0]
           .exploratoryFindingResults[0]
           .outcome,
+      pageNumber:
+        1,
       candidateReference:
         inspectedPages[0]
           .exploratoryFindingResults[0]

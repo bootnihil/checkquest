@@ -50,6 +50,12 @@ export interface FindingRawReference {
   investigationStep?: number;
 }
 
+export interface CandidateFindingRawReference extends
+  FindingRawReference {
+  pageNumber: number;
+  candidateReference: string;
+}
+
 export interface FindingRawSource {
   type:
     | 'page-finding'

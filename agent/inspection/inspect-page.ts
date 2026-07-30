@@ -171,6 +171,9 @@ export async function inspectPage(
     passiveSecurityRegistry,
     findingLifecycle
   } = input;
+  const pageNumber =
+    pageIndex +
+    1;
 
   const {
     observation:
@@ -536,8 +539,7 @@ export async function inspectPage(
           {
             runId,
             pageNumber:
-              pageIndex +
-              1,
+              pageNumber,
             candidateNumber:
               candidateIndex +
               1,
@@ -559,6 +561,8 @@ export async function inspectPage(
           candidateReference:
             exploratoryFindingResult
               .candidateReference,
+          pageNumber:
+            pageNumber,
           pageUrl:
             pageObservation
               .finalUrl,
@@ -609,9 +613,6 @@ export async function inspectPage(
   if (
     shouldCaptureScreenshot
   ) {
-    const pageNumber =
-      pageIndex + 1;
-
     const screenshot =
       await capturePageScreenshot(
         page,
@@ -636,6 +637,7 @@ export async function inspectPage(
           pageObservation.finalUrl,
         pageTitle:
           pageObservation.title,
+        pageNumber,
         screenshotPath,
         exploratoryFindingResults
       }
