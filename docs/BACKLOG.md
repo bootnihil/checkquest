@@ -6,8 +6,8 @@
 **Current roadmap document:** `ROADMAP-V2.md`
 **Current roadmap stage:** G2 - Local GUI MVP
 **Completed roadmap:** Roadmap v1 - Stages 1-10 accepted
-**Current execution focus:** G2 acceptance and remediation - validate the Local GUI MVP with real runs, including finding reconciliation, focused evidence, report accounting, report usability, and desktop smoke follow-up
-**Most recently completed:** Roadmap v2 G1 — GUI/core boundary (2026-07-26)
+**Current execution focus:** G2 acceptance and bounded GUI configuration polish: improve run input handling, complete a fresh real report acceptance run, and resolve or disposition the Electron smoke failure
+**Most recently completed:** G2 report trustworthiness remediation checkpoint — structured reconciliation, focused evidence, shared accounting, and human-report navigation (2026-07-30)
 
 This is the single project-wide parking place for work that should not silently interrupt the current roadmap stage. It persists across Roadmap v1, v2, and future roadmap versions.
 
@@ -47,13 +47,84 @@ credentials and nested causes from crossing public event, error, report, or
 result boundaries. The CLI now delegates execution and persistence to this
 shared boundary.
 
-Current execution remains **G2 — Local GUI MVP** in `ROADMAP-V2.md`. The
-local Electron GUI MVP is implemented, and the major finding-reconciliation,
-focused-evidence, accounting, and human-report remediation discovered during
-G2 acceptance is now implemented with the main deterministic and browser
-checks passing. G2 remains open pending a fresh real model-backed acceptance
-run and follow-up on the unresolved Electron desktop smoke-process crash. This
-is G2 acceptance remediation, not a roadmap-stage change.
+Current execution continues with **G2 — Local GUI MVP** in `ROADMAP-V2.md`.
+
+The Electron GUI MVP is implemented. G2 acceptance exposed and then remediated
+a deeper report-trustworthiness blocker: generated prose could fragment one
+logical defect, visual-sounding claims could lack focused visual proof, and GUI
+and report totals could describe the same run differently. The remediation now
+uses validated structured identity, preserves conservative verification,
+captures claim-appropriate evidence, derives GUI/report counts from one shared
+projection, and gives human report items stable run-scoped IDs and navigation.
+
+## G2 GUI configuration polish bucket
+
+This is the ordered working bucket for configuration-side GUI polish discovered
+during G2 acceptance. Add new configuration-form ideas here rather than
+scattering them through roadmap prose or immediately interrupting the current
+acceptance sequence.
+
+`NOW` items are bounded G2 polish. `PARKED` items are deliberate later ideas and
+are not G2 completion requirements. Implementation must preserve the existing
+application/core contracts, authoritative core validation, and
+transient-credential boundary.
+
+### Preserve the current strengths
+
+The polish pass should not redesign the interface for its own sake. Preserve:
+
+- the single-column Target → Exploration budgets → AI configuration flow;
+- progressive disclosure and the lack of unnecessary backtracking;
+- inline helper text and recognition-over-recall behavior;
+- honest work-in-progress navigation badges;
+- disabled-run error prevention; and
+- visible basic run readiness/status.
+
+### Ordered implementation bucket
+
+| Order | ID | Item | Status | Acceptance intent |
+|---:|---|---|---|---|
+| 1 | CQ-029 | Improve target URL handling | NOW | Accept bare domains such as `example.com` and normalize them to HTTPS. Reject malformed or implausible addresses before starting a run, without weakening authoritative application/core validation. |
+| 2 | CQ-033 | Use one required-field language | NOW | Use one consistent required indicator for Target URL and Gemini API key. Prefer the existing asterisk plus required-field legend; do not use orange “Required” text as a second semantic language unless the field is actually in a warning/error state. |
+| 3 | CQ-030 | Harden Gemini API-key entry | NOW | Mask the key by default; add an explicit Show/Hide control; provide useful inline validation before launch where safely possible; include a clear “where to get a key” route; and use precise trust copy such as “kept in memory for this session and never written to disk” only if the implementation guarantees it. Preserve transient, non-persistent credential behavior. |
+| 4 | CQ-034 | Make budget values directly editable | NOW | Let users type a valid numeric value and use keyboard controls while retaining steppers as a secondary affordance. Enforce current ranges and reject invalid values without requiring repeated clicks. |
+| 5 | CQ-031 | Clarify budget names and interaction | NOW | Choose clearer navigation wording such as “Navigation moves” or “Page transitions”; state that navigation is a run-level ceiling and investigation steps are per page; apply the chosen terms consistently in labels, helper text, events where appropriate, and deterministic UI checks. Do not change underlying budget semantics. |
+| 6 | CQ-035 | Clarify budget control scope and ranges | NOW | Rename “Reset to defaults” to “Reset budgets to defaults” or otherwise make its section scope unambiguous. Keep min/max information visually attached to each value and avoid making the reader hunt between the control and a detached range hint. A range track is optional; clarity is required. |
+| 7 | CQ-036 | Make disabled Run guidance contextual | NOW | Replace generic “Complete the required fields” copy with the most relevant missing requirement, for example “Enter a Gemini API key to continue,” while preserving disabled-submit error prevention. |
+| 8 | CQ-032 | Clean up the native Electron menu | NOW | Remove or customize irrelevant default commands so the app does not expose misleading desktop actions. Retain only commands that are useful, safe, or deliberately developer-facing. |
+| 9 | CQ-037 | Complete a measured visual-accessibility pass | NOW | Audit actual text and control contrast against the applicable WCAG AA thresholds rather than eyeballing it. Review muted helper text, blue section labels, disabled states, focus visibility, and control boundaries. Add section dividers or spacing where needed so Target, Budgets, AI configuration, and the footer remain easy to scan. |
+| 10 | CQ-P016 | Consider Quick / Standard / Thorough presets | PARKED | Revisit after the explicit-budget workflow is accepted. Presets must remain transparent shortcuts: page, navigation, and investigation budgets stay visible and editable, with no hidden change to exploration semantics. |
+
+### Implementation notes
+
+- API-key format validation should be helpful but conservative. Do not encode a
+  brittle secret-shape rule that rejects valid future Gemini keys; a bounded
+  credential preflight remains authoritative.
+- A “Get a Gemini API key” link or help action must use a deliberate trusted
+  destination and must not leak the current field value.
+- Direct numeric entry, arrow keys, wheel behavior, and steppers must share one
+  validation path so the displayed value cannot diverge from the submitted
+  budget.
+- Helper text should explain configuration consequences without implying that
+  larger budgets guarantee more findings, confirmation, or exhaustive
+  coverage.
+- The budget wording should make clear that configuration can affect available
+  exploration/investigation opportunity without suggesting that a higher budget
+  relaxes evidence or verification requirements.
+- Visual separators are a scannability tool, not a reason to replace the
+  current compact single-column form with a collection of heavy cards.
+
+### Remaining G2 acceptance order
+
+1. Implement and verify the four `NOW` configuration-polish items above.
+2. Run a fresh real model-backed representative site pass and inspect the
+   reconciled report, focused evidence, item numbering/links, filenames, page
+   references, and GUI/report totals.
+3. Reproduce and resolve or explicitly disposition the Electron smoke-process
+   crash in the normal acceptance environment.
+4. Perform the G2 documentation/status sweep, then decide whether G2 can be
+   accepted. Do not begin G3 merely because the implementation checklist is
+   exhausted.
 
 ---
 

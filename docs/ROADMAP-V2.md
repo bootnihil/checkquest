@@ -150,15 +150,27 @@ roadmap stage and not an early start on G4's dedicated in-app report viewer.
 
 **G2 remains open pending:**
 
+- a bounded GUI configuration-polish pass, tracked in the dedicated
+  [G2 GUI configuration polish bucket](BACKLOG.md#g2-gui-configuration-polish-bucket),
+  covering target URL normalization/validation, consistent required-field
+  signaling, editable and understandable budget controls, masked and validated
+  Gemini-key entry with precise storage copy, contextual run-readiness
+  feedback, cleanup of irrelevant default Electron menu commands, and a final
+  contrast/section-hierarchy audit;
 - a fresh real model-backed run to verify reconciliation, focused evidence,
   report accounting/navigation, and practical report usefulness end to end; and
 - follow-up on the Electron desktop smoke-process crash observed during the
   remediation pass, despite the deterministic desktop suite, desktop build, and
   constituent browser checks otherwise passing.
 
-**G2 is complete when:** the MVP can complete a representative real run with
-trustworthy reconciled output and consistent final accounting, and no known
-G2-blocking desktop runtime issue remains.
+Quick / Standard / Thorough presets remain a later optional refinement rather
+than a G2 acceptance requirement. Any future presets must keep the explicit
+exploration budgets visible and editable rather than hiding their meaning.
+
+**G2 is complete when:** the MVP has understandable and safely validated run
+configuration, can complete a representative real run with trustworthy
+reconciled output and consistent final accounting, and has no known G2-blocking
+desktop runtime issue.
 
 ### G3 — Live run experience
 
