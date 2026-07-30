@@ -58,6 +58,9 @@ import {
 import type {
   UnifiedFinding
 } from './finding-model';
+import {
+  applyRunTechnicalObservationPolicy
+} from './technical-observation-policy';
 
 export interface RunFindingLifecycleState {
   unifiedFindingRegistry:
@@ -905,7 +908,9 @@ export function getRunFindings(
   state:
     RunFindingLifecycleState
 ): UnifiedFinding[] {
-  return getUnifiedFindings(
-    state.unifiedFindingRegistry
+  return applyRunTechnicalObservationPolicy(
+    getUnifiedFindings(
+      state.unifiedFindingRegistry
+    )
   );
 }

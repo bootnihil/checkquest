@@ -26,6 +26,9 @@ import {
 import type {
   FindingInvestigationOutcome
 } from './investigation/evaluate-finding-investigation-outcome';
+import type {
+  UnifiedFinding
+} from './findings/finding-model';
 
 interface FailedRequestFixture {
   url: string;
@@ -204,7 +207,12 @@ function createCorsDiagnostics(
 
 function createTechnicalFinding(
   references:
-    string[] | null
+    string[] | null,
+  overrides:
+    Partial<
+      ExploratoryQaFinding
+    > =
+    {}
 ): ExploratoryQaFinding {
   return {
     knownFindingReference:
@@ -251,7 +259,8 @@ function createTechnicalFinding(
         'https://invented.invalid/fake.js',
       originRelation:
         'cross-origin'
-    }
+    },
+    ...overrides
   };
 }
 
@@ -948,6 +957,740 @@ function checkConservativeFallback(): void {
   );
 }
 
+function getVisibleTechnicalText(
+  finding:
+    UnifiedFinding
+): string {
+  const rawEvidence =
+    finding.occurrences
+      .flatMap(
+        occurrence =>
+          occurrence.evidence
+      )
+      .flatMap(
+        evidence => {
+          const rawValue =
+            evidence.rawSource
+              ?.value;
+
+          if (
+            typeof rawValue ===
+              'object' &&
+            rawValue !==
+              null &&
+            'evidence' in
+              rawValue &&
+            typeof rawValue
+              .evidence ===
+              'string'
+          ) {
+            return [
+              rawValue.evidence
+            ];
+          }
+
+          return [
+            evidence.summary
+          ];
+        }
+      );
+
+  return [
+    finding.title,
+    finding.description,
+    finding.suggestedCheck ??
+      '',
+    ...rawEvidence
+  ].join(
+    ' '
+  );
+}
+
+function getTechnicalEvidenceDetails(
+  finding:
+    UnifiedFinding
+): {
+  references:
+    string[];
+  resourceUrls:
+    string[];
+} {
+  const references:
+    string[] =
+      [];
+  const resourceUrls:
+    string[] =
+      [];
+
+  for (
+    const occurrence of
+      finding.occurrences
+  ) {
+    for (
+      const evidence of
+        occurrence.evidence
+    ) {
+      const rawValue =
+        evidence.rawSource
+          ?.value;
+
+      if (
+        typeof rawValue !==
+          'object' ||
+        rawValue ===
+          null
+      ) {
+        continue;
+      }
+
+      if (
+        'technicalEvidenceReferences' in
+          rawValue &&
+        Array.isArray(
+          rawValue
+            .technicalEvidenceReferences
+        )
+      ) {
+        references.push(
+          ...rawValue
+            .technicalEvidenceReferences
+            .filter(
+              (
+                reference
+              ): reference is string =>
+                typeof reference ===
+                'string'
+            )
+        );
+      }
+
+      if (
+        'technicalIdentity' in
+          rawValue &&
+        typeof rawValue
+          .technicalIdentity ===
+          'object' &&
+        rawValue
+          .technicalIdentity !==
+          null &&
+        'resourceUrl' in
+          rawValue
+            .technicalIdentity &&
+        typeof rawValue
+          .technicalIdentity
+          .resourceUrl ===
+          'string'
+      ) {
+        resourceUrls.push(
+          rawValue
+            .technicalIdentity
+            .resourceUrl
+        );
+      }
+    }
+  }
+
+  return {
+    references,
+    resourceUrls
+  };
+}
+
+function commitTechnicalFixture(
+  lifecycle:
+    RunFindingLifecycleState,
+  input: {
+    pageUrl: string;
+    requests:
+      FailedRequestFixture[];
+    finding?:
+      ExploratoryQaFinding;
+  }
+): ReconciledRunPageFindings {
+  const finding =
+    input.finding ??
+    createTechnicalFinding(
+      input.requests.map(
+        (
+          _request,
+          index
+        ) =>
+          `technical-request-${index + 1}`
+      )
+    );
+  const page =
+    reconcilePage(
+      lifecycle,
+      {
+        pageUrl:
+          input.pageUrl,
+        diagnostics:
+          createDiagnostics(
+            input.requests
+          ),
+        finding
+      }
+    );
+
+  commitPage(
+    lifecycle,
+    page,
+    input.pageUrl
+  );
+
+  return page;
+}
+
+function checkSingleCrossOriginDnsPolicy(): void {
+  const lifecycle =
+    createRunFindingLifecycle();
+
+  commitTechnicalFixture(
+    lifecycle,
+    {
+      pageUrl:
+        'https://target.example/page',
+      requests: [
+        {
+          url:
+            'https://assets-a.example.net/app.js',
+          resourceType:
+            'script',
+          failureText:
+            'net::ERR_NAME_NOT_RESOLVED'
+        }
+      ]
+    }
+  );
+
+  const findings =
+    getRunFindings(
+      lifecycle
+    );
+  const finding =
+    findings[0]!;
+  const visibleText =
+    getVisibleTechnicalText(
+      finding
+    );
+
+  assert.equal(
+    findings.length,
+    1
+  );
+  assert.equal(
+    finding.severity,
+    'low',
+    'A single cross-origin DNS failure must be runtime-normalized to low severity.'
+  );
+  assert.match(
+    visibleText,
+    /observed browser environment/i
+  );
+  assert.match(
+    visibleText,
+    /local DNS policy, filtering, privacy tooling, proxy configuration, or another observer-environment condition/i
+  );
+  assert.doesNotMatch(
+    visibleText,
+    /missing functionality|missing dependency|degraded functionality|UI delay|critical dependency|target-site defect/i,
+    'Single-failure wording must not claim unsupported target-site impact.'
+  );
+}
+
+function checkCorrelatedCrossOriginDnsPolicy(): void {
+  const lifecycle =
+    createRunFindingLifecycle();
+  const urls = [
+    'https://assets-a.example.net/app.js',
+    'https://assets-b.example.org/runtime.js',
+    'https://assets-c.example.edu/vendor.js'
+  ];
+
+  commitTechnicalFixture(
+    lifecycle,
+    {
+      pageUrl:
+        'https://target.example/page',
+      requests:
+        urls.map(
+          url => ({
+            url,
+            resourceType:
+              'script',
+            failureText:
+              'net::ERR_NAME_NOT_RESOLVED'
+          })
+        )
+    }
+  );
+
+  const findings =
+    getRunFindings(
+      lifecycle
+    );
+  const finding =
+    findings[0]!;
+  const details =
+    getTechnicalEvidenceDetails(
+      finding
+    );
+  const visibleText =
+    getVisibleTechnicalText(
+      finding
+    );
+
+  assert.equal(
+    findings.length,
+    1,
+    'Three distinct cross-origin DNS-failing hostnames must become one visible technical observation.'
+  );
+  assert.equal(
+    finding.severity,
+    'low'
+  );
+  assert.match(
+    finding.title,
+    /correlated cross-origin DNS resolution failures/i
+  );
+  assert.match(
+    visibleText,
+    /Several distinct cross-origin hosts \(3\) failed DNS resolution in the observed browser environment/i
+  );
+  assert.match(
+    visibleText,
+    /local DNS policy, filtering, privacy tooling, proxy configuration, or another observer-environment condition/i
+  );
+  assert.deepEqual(
+    new Set(
+      details.references
+    ),
+    new Set([
+      'technical-request-1',
+      'technical-request-2',
+      'technical-request-3'
+    ]),
+    'The correlated observation must preserve every deterministic technical evidence reference.'
+  );
+  assert.deepEqual(
+    new Set(
+      details.resourceUrls
+    ),
+    new Set(
+      urls
+    ),
+    'The correlated observation must preserve every exact failed resource URL.'
+  );
+}
+
+function checkCrossPageDnsCorrelation(): void {
+  const lifecycle =
+    createRunFindingLifecycle();
+  const firstPage =
+    'https://target.example/';
+  const secondPage =
+    'https://target.example/pricing';
+
+  commitTechnicalFixture(
+    lifecycle,
+    {
+      pageUrl:
+        firstPage,
+      requests: [
+        {
+          url:
+            'https://assets-a.example.net/app.js',
+          resourceType:
+            'script',
+          failureText:
+            'net::ERR_NAME_NOT_RESOLVED'
+        },
+        {
+          url:
+            'https://assets-b.example.org/runtime.js',
+          resourceType:
+            'script',
+          failureText:
+            'net::ERR_NAME_NOT_RESOLVED'
+        }
+      ]
+    }
+  );
+  commitTechnicalFixture(
+    lifecycle,
+    {
+      pageUrl:
+        secondPage,
+      requests: [
+        {
+          url:
+            'https://assets-a.example.net/app.js',
+          resourceType:
+            'script',
+          failureText:
+            'net::ERR_NAME_NOT_RESOLVED'
+        },
+        {
+          url:
+            'https://assets-c.example.edu/vendor.js',
+          resourceType:
+            'script',
+          failureText:
+            'net::ERR_NAME_NOT_RESOLVED'
+        }
+      ]
+    }
+  );
+
+  const findings =
+    getRunFindings(
+      lifecycle
+    );
+  const finding =
+    findings[0]!;
+
+  assert.equal(
+    findings.length,
+    1,
+    'A qualifying cross-page DNS pattern must remain one visible technical observation.'
+  );
+  assert.deepEqual(
+    new Set(
+      finding.occurrences.map(
+        occurrence =>
+          occurrence.pageUrl
+      )
+    ),
+    new Set([
+      firstPage,
+      secondPage
+    ]),
+    'Cross-page DNS correlation must preserve every affected page.'
+  );
+  assert.equal(
+    finding.occurrences.length,
+    4,
+    'Cross-page correlation must preserve recurrence rather than collapsing occurrences.'
+  );
+}
+
+function checkSameOriginDnsExclusion(): void {
+  const lifecycle =
+    createRunFindingLifecycle();
+  const pageUrl =
+    'https://target.example/page';
+  const sameOriginUrl =
+    'https://target.example/same.js';
+  const requests:
+    FailedRequestFixture[] = [
+      {
+        url:
+          sameOriginUrl,
+        resourceType:
+          'script',
+        failureText:
+          'net::ERR_NAME_NOT_RESOLVED'
+      },
+      ...[
+        'https://assets-a.example.net/app.js',
+        'https://assets-b.example.org/runtime.js',
+        'https://assets-c.example.edu/vendor.js'
+      ].map(
+        url => ({
+          url,
+          resourceType:
+            'script',
+          failureText:
+            'net::ERR_NAME_NOT_RESOLVED'
+        })
+      )
+    ];
+
+  commitTechnicalFixture(
+    lifecycle,
+    {
+      pageUrl,
+      requests
+    }
+  );
+
+  const findings =
+    getRunFindings(
+      lifecycle
+    );
+  const sameOriginFinding =
+    findings.find(
+      finding =>
+        getTechnicalEvidenceDetails(
+          finding
+        )
+          .resourceUrls
+          .includes(
+            sameOriginUrl
+          )
+    );
+
+  assert.equal(
+    findings.length,
+    2,
+    'The correlated cross-origin pattern and same-origin DNS failure must remain separate.'
+  );
+  assert.ok(
+    sameOriginFinding,
+    'The genuinely same-origin DNS observation must not be absorbed into the cross-origin pattern.'
+  );
+  assert.equal(
+    sameOriginFinding.severity,
+    'medium',
+    'Same-origin DNS severity remains outside this policy.'
+  );
+  assert.match(
+    JSON.stringify(
+      sameOriginFinding
+    ),
+    /"originRelation":"same-origin"/,
+    'A request with the same scheme, hostname, and effective port must remain same-origin.'
+  );
+}
+
+function checkSchemeMismatchIsCrossOrigin(): void {
+  const lifecycle =
+    createRunFindingLifecycle();
+  const resourceUrl =
+    'http://target.example:443/cross.js';
+  const page =
+    commitTechnicalFixture(
+      lifecycle,
+      {
+        pageUrl:
+          'https://target.example/page',
+        requests: [
+          {
+            url:
+              resourceUrl,
+            resourceType:
+              'script',
+            failureText:
+              'net::ERR_NAME_NOT_RESOLVED'
+          }
+        ]
+      }
+    );
+  const finding =
+    getRunFindings(
+      lifecycle
+    )[0]!;
+
+  assert.equal(
+    finding.severity,
+    'low',
+    'A scheme mismatch must enter the cross-origin DNS policy even when hostname and effective port match.'
+  );
+  assert.equal(
+    page.exploratoryQaAnalysis
+      .findings[0]
+      ?.confidence,
+    'medium',
+    'The scheme-mismatch observation must receive runtime-owned cautious confidence.'
+  );
+  assert.match(
+    JSON.stringify(
+      finding
+    ),
+    /"originRelation":"cross-origin"/,
+    'Browser origin identity must include scheme as well as hostname and effective port.'
+  );
+}
+
+function checkBelowThresholdDnsPolicy(): void {
+  const lifecycle =
+    createRunFindingLifecycle();
+
+  commitTechnicalFixture(
+    lifecycle,
+    {
+      pageUrl:
+        'https://target.example/page',
+      requests: [
+        {
+          url:
+            'https://assets-a.example.net/app.js',
+          resourceType:
+            'script',
+          failureText:
+            'net::ERR_NAME_NOT_RESOLVED'
+        },
+        {
+          url:
+            'https://assets-b.example.org/runtime.js',
+          resourceType:
+            'script',
+          failureText:
+            'net::ERR_NAME_NOT_RESOLVED'
+        }
+      ]
+    }
+  );
+
+  const findings =
+    getRunFindings(
+      lifecycle
+    );
+
+  assert.equal(
+    findings.length,
+    2,
+    'Two distinct DNS-failing hosts must remain separate observations.'
+  );
+  assert.equal(
+    findings.every(
+      finding =>
+        finding.severity ===
+          'low' &&
+        !/correlated/i.test(
+          finding.title
+        ) &&
+        /observed browser environment/i.test(
+          getVisibleTechnicalText(
+            finding
+          )
+        )
+    ),
+    true,
+    'Each below-threshold observation must retain low severity and observer-environment uncertainty.'
+  );
+}
+
+function checkOtherFailureMechanismsUnchanged(): void {
+  const lifecycle =
+    createRunFindingLifecycle();
+
+  commitTechnicalFixture(
+    lifecycle,
+    {
+      pageUrl:
+        'https://target.example/page',
+      requests: [
+        {
+          url:
+            'https://assets-a.example.net/aborted.js',
+          resourceType:
+            'script',
+          failureText:
+            'net::ERR_ABORTED'
+        },
+        {
+          url:
+            'https://assets-b.example.org/reset.js',
+          resourceType:
+            'script',
+          failureText:
+            'net::ERR_CONNECTION_RESET'
+        }
+      ]
+    }
+  );
+
+  const findings =
+    getRunFindings(
+      lifecycle
+    );
+
+  assert.equal(
+    findings.length,
+    2,
+    'Non-DNS failure mechanisms must retain their existing separate identities.'
+  );
+  assert.equal(
+    findings.every(
+      finding =>
+        finding.severity ===
+          'medium' &&
+        finding.title ===
+          'Failed external script resource requests'
+    ),
+    true,
+    'ERR_ABORTED and other non-DNS failures must retain existing model presentation behavior.'
+  );
+}
+
+function checkModelCannotOverrideDnsPolicy(): void {
+  const lifecycle =
+    createRunFindingLifecycle();
+  const hostileFinding =
+    createTechnicalFinding(
+      [
+        'technical-request-1'
+      ],
+      {
+        severity:
+          'medium',
+        confidence:
+          'high',
+        title:
+          'Critical dependency failure',
+        evidence:
+          'A missing dependency causes missing functionality.',
+        reasoning:
+          'The failure causes degraded functionality and UI delay.',
+        suggestedCheck:
+          'Repair the target-site defect.'
+      }
+    );
+
+  const page =
+    commitTechnicalFixture(
+      lifecycle,
+      {
+        pageUrl:
+          'https://target.example/page',
+        requests: [
+          {
+            url:
+              'https://assets-a.example.net/app.js',
+            resourceType:
+              'script',
+            failureText:
+              'net::ERR_NAME_NOT_RESOLVED'
+          }
+        ],
+        finding:
+          hostileFinding
+      }
+    );
+
+  const finding =
+    getRunFindings(
+      lifecycle
+    )[0]!;
+  const visibleText =
+    getVisibleTechnicalText(
+      finding
+    );
+
+  assert.equal(
+    finding.severity,
+      'low',
+    'Runtime policy must override incompatible model severity.'
+  );
+  assert.equal(
+    page.exploratoryQaAnalysis
+      .findings[0]
+      ?.confidence,
+    'medium',
+    'Runtime policy must replace inflated model confidence with cautious medium confidence.'
+  );
+  assert.match(
+    visibleText,
+    /observed browser environment/i
+  );
+  assert.doesNotMatch(
+    visibleText,
+    /missing functionality|missing dependency|degraded functionality|UI delay|critical dependency|target-site defect/i,
+    'Runtime policy must remove unsupported model impact claims from visible observation fields.'
+  );
+}
+
 function main(): void {
   checkCrossPageReconciliation();
   checkCorsCrossPageReconciliation();
@@ -955,6 +1698,14 @@ function main(): void {
   checkUnmatchedCorsFallback();
   checkHeterogeneousBundleSplitting();
   checkConservativeFallback();
+  checkSingleCrossOriginDnsPolicy();
+  checkCorrelatedCrossOriginDnsPolicy();
+  checkCrossPageDnsCorrelation();
+  checkSameOriginDnsExclusion();
+  checkSchemeMismatchIsCrossOrigin();
+  checkBelowThresholdDnsPolicy();
+  checkOtherFailureMechanismsUnchanged();
+  checkModelCannotOverrideDnsPolicy();
 
   console.log(
     'Structured technical-observation reconciliation checks passed.'

@@ -18,6 +18,15 @@ import type {
   TechnicalObservationIdentity
 } from './exploratory-qa-schema';
 
+export const CROSS_ORIGIN_DNS_FAILURE_TEXT =
+  'net::ERR_NAME_NOT_RESOLVED';
+
+const CROSS_ORIGIN_DNS_TITLE =
+  'Cross-origin DNS resolution failure observed';
+
+const OBSERVER_ENVIRONMENT_CAUSES =
+  'local DNS policy, filtering, privacy tooling, proxy configuration, or another observer-environment condition';
+
 export interface ReferencedTechnicalRequestGroup {
   reference: string;
   identity:
@@ -51,7 +60,7 @@ export interface ReferencedTechnicalCorsDiagnostics {
     Map<
       ConsoleErrorObservation,
       string
-    >;
+  >;
 }
 
 function createTechnicalIdentity(
@@ -135,6 +144,20 @@ function createTechnicalIdentity(
         ? 'same-origin'
         : 'cross-origin'
   };
+}
+
+export function isCrossOriginDnsFailureIdentity(
+  identity:
+    TechnicalObservationIdentity
+): boolean {
+  return (
+    identity.kind ===
+      'failed-request' &&
+    identity.originRelation ===
+      'cross-origin' &&
+    identity.failureText ===
+      CROSS_ORIGIN_DNS_FAILURE_TEXT
+  );
 }
 
 function identityKey(
@@ -493,6 +516,34 @@ function createTechnicalEvidenceSummary(
   );
 }
 
+function applyCrossOriginDnsPolicy(
+  finding:
+    ExploratoryQaFinding,
+  identity:
+    TechnicalFailedRequestIdentity
+): ExploratoryQaFinding {
+  const evidence =
+    createTechnicalEvidenceSummary(
+      identity
+    );
+
+  return {
+    ...finding,
+    severity:
+      'low',
+    confidence:
+      'medium',
+    title:
+      CROSS_ORIGIN_DNS_TITLE,
+    evidence:
+      `${evidence} The failure occurred in the observed browser environment and may reflect ${OBSERVER_ENVIRONMENT_CAUSES}; the request failure alone does not establish who caused it or whether users were affected.`,
+    reasoning:
+      `Because the failed request is cross-origin, this browser observation alone cannot distinguish a remote resource problem from ${OBSERVER_ENVIRONMENT_CAUSES}.`,
+    suggestedCheck:
+      'Review the exact request evidence and compare from an independently configured network environment before attributing cause or impact.'
+  };
+}
+
 function clearUntrustedTechnicalIdentity(
   finding:
     ExploratoryQaFinding
@@ -609,14 +660,27 @@ export function normalizeTechnicalObservations(
       }
 
       findings.push({
-        ...finding,
-        evidence:
+        ...(
+          isCrossOriginDnsFailureIdentity(
+            group.identity
+          ) &&
           group.identity.kind ===
             'failed-request'
-            ? createTechnicalEvidenceSummary(
+            ? applyCrossOriginDnsPolicy(
+                finding,
                 group.identity
               )
-            : finding.evidence,
+            : {
+                ...finding,
+                evidence:
+                  group.identity.kind ===
+                    'failed-request'
+                    ? createTechnicalEvidenceSummary(
+                        group.identity
+                      )
+                    : finding.evidence
+              }
+        ),
         evidenceTarget:
           null,
         presentationTarget:
