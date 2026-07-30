@@ -106,11 +106,59 @@ The following remain non-blocking future work rather than G1 requirements:
 
 ### G2 — Local GUI MVP
 
+**Status:** Implemented; acceptance and remediation remain in progress.
+
 Build the smallest useful local interface.
 
-**MVP:** URL, page/navigation/investigation budgets, Gemini key, optional model override, Run, Cancel, and basic status.
+**MVP:** URL, page/navigation/investigation budgets, transient Gemini key, Run,
+Cancel, and basic status. The reusable application/CLI boundaries retain an
+optional per-run model override, but the current desktop MVP intentionally does
+not expose a model selector.
 
 No accounts, database, cloud execution, or SaaS features.
+
+The Electron GUI MVP is implemented. Real-run acceptance then exposed a
+trustworthiness problem below the GUI layer: the human report could split one
+logical defect into multiple findings when model-generated wording drifted,
+make visual-sounding claims without focused visual evidence, and present
+finding/occurrence/count information in ways that were difficult to reconcile.
+
+That acceptance blocker has been remediated without weakening the existing
+`VERIFIED` / `INCONCLUSIVE` boundary:
+
+- finding reconciliation now uses validated structured evidence identity rather
+  than generated title/description prose, while observations without trustworthy
+  structured identity remain separate rather than being guessed together;
+- repeated occurrences retain one canonical logical finding and occurrence
+  history, with explicit under-merge and over-merge regression coverage;
+- visual claims require appropriate focused visual evidence, while
+  accessibility, network, technical, and security observations use evidence
+  suited to the claim;
+- generic visited-page screenshots are no longer treated as finding evidence;
+  replay of transient UI state remains bounded by the existing safe-interaction
+  policy;
+- GUI and report completion counts derive from one reconciled summary source and
+  distinguish confirmed findings, review findings, and technical observations;
+- the human report now uses run-scoped item IDs, a complete primary index,
+  page-to-item links, correlated evidence filenames, clearer item boundaries,
+  and proportionate security detail; and
+- verification thresholds and canonical finding semantics were not relaxed to
+  make the report appear more decisive.
+
+The report remediation is an acceptance fix discovered through G2, not a new
+roadmap stage and not an early start on G4's dedicated in-app report viewer.
+
+**G2 remains open pending:**
+
+- a fresh real model-backed run to verify reconciliation, focused evidence,
+  report accounting/navigation, and practical report usefulness end to end; and
+- follow-up on the Electron desktop smoke-process crash observed during the
+  remediation pass, despite the deterministic desktop suite, desktop build, and
+  constituent browser checks otherwise passing.
+
+**G2 is complete when:** the MVP can complete a representative real run with
+trustworthy reconciled output and consistent final accounting, and no known
+G2-blocking desktop runtime issue remains.
 
 ### G3 — Live run experience
 

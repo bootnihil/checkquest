@@ -318,10 +318,12 @@ stable public API guarantee. CheckQuest does not provide model aliases,
 provider selection, or configuration for non-Gemini providers.
 
 The CLI adapts this environment value into the explicit per-run `model` input.
-Programmatic callers, including a future GUI, can pass that model directly
-without mutating process environment state. When no per-run model is supplied,
-the existing implementation default and process-level fallback remain
-available for direct low-level callers.
+Programmatic callers can pass that model directly without mutating process
+environment state. The current Electron desktop GUI intentionally does not
+expose a model selector; desktop runs use the normal implementation default
+unless that product decision changes later. The application boundary still
+retains the optional per-run model seam, so removing the GUI control did not
+remove model override capability from reusable execution.
 
 ## Cross-platform environment examples
 
@@ -449,6 +451,8 @@ Report files from a successful CLI run are written under
 - The programmatic API is source-level, not a published versioned SDK.
 - Host and action policies reduce risk but cannot guarantee universal website
   compatibility or zero side effects.
-- Fresh-clone source installation is the supported Stage 10A distribution
-  path. An npm-published package, standalone executable, installer, GUI, SaaS,
-  and stable public configuration design remain outside this slice.
+- Fresh-clone source installation remains the supported Stage 10A distribution
+  path. A local Electron GUI MVP now exists in the source tree, but a packaged
+  desktop installer, npm-published package, standalone executable, SaaS, and
+  stable public configuration design remain outside the supported distribution
+  contract.

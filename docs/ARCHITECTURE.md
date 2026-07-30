@@ -36,7 +36,7 @@ authority.
 ```mermaid
 flowchart TD
   CLI["CLI adapter"] --> CLIIN["Parse CLI arguments and adapt environment"]
-  DESK["Electron desktop GUI"] --> GUIIN["Collect target, budgets, key, and model"]
+  DESK["Electron desktop GUI"] --> GUIIN["Collect target, budgets, and key"]
   CLIIN --> APP["startCheckQuest application boundary"]
   GUIIN --> APP
   APP --> RUN["runSite reusable coordinator"]
@@ -77,9 +77,10 @@ The [CLI entry point](../agent/run-site-agent.ts) owns:
 
 The local Electron desktop adapter owns its window, renderer state, user input,
 and presentation of the same application events/results. It supplies target,
-budgets, transient per-run Gemini credentials, optional model selection, and
-cancellation without becoming a second execution, finding, or reporting
-authority.
+budgets, transient per-run Gemini credentials, and cancellation without
+becoming a second execution, finding, or reporting authority. The current
+desktop MVP intentionally does not expose a model selector; optional per-run
+model override remains available at the application and CLI boundaries.
 
 The [run coordinator](../agent/run/run-site.ts) owns:
 
