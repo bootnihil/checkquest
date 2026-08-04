@@ -604,6 +604,11 @@ The architecture supports three deliberately different verification layers:
 - optional external Aidoc or real Gemini checks remain separate from mandatory
   contributor and CI success.
 
+The physical source tree mirrors those boundaries: production runtime code is
+owned by `agent/`, while checks live under `tests/deterministic/`,
+`tests/browser/`, `tests/manual/`, and `tests/ui/`. Shared test-only harness
+utilities live under `tests/support/`.
+
 The injected page-analysis, investigation-planner, and navigation-choice
 collaborators are sufficient for real `runSite` browser integration without
 widening the production API or requiring a Gemini credential. Most lower-level

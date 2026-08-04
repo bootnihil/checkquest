@@ -22,12 +22,6 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": [
-    "agent/**/*.ts",
-    "desktop/**/*.ts",
-    "tests/**/*.ts",
-    "pages/**/*.ts",
-    "playwright.config.ts"
-  ],
+  "include": ["agent/**/*.ts", "desktop/**/*.ts", "tests/**/*.ts", "playwright.config.ts"],
   "exclude": ["node_modules", "agent-results", "playwright-report", "test-results"]
 }

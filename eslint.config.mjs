@@ -5,7 +5,6 @@ const authoredTypeScriptFiles = [
   'agent/**/*.ts',
   'desktop/**/*.ts',
   'tests/**/*.ts',
-  'pages/**/*.ts',
   'playwright.config.ts'
 ];
 
