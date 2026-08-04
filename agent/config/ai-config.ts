@@ -1,7 +1,5 @@
 export const aiConfig = {
-  model:
-    process.env.GEMINI_MODEL ??
-    'gemini-3.1-flash-lite',
+  model: process.env.GEMINI_MODEL ?? 'gemini-3.1-flash-lite',
 
   requestTimeoutMs: 30_000,
 

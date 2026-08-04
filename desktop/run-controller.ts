@@ -21,290 +21,157 @@ import {
   type DesktopStartRunInput,
   type DesktopStartRunReply
 } from './contracts';
-import {
-  DesktopSessionCredentialStore
-} from './session-credential';
+import { DesktopSessionCredentialStore } from './session-credential';
 
-export type StartCheckQuestFunction =
-  (
-    input:
-      StartCheckQuestInput
-  ) => CheckQuestRun;
+export type StartCheckQuestFunction = (input: StartCheckQuestInput) => CheckQuestRun;
 
-export type PreflightGeminiCredentialsFunction =
-  (
-    input:
-      PreflightGeminiCredentialsInput
-  ) => Promise<
-    GeminiCredentialPreflightResult
-  >;
+export type PreflightGeminiCredentialsFunction = (
+  input: PreflightGeminiCredentialsInput
+) => Promise<GeminiCredentialPreflightResult>;
 
-export type PreflightTargetReachabilityFunction =
-  (
-    input:
-      PreflightTargetReachabilityInput
-  ) => Promise<
-    TargetReachabilityPreflightResult
-  >;
+export type PreflightTargetReachabilityFunction = (
+  input: PreflightTargetReachabilityInput
+) => Promise<TargetReachabilityPreflightResult>;
 
 export interface DesktopRunControllerOptions {
-  emitEvent:
-    (
-      event:
-        DesktopRunEvent
-    ) => void;
-  start?:
-    StartCheckQuestFunction;
-  preflight?:
-    PreflightGeminiCredentialsFunction;
-  targetPreflight?:
-    PreflightTargetReachabilityFunction;
-  sessionCredentials?:
-    DesktopSessionCredentialStore;
+  emitEvent: (event: DesktopRunEvent) => void;
+  start?: StartCheckQuestFunction;
+  preflight?: PreflightGeminiCredentialsFunction;
+  targetPreflight?: PreflightTargetReachabilityFunction;
+  sessionCredentials?: DesktopSessionCredentialStore;
 }
 
 interface ActiveDesktopOperation {
-  cancel:
-    () => void;
-  cancellationRequested:
-    boolean;
-  settled:
-    Promise<void>;
+  cancel: () => void;
+  cancellationRequested: boolean;
+  settled: Promise<void>;
 }
 
-function createCancelledStartReply():
-  DesktopStartRunReply {
+function createCancelledStartReply(): DesktopStartRunReply {
   return {
-    accepted:
-      false,
-    reason:
-      'cancelled',
-    message:
-      'The run was cancelled before it started.'
+    accepted: false,
+    reason: 'cancelled',
+    message: 'The run was cancelled before it started.'
   };
 }
 
 export class DesktopRunController {
-  private activeOperation:
-    ActiveDesktopOperation | undefined;
+  private activeOperation: ActiveDesktopOperation | undefined;
 
-  private readonly emitEvent:
-    (
-      event:
-        DesktopRunEvent
-    ) => void;
+  private readonly emitEvent: (event: DesktopRunEvent) => void;
 
-  private readonly startCheckQuest:
-    StartCheckQuestFunction;
+  private readonly startCheckQuest: StartCheckQuestFunction;
 
-  private readonly preflightGeminiCredentials:
-    PreflightGeminiCredentialsFunction;
+  private readonly preflightGeminiCredentials: PreflightGeminiCredentialsFunction;
 
-  private readonly preflightTargetReachability:
-    PreflightTargetReachabilityFunction;
+  private readonly preflightTargetReachability: PreflightTargetReachabilityFunction;
 
-  private readonly sessionCredentials:
-    DesktopSessionCredentialStore;
+  private readonly sessionCredentials: DesktopSessionCredentialStore;
 
-  constructor(
-    options:
-      DesktopRunControllerOptions
-  ) {
-    this.emitEvent =
-      options.emitEvent;
-    this.startCheckQuest =
-      options.start ??
-      startCheckQuest;
-    this.preflightGeminiCredentials =
-      options.preflight ??
-      preflightGeminiCredentials;
-    this.preflightTargetReachability =
-      options.targetPreflight ??
-      preflightTargetReachability;
-    this.sessionCredentials =
-      options.sessionCredentials ??
-      new DesktopSessionCredentialStore();
+  constructor(options: DesktopRunControllerOptions) {
+    this.emitEvent = options.emitEvent;
+    this.startCheckQuest = options.start ?? startCheckQuest;
+    this.preflightGeminiCredentials = options.preflight ?? preflightGeminiCredentials;
+    this.preflightTargetReachability = options.targetPreflight ?? preflightTargetReachability;
+    this.sessionCredentials = options.sessionCredentials ?? new DesktopSessionCredentialStore();
   }
 
-  async start(
-    request:
-      unknown
-  ): Promise<
-    DesktopStartRunReply
-  > {
-    if (
-      this.activeOperation !==
-      undefined
-    ) {
+  async start(request: unknown): Promise<DesktopStartRunReply> {
+    if (this.activeOperation !== undefined) {
       return {
-        accepted:
-          false,
-        reason:
-          'active-run',
-        message:
-          'A CheckQuest run is already active.'
+        accepted: false,
+        reason: 'active-run',
+        message: 'A CheckQuest run is already active.'
       };
     }
 
-    const validation =
-      validateDesktopStartRunInput(
-        request,
-        {
-          sessionCredentialAvailable:
-            this.sessionCredentials
-              .hasGeminiApiKey()
-        }
-      );
+    const validation = validateDesktopStartRunInput(request, {
+      sessionCredentialAvailable: this.sessionCredentials.hasGeminiApiKey()
+    });
 
-    if (
-      !validation.success
-    ) {
+    if (!validation.success) {
       return {
-        accepted:
-          false,
-        reason:
-          'invalid-request',
-        message:
-          validation.message,
-        fieldErrors:
-          validation.fieldErrors
+        accepted: false,
+        reason: 'invalid-request',
+        message: validation.message,
+        fieldErrors: validation.fieldErrors
       };
     }
 
-    const {
-      input
-    } = validation;
-    const suppliedGeminiApiKey =
-      input.geminiApiKey;
-    const effectiveGeminiApiKey =
-      suppliedGeminiApiKey ??
-      this.sessionCredentials
-        .getGeminiApiKey();
+    const { input } = validation;
+    const suppliedGeminiApiKey = input.geminiApiKey;
+    const effectiveGeminiApiKey = suppliedGeminiApiKey ?? this.sessionCredentials.getGeminiApiKey();
 
-    if (
-      effectiveGeminiApiKey ===
-        undefined
-    ) {
+    if (effectiveGeminiApiKey === undefined) {
       return {
-        accepted:
-          false,
-        reason:
-          'invalid-request',
-        message:
-          'Gemini API key is required.',
+        accepted: false,
+        reason: 'invalid-request',
+        message: 'Gemini API key is required.',
         fieldErrors: {
-          geminiApiKey:
-            'Gemini API key is required.'
+          geminiApiKey: 'Gemini API key is required.'
         }
       };
     }
 
-    const preflightAbortController =
-      new AbortController();
-    let resolvePreflightSettlement:
-      () => void =
-        () => undefined;
-    const preflightOperation:
-      ActiveDesktopOperation = {
-        cancel:
-          () => {
-            preflightAbortController
-              .abort();
-          },
-        cancellationRequested:
-          false,
-        settled:
-          new Promise<void>(
-            resolve => {
-              resolvePreflightSettlement =
-                resolve;
-            }
-          )
-      };
+    const preflightAbortController = new AbortController();
+    let resolvePreflightSettlement: () => void = () => undefined;
+    const preflightOperation: ActiveDesktopOperation = {
+      cancel: () => {
+        preflightAbortController.abort();
+      },
+      cancellationRequested: false,
+      settled: new Promise<void>(resolve => {
+        resolvePreflightSettlement = resolve;
+      })
+    };
 
-    this.activeOperation =
-      preflightOperation;
+    this.activeOperation = preflightOperation;
 
     try {
-      if (
-        suppliedGeminiApiKey !==
-          undefined
-      ) {
-        let preflightResult:
-          GeminiCredentialPreflightResult;
+      if (suppliedGeminiApiKey !== undefined) {
+        let preflightResult: GeminiCredentialPreflightResult;
 
         try {
-          preflightResult =
-            await this
-              .preflightGeminiCredentials({
-                geminiApiKey:
-                  suppliedGeminiApiKey,
-                signal:
-                  preflightAbortController
-                    .signal
-              });
+          preflightResult = await this.preflightGeminiCredentials({
+            geminiApiKey: suppliedGeminiApiKey,
+            signal: preflightAbortController.signal
+          });
         } catch {
-          if (
-            preflightAbortController
-              .signal
-              .aborted
-          ) {
+          if (preflightAbortController.signal.aborted) {
             return createCancelledStartReply();
           }
 
           return {
-            accepted:
-              false,
-            reason:
-              'preflight-failed',
-            message:
-              'Gemini credentials could not be checked. Try again.'
+            accepted: false,
+            reason: 'preflight-failed',
+            message: 'Gemini credentials could not be checked. Try again.'
           };
         }
 
-        if (
-          preflightAbortController
-            .signal
-            .aborted
-        ) {
+        if (preflightAbortController.signal.aborted) {
           return createCancelledStartReply();
         }
 
-        if (
-          !preflightResult.accepted
-        ) {
+        if (!preflightResult.accepted) {
           return {
-            accepted:
-              false,
-            reason:
-              'credential-rejected',
-            message:
-              preflightResult.message,
+            accepted: false,
+            reason: 'credential-rejected',
+            message: preflightResult.message,
             fieldErrors: {
-              geminiApiKey:
-                preflightResult
-                  .message
+              geminiApiKey: preflightResult.message
             }
           };
         }
 
-        this.sessionCredentials
-          .replaceGeminiApiKey(
-            suppliedGeminiApiKey
-          );
+        this.sessionCredentials.replaceGeminiApiKey(suppliedGeminiApiKey);
       }
 
       try {
         this.emitEvent({
-          type:
-            'target-preflight-started',
-          timestamp:
-            new Date()
-              .toISOString(),
-          runId:
-            'desktop-preflight',
-          message:
-            'Checking whether the website can be reached.'
+          type: 'target-preflight-started',
+          timestamp: new Date().toISOString(),
+          runId: 'desktop-preflight',
+          message: 'Checking whether the website can be reached.'
         });
       } catch {
         /*
@@ -312,66 +179,39 @@ export class DesktopRunController {
          */
       }
 
-      let targetPreflightResult:
-        TargetReachabilityPreflightResult;
+      let targetPreflightResult: TargetReachabilityPreflightResult;
 
       try {
-        targetPreflightResult =
-          await this
-            .preflightTargetReachability({
-              target:
-                input.targetUrl,
-              signal:
-                preflightAbortController
-                  .signal
-            });
+        targetPreflightResult = await this.preflightTargetReachability({
+          target: input.targetUrl,
+          signal: preflightAbortController.signal
+        });
       } catch {
-        if (
-          preflightAbortController
-            .signal
-            .aborted
-        ) {
+        if (preflightAbortController.signal.aborted) {
           return createCancelledStartReply();
         }
 
         return {
-          accepted:
-            false,
-          reason:
-            'target-unreachable',
-          message:
-            'Could not reach this website. Check the address and try again.',
+          accepted: false,
+          reason: 'target-unreachable',
+          message: 'Could not reach this website. Check the address and try again.',
           fieldErrors: {
-            targetUrl:
-              'Could not reach this website. Check the address and try again.'
+            targetUrl: 'Could not reach this website. Check the address and try again.'
           }
         };
       }
 
-      if (
-        preflightAbortController
-          .signal
-          .aborted
-      ) {
+      if (preflightAbortController.signal.aborted) {
         return createCancelledStartReply();
       }
 
-      if (
-        !targetPreflightResult
-          .accepted
-      ) {
+      if (!targetPreflightResult.accepted) {
         return {
-          accepted:
-            false,
-          reason:
-            'target-unreachable',
-          message:
-            targetPreflightResult
-              .message,
+          accepted: false,
+          reason: 'target-unreachable',
+          message: targetPreflightResult.message,
           fieldErrors: {
-            targetUrl:
-              targetPreflightResult
-                .message
+            targetUrl: targetPreflightResult.message
           }
         };
       }
@@ -379,145 +219,91 @@ export class DesktopRunController {
       return this.launchRun(
         {
           ...input,
-          targetUrl:
-            targetPreflightResult
-              .target
+          targetUrl: targetPreflightResult.target
         },
         effectiveGeminiApiKey
       );
     } finally {
       resolvePreflightSettlement();
 
-      if (
-        this.activeOperation ===
-          preflightOperation
-      ) {
-        this.activeOperation =
-          undefined;
+      if (this.activeOperation === preflightOperation) {
+        this.activeOperation = undefined;
       }
     }
   }
 
-  private launchRun(
-    input:
-      DesktopStartRunInput,
-    geminiApiKey:
-      string
-  ): DesktopStartRunReply {
-    let run:
-      CheckQuestRun;
+  private launchRun(input: DesktopStartRunInput, geminiApiKey: string): DesktopStartRunReply {
+    let run: CheckQuestRun;
 
     try {
-      run =
-        this.startCheckQuest({
-          target:
-            input.targetUrl,
-          budgets: {
-            pages:
-              input.pageBudget,
-            navigationSteps:
-              input.navigationBudget,
-            investigationStepsPerPage:
-              input
-                .investigationStepsPerPage
-          },
-          credentials: {
-            geminiApiKey
-          },
-          onEvent:
-            event => {
-              const desktopEvent =
-                projectDesktopRunEvent(
-                  event
-                );
+      run = this.startCheckQuest({
+        target: input.targetUrl,
+        budgets: {
+          pages: input.pageBudget,
+          navigationSteps: input.navigationBudget,
+          investigationStepsPerPage: input.investigationStepsPerPage
+        },
+        credentials: {
+          geminiApiKey
+        },
+        onEvent: event => {
+          const desktopEvent = projectDesktopRunEvent(event);
 
-              if (
-                desktopEvent ===
-                  null
-              ) {
-                return;
-              }
+          if (desktopEvent === null) {
+            return;
+          }
 
-              try {
-                this.emitEvent(
-                  desktopEvent
-                );
-              } catch {
-                /*
-                 * Desktop presentation failures must never alter execution.
-                 */
-              }
-            }
-        });
+          try {
+            this.emitEvent(desktopEvent);
+          } catch {
+            /*
+             * Desktop presentation failures must never alter execution.
+             */
+          }
+        }
+      });
     } catch {
       return {
-        accepted:
-          false,
-        reason:
-          'application-unavailable',
-        message:
-          'The desktop application could not start the run.'
+        accepted: false,
+        reason: 'application-unavailable',
+        message: 'The desktop application could not start the run.'
       };
     }
 
-    const activeRun:
-      ActiveDesktopOperation = {
-        cancel:
-          run.cancel,
-        cancellationRequested:
-          false,
-        settled:
-          Promise.resolve()
-      };
+    const activeRun: ActiveDesktopOperation = {
+      cancel: run.cancel,
+      cancellationRequested: false,
+      settled: Promise.resolve()
+    };
 
-    activeRun.settled =
-      run.result
-        .then(
-          () => undefined,
-          () => undefined
-        )
-        .finally(
-          () => {
-            if (
-              this.activeOperation ===
-                activeRun
-            ) {
-              this.activeOperation =
-                undefined;
-            }
-          }
-        );
-    this.activeOperation =
-      activeRun;
+    activeRun.settled = run.result
+      .then(
+        () => undefined,
+        () => undefined
+      )
+      .finally(() => {
+        if (this.activeOperation === activeRun) {
+          this.activeOperation = undefined;
+        }
+      });
+    this.activeOperation = activeRun;
 
     return {
-      accepted:
-        true
+      accepted: true
     };
   }
 
-  cancel():
-    DesktopCancelRunReply {
-    const activeOperation =
-      this.activeOperation;
+  cancel(): DesktopCancelRunReply {
+    const activeOperation = this.activeOperation;
 
-    if (
-      activeOperation ===
-      undefined
-    ) {
+    if (activeOperation === undefined) {
       return {
-        requested:
-          false
+        requested: false
       };
     }
 
-    if (
-      !activeOperation
-        .cancellationRequested
-    ) {
-      activeOperation
-        .cancellationRequested =
-          true;
+    if (!activeOperation.cancellationRequested) {
+      activeOperation.cancellationRequested = true;
 
       try {
         activeOperation.cancel();
@@ -530,50 +316,34 @@ export class DesktopRunController {
     }
 
     return {
-      requested:
-        true
+      requested: true
     };
   }
 
-  hasActiveRun():
-    boolean {
-    return (
-      this.activeOperation !==
-      undefined
-    );
+  hasActiveRun(): boolean {
+    return this.activeOperation !== undefined;
   }
 
   getSessionCredentialStatus(): {
-    available:
-      boolean;
+    available: boolean;
   } {
     return {
-      available:
-        this.sessionCredentials
-          .hasGeminiApiKey()
+      available: this.sessionCredentials.hasGeminiApiKey()
     };
   }
 
-  clearSessionCredentials():
-    void {
-    this.sessionCredentials
-      .clear();
+  clearSessionCredentials(): void {
+    this.sessionCredentials.clear();
   }
 
-  async cancelAndWait():
-    Promise<void> {
-    const activeOperation =
-      this.activeOperation;
+  async cancelAndWait(): Promise<void> {
+    const activeOperation = this.activeOperation;
 
-    if (
-      activeOperation ===
-      undefined
-    ) {
+    if (activeOperation === undefined) {
       return;
     }
 
     this.cancel();
-    await activeOperation
-      .settled;
+    await activeOperation.settled;
   }
 }

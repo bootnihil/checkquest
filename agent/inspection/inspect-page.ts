@@ -1,41 +1,16 @@
-import type {
-  Page
-} from '@playwright/test';
+import type { Page } from '@playwright/test';
 
-import {
-  analyzePageForQa
-} from '../analysis/analyze-page-for-qa';
-import {
-  classifyDiagnostics
-} from '../analysis/classify-diagnostics';
-import {
-  evaluatePageObservation
-} from '../analysis/evaluate-page';
-import {
-  capturePageScreenshot
-} from '../browser/capture-page-screenshot';
-import {
-  captureFindingPresentationEvidence
-} from '../browser/capture-finding-presentation-evidence';
-import type {
-  PageDiagnosticsCollector
-} from '../browser/collect-page-diagnostics';
-import {
-  extractPageContent
-} from '../browser/extract-page-content';
-import {
-  inspectNavigation
-} from '../browser/inspect-navigation';
-import {
-  runPageOperationWithCancellation
-} from '../browser/run-page-operation-with-cancellation';
-import type {
-  SiteConfig
-} from '../config/site-config';
-import {
-  markFinalUrlInspected,
-  type NavigationUrlState
-} from '../exploration/visited-links';
+import { analyzePageForQa } from '../analysis/analyze-page-for-qa';
+import { classifyDiagnostics } from '../analysis/classify-diagnostics';
+import { evaluatePageObservation } from '../analysis/evaluate-page';
+import { capturePageScreenshot } from '../browser/capture-page-screenshot';
+import { captureFindingPresentationEvidence } from '../browser/capture-finding-presentation-evidence';
+import type { PageDiagnosticsCollector } from '../browser/collect-page-diagnostics';
+import { extractPageContent } from '../browser/extract-page-content';
+import { inspectNavigation } from '../browser/inspect-navigation';
+import { runPageOperationWithCancellation } from '../browser/run-page-operation-with-cancellation';
+import type { SiteConfig } from '../config/site-config';
+import { markFinalUrlInspected, type NavigationUrlState } from '../exploration/visited-links';
 import {
   predictPageIdentity,
   registerInspectedPageNovelty,
@@ -46,82 +21,48 @@ import {
   registerDiscoveredNavigationLinks,
   type NavigationFrontier
 } from '../exploration/navigation-policy';
-import {
-  evaluateFindingInvestigationOutcome
-} from '../investigation/evaluate-finding-investigation-outcome';
-import {
-  normalizeRunCancellation,
-  waitForRunDelay
-} from '../errors/run-cancellation';
-import {
-  CheckQuestError
-} from '../errors/checkquest-error';
-import type {
-  GeminiRequestEvent
-} from '../ai/run-gemini-request';
+import { evaluateFindingInvestigationOutcome } from '../investigation/evaluate-finding-investigation-outcome';
+import { normalizeRunCancellation, waitForRunDelay } from '../errors/run-cancellation';
+import { CheckQuestError } from '../errors/checkquest-error';
+import type { GeminiRequestEvent } from '../ai/run-gemini-request';
 import {
   commitRunPageFindings,
   prepareKnownFindingAnalysis,
   reconcileRunPageFindings,
   type RunFindingLifecycleState
 } from '../findings/run-finding-lifecycle';
-import {
-  runExploratoryLoop
-} from '../planning/run-exploratory-loop';
-import type {
-  planNextAction
-} from '../planning/plan-next-action';
-import type {
-  FindingPresentationEvidence,
-  InspectedPageResult
-} from '../reporting/report-types';
-import type {
-  PassivePageSecuritySnapshot
-} from '../security/passive-security-model';
+import { runExploratoryLoop } from '../planning/run-exploratory-loop';
+import type { planNextAction } from '../planning/plan-next-action';
+import type { FindingPresentationEvidence, InspectedPageResult } from '../reporting/report-types';
+import type { PassivePageSecuritySnapshot } from '../security/passive-security-model';
 import {
   registerPassiveSecuritySnapshot,
   type PassiveSecurityRegistry
 } from '../security/passive-security-registry';
 
 export interface OpenPageInspectionInput {
-  selection:
-    InspectedPageResult['selection'];
+  selection: InspectedPageResult['selection'];
 
-  observation:
-    InspectedPageResult['observation'];
+  observation: InspectedPageResult['observation'];
 
-  passiveSecuritySnapshot:
-    PassivePageSecuritySnapshot;
+  passiveSecuritySnapshot: PassivePageSecuritySnapshot;
 
-  traversalDepth:
-    number;
+  traversalDepth: number;
 }
 
 export interface PageInspectionFindingMetrics {
-  knownFindingsSuppliedToAnalysisCount:
-    number;
-  newCandidateFindingsCount:
-    number;
-  redundantInvestigationsSkippedCount:
-    number;
+  knownFindingsSuppliedToAnalysisCount: number;
+  newCandidateFindingsCount: number;
+  redundantInvestigationsSkippedCount: number;
 }
 
 export interface InspectPageDependencies {
-  analyzePageForQa?:
-    typeof analyzePageForQa;
-  planNextAction?:
-    typeof planNextAction;
-  geminiApiKey?:
-    string;
-  model?:
-    string;
-  signal?:
-    AbortSignal;
-  onModelRequestEvent?:
-    (
-      event:
-        GeminiRequestEvent
-    ) => void;
+  analyzePageForQa?: typeof analyzePageForQa;
+  planNextAction?: typeof planNextAction;
+  geminiApiKey?: string;
+  model?: string;
+  signal?: AbortSignal;
+  onModelRequestEvent?: (event: GeminiRequestEvent) => void;
 }
 
 export interface InspectPageInput {
@@ -129,35 +70,22 @@ export interface InspectPageInput {
   site: SiteConfig;
   runId: string;
   pageIndex: number;
-  currentPage:
-    OpenPageInspectionInput;
-  diagnosticsCollector:
-    PageDiagnosticsCollector;
-  navigationFrontier:
-    NavigationFrontier;
-  navigationUrlState:
-    NavigationUrlState;
-  pageNoveltyState:
-    PageNoveltyState;
-  passiveSecurityRegistry:
-    PassiveSecurityRegistry;
-  findingLifecycle:
-    RunFindingLifecycleState;
-  dependencies?:
-    InspectPageDependencies;
+  currentPage: OpenPageInspectionInput;
+  diagnosticsCollector: PageDiagnosticsCollector;
+  navigationFrontier: NavigationFrontier;
+  navigationUrlState: NavigationUrlState;
+  pageNoveltyState: PageNoveltyState;
+  passiveSecurityRegistry: PassiveSecurityRegistry;
+  findingLifecycle: RunFindingLifecycleState;
+  dependencies?: InspectPageDependencies;
 }
 
 export interface InspectPageResult {
-  pageResult:
-    InspectedPageResult;
-  findingMetrics:
-    PageInspectionFindingMetrics;
+  pageResult: InspectedPageResult;
+  findingMetrics: PageInspectionFindingMetrics;
 }
 
-export async function inspectPage(
-  input:
-    InspectPageInput
-): Promise<InspectPageResult> {
+export async function inspectPage(input: InspectPageInput): Promise<InspectPageResult> {
   const {
     page,
     site,
@@ -171,265 +99,124 @@ export async function inspectPage(
     passiveSecurityRegistry,
     findingLifecycle
   } = input;
-  const pageNumber =
-    pageIndex +
-    1;
+  const pageNumber = pageIndex + 1;
 
   const {
-    observation:
-      pageObservation,
+    observation: pageObservation,
     passiveSecuritySnapshot,
     selection,
     traversalDepth
   } = currentPage;
 
-  registerPassiveSecuritySnapshot(
-    passiveSecurityRegistry,
-    passiveSecuritySnapshot
+  registerPassiveSecuritySnapshot(passiveSecurityRegistry, passiveSecuritySnapshot);
+
+  await waitForRunDelay(1_000, input.dependencies?.signal, runId, 'page-observation-settle');
+
+  const diagnostics = diagnosticsCollector.snapshot();
+
+  const classifiedDiagnostics = classifyDiagnostics(diagnostics);
+
+  const findings = evaluatePageObservation(pageObservation);
+
+  const pageContent = await extractPageContent(page);
+
+  const discoveredLinks = await runPageOperationWithCancellation(
+    page,
+    () => inspectNavigation(page, site.allowedHosts),
+    {
+      signal: input.dependencies?.signal,
+      runId,
+      phase: 'navigation-inspection'
+    }
   );
 
-  await waitForRunDelay(
-    1_000,
-    input
-      .dependencies
-      ?.signal,
-    runId,
-    'page-observation-settle'
-  );
+  const effectivePredictedIdentity = predictPageIdentity(pageObservation.finalUrl, [
+    ...getNavigationFrontierEntries(navigationFrontier).map(entry => entry.link),
+    ...discoveredLinks
+  ]);
 
-  const diagnostics =
-    diagnosticsCollector.snapshot();
+  if (selection.type === 'start-url' && selection.navigationAudit) {
+    selection.navigationAudit.predictedAreaKey = effectivePredictedIdentity.areaKey;
 
-  const classifiedDiagnostics =
-    classifyDiagnostics(
-      diagnostics
-    );
-
-  const findings =
-    evaluatePageObservation(
-      pageObservation
-    );
-
-  const pageContent =
-    await extractPageContent(
-      page
-    );
-
-  const discoveredLinks =
-    await runPageOperationWithCancellation(
-      page,
-      () =>
-        inspectNavigation(
-          page,
-          site.allowedHosts
-        ),
-      {
-        signal:
-          input
-            .dependencies
-            ?.signal,
-        runId,
-        phase:
-          'navigation-inspection'
-      }
-    );
-
-  const effectivePredictedIdentity =
-    predictPageIdentity(
-      pageObservation
-        .finalUrl,
-      [
-        ...getNavigationFrontierEntries(
-          navigationFrontier
-        ).map(
-          entry =>
-            entry.link
-        ),
-        ...discoveredLinks
-      ]
-    );
-
-  if (
-    selection.type ===
-      'start-url' &&
-    selection
-      .navigationAudit
-  ) {
-    selection
-      .navigationAudit
-      .predictedAreaKey =
-        effectivePredictedIdentity
-          .areaKey;
-
-    selection
-      .navigationAudit
-      .predictedRouteFamilyKey =
-        effectivePredictedIdentity
-          .routeFamilyKey;
+    selection.navigationAudit.predictedRouteFamilyKey = effectivePredictedIdentity.routeFamilyKey;
   }
 
-  const pageNovelty =
-    registerInspectedPageNovelty(
-      pageNoveltyState,
-      effectivePredictedIdentity,
-      pageContent
-    );
+  const pageNovelty = registerInspectedPageNovelty(
+    pageNoveltyState,
+    effectivePredictedIdentity,
+    pageContent
+  );
 
-  const containsPasswordField =
-    pageContent.textFields.some(
-      field =>
-        field.inputType ===
-        'password'
-    );
+  const containsPasswordField = pageContent.textFields.some(
+    field => field.inputType === 'password'
+  );
 
-  const knownFindingPreparation =
-    prepareKnownFindingAnalysis(
-      findingLifecycle,
-      pageContent
-    );
+  const knownFindingPreparation = prepareKnownFindingAnalysis(findingLifecycle, pageContent);
 
-  const {
-    knownFindingContext
-  } = knownFindingPreparation;
+  const { knownFindingContext } = knownFindingPreparation;
 
-  const knownFindingsSuppliedToAnalysisCount =
-    knownFindingContext.length;
+  const knownFindingsSuppliedToAnalysisCount = knownFindingContext.length;
 
-  const rawExploratoryQaAnalysis =
-    await (
-      input
-        .dependencies
-        ?.analyzePageForQa ??
-      analyzePageForQa
-    )(
+  const rawExploratoryQaAnalysis = await (input.dependencies?.analyzePageForQa ?? analyzePageForQa)(
+    {
+      observation: pageObservation,
+
+      content: pageContent,
+
+      classifiedDiagnostics,
+
+      ruleBasedFindings: findings,
+
+      knownFindings: knownFindingContext
+    },
+    {
+      geminiApiKey: input.dependencies?.geminiApiKey,
+      model: input.dependencies?.model,
+      signal: input.dependencies?.signal,
+      onEvent: input.dependencies?.onModelRequestEvent
+    }
+  );
+
+  const pageFindingLifecycle = reconcileRunPageFindings(findingLifecycle, {
+    pageUrl: pageObservation.finalUrl,
+    pageTitle: pageObservation.title,
+    pageContent,
+    ruleFindings: findings,
+    rawExploratoryQaAnalysis,
+    classifiedDiagnostics,
+    knownFindingPreparation
+  });
+
+  const { exploratoryQaAnalysis, reconciledPageFindings, pageCandidates } = pageFindingLifecycle;
+
+  const newCandidateFindingsCount = reconciledPageFindings.newFindings.length;
+
+  const pageRedundantInvestigationsSkipped = reconciledPageFindings.knownOccurrenceDrafts.filter(
+    draft => draft.redundantInvestigationSkipped
+  ).length;
+
+  const redundantInvestigationsSkippedCount = pageRedundantInvestigationsSkipped;
+
+  let exploratoryInvestigation: InspectedPageResult['exploratoryInvestigation'] = null;
+
+  if (!containsPasswordField && site.maxExploratoryStepsPerPage > 0 && pageCandidates.length > 0) {
+    exploratoryInvestigation = await runExploratoryLoop(
+      page,
+      pageObservation.finalUrl,
+      site.maxExploratoryStepsPerPage,
+      pageCandidates,
       {
-        observation:
-          pageObservation,
-
-        content:
-          pageContent,
-
-        classifiedDiagnostics,
-
-        ruleBasedFindings:
-          findings,
-
-        knownFindings:
-          knownFindingContext
-      },
-      {
-        geminiApiKey:
-          input
-            .dependencies
-            ?.geminiApiKey,
-        model:
-          input
-            .dependencies
-            ?.model,
-        signal:
-          input
-            .dependencies
-            ?.signal,
-        onEvent:
-          input
-            .dependencies
-            ?.onModelRequestEvent
+        plan: input.dependencies?.planNextAction,
+        geminiApiKey: input.dependencies?.geminiApiKey,
+        model: input.dependencies?.model,
+        signal: input.dependencies?.signal,
+        onModelRequestEvent: input.dependencies?.onModelRequestEvent
       }
     );
 
-  const pageFindingLifecycle =
-    reconcileRunPageFindings(
-      findingLifecycle,
-      {
-        pageUrl:
+    const postInvestigationUrl = new URL(page.url());
 
-          pageObservation.finalUrl,
-        pageTitle:
-          pageObservation.title,
-        pageContent,
-        ruleFindings:
-          findings,
-        rawExploratoryQaAnalysis,
-        classifiedDiagnostics,
-        knownFindingPreparation
-      }
-    );
-
-  const {
-    exploratoryQaAnalysis,
-    reconciledPageFindings,
-    pageCandidates
-  } = pageFindingLifecycle;
-
-  const newCandidateFindingsCount =
-    reconciledPageFindings
-      .newFindings
-      .length;
-
-  const pageRedundantInvestigationsSkipped =
-    reconciledPageFindings
-      .knownOccurrenceDrafts
-      .filter(
-        draft =>
-          draft
-            .redundantInvestigationSkipped
-      )
-      .length;
-
-  const redundantInvestigationsSkippedCount =
-    pageRedundantInvestigationsSkipped;
-
-  let exploratoryInvestigation:
-    InspectedPageResult['exploratoryInvestigation'] =
-      null;
-
-  if (
-    !containsPasswordField &&
-    site.maxExploratoryStepsPerPage >
-      0 &&
-    pageCandidates.length >
-      0
-  ) {
-    exploratoryInvestigation =
-      await runExploratoryLoop(
-        page,
-        pageObservation.finalUrl,
-        site.maxExploratoryStepsPerPage,
-        pageCandidates,
-        {
-          plan:
-            input
-              .dependencies
-              ?.planNextAction,
-          geminiApiKey:
-            input
-              .dependencies
-              ?.geminiApiKey,
-          model:
-            input
-              .dependencies
-              ?.model,
-          signal:
-            input
-              .dependencies
-              ?.signal,
-          onModelRequestEvent:
-            input
-              .dependencies
-              ?.onModelRequestEvent
-        }
-      );
-
-    const postInvestigationUrl =
-      new URL(
-        page.url()
-      );
-
-    if (
-      !site.allowedHosts.includes(
-        postInvestigationUrl.hostname
-      )
-    ) {
+    if (!site.allowedHosts.includes(postInvestigationUrl.hostname)) {
       throw new Error(
         `Autonomous investigation escaped to disallowed host "${postInvestigationUrl.hostname}".`
       );
@@ -444,225 +231,119 @@ export async function inspectPage(
    * The same structured result can later be consumed by the
    * CLI, Windows UI, SaaS UI, JSON, or Markdown.
    */
-  const exploratoryFindingResults =
-    pageCandidates.map(
-      candidate => ({
-        candidateReference:
-          candidate.reference,
+  const exploratoryFindingResults = pageCandidates.map(candidate => ({
+    candidateReference: candidate.reference,
 
-        finding:
-          candidate.finding,
+    finding: candidate.finding,
 
-        outcome:
-          evaluateFindingInvestigationOutcome(
-            candidate,
-            exploratoryInvestigation,
-          )
-      })
-    );
+    outcome: evaluateFindingInvestigationOutcome(candidate, exploratoryInvestigation)
+  }));
 
   /*
    * A generic page image does not prove a specific claim. Human-facing
    * screenshots are now captured only for exact focused targets below.
    * Investigation and diagnostic facts remain structured non-visual evidence.
    */
-  const shouldCaptureScreenshot =
-    false;
+  const shouldCaptureScreenshot = false;
 
-  const presentationEvidence:
-    FindingPresentationEvidence[] =
-      [];
+  const presentationEvidence: FindingPresentationEvidence[] = [];
 
-  for (
-    const [
-      candidateIndex,
-      exploratoryFindingResult
-    ] of
-    exploratoryFindingResults.entries()
-  ) {
+  for (const [candidateIndex, exploratoryFindingResult] of exploratoryFindingResults.entries()) {
     const target =
-      exploratoryFindingResult
-        .finding
-        .presentationTarget ??
-      (
-        exploratoryFindingResult
-          .finding
-          .evidenceTarget
-          ?.kind ===
-        'select-option'
-          ? exploratoryFindingResult
-              .finding
-              .evidenceTarget
-          : null
-      );
+      exploratoryFindingResult.finding.presentationTarget ??
+      (exploratoryFindingResult.finding.evidenceTarget?.kind === 'select-option'
+        ? exploratoryFindingResult.finding.evidenceTarget
+        : null);
 
     if (
-      exploratoryFindingResult
-        .outcome
-        .status ===
-        'not-verified' ||
-      target ===
-        null ||
-      target ===
-        undefined
+      exploratoryFindingResult.outcome.status === 'not-verified' ||
+      target === null ||
+      target === undefined
     ) {
       continue;
     }
 
     try {
       const allowObservedStateReplay =
-        target.kind ===
-          'select-option' &&
-        (
-          exploratoryInvestigation
-            ?.steps.some(
-              step =>
-                step.decision
-                  .candidateReference ===
-                  exploratoryFindingResult
-                    .candidateReference &&
-                step.decision
-                  .action.kind ===
-                  'select-option' &&
-                step.decision
-                  .action.optionText ===
-                  target.optionText &&
-                step.executionResult
-                  .status ===
-                  'executed'
-            ) ??
-          false
-        );
-      const focusedEvidence =
-        await captureFindingPresentationEvidence(
-          page,
-          {
-            runId,
-            pageNumber:
-              pageNumber,
-            candidateNumber:
-              candidateIndex +
-              1,
-            target,
-            allowObservedStateReplay,
-            signal:
-              input
-                .dependencies
-                ?.signal
-          }
-        );
+        target.kind === 'select-option' &&
+        (exploratoryInvestigation?.steps.some(
+          step =>
+            step.decision.candidateReference === exploratoryFindingResult.candidateReference &&
+            step.decision.action.kind === 'select-option' &&
+            step.decision.action.optionText === target.optionText &&
+            step.executionResult.status === 'executed'
+        ) ??
+          false);
+      const focusedEvidence = await captureFindingPresentationEvidence(page, {
+        runId,
+        pageNumber: pageNumber,
+        candidateNumber: candidateIndex + 1,
+        target,
+        allowObservedStateReplay,
+        signal: input.dependencies?.signal
+      });
 
-      if (
-        focusedEvidence
-          .totalTargetCount >
-          0
-      ) {
+      if (focusedEvidence.totalTargetCount > 0) {
         presentationEvidence.push({
-          candidateReference:
-            exploratoryFindingResult
-              .candidateReference,
-          pageNumber:
-            pageNumber,
-          pageUrl:
-            pageObservation
-              .finalUrl,
+          candidateReference: exploratoryFindingResult.candidateReference,
+          pageNumber: pageNumber,
+          pageUrl: pageObservation.finalUrl,
           target,
-          screenshotPaths:
-            focusedEvidence
-              .screenshotPaths,
-          totalTargetCount:
-            focusedEvidence
-              .totalTargetCount,
-          shownTargetCount:
-            focusedEvidence
-              .shownTargetCount,
-          replay:
-            focusedEvidence
-              .replay
+          screenshotPaths: focusedEvidence.screenshotPaths,
+          totalTargetCount: focusedEvidence.totalTargetCount,
+          shownTargetCount: focusedEvidence.shownTargetCount,
+          replay: focusedEvidence.replay
         });
       }
-    } catch (
-      error:
-        unknown
-    ) {
-      const normalizedError =
-        normalizeRunCancellation(
-          error,
-          input
-            .dependencies
-            ?.signal,
-          runId,
-          'focused-evidence-screenshot'
-        );
+    } catch (error: unknown) {
+      const normalizedError = normalizeRunCancellation(
+        error,
+        input.dependencies?.signal,
+        runId,
+        'focused-evidence-screenshot'
+      );
 
-      if (
-        normalizedError instanceof
-          CheckQuestError &&
-        normalizedError.code ===
-          'CANCELLED'
-      ) {
+      if (normalizedError instanceof CheckQuestError && normalizedError.code === 'CANCELLED') {
         throw normalizedError;
       }
     }
   }
 
-  let screenshotPath:
-    string | null =
-      null;
+  let screenshotPath: string | null = null;
 
-  if (
-    shouldCaptureScreenshot
-  ) {
-    const screenshot =
-      await capturePageScreenshot(
-        page,
-        runId,
-        pageNumber,
-        input
-          .dependencies
-          ?.signal
-      );
+  if (shouldCaptureScreenshot) {
+    const screenshot = await capturePageScreenshot(
+      page,
+      runId,
+      pageNumber,
+      input.dependencies?.signal
+    );
 
-    screenshotPath =
-      screenshot.filePath;
+    screenshotPath = screenshot.filePath;
   }
 
-  const knownFindingOccurrences =
-    commitRunPageFindings(
-      findingLifecycle,
-      {
-        page:
-          pageFindingLifecycle,
-        pageUrl:
-          pageObservation.finalUrl,
-        pageTitle:
-          pageObservation.title,
-        pageNumber,
-        screenshotPath,
-        exploratoryFindingResults
-      }
-    );
+  const knownFindingOccurrences = commitRunPageFindings(findingLifecycle, {
+    page: pageFindingLifecycle,
+    pageUrl: pageObservation.finalUrl,
+    pageTitle: pageObservation.title,
+    pageNumber,
+    screenshotPath,
+    exploratoryFindingResults
+  });
 
   registerDiscoveredNavigationLinks(
     navigationFrontier,
     discoveredLinks,
-    pageObservation
-      .finalUrl,
+    pageObservation.finalUrl,
     traversalDepth
   );
 
-  markFinalUrlInspected(
-    navigationUrlState,
-    pageObservation
-      .finalUrl
-  );
+  markFinalUrlInspected(navigationUrlState, pageObservation.finalUrl);
 
-  const pageResult:
-    InspectedPageResult = {
+  const pageResult: InspectedPageResult = {
     selection,
 
-    observation:
-      pageObservation,
+    observation: pageObservation,
 
     pageNovelty,
 

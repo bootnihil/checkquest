@@ -3,10 +3,7 @@ import { chromium, type Page } from '@playwright/test';
 import type { AgentAction } from './actions/agent-action-schema';
 import { executeAgentAction } from './browser/execute-agent-action';
 
-async function expectRejected(
-  name: string,
-  operation: () => Promise<unknown>
-): Promise<void> {
+async function expectRejected(name: string, operation: () => Promise<unknown>): Promise<void> {
   try {
     await operation();
     throw new Error(`${name}: expected the action to be rejected.`);
@@ -26,11 +23,7 @@ async function expectRejected(
   }
 }
 
-async function execute(
-  page: Page,
-  name: string,
-  action: AgentAction
-): Promise<void> {
+async function execute(page: Page, name: string, action: AgentAction): Promise<void> {
   const result = await executeAgentAction(page, action);
 
   console.log(`✓ EXECUTED: ${name}`);
@@ -110,9 +103,7 @@ async function main(): Promise<void> {
     const filledValue = await page.locator('#email').inputValue();
 
     if (filledValue !== 'not-an-email') {
-      throw new Error(
-        `Fill check failed. Expected "not-an-email", received "${filledValue}".`
-      );
+      throw new Error(`Fill check failed. Expected "not-an-email", received "${filledValue}".`);
     }
 
     await page.locator('#email').focus();
@@ -127,9 +118,7 @@ async function main(): Promise<void> {
       }
     });
 
-    const activeElementId = await page.evaluate(
-      () => document.activeElement?.id ?? null
-    );
+    const activeElementId = await page.evaluate(() => document.activeElement?.id ?? null);
 
     if (activeElementId === 'email') {
       throw new Error('Blur check failed: Email field still has focus.');
@@ -148,9 +137,7 @@ async function main(): Promise<void> {
     const clearedValue = await page.locator('#email').inputValue();
 
     if (clearedValue !== '') {
-      throw new Error(
-        `Clear check failed. Expected empty value, received "${clearedValue}".`
-      );
+      throw new Error(`Clear check failed. Expected empty value, received "${clearedValue}".`);
     }
 
     await execute(page, 'Select option', {
@@ -167,9 +154,7 @@ async function main(): Promise<void> {
     const selectedCountry = await page.locator('#country').inputValue();
 
     if (selectedCountry !== 'ecuador') {
-      throw new Error(
-        `Select check failed. Expected "ecuador", received "${selectedCountry}".`
-      );
+      throw new Error(`Select check failed. Expected "ecuador", received "${selectedCountry}".`);
     }
 
     await page.evaluate(() => window.scrollTo(0, 0));
@@ -183,9 +168,7 @@ async function main(): Promise<void> {
     const scrollY = await page.evaluate(() => window.scrollY);
 
     if (scrollY <= 0) {
-      throw new Error(
-        `Scroll check failed. Expected scrollY greater than 0, received ${scrollY}.`
-      );
+      throw new Error(`Scroll check failed. Expected scrollY greater than 0, received ${scrollY}.`);
     }
 
     await execute(page, 'Stop exploration', {
@@ -193,37 +176,31 @@ async function main(): Promise<void> {
       reason: 'Synthetic executor check completed.'
     });
 
-    await expectRejected(
-      'Fill unsupported checkbox control',
-      async () => {
-        await executeAgentAction(page, {
-          kind: 'fill-text-field',
-          target: {
-            label: 'Accept terms',
-            name: 'terms',
-            id: 'terms',
-            placeholder: null
-          },
-          value: 'unsafe'
-        });
-      }
-    );
+    await expectRejected('Fill unsupported checkbox control', async () => {
+      await executeAgentAction(page, {
+        kind: 'fill-text-field',
+        target: {
+          label: 'Accept terms',
+          name: 'terms',
+          id: 'terms',
+          placeholder: null
+        },
+        value: 'unsafe'
+      });
+    });
 
-    await expectRejected(
-      'Select nonexistent option',
-      async () => {
-        await executeAgentAction(page, {
-          kind: 'select-option',
-          target: {
-            label: 'Country',
-            name: 'country',
-            id: 'country',
-            placeholder: null
-          },
-          optionText: 'Atlantis'
-        });
-      }
-    );
+    await expectRejected('Select nonexistent option', async () => {
+      await executeAgentAction(page, {
+        kind: 'select-option',
+        target: {
+          label: 'Country',
+          name: 'country',
+          id: 'country',
+          placeholder: null
+        },
+        optionText: 'Atlantis'
+      });
+    });
 
     console.log('\nAll deterministic agent action executor checks passed.');
   } finally {

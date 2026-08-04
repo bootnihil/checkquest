@@ -22,8 +22,7 @@ import {
   normalizeFingerprintText
 } from './finding-fingerprint';
 
-export type KnownFindingReference =
-  `known-${number}`;
+export type KnownFindingReference = `known-${number}`;
 
 export type KnownFindingMatchingBasis =
   | 'initial-finding'
@@ -31,70 +30,53 @@ export type KnownFindingMatchingBasis =
   | 'finding-fingerprint';
 
 export interface KnownFindingOccurrence {
-  knownFindingReference:
-    KnownFindingReference;
+  knownFindingReference: KnownFindingReference;
 
   fingerprint: string;
 
-  representativeFinding:
-    ExploratoryQaFinding;
+  representativeFinding: ExploratoryQaFinding;
 
   pageUrl: string;
 
   pageTitle: string;
 
-  screenshotPath:
-    string | null;
+  screenshotPath: string | null;
 
-  occurrenceEvidence:
-    string[];
+  occurrenceEvidence: string[];
 
-  evidenceTarget:
-    ExploratoryQaFinding['evidenceTarget'];
+  evidenceTarget: ExploratoryQaFinding['evidenceTarget'];
 
-  matchingBases:
-    KnownFindingMatchingBasis[];
+  matchingBases: KnownFindingMatchingBasis[];
 
-  modelKnownFindingReference:
-    string | null;
+  modelKnownFindingReference: string | null;
 
-  modelReferenceMatched:
-    boolean | null;
+  modelReferenceMatched: boolean | null;
 
-  redundantInvestigationSkipped:
-    boolean;
+  redundantInvestigationSkipped: boolean;
 
-  verificationOutcome:
-    FindingInvestigationOutcome | null;
+  verificationOutcome: FindingInvestigationOutcome | null;
 }
 
 export interface KnownFindingEntry {
-  knownFindingReference:
-    KnownFindingReference;
+  knownFindingReference: KnownFindingReference;
 
   fingerprint: string;
 
-  representativeFinding:
-    ExploratoryQaFinding;
+  representativeFinding: ExploratoryQaFinding;
 
-  occurrences:
-    KnownFindingOccurrence[];
+  occurrences: KnownFindingOccurrence[];
 
-  affectedPageUrls:
-    Set<string>;
+  affectedPageUrls: Set<string>;
 
-  effectiveVerificationStatus:
-    FindingInvestigationStatus;
+  effectiveVerificationStatus: FindingInvestigationStatus;
 
   updatedSequence: number;
 }
 
 export interface KnownFindingState {
-  entriesByFingerprint:
-    Map<string, KnownFindingEntry>;
+  entriesByFingerprint: Map<string, KnownFindingEntry>;
 
-  entriesByReference:
-    Map<KnownFindingReference, KnownFindingEntry>;
+  entriesByReference: Map<KnownFindingReference, KnownFindingEntry>;
 
   nextReferenceNumber: number;
 
@@ -105,483 +87,271 @@ export interface KnownFindingState {
    * The legacy derivation remains only for isolated Stage 3 compatibility
    * checks that construct this state without a unified registry.
    */
-  verificationStatusProjection?:
-    (
-      fingerprint:
-        string
-    ) =>
-      FindingInvestigationStatus |
-      null;
+  verificationStatusProjection?: (fingerprint: string) => FindingInvestigationStatus | null;
 }
 
 export interface KnownFindingPromptContext {
-  knownFindingReference:
-    KnownFindingReference;
+  knownFindingReference: KnownFindingReference;
 
   title: string;
 
-  category:
-    ExploratoryQaFinding['category'];
+  category: ExploratoryQaFinding['category'];
 
-  severity:
-    ExploratoryQaFinding['severity'];
+  severity: ExploratoryQaFinding['severity'];
 
-  verificationStatus:
-    FindingInvestigationStatus;
+  verificationStatus: FindingInvestigationStatus;
 
-  evidenceTarget:
-    ExploratoryQaFinding['evidenceTarget'];
+  evidenceTarget: ExploratoryQaFinding['evidenceTarget'];
 
   affectedPageCount: number;
 }
 
 export interface KnownFindingOccurrenceDraft {
-  knownFindingReference:
-    KnownFindingReference;
+  knownFindingReference: KnownFindingReference;
 
   fingerprint: string;
 
-  finding:
-    ExploratoryQaFinding;
+  finding: ExploratoryQaFinding;
 
-  occurrenceEvidence:
-    string[];
+  occurrenceEvidence: string[];
 
-  evidenceTarget:
-    ExploratoryQaFinding['evidenceTarget'];
+  evidenceTarget: ExploratoryQaFinding['evidenceTarget'];
 
-  matchingBases:
-    KnownFindingMatchingBasis[];
+  matchingBases: KnownFindingMatchingBasis[];
 
-  modelKnownFindingReference:
-    string | null;
+  modelKnownFindingReference: string | null;
 
-  modelReferenceMatched:
-    boolean | null;
+  modelReferenceMatched: boolean | null;
 
-  redundantInvestigationSkipped:
-    boolean;
+  redundantInvestigationSkipped: boolean;
 
-  reinvestigationEligible:
-    boolean;
+  reinvestigationEligible: boolean;
 }
 
 export interface ReinvestigationFinding {
   fingerprint: string;
 
-  finding:
-    ExploratoryQaFinding;
+  finding: ExploratoryQaFinding;
 }
 
 export interface ReconciledPageFindings {
-  newFindings:
-    ExploratoryQaFinding[];
+  newFindings: ExploratoryQaFinding[];
 
-  knownOccurrenceDrafts:
-    KnownFindingOccurrenceDraft[];
+  knownOccurrenceDrafts: KnownFindingOccurrenceDraft[];
 
-  reinvestigationFindings:
-    ReinvestigationFinding[];
+  reinvestigationFindings: ReinvestigationFinding[];
 }
 
-const knownFindingContextLimit =
-  20;
+const knownFindingContextLimit = 20;
 
 export function createKnownFindingState(
-  verificationStatusProjection?:
-    KnownFindingState[
-      'verificationStatusProjection'
-    ]
-):
-  KnownFindingState {
+  verificationStatusProjection?: KnownFindingState['verificationStatusProjection']
+): KnownFindingState {
   return {
-    entriesByFingerprint:
-      new Map(),
+    entriesByFingerprint: new Map(),
 
-    entriesByReference:
-      new Map(),
+    entriesByReference: new Map(),
 
-    nextReferenceNumber:
-      1,
+    nextReferenceNumber: 1,
 
-    nextSequence:
-      1,
+    nextSequence: 1,
 
     verificationStatusProjection
   };
 }
 
-export function getKnownFindingEntries(
-  state: KnownFindingState
-): KnownFindingEntry[] {
-  return Array.from(
-    state
-      .entriesByFingerprint
-      .values()
-  );
+export function getKnownFindingEntries(state: KnownFindingState): KnownFindingEntry[] {
+  return Array.from(state.entriesByFingerprint.values());
 }
 
 export function buildKnownFindingPromptContext(
   state: KnownFindingState,
-  relevantFingerprints:
-    Iterable<string> = []
+  relevantFingerprints: Iterable<string> = []
 ): KnownFindingPromptContext[] {
-  const relevant =
-    new Set(
-      relevantFingerprints
-    );
+  const relevant = new Set(relevantFingerprints);
 
   const severityPriority = {
-    high:
-      3,
-    medium:
-      2,
-    low:
-      1
+    high: 3,
+    medium: 2,
+    low: 1
   } as const;
 
-  return getKnownFindingEntries(
-    state
-  )
-    .sort(
-      (
-        left,
-        right
-      ) => {
-        const relevanceDifference =
-          Number(
-            relevant.has(
-              right.fingerprint
-            )
-          ) -
-          Number(
-            relevant.has(
-              left.fingerprint
-            )
-          );
+  return getKnownFindingEntries(state)
+    .sort((left, right) => {
+      const relevanceDifference =
+        Number(relevant.has(right.fingerprint)) - Number(relevant.has(left.fingerprint));
 
-        if (
-          relevanceDifference !==
-          0
-        ) {
-          return relevanceDifference;
-        }
-
-        const severityDifference =
-          severityPriority[
-            right
-              .representativeFinding
-              .severity
-          ] -
-          severityPriority[
-            left
-              .representativeFinding
-              .severity
-          ];
-
-        if (
-          severityDifference !==
-          0
-        ) {
-          return severityDifference;
-        }
-
-        return (
-          right.updatedSequence -
-          left.updatedSequence
-        );
+      if (relevanceDifference !== 0) {
+        return relevanceDifference;
       }
-    )
-    .slice(
-      0,
-      knownFindingContextLimit
-    )
-    .map(
-      entry => ({
-        knownFindingReference:
-          entry
-            .knownFindingReference,
 
-        title:
-          entry
-            .representativeFinding
-            .title,
+      const severityDifference =
+        severityPriority[right.representativeFinding.severity] -
+        severityPriority[left.representativeFinding.severity];
 
-        category:
-          entry
-            .representativeFinding
-            .category,
+      if (severityDifference !== 0) {
+        return severityDifference;
+      }
 
-        severity:
-          entry
-            .representativeFinding
-            .severity,
+      return right.updatedSequence - left.updatedSequence;
+    })
+    .slice(0, knownFindingContextLimit)
+    .map(entry => ({
+      knownFindingReference: entry.knownFindingReference,
 
-        verificationStatus:
-          entry
-            .effectiveVerificationStatus,
+      title: entry.representativeFinding.title,
 
-        evidenceTarget:
-          entry
-            .representativeFinding
-            .evidenceTarget,
+      category: entry.representativeFinding.category,
 
-        affectedPageCount:
-          entry
-            .affectedPageUrls
-            .size
-      })
-    );
+      severity: entry.representativeFinding.severity,
+
+      verificationStatus: entry.effectiveVerificationStatus,
+
+      evidenceTarget: entry.representativeFinding.evidenceTarget,
+
+      affectedPageCount: entry.affectedPageUrls.size
+    }));
 }
 
 export function detectStructuredKnownFindingOccurrences(
   state: KnownFindingState,
   content: ExtractedPageContent
 ): KnownFindingOccurrenceDraft[] {
-  const detected:
-    KnownFindingOccurrenceDraft[] = [];
+  const detected: KnownFindingOccurrenceDraft[] = [];
 
-  for (
-    const entry of
-      getKnownFindingEntries(
-        state
-      )
-  ) {
-    const knownTarget =
-      entry
-        .representativeFinding
-        .evidenceTarget;
+  for (const entry of getKnownFindingEntries(state)) {
+    const knownTarget = entry.representativeFinding.evidenceTarget;
 
-    if (
-      knownTarget ===
-      null
-    ) {
+    if (knownTarget === null) {
       continue;
     }
 
-    if (
-      knownTarget.kind ===
-      'select-option'
-    ) {
-      const match =
-        findSelectOptionMatch(
-          entry.fingerprint,
-          knownTarget,
-          content.selects
-        );
+    if (knownTarget.kind === 'select-option') {
+      const match = findSelectOptionMatch(entry.fingerprint, knownTarget, content.selects);
 
       if (match === null) {
         continue;
       }
 
-      const currentTarget:
-        SelectOptionEvidenceTarget = {
-        kind:
-          'select-option',
+      const currentTarget: SelectOptionEvidenceTarget = {
+        kind: 'select-option',
 
-        controlLabel:
-          match.select.label,
+        controlLabel: match.select.label,
 
-        controlName:
-          match.select.name,
+        controlName: match.select.name,
 
-        controlId:
-          match.select.id,
+        controlId: match.select.id,
 
-        optionText:
-          match.optionText
+        optionText: match.optionText
       };
 
-      const isVerified =
-        entry
-          .effectiveVerificationStatus ===
-        'verified';
+      const isVerified = entry.effectiveVerificationStatus === 'verified';
 
       detected.push({
-        knownFindingReference:
-          entry
-            .knownFindingReference,
+        knownFindingReference: entry.knownFindingReference,
 
-        fingerprint:
-          entry.fingerprint,
+        fingerprint: entry.fingerprint,
 
         finding: {
-          ...entry
-            .representativeFinding,
+          ...entry.representativeFinding,
 
-          knownFindingReference:
-            entry
-              .knownFindingReference,
+          knownFindingReference: entry.knownFindingReference,
 
-          evidenceTarget:
-            currentTarget
+          evidenceTarget: currentTarget
         },
 
         occurrenceEvidence: [
           `Current structured page evidence contains option "${match.optionText}" in the matched select control.`
         ],
 
-        evidenceTarget:
-          currentTarget,
+        evidenceTarget: currentTarget,
 
-        matchingBases: [
-          'structured-target'
-        ],
+        matchingBases: ['structured-target'],
 
-        modelKnownFindingReference:
-          null,
+        modelKnownFindingReference: null,
 
-        modelReferenceMatched:
-          null,
+        modelReferenceMatched: null,
 
-        redundantInvestigationSkipped:
-          isVerified,
+        redundantInvestigationSkipped: isVerified,
 
-        reinvestigationEligible:
-          !isVerified &&
-          !match.select.disabled
+        reinvestigationEligible: !isVerified && !match.select.disabled
       });
 
       continue;
     }
 
-    if (
-      knownTarget.kind ===
-      'tab-state'
-    ) {
-      const match =
-        findTabMatch(
-          entry.fingerprint,
-          knownTarget,
-          content.tabs
-        );
+    if (knownTarget.kind === 'tab-state') {
+      const match = findTabMatch(entry.fingerprint, knownTarget, content.tabs);
 
       if (match === null) {
         continue;
       }
 
-      const currentTarget:
-        TabStateEvidenceTarget = {
+      const currentTarget: TabStateEvidenceTarget = {
         kind: 'tab-state',
-        controlId:
-          match.control.controlId!,
-        accessibleName:
-          match.control
-            .accessibleName!,
-        tabListId:
-          match.control.tabListId!,
-        controlledPanelId:
-          match.control
-            .ariaControls!,
+        controlId: match.control.controlId!,
+        accessibleName: match.control.accessibleName!,
+        tabListId: match.control.tabListId!,
+        controlledPanelId: match.control.ariaControls!,
         desiredState: 'selected'
       };
-      const isVerified =
-        entry
-          .effectiveVerificationStatus ===
-        'verified';
+      const isVerified = entry.effectiveVerificationStatus === 'verified';
 
       detected.push({
-        knownFindingReference:
-          entry.knownFindingReference,
-        fingerprint:
-          entry.fingerprint,
+        knownFindingReference: entry.knownFindingReference,
+        fingerprint: entry.fingerprint,
         finding: {
-          ...entry
-            .representativeFinding,
-          knownFindingReference:
-            entry
-              .knownFindingReference,
-          evidenceTarget:
-            currentTarget
+          ...entry.representativeFinding,
+          knownFindingReference: entry.knownFindingReference,
+          evidenceTarget: currentTarget
         },
         occurrenceEvidence: [
           `Current structured page evidence contains eligible tab "${currentTarget.accessibleName}" controlling panel "${currentTarget.controlledPanelId}" in tablist "${currentTarget.tabListId}".`
         ],
-        evidenceTarget:
-          currentTarget,
-        matchingBases: [
-          'structured-target'
-        ],
-        modelKnownFindingReference:
-          null,
-        modelReferenceMatched:
-          null,
-        redundantInvestigationSkipped:
-          isVerified,
-        reinvestigationEligible:
-          !isVerified &&
-          match.control
-            .eligibleForTabAction
+        evidenceTarget: currentTarget,
+        matchingBases: ['structured-target'],
+        modelKnownFindingReference: null,
+        modelReferenceMatched: null,
+        redundantInvestigationSkipped: isVerified,
+        reinvestigationEligible: !isVerified && match.control.eligibleForTabAction
       });
 
       continue;
     }
 
-    const match =
-      findDisclosureMatch(
-        entry.fingerprint,
-        knownTarget,
-        content.disclosures
-      );
+    const match = findDisclosureMatch(entry.fingerprint, knownTarget, content.disclosures);
 
     if (match === null) {
       continue;
     }
 
-    const currentTarget:
-      DisclosureStateEvidenceTarget = {
-      kind:
-        'disclosure-state',
-      controlId:
-        match.control.controlId!,
-      accessibleName:
-        match.control
-          .accessibleName!,
-      controlledRegionId:
-        match.control
-          .ariaControls!,
-      desiredState:
-        knownTarget.desiredState
+    const currentTarget: DisclosureStateEvidenceTarget = {
+      kind: 'disclosure-state',
+      controlId: match.control.controlId!,
+      accessibleName: match.control.accessibleName!,
+      controlledRegionId: match.control.ariaControls!,
+      desiredState: knownTarget.desiredState
     };
 
-    const isVerified =
-      entry
-        .effectiveVerificationStatus ===
-      'verified';
+    const isVerified = entry.effectiveVerificationStatus === 'verified';
 
     detected.push({
-      knownFindingReference:
-        entry
-          .knownFindingReference,
-      fingerprint:
-        entry.fingerprint,
+      knownFindingReference: entry.knownFindingReference,
+      fingerprint: entry.fingerprint,
       finding: {
-        ...entry
-          .representativeFinding,
-        knownFindingReference:
-          entry
-            .knownFindingReference,
-        evidenceTarget:
-          currentTarget
+        ...entry.representativeFinding,
+        knownFindingReference: entry.knownFindingReference,
+        evidenceTarget: currentTarget
       },
       occurrenceEvidence: [
         `Current structured page evidence contains eligible disclosure "${currentTarget.accessibleName}" controlling "${currentTarget.controlledRegionId}".`
       ],
-      evidenceTarget:
-        currentTarget,
-      matchingBases: [
-        'structured-target'
-      ],
-      modelKnownFindingReference:
-        null,
-      modelReferenceMatched:
-        null,
-      redundantInvestigationSkipped:
-        isVerified,
-      reinvestigationEligible:
-        !isVerified &&
-        match.control
-          .eligibleForDisclosureAction
+      evidenceTarget: currentTarget,
+      matchingBases: ['structured-target'],
+      modelKnownFindingReference: null,
+      modelReferenceMatched: null,
+      redundantInvestigationSkipped: isVerified,
+      reinvestigationEligible: !isVerified && match.control.eligibleForDisclosureAction
     });
   }
 
@@ -590,65 +360,32 @@ export function detectStructuredKnownFindingOccurrences(
 
 export function reconcilePageFindings(
   state: KnownFindingState,
-  geminiFindings:
-    ExploratoryQaFinding[],
-  deterministicDrafts:
-    KnownFindingOccurrenceDraft[]
+  geminiFindings: ExploratoryQaFinding[],
+  deterministicDrafts: KnownFindingOccurrenceDraft[]
 ): ReconciledPageFindings {
-  const knownDraftsByFingerprint =
-    new Map<
-      string,
-      KnownFindingOccurrenceDraft
-    >(
-      deterministicDrafts.map(
-        draft => [
-          draft.fingerprint,
-          draft
-        ]
-      )
-    );
+  const knownDraftsByFingerprint = new Map<string, KnownFindingOccurrenceDraft>(
+    deterministicDrafts.map(draft => [draft.fingerprint, draft])
+  );
 
-  const newFindings:
-    ExploratoryQaFinding[] = [];
+  const newFindings: ExploratoryQaFinding[] = [];
 
-  for (
-    const modelFinding of
-      geminiFindings
-  ) {
+  for (const modelFinding of geminiFindings) {
     if (
-      modelFinding.evidenceTarget ===
-        null &&
-      (
-        modelFinding.structuredIdentity ===
-          null ||
-        modelFinding.structuredIdentity ===
-          undefined
-      )
+      modelFinding.evidenceTarget === null &&
+      (modelFinding.structuredIdentity === null || modelFinding.structuredIdentity === undefined)
     ) {
       newFindings.push({
         ...modelFinding,
-        knownFindingReference:
-          null
+        knownFindingReference: null
       });
       continue;
     }
 
-    const fingerprint =
-      createExploratoryFindingFingerprint(
-        modelFinding
-      );
+    const fingerprint = createExploratoryFindingFingerprint(modelFinding);
 
-    const knownEntry =
-      state
-        .entriesByFingerprint
-        .get(
-          fingerprint
-        );
+    const knownEntry = state.entriesByFingerprint.get(fingerprint);
 
-    if (
-      knownEntry ===
-      undefined
-    ) {
+    if (knownEntry === undefined) {
       newFindings.push({
         ...modelFinding,
 
@@ -657,135 +394,68 @@ export function reconcilePageFindings(
          * distinct finding known. Clear the advisory value so it
          * cannot leak into later page-local identity handling.
          */
-        knownFindingReference:
-          null
+        knownFindingReference: null
       });
 
       continue;
     }
 
-    const suppliedReference =
-      modelFinding
-        .knownFindingReference ??
-      null;
+    const suppliedReference = modelFinding.knownFindingReference ?? null;
 
-    const existingDraft =
-      knownDraftsByFingerprint
-        .get(
-          fingerprint
-        );
+    const existingDraft = knownDraftsByFingerprint.get(fingerprint);
 
-    const isVerified =
-      knownEntry
-        .effectiveVerificationStatus ===
-      'verified';
+    const isVerified = knownEntry.effectiveVerificationStatus === 'verified';
 
-    if (
-      existingDraft !==
-      undefined
-    ) {
-      addUnique(
-        existingDraft
-          .occurrenceEvidence,
-        modelFinding.evidence
-      );
+    if (existingDraft !== undefined) {
+      addUnique(existingDraft.occurrenceEvidence, modelFinding.evidence);
 
-      addUnique(
-        existingDraft
-          .matchingBases,
-        'finding-fingerprint'
-      );
+      addUnique(existingDraft.matchingBases, 'finding-fingerprint');
 
-      existingDraft
-        .modelKnownFindingReference =
-          suppliedReference;
+      existingDraft.modelKnownFindingReference = suppliedReference;
 
-      existingDraft
-        .modelReferenceMatched =
-          suppliedReference ===
-            null
-            ? null
-            : suppliedReference ===
-              knownEntry
-                .knownFindingReference;
+      existingDraft.modelReferenceMatched =
+        suppliedReference === null ? null : suppliedReference === knownEntry.knownFindingReference;
 
       continue;
     }
 
-    knownDraftsByFingerprint.set(
+    knownDraftsByFingerprint.set(fingerprint, {
+      knownFindingReference: knownEntry.knownFindingReference,
+
       fingerprint,
-      {
-        knownFindingReference:
-          knownEntry
-            .knownFindingReference,
 
-        fingerprint,
+      finding: {
+        ...modelFinding,
 
-        finding: {
-          ...modelFinding,
+        knownFindingReference: knownEntry.knownFindingReference
+      },
 
-          knownFindingReference:
-            knownEntry
-              .knownFindingReference
-        },
+      occurrenceEvidence: [modelFinding.evidence],
 
-        occurrenceEvidence: [
-          modelFinding.evidence
-        ],
+      evidenceTarget: modelFinding.evidenceTarget,
 
-        evidenceTarget:
-          modelFinding
-            .evidenceTarget,
+      matchingBases: ['finding-fingerprint'],
 
-        matchingBases: [
-          'finding-fingerprint'
-        ],
+      modelKnownFindingReference: suppliedReference,
 
-        modelKnownFindingReference:
-          suppliedReference,
+      modelReferenceMatched:
+        suppliedReference === null ? null : suppliedReference === knownEntry.knownFindingReference,
 
-        modelReferenceMatched:
-          suppliedReference ===
-            null
-            ? null
-            : suppliedReference ===
-              knownEntry
-                .knownFindingReference,
+      redundantInvestigationSkipped: isVerified,
 
-        redundantInvestigationSkipped:
-          isVerified,
-
-        reinvestigationEligible:
-          !isVerified &&
-          modelFinding
-            .evidenceTarget !==
-            null
-      }
-    );
+      reinvestigationEligible: !isVerified && modelFinding.evidenceTarget !== null
+    });
   }
 
-  const knownOccurrenceDrafts =
-    Array.from(
-      knownDraftsByFingerprint
-        .values()
-    );
+  const knownOccurrenceDrafts = Array.from(knownDraftsByFingerprint.values());
 
-  const reinvestigationFindings =
-    knownOccurrenceDrafts
-      .filter(
-        draft =>
-          draft
-            .reinvestigationEligible
-      )
-      .map(
-        draft => ({
-          fingerprint:
-            draft.fingerprint,
+  const reinvestigationFindings = knownOccurrenceDrafts
+    .filter(draft => draft.reinvestigationEligible)
+    .map(draft => ({
+      fingerprint: draft.fingerprint,
 
-          finding:
-            draft.finding
-        })
-      );
+      finding: draft.finding
+    }));
 
   return {
     newFindings,
@@ -811,202 +481,107 @@ export function registerKnownFindingOccurrence(
     verificationOutcome: FindingInvestigationOutcome | null;
   }
 ): KnownFindingOccurrence {
-  let entry =
-    state
-      .entriesByFingerprint
-      .get(
-        input.fingerprint
-      );
+  let entry = state.entriesByFingerprint.get(input.fingerprint);
 
-  if (
-    entry ===
-    undefined
-  ) {
-    const knownFindingReference:
-      KnownFindingReference =
-        `known-${state.nextReferenceNumber}`;
+  if (entry === undefined) {
+    const knownFindingReference: KnownFindingReference = `known-${state.nextReferenceNumber}`;
 
-    state.nextReferenceNumber +=
-      1;
+    state.nextReferenceNumber += 1;
 
     entry = {
       knownFindingReference,
 
-      fingerprint:
-        input.fingerprint,
+      fingerprint: input.fingerprint,
 
       representativeFinding: {
         ...input.finding,
 
-        knownFindingReference:
-          knownFindingReference
+        knownFindingReference: knownFindingReference
       },
 
       occurrences: [],
 
-      affectedPageUrls:
-        new Set(),
+      affectedPageUrls: new Set(),
 
-      effectiveVerificationStatus:
-        'inconclusive',
+      effectiveVerificationStatus: 'inconclusive',
 
-      updatedSequence:
-        state.nextSequence
+      updatedSequence: state.nextSequence
     };
 
-    state.nextSequence +=
-      1;
+    state.nextSequence += 1;
 
-    state
-      .entriesByFingerprint
-      .set(
-        input.fingerprint,
-        entry
-      );
+    state.entriesByFingerprint.set(input.fingerprint, entry);
 
-    state
-      .entriesByReference
-      .set(
-        knownFindingReference,
-        entry
-      );
+    state.entriesByReference.set(knownFindingReference, entry);
   }
 
-  const existingOccurrence =
-    entry
-      .occurrences
-      .find(
-        occurrence =>
-          occurrence.pageUrl ===
-          input.pageUrl
-      );
+  const existingOccurrence = entry.occurrences.find(
+    occurrence => occurrence.pageUrl === input.pageUrl
+  );
 
-  if (
-    existingOccurrence !==
-    undefined
-  ) {
-    for (
-      const evidence of
-        input.occurrenceEvidence
-    ) {
-      addUnique(
-        existingOccurrence
-          .occurrenceEvidence,
-        evidence
-      );
+  if (existingOccurrence !== undefined) {
+    for (const evidence of input.occurrenceEvidence) {
+      addUnique(existingOccurrence.occurrenceEvidence, evidence);
     }
 
-    for (
-      const matchingBasis of
-        input.matchingBases
-    ) {
-      addUnique(
-        existingOccurrence
-          .matchingBases,
-        matchingBasis
-      );
+    for (const matchingBasis of input.matchingBases) {
+      addUnique(existingOccurrence.matchingBases, matchingBasis);
     }
 
-    existingOccurrence.screenshotPath =
-      input.screenshotPath ??
-      existingOccurrence
-        .screenshotPath;
+    existingOccurrence.screenshotPath = input.screenshotPath ?? existingOccurrence.screenshotPath;
 
-    existingOccurrence.evidenceTarget =
-      input.evidenceTarget ??
-      existingOccurrence
-        .evidenceTarget;
+    existingOccurrence.evidenceTarget = input.evidenceTarget ?? existingOccurrence.evidenceTarget;
 
     existingOccurrence.modelKnownFindingReference =
-      input.modelKnownFindingReference ??
-      existingOccurrence
-        .modelKnownFindingReference;
+      input.modelKnownFindingReference ?? existingOccurrence.modelKnownFindingReference;
 
     existingOccurrence.modelReferenceMatched =
-      input.modelReferenceMatched ??
-      existingOccurrence
-        .modelReferenceMatched;
+      input.modelReferenceMatched ?? existingOccurrence.modelReferenceMatched;
 
     existingOccurrence.redundantInvestigationSkipped =
-      existingOccurrence
-        .redundantInvestigationSkipped &&
-      input
-        .redundantInvestigationSkipped;
+      existingOccurrence.redundantInvestigationSkipped && input.redundantInvestigationSkipped;
 
     existingOccurrence.verificationOutcome =
-      input.verificationOutcome ??
-      existingOccurrence
-        .verificationOutcome;
+      input.verificationOutcome ?? existingOccurrence.verificationOutcome;
 
-    updateKnownFindingEntry(
-      state,
-      entry
-    );
+    updateKnownFindingEntry(state, entry);
 
     return existingOccurrence;
   }
 
-  const occurrence:
-    KnownFindingOccurrence = {
-    knownFindingReference:
-      entry
-        .knownFindingReference,
+  const occurrence: KnownFindingOccurrence = {
+    knownFindingReference: entry.knownFindingReference,
 
-    fingerprint:
-      input.fingerprint,
+    fingerprint: input.fingerprint,
 
-    representativeFinding:
-      entry
-        .representativeFinding,
+    representativeFinding: entry.representativeFinding,
 
-    pageUrl:
-      input.pageUrl,
+    pageUrl: input.pageUrl,
 
-    pageTitle:
-      input.pageTitle,
+    pageTitle: input.pageTitle,
 
-    screenshotPath:
-      input.screenshotPath,
+    screenshotPath: input.screenshotPath,
 
-    occurrenceEvidence: [
-      ...input.occurrenceEvidence
-    ],
+    occurrenceEvidence: [...input.occurrenceEvidence],
 
-    evidenceTarget:
-      input.evidenceTarget,
+    evidenceTarget: input.evidenceTarget,
 
-    matchingBases: [
-      ...input.matchingBases
-    ],
+    matchingBases: [...input.matchingBases],
 
-    modelKnownFindingReference:
-      input.modelKnownFindingReference,
+    modelKnownFindingReference: input.modelKnownFindingReference,
 
-    modelReferenceMatched:
-      input.modelReferenceMatched,
+    modelReferenceMatched: input.modelReferenceMatched,
 
-    redundantInvestigationSkipped:
-      input
-        .redundantInvestigationSkipped,
+    redundantInvestigationSkipped: input.redundantInvestigationSkipped,
 
-    verificationOutcome:
-      input.verificationOutcome
+    verificationOutcome: input.verificationOutcome
   };
 
-  entry.occurrences.push(
-    occurrence
-  );
+  entry.occurrences.push(occurrence);
 
-  entry
-    .affectedPageUrls
-    .add(
-      input.pageUrl
-    );
+  entry.affectedPageUrls.add(input.pageUrl);
 
-  updateKnownFindingEntry(
-    state,
-    entry
-  );
+  updateKnownFindingEntry(state, entry);
 
   return occurrence;
 }
@@ -1022,112 +597,65 @@ export function registerNewFinding(
     verificationOutcome: FindingInvestigationOutcome;
   }
 ): KnownFindingOccurrence {
-  return registerKnownFindingOccurrence(
-    state,
-    {
-      fingerprint:
-        input.fingerprint ??
-        createExploratoryFindingFingerprint(
-          input.finding
-        ),
+  return registerKnownFindingOccurrence(state, {
+    fingerprint: input.fingerprint ?? createExploratoryFindingFingerprint(input.finding),
 
-      finding:
-        input.finding,
+    finding: input.finding,
 
-      pageUrl:
-        input.pageUrl,
+    pageUrl: input.pageUrl,
 
-      pageTitle:
-        input.pageTitle,
+    pageTitle: input.pageTitle,
 
-      screenshotPath:
-        input.screenshotPath,
+    screenshotPath: input.screenshotPath,
 
-      occurrenceEvidence: [
-        input.finding.evidence
-      ],
+    occurrenceEvidence: [input.finding.evidence],
 
-      evidenceTarget:
-        input.finding
-          .evidenceTarget,
+    evidenceTarget: input.finding.evidenceTarget,
 
-      matchingBases: [
-        'initial-finding'
-      ],
+    matchingBases: ['initial-finding'],
 
-      modelKnownFindingReference:
-        input.finding
-          .knownFindingReference ??
-        null,
+    modelKnownFindingReference: input.finding.knownFindingReference ?? null,
 
-      modelReferenceMatched:
-        null,
+    modelReferenceMatched: null,
 
-      redundantInvestigationSkipped:
-        false,
+    redundantInvestigationSkipped: false,
 
-      verificationOutcome:
-        input.verificationOutcome
-    }
-  );
+    verificationOutcome: input.verificationOutcome
+  });
 }
 
 function findSelectOptionMatch(
   knownFingerprint: string,
-  knownTarget:
-    SelectOptionEvidenceTarget,
-  selects:
-    PageSelectControl[]
+  knownTarget: SelectOptionEvidenceTarget,
+  selects: PageSelectControl[]
 ): {
   select: PageSelectControl;
   optionText: string;
 } | null {
-  for (
-    const select of selects
-  ) {
-    for (
-      const option of
-        select.options
-    ) {
+  for (const select of selects) {
+    for (const option of select.options) {
       if (
-        normalizeFingerprintText(
-          option.text
-        ) !==
-        normalizeFingerprintText(
-          knownTarget.optionText
-        )
+        normalizeFingerprintText(option.text) !== normalizeFingerprintText(knownTarget.optionText)
       ) {
         continue;
       }
 
-      const currentTarget:
-        SelectOptionEvidenceTarget = {
-        kind:
-          'select-option',
+      const currentTarget: SelectOptionEvidenceTarget = {
+        kind: 'select-option',
 
-        controlLabel:
-          select.label,
+        controlLabel: select.label,
 
-        controlName:
-          select.name,
+        controlName: select.name,
 
-        controlId:
-          select.id,
+        controlId: select.id,
 
-        optionText:
-          option.text
+        optionText: option.text
       };
 
-      if (
-        createSelectOptionTargetFingerprint(
-          currentTarget
-        ) ===
-        knownFingerprint
-      ) {
+      if (createSelectOptionTargetFingerprint(currentTarget) === knownFingerprint) {
         return {
           select,
-          optionText:
-            option.text
+          optionText: option.text
         };
       }
     }
@@ -1138,49 +666,30 @@ function findSelectOptionMatch(
 
 function findDisclosureMatch(
   knownFingerprint: string,
-  knownTarget:
-    DisclosureStateEvidenceTarget,
-  disclosures:
-    PageDisclosureControl[]
+  knownTarget: DisclosureStateEvidenceTarget,
+  disclosures: PageDisclosureControl[]
 ): {
-  control:
-    PageDisclosureControl;
+  control: PageDisclosureControl;
 } | null {
-  for (
-    const control of
-      disclosures
-  ) {
+  for (const control of disclosures) {
     if (
-      !control
-        .eligibleForDisclosureAction ||
+      !control.eligibleForDisclosureAction ||
       control.controlId === null ||
-      control.accessibleName ===
-        null ||
-      control.ariaControls ===
-        null
+      control.accessibleName === null ||
+      control.ariaControls === null
     ) {
       continue;
     }
 
-    const currentTarget:
-      DisclosureStateEvidenceTarget = {
-      kind:
-        'disclosure-state',
-      controlId:
-        control.controlId,
-      accessibleName:
-        control.accessibleName,
-      controlledRegionId:
-        control.ariaControls,
-      desiredState:
-        knownTarget.desiredState
+    const currentTarget: DisclosureStateEvidenceTarget = {
+      kind: 'disclosure-state',
+      controlId: control.controlId,
+      accessibleName: control.accessibleName,
+      controlledRegionId: control.ariaControls,
+      desiredState: knownTarget.desiredState
     };
 
-    if (
-      createDisclosureStateTargetFingerprint(
-        currentTarget
-      ) === knownFingerprint
-    ) {
+    if (createDisclosureStateTargetFingerprint(currentTarget) === knownFingerprint) {
       return {
         control
       };
@@ -1192,48 +701,32 @@ function findDisclosureMatch(
 
 function findTabMatch(
   knownFingerprint: string,
-  knownTarget:
-    TabStateEvidenceTarget,
-  tabs:
-    PageTabControl[]
+  knownTarget: TabStateEvidenceTarget,
+  tabs: PageTabControl[]
 ): {
-  control:
-    PageTabControl;
+  control: PageTabControl;
 } | null {
   for (const control of tabs) {
     if (
-      !control
-        .eligibleForTabAction ||
+      !control.eligibleForTabAction ||
       control.controlId === null ||
-      control.accessibleName ===
-        null ||
+      control.accessibleName === null ||
       control.tabListId === null ||
-      control.ariaControls ===
-        null
+      control.ariaControls === null
     ) {
       continue;
     }
 
-    const currentTarget:
-      TabStateEvidenceTarget = {
+    const currentTarget: TabStateEvidenceTarget = {
       kind: 'tab-state',
-      controlId:
-        control.controlId,
-      accessibleName:
-        control.accessibleName,
-      tabListId:
-        control.tabListId,
-      controlledPanelId:
-        control.ariaControls,
-      desiredState:
-        knownTarget.desiredState
+      controlId: control.controlId,
+      accessibleName: control.accessibleName,
+      tabListId: control.tabListId,
+      controlledPanelId: control.ariaControls,
+      desiredState: knownTarget.desiredState
     };
 
-    if (
-      createTabStateTargetFingerprint(
-        currentTarget
-      ) === knownFingerprint
-    ) {
+    if (createTabStateTargetFingerprint(currentTarget) === knownFingerprint) {
       return {
         control
       };
@@ -1243,85 +736,39 @@ function findTabMatch(
   return null;
 }
 
-function updateKnownFindingEntry(
-  state: KnownFindingState,
-  entry: KnownFindingEntry
-): void {
-  if (
-    state
-      .verificationStatusProjection !==
-    undefined
-  ) {
+function updateKnownFindingEntry(state: KnownFindingState, entry: KnownFindingEntry): void {
+  if (state.verificationStatusProjection !== undefined) {
     entry.effectiveVerificationStatus =
-      state
-        .verificationStatusProjection(
-          entry.fingerprint
-        ) ??
-      'inconclusive';
+      state.verificationStatusProjection(entry.fingerprint) ?? 'inconclusive';
   } else {
-    entry.effectiveVerificationStatus =
-      getEffectiveVerificationStatus(
-        entry.occurrences
-      );
+    entry.effectiveVerificationStatus = getEffectiveVerificationStatus(entry.occurrences);
   }
 
-  entry.updatedSequence =
-    state.nextSequence;
+  entry.updatedSequence = state.nextSequence;
 
-  state.nextSequence +=
-    1;
+  state.nextSequence += 1;
 }
 
 function getEffectiveVerificationStatus(
-  occurrences:
-    KnownFindingOccurrence[]
+  occurrences: KnownFindingOccurrence[]
 ): FindingInvestigationStatus {
-  const statuses =
-    occurrences
-      .map(
-        occurrence =>
-          occurrence
-            .verificationOutcome
-            ?.status
-      )
-      .filter(
-        (
-          status
-        ): status is FindingInvestigationStatus =>
-          status !==
-          undefined
-      );
+  const statuses = occurrences
+    .map(occurrence => occurrence.verificationOutcome?.status)
+    .filter((status): status is FindingInvestigationStatus => status !== undefined);
 
-  if (
-    statuses.includes(
-      'verified'
-    )
-  ) {
+  if (statuses.includes('verified')) {
     return 'verified';
   }
 
-  if (
-    statuses.includes(
-      'not-verified'
-    )
-  ) {
+  if (statuses.includes('not-verified')) {
     return 'not-verified';
   }
 
   return 'inconclusive';
 }
 
-function addUnique<T>(
-  values: T[],
-  value: T
-): void {
-  if (
-    !values.includes(
-      value
-    )
-  ) {
-    values.push(
-      value
-    );
+function addUnique<T>(values: T[], value: T): void {
+  if (!values.includes(value)) {
+    values.push(value);
   }
 }

@@ -1,21 +1,15 @@
 import { chromium } from '@playwright/test';
 import { inspectNavigation } from './browser/inspect-navigation';
 import { chooseNavigationLink } from './decisions/choose-navigation-link';
-import {
-  resolveGeminiApiKey
-} from './ai/resolve-gemini-api-key';
-import {
-  createPageNoveltyState
-} from './exploration/page-novelty';
+import { resolveGeminiApiKey } from './ai/resolve-gemini-api-key';
+import { createPageNoveltyState } from './exploration/page-novelty';
 import {
   buildNavigationPolicyWindow,
   createNavigationBudgetContext,
   createNavigationFrontier,
   registerDiscoveredNavigationLinks
 } from './exploration/navigation-policy';
-import {
-  createNavigationUrlState
-} from './exploration/visited-links';
+import { createNavigationUrlState } from './exploration/visited-links';
 import { getSiteConfig } from './sites';
 
 async function main(): Promise<void> {
@@ -33,54 +27,26 @@ async function main(): Promise<void> {
       waitUntil: 'domcontentloaded'
     });
 
-    const navigationLinks = await inspectNavigation(
-      page,
-      site.allowedHosts
-    );
+    const navigationLinks = await inspectNavigation(page, site.allowedHosts);
 
-    console.log(
-      `Safe navigation candidates found: ${navigationLinks.length}`
-    );
+    console.log(`Safe navigation candidates found: ${navigationLinks.length}`);
 
-    const frontier =
-      createNavigationFrontier();
+    const frontier = createNavigationFrontier();
 
-    registerDiscoveredNavigationLinks(
+    registerDiscoveredNavigationLinks(frontier, navigationLinks, page.url(), 0);
+
+    const budget = createNavigationBudgetContext(site.maxPages, 1, site.maxAgentSteps, 0);
+
+    const policyWindow = buildNavigationPolicyWindow({
       frontier,
-      navigationLinks,
-      page.url(),
-      0
-    );
+      urlState: createNavigationUrlState(),
+      pageNoveltyState: createPageNoveltyState(),
+      budget
+    });
 
-    const budget =
-      createNavigationBudgetContext(
-        site.maxPages,
-        1,
-        site.maxAgentSteps,
-        0
-      );
-
-    const policyWindow =
-      buildNavigationPolicyWindow({
-        frontier,
-        urlState:
-          createNavigationUrlState(),
-        pageNoveltyState:
-          createPageNoveltyState(),
-        budget
-      });
-
-    const decision = await chooseNavigationLink(
-      site,
-      policyWindow.candidates,
-      budget,
-      {
-        geminiApiKey:
-          resolveGeminiApiKey(
-            process.env
-          )
-      }
-    );
+    const decision = await chooseNavigationLink(site, policyWindow.candidates, budget, {
+      geminiApiKey: resolveGeminiApiKey(process.env)
+    });
 
     if (decision.type === 'finish') {
       console.log('\nAgent decision: FINISH');

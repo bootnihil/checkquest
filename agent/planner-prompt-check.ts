@@ -1,257 +1,183 @@
-import {
-  buildPlannerPrompt
-} from './planning/build-planner-prompt';
+import { buildPlannerPrompt } from './planning/build-planner-prompt';
 
 function main(): void {
-  const prompt =
-    buildPlannerPrompt({
-      pageUrl:
-        'https://example.com/contact',
+  const prompt = buildPlannerPrompt({
+    pageUrl: 'https://example.com/contact',
 
-      currentStep:
-        2,
+    currentStep: 2,
 
-      maxSteps:
-        6,
+    maxSteps: 6,
 
-      history: [
-        {
-          step:
-            1,
+    history: [
+      {
+        step: 1,
 
-          action: {
-            kind:
-              'select-option',
+        action: {
+          kind: 'select-option',
 
-            target: {
-              label:
-                'Country',
+          target: {
+            label: 'Country',
 
-              name:
-                'country',
+            name: 'country',
 
-              id:
-                'country',
+            id: 'country',
 
-              placeholder:
-                null
-            },
-
-            optionText:
-              'Equador'
+            placeholder: null
           },
 
-          candidateReference:
-            'candidate-1',
+          optionText: 'Equador'
+        },
 
-          result:
-            'Selected option "Equador" from the approved Country select.'
-        }
-      ],
+        candidateReference: 'candidate-1',
 
-      investigableCandidates: [
-        {
-          reference:
-            'candidate-1',
+        result: 'Selected option "Equador" from the approved Country select.'
+      }
+    ],
 
-          finding: {
-          category:
-            'content',
+    investigableCandidates: [
+      {
+        reference: 'candidate-1',
 
-          severity:
-            'low',
+        finding: {
+          category: 'content',
 
-          confidence:
-            'high',
+          severity: 'low',
 
-          title:
-            'Possible typo in country selection list',
+          confidence: 'high',
 
-          evidence:
-            'The Country select contains both Ecuador and Equador.',
+          title: 'Possible typo in country selection list',
+
+          evidence: 'The Country select contains both Ecuador and Equador.',
 
           reasoning:
             'Equador appears to be a misspelling of Ecuador and both values are present in the same country list.',
 
-          suggestedCheck:
-            'Verify whether Equador is a genuinely selectable option.',
+          suggestedCheck: 'Verify whether Equador is a genuinely selectable option.',
 
           evidenceTarget: {
-            kind:
-              'select-option',
+            kind: 'select-option',
 
-            controlLabel:
-              'Country',
+            controlLabel: 'Country',
 
-            controlName:
-              'country',
+            controlName: 'country',
 
-            controlId:
-              'country',
+            controlId: 'country',
 
-            optionText:
-              'Equador'
+            optionText: 'Equador'
           }
-          }
+        }
+      }
+    ],
+
+    pageContent: {
+      title: 'Contact Us',
+
+      headings: ['Contact Us', 'Request a Demo'],
+
+      bodyText: 'Request a Demo Work Email Country Please Select Ecuador Egypt Zimbabwe Equador',
+
+      links: [],
+
+      buttons: ['Submit'],
+
+      textFields: [
+        {
+          tagName: 'input',
+
+          inputType: 'email',
+
+          label: 'Work Email',
+
+          name: 'email',
+
+          id: 'email',
+
+          placeholder: 'Enter your work email',
+
+          required: true,
+
+          disabled: false,
+
+          readOnly: false,
+
+          value: '',
+
+          valid: false,
+
+          validationMessage: 'Please fill out this field.',
+
+          ariaInvalid: null
         }
       ],
 
-      pageContent: {
-        title:
-          'Contact Us',
+      selects: [
+        {
+          label: 'Country',
 
-        headings: [
-          'Contact Us',
-          'Request a Demo'
-        ],
+          name: 'country',
 
-        bodyText:
-          'Request a Demo Work Email Country Please Select Ecuador Egypt Zimbabwe Equador',
+          id: 'country',
 
-        links:
-          [],
+          required: true,
 
-        buttons: [
-          'Submit'
-        ],
+          disabled: false,
 
-        textFields: [
-          {
-            tagName:
-              'input',
+          totalOptions: 260,
 
-            inputType:
-              'email',
+          optionsTruncated: true,
 
-            label:
-              'Work Email',
+          options: [
+            {
+              text: 'Please Select',
 
-            name:
-              'email',
+              value: '',
 
-            id:
-              'email',
+              selected: true
+            },
 
-            placeholder:
-              'Enter your work email',
+            {
+              text: 'Ecuador',
 
-            required:
-              true,
+              value: 'Ecuador',
 
-            disabled:
-              false,
+              selected: false
+            },
 
-            readOnly:
-              false,
+            {
+              text: 'Egypt',
 
-            value:
-              '',
+              value: 'Egypt',
 
-            valid:
-              false,
+              selected: false
+            },
 
-            validationMessage:
-              'Please fill out this field.',
+            {
+              text: 'Zimbabwe',
 
-            ariaInvalid:
-              null
-          }
-        ],
+              value: 'Zimbabwe',
 
-        selects: [
-          {
-            label:
-              'Country',
+              selected: false
+            },
 
-            name:
-              'country',
+            {
+              text: 'Equador',
 
-            id:
-              'country',
+              value: 'Equador',
 
-            required:
-              true,
+              selected: false
+            }
+          ]
+        }
+      ],
 
-            disabled:
-              false,
+      disclosures: [],
+      tabs: []
+    }
+  });
 
-            totalOptions:
-              260,
+  console.log('Generated exploratory planner prompt:\n');
 
-            optionsTruncated:
-              true,
-
-            options: [
-              {
-                text:
-                  'Please Select',
-
-                value:
-                  '',
-
-                selected:
-                  true
-              },
-
-              {
-                text:
-                  'Ecuador',
-
-                value:
-                  'Ecuador',
-
-                selected:
-                  false
-              },
-
-              {
-                text:
-                  'Egypt',
-
-                value:
-                  'Egypt',
-
-                selected:
-                  false
-              },
-
-              {
-                text:
-                  'Zimbabwe',
-
-                value:
-                  'Zimbabwe',
-
-                selected:
-                  false
-              },
-
-              {
-                text:
-                  'Equador',
-
-                value:
-                  'Equador',
-
-                selected:
-                  false
-              }
-            ]
-          }
-        ],
-
-        disclosures: [],
-        tabs: []
-      }
-    });
-
-  console.log(
-    'Generated exploratory planner prompt:\n'
-  );
-
-  console.log(
-    prompt
-  );
+  console.log(prompt);
 
   /*
    * These checks intentionally focus on capabilities,
@@ -338,18 +264,9 @@ function main(): void {
     'If candidate findings exist but no permitted action can meaningfully investigate them, did you choose stop?'
   ];
 
-  for (
-    const fragment of
-      requiredFragments
-  ) {
-    if (
-      !prompt.includes(
-        fragment
-      )
-    ) {
-      throw new Error(
-        `Planner prompt is missing expected policy or evidence: ${fragment}`
-      );
+  for (const fragment of requiredFragments) {
+    if (!prompt.includes(fragment)) {
+      throw new Error(`Planner prompt is missing expected policy or evidence: ${fragment}`);
     }
   }
 
@@ -365,57 +282,31 @@ function main(): void {
     '"kind": "download-file"'
   ];
 
-  for (
-    const forbiddenAction of
-      forbiddenActionShapes
-  ) {
-    if (
-      prompt.includes(
-        forbiddenAction
-      )
-    ) {
-      throw new Error(
-        `Planner prompt must not expose forbidden action: ${forbiddenAction}`
-      );
+  for (const forbiddenAction of forbiddenActionShapes) {
+    if (prompt.includes(forbiddenAction)) {
+      throw new Error(`Planner prompt must not expose forbidden action: ${forbiddenAction}`);
     }
   }
 
-  if (
-    prompt.includes(
-      'a second planner step may choose "Ecuador"'
-    )
-  ) {
+  if (prompt.includes('a second planner step may choose "Ecuador"')) {
     throw new Error(
       'Planner prompt must not recommend a comparison option outside the candidate evidence target.'
     );
   }
 
-  console.log(
-    '\nAll exploratory planner prompt checks passed.'
-  );
+  console.log('\nAll exploratory planner prompt checks passed.');
 }
 
 try {
   main();
-} catch (
-  error: unknown
-) {
-  console.error(
-    '\nExploratory planner prompt check failed.'
-  );
+} catch (error: unknown) {
+  console.error('\nExploratory planner prompt check failed.');
 
-  if (
-    error instanceof Error
-  ) {
-    console.error(
-      error.message
-    );
+  if (error instanceof Error) {
+    console.error(error.message);
   } else {
-    console.error(
-      error
-    );
+    console.error(error);
   }
 
-  process.exitCode =
-    1;
+  process.exitCode = 1;
 }

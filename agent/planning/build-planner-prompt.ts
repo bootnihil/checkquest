@@ -1,14 +1,8 @@
-import type {
-  AgentAction
-} from '../actions/agent-action-schema';
+import type { AgentAction } from '../actions/agent-action-schema';
 
-import type {
-  InvestigablePageCandidate
-} from '../investigation/page-candidates';
+import type { InvestigablePageCandidate } from '../investigation/page-candidates';
 
-import type {
-  ExtractedPageContent
-} from '../browser/extract-page-content';
+import type { ExtractedPageContent } from '../browser/extract-page-content';
 
 export interface PlannerHistoryEntry {
   step: number;
@@ -20,17 +14,13 @@ export interface PlannerHistoryEntry {
 export interface BuildPlannerPromptInput {
   pageUrl: string;
 
-  pageContent:
-    ExtractedPageContent;
+  pageContent: ExtractedPageContent;
 
-  history:
-    PlannerHistoryEntry[];
+  history: PlannerHistoryEntry[];
 
-  currentStep:
-    number;
+  currentStep: number;
 
-  maxSteps:
-    number;
+  maxSteps: number;
 
   /**
    * Candidate QA findings produced by the separate exploratory analysis
@@ -38,8 +28,7 @@ export interface BuildPlannerPromptInput {
    *
    * These are investigation leads, not automatically confirmed defects.
    */
-  investigableCandidates:
-    InvestigablePageCandidate[];
+  investigableCandidates: InvestigablePageCandidate[];
 }
 
 /**
@@ -48,117 +37,66 @@ export interface BuildPlannerPromptInput {
  * The planner may decide what is worth investigating, but it may request
  * only one action from the constrained AgentAction vocabulary.
  */
-export function buildPlannerPrompt(
-  input:
-    BuildPlannerPromptInput
-): string {
-  const {
-    pageUrl,
-    pageContent,
-    history,
-    currentStep,
-    maxSteps,
-    investigableCandidates
-  } =
-    input;
+export function buildPlannerPrompt(input: BuildPlannerPromptInput): string {
+  const { pageUrl, pageContent, history, currentStep, maxSteps, investigableCandidates } = input;
 
-  const remainingSteps =
-    Math.max(
-      0,
-      maxSteps - currentStep
-    );
+  const remainingSteps = Math.max(0, maxSteps - currentStep);
 
   const plannerEvidence = {
     pageUrl,
 
     page: {
-      title:
-        pageContent.title,
+      title: pageContent.title,
 
-      headings:
-        pageContent.headings.slice(
-          0,
-          20
-        ),
+      headings: pageContent.headings.slice(0, 20),
 
-      bodyText:
-        pageContent.bodyText.slice(
-          0,
-          4_000
-        ),
+      bodyText: pageContent.bodyText.slice(0, 4_000),
 
-      buttons:
-        pageContent.buttons.slice(
-          0,
-          30
-        ),
+      buttons: pageContent.buttons.slice(0, 30),
 
-      textFields:
-        pageContent.textFields,
+      textFields: pageContent.textFields,
 
-      selects:
-        pageContent.selects,
+      selects: pageContent.selects,
 
-      disclosures:
-        pageContent.disclosures,
+      disclosures: pageContent.disclosures,
 
-      tabs:
-        pageContent.tabs
+      tabs: pageContent.tabs
     },
 
-    investigableCandidates:
-      investigableCandidates.map(
-        candidate => ({
-          candidateReference:
-            candidate.reference,
+    investigableCandidates: investigableCandidates.map(candidate => ({
+      candidateReference: candidate.reference,
 
-          category:
-            candidate.finding.category,
+      category: candidate.finding.category,
 
-          severity:
-            candidate.finding.severity,
+      severity: candidate.finding.severity,
 
-          confidence:
-            candidate.finding.confidence,
+      confidence: candidate.finding.confidence,
 
-          title:
-            candidate.finding.title,
+      title: candidate.finding.title,
 
-          evidence:
-            candidate.finding.evidence,
+      evidence: candidate.finding.evidence,
 
-          reasoning:
-            candidate.finding.reasoning,
+      reasoning: candidate.finding.reasoning,
 
-          suggestedCheck:
-            candidate.finding.suggestedCheck,
+      suggestedCheck: candidate.finding.suggestedCheck,
 
-          evidenceTarget:
-            candidate.finding.evidenceTarget
-        })
-      ),
+      evidenceTarget: candidate.finding.evidenceTarget
+    })),
 
     exploration: {
       currentStep,
       maxSteps,
       remainingSteps,
 
-      previousActions:
-        history.map(
-          entry => ({
-            step:
-              entry.step,
+      previousActions: history.map(entry => ({
+        step: entry.step,
 
-            action:
-              entry.action,
+        action: entry.action,
 
-            candidateReference:
-              entry.candidateReference,
+        candidateReference: entry.candidateReference,
 
-            result:
-              entry.result
-          })
-        )
+        result: entry.result
+      }))
     }
   };
 
@@ -636,10 +574,6 @@ Do not include commentary outside the JSON.
 CURRENT BROWSER EVIDENCE
 ==================================================
 
-${JSON.stringify(
-  plannerEvidence,
-  null,
-  2
-)}
+${JSON.stringify(plannerEvidence, null, 2)}
 `.trim();
 }

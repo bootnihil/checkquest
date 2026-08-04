@@ -8,9 +8,7 @@ async function main(): Promise<void> {
   const requestedIndex = Number.parseInt(process.argv[3] ?? '1', 10);
 
   if (!Number.isInteger(requestedIndex) || requestedIndex < 0) {
-    throw new Error(
-      `Link index must be a non-negative integer. Received: "${process.argv[3]}".`
-    );
+    throw new Error(`Link index must be a non-negative integer. Received: "${process.argv[3]}".`);
   }
 
   const site = getSiteConfig(siteId);
@@ -26,10 +24,7 @@ async function main(): Promise<void> {
       waitUntil: 'domcontentloaded'
     });
 
-    const navigationLinks = await inspectNavigation(
-      page,
-      site.allowedHosts
-    );
+    const navigationLinks = await inspectNavigation(page, site.allowedHosts);
 
     const selectedLink = navigationLinks[requestedIndex];
 
@@ -44,11 +39,7 @@ async function main(): Promise<void> {
     console.log(`Text: ${selectedLink.text}`);
     console.log(`URL: ${selectedLink.url}`);
 
-    const observation = await visitApprovedLink(
-      page,
-      selectedLink,
-      site.allowedHosts
-    );
+    const observation = await visitApprovedLink(page, selectedLink, site.allowedHosts);
 
     console.log('\nVisited page observation:');
     console.log(JSON.stringify(observation, null, 2));

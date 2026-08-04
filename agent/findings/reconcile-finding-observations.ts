@@ -1,8 +1,6 @@
 import type { ExploratoryQaFinding } from '../analysis/exploratory-qa-schema';
 import type { PageFinding } from '../analysis/evaluate-page';
-import type {
-  ExtractedPageContent
-} from '../browser/extract-page-content';
+import type { ExtractedPageContent } from '../browser/extract-page-content';
 import {
   createDisclosureStateTargetFingerprint,
   createExploratoryFindingFingerprint,
@@ -11,19 +9,12 @@ import {
   normalizeFingerprintText,
   validateStructuredIdentity
 } from '../investigation/finding-fingerprint';
-import {
-  adaptExploratoryQaFinding,
-  adaptPageFinding
-} from './current-finding-adapters';
+import { adaptExploratoryQaFinding, adaptPageFinding } from './current-finding-adapters';
 import {
   deriveLogicalFindingVerification,
   deriveOccurrenceVerification
 } from './derive-verification-state';
-import type {
-  FindingEvidence,
-  FindingOccurrence,
-  UnifiedFinding
-} from './finding-model';
+import type { FindingEvidence, FindingOccurrence, UnifiedFinding } from './finding-model';
 
 export type FindingObservationMatchingBasis =
   | 'same-page-rule'
@@ -73,9 +64,7 @@ interface FindingGroup {
   modelPresentationApplied: boolean;
 }
 
-export function createRuleFindingFingerprint(
-  finding: PageFinding
-): string {
+export function createRuleFindingFingerprint(finding: PageFinding): string {
   return `rule|${finding.code}`;
 }
 
@@ -90,13 +79,8 @@ function evidenceIdentity(evidence: FindingEvidence): string {
   });
 }
 
-function mergeEvidence(
-  target: FindingOccurrence,
-  incomingEvidence: FindingEvidence[]
-): void {
-  const knownEvidence = new Set(
-    target.evidence.map(evidenceIdentity)
-  );
+function mergeEvidence(target: FindingOccurrence, incomingEvidence: FindingEvidence[]): void {
+  const knownEvidence = new Set(target.evidence.map(evidenceIdentity));
 
   for (const evidence of incomingEvidence) {
     const identity = evidenceIdentity(evidence);
@@ -107,41 +91,27 @@ function mergeEvidence(
     }
   }
 
-  target.verification =
-    deriveOccurrenceVerification(target.evidence);
+  target.verification = deriveOccurrenceVerification(target.evidence);
 }
 
-function refreshLogicalVerification(
-  finding: UnifiedFinding
-): void {
-  finding.verification =
-    deriveLogicalFindingVerification(
-      finding.occurrences
-    );
+function refreshLogicalVerification(finding: UnifiedFinding): void {
+  finding.verification = deriveLogicalFindingVerification(finding.occurrences);
 }
 
-function targetIdentity(
-  target: FindingOccurrence['target']
-): string {
+function targetIdentity(target: FindingOccurrence['target']): string {
   if (target === null) {
     return 'target|null';
   }
 
   switch (target.kind) {
     case 'select-option':
-      return createSelectOptionTargetFingerprint(
-        target
-      );
+      return createSelectOptionTargetFingerprint(target);
 
     case 'disclosure-state':
-      return createDisclosureStateTargetFingerprint(
-        target
-      );
+      return createDisclosureStateTargetFingerprint(target);
 
     case 'tab-state':
-      return createTabStateTargetFingerprint(
-        target
-      );
+      return createTabStateTargetFingerprint(target);
   }
 }
 
@@ -149,45 +119,26 @@ function mergeOccurrence(
   targetFinding: UnifiedFinding,
   incomingOccurrence: FindingOccurrence
 ): void {
-  const existingOccurrence =
-    targetFinding.occurrences.find(
-      occurrence =>
-        occurrence.pageUrl ===
-          incomingOccurrence.pageUrl &&
-        targetIdentity(occurrence.target) ===
-          targetIdentity(
-            incomingOccurrence.target
-          )
-    );
+  const existingOccurrence = targetFinding.occurrences.find(
+    occurrence =>
+      occurrence.pageUrl === incomingOccurrence.pageUrl &&
+      targetIdentity(occurrence.target) === targetIdentity(incomingOccurrence.target)
+  );
 
   if (existingOccurrence) {
-    mergeEvidence(
-      existingOccurrence,
-      incomingOccurrence.evidence
-    );
+    mergeEvidence(existingOccurrence, incomingOccurrence.evidence);
 
-    const screenshotReferences =
-      new Set(
-        existingOccurrence
-          .screenshotReferences
-      );
+    const screenshotReferences = new Set(existingOccurrence.screenshotReferences);
 
-    for (
-      const reference of
-      incomingOccurrence.screenshotReferences
-    ) {
+    for (const reference of incomingOccurrence.screenshotReferences) {
       if (!screenshotReferences.has(reference)) {
-        existingOccurrence
-          .screenshotReferences
-          .push(reference);
+        existingOccurrence.screenshotReferences.push(reference);
 
         screenshotReferences.add(reference);
       }
     }
   } else {
-    targetFinding.occurrences.push(
-      incomingOccurrence
-    );
+    targetFinding.occurrences.push(incomingOccurrence);
   }
 
   refreshLogicalVerification(targetFinding);
@@ -200,35 +151,24 @@ function mergeRuleFinding(
   pageTitle: string,
   screenshotReferences: string[]
 ): void {
-  const fingerprint =
-    createRuleFindingFingerprint(finding);
+  const fingerprint = createRuleFindingFingerprint(finding);
 
-  const adapted = adaptPageFinding(
-    finding,
-    {
-      findingReference:
-        `finding-${ruleIndex + 1}`,
+  const adapted = adaptPageFinding(finding, {
+    findingReference: `finding-${ruleIndex + 1}`,
 
-      fingerprint,
+    fingerprint,
 
-      occurrenceReference:
-        `occurrence-${ruleIndex + 1}`,
+    occurrenceReference: `occurrence-${ruleIndex + 1}`,
 
-      pageTitle,
-      screenshotReferences
-    }
-  );
+    pageTitle,
+    screenshotReferences
+  });
 
   const existing = groups.get(fingerprint);
 
   if (existing) {
-    for (
-      const occurrence of adapted.occurrences
-    ) {
-      mergeOccurrence(
-        existing.finding,
-        occurrence
-      );
+    for (const occurrence of adapted.occurrences) {
+      mergeOccurrence(existing.finding, occurrence);
     }
 
     return;
@@ -240,24 +180,14 @@ function mergeRuleFinding(
   });
 }
 
-function applyModelPresentation(
-  target: UnifiedFinding,
-  modelFinding: ExploratoryQaFinding
-): void {
+function applyModelPresentation(target: UnifiedFinding, modelFinding: ExploratoryQaFinding): void {
   if (target.description.length === 0) {
-    target.description =
-      modelFinding.reasoning;
-  } else if (
-    !target.description.includes(
-      modelFinding.reasoning
-    )
-  ) {
-    target.description =
-      `${target.description} Model observation: ${modelFinding.reasoning}`;
+    target.description = modelFinding.reasoning;
+  } else if (!target.description.includes(modelFinding.reasoning)) {
+    target.description = `${target.description} Model observation: ${modelFinding.reasoning}`;
   }
 
-  target.suggestedCheck ??=
-    modelFinding.suggestedCheck;
+  target.suggestedCheck ??= modelFinding.suggestedCheck;
 }
 
 function hasExactRuleAssertionIdentity(
@@ -275,56 +205,27 @@ function hasExactRuleAssertionIdentity(
    */
   return (
     modelFinding.evidenceTarget === null &&
-    (
-      modelFinding.structuredIdentity ===
-        null ||
-      modelFinding.structuredIdentity ===
-        undefined
-    ) &&
-    normalizeFingerprintText(
-      modelFinding.title
-    ) ===
-      normalizeFingerprintText(
-        ruleFinding.title
-      ) &&
-    normalizeFingerprintText(
-      modelFinding.evidence
-    ) ===
-      normalizeFingerprintText(
-        ruleFinding.evidence
-      )
+    (modelFinding.structuredIdentity === null || modelFinding.structuredIdentity === undefined) &&
+    normalizeFingerprintText(modelFinding.title) === normalizeFingerprintText(ruleFinding.title) &&
+    normalizeFingerprintText(modelFinding.evidence) ===
+      normalizeFingerprintText(ruleFinding.evidence)
   );
 }
 
 function canonicalizeStructuredObservation(
-  finding:
-    ExploratoryQaFinding,
-  content:
-    ExtractedPageContent | undefined
+  finding: ExploratoryQaFinding,
+  content: ExtractedPageContent | undefined
 ): ExploratoryQaFinding {
-  const identity =
-    finding.structuredIdentity ??
-    null;
+  const identity = finding.structuredIdentity ?? null;
 
-  if (
-    identity ===
-      null
-  ) {
+  if (identity === null) {
     return finding;
   }
 
-  if (
-    content ===
-      undefined ||
-    !validateStructuredIdentity(
-      identity,
-      content
-    )
-  ) {
+  if (content === undefined || !validateStructuredIdentity(identity, content)) {
     return {
       ...finding,
-      structuredIdentity:
-        null
+      structuredIdentity: null
     };
   }
 
@@ -335,264 +236,149 @@ function canonicalizeStructuredObservation(
    * stable identity.
    */
   if (
-    finding.category ===
-      'accessibility' &&
-    finding
-      .accessibilityDefectBasis !==
-      null &&
-    finding
-      .accessibilityDefectBasis !==
-      undefined
+    finding.category === 'accessibility' &&
+    finding.accessibilityDefectBasis !== null &&
+    finding.accessibilityDefectBasis !== undefined
   ) {
     return finding;
   }
 
-  const subject =
-    `${identity.subject.controlType} control with id "${identity.subject.controlId}"`;
-  const mechanismTitle =
-    identity.mechanism
-      .split(
-        '-'
-      )
-      .join(
-        ' '
-      );
+  const subject = `${identity.subject.controlType} control with id "${identity.subject.controlId}"`;
+  const mechanismTitle = identity.mechanism.split('-').join(' ');
 
   return {
     ...finding,
-    title:
-      `${mechanismTitle.charAt(0).toUpperCase()}${mechanismTitle.slice(1)} in ${identity.subject.controlType} accessible name`,
-    evidence:
-      `The ${subject} has the accessible name "${identity.observedValue}".`,
+    title: `${mechanismTitle.charAt(0).toUpperCase()}${mechanismTitle.slice(1)} in ${identity.subject.controlType} accessible name`,
+    evidence: `The ${subject} has the accessible name "${identity.observedValue}".`,
     reasoning:
-      identity.mechanism ===
-        'unresolved-token'
+      identity.mechanism === 'unresolved-token'
         ? 'People using assistive technology may hear the unresolved token instead of a meaningful control name.'
         : finding.reasoning,
-    suggestedCheck:
-      `Review the accessible-name source for the ${subject} and confirm that "${identity.observedValue}" is the intended name.`
+    suggestedCheck: `Review the accessible-name source for the ${subject} and confirm that "${identity.observedValue}" is the intended name.`
   };
 }
 
 export function reconcileFindingObservations(
   input: ReconcileFindingObservationsInput
 ): ReconciledPageFindingObservations {
-  const screenshotReferences =
-    input.screenshotReferences ?? [];
+  const screenshotReferences = input.screenshotReferences ?? [];
 
-  const groups =
-    new Map<string, FindingGroup>();
+  const groups = new Map<string, FindingGroup>();
 
   const samePageRulesByCode = new Map(
-    input.ruleFindings.map(
-      finding => [
-        finding.code,
-        finding
-      ] as const
-    )
+    input.ruleFindings.map(finding => [finding.code, finding] as const)
   );
 
-  input.ruleFindings.forEach(
-    (finding, index) => {
-      mergeRuleFinding(
-        groups,
-        finding,
-        index,
-        input.pageTitle,
-        screenshotReferences
-      );
-    }
-  );
+  input.ruleFindings.forEach((finding, index) => {
+    mergeRuleFinding(groups, finding, index, input.pageTitle, screenshotReferences);
+  });
 
-  const candidateFindings:
-    ExploratoryQaFinding[] = [];
+  const candidateFindings: ExploratoryQaFinding[] = [];
 
-  const candidateFingerprints =
-    new Set<string>();
-  const orderedCandidateFingerprints:
-    string[] = [];
+  const candidateFingerprints = new Set<string>();
+  const orderedCandidateFingerprints: string[] = [];
 
-  const modelReconciliations:
-    ModelObservationReconciliation[] = [];
+  const modelReconciliations: ModelObservationReconciliation[] = [];
 
-  input.modelFindings.forEach(
-    (modelFinding, index) => {
-      const canonicalFinding =
-        canonicalizeStructuredObservation(
-          modelFinding,
-          input.pageContent
-        );
-      const requestedRuleCode =
-        canonicalFinding.relatedRuleCode ?? null;
+  input.modelFindings.forEach((modelFinding, index) => {
+    const canonicalFinding = canonicalizeStructuredObservation(modelFinding, input.pageContent);
+    const requestedRuleCode = canonicalFinding.relatedRuleCode ?? null;
 
-      const requestedRule =
-        requestedRuleCode === null
-          ? undefined
-          : samePageRulesByCode.get(
-              requestedRuleCode
-            );
+    const requestedRule =
+      requestedRuleCode === null ? undefined : samePageRulesByCode.get(requestedRuleCode);
 
-      const acceptedRelatedRuleCode =
-        requestedRule !== undefined &&
-        hasExactRuleAssertionIdentity(
-          requestedRule,
-          canonicalFinding
-        )
-          ? requestedRuleCode
-          : null;
+    const acceptedRelatedRuleCode =
+      requestedRule !== undefined && hasExactRuleAssertionIdentity(requestedRule, canonicalFinding)
+        ? requestedRuleCode
+        : null;
 
-      const fingerprint =
-        acceptedRelatedRuleCode === null
-          ? createExploratoryFindingFingerprint(
-              canonicalFinding,
-              input.pageContent,
-              `${input.pageUrl}|model-${index + 1}`
-            )
-          : `rule|${acceptedRelatedRuleCode}`;
+    const fingerprint =
+      acceptedRelatedRuleCode === null
+        ? createExploratoryFindingFingerprint(
+            canonicalFinding,
+            input.pageContent,
+            `${input.pageUrl}|model-${index + 1}`
+          )
+        : `rule|${acceptedRelatedRuleCode}`;
 
-      const matchingBasis:
-        FindingObservationMatchingBasis =
-          acceptedRelatedRuleCode !== null
-            ? 'same-page-rule'
-            : canonicalFinding.evidenceTarget !==
-                  null &&
-                canonicalFinding.evidenceTarget !==
-                  undefined
-              ? 'structured-target'
-              : canonicalFinding.structuredIdentity !==
-                    null &&
-                  canonicalFinding.structuredIdentity !==
-                    undefined &&
-                  createExploratoryFindingFingerprint(
-                    canonicalFinding,
-                    input.pageContent
-                  ).startsWith(
-                    'identity|'
-                  )
-                ? 'structured-identity'
-              : 'fallback-fingerprint';
+    const matchingBasis: FindingObservationMatchingBasis =
+      acceptedRelatedRuleCode !== null
+        ? 'same-page-rule'
+        : canonicalFinding.evidenceTarget !== null && canonicalFinding.evidenceTarget !== undefined
+          ? 'structured-target'
+          : canonicalFinding.structuredIdentity !== null &&
+              canonicalFinding.structuredIdentity !== undefined &&
+              createExploratoryFindingFingerprint(canonicalFinding, input.pageContent).startsWith(
+                'identity|'
+              )
+            ? 'structured-identity'
+            : 'fallback-fingerprint';
 
-      const adapted =
-        adaptExploratoryQaFinding(
-          canonicalFinding,
-          {
-            findingReference:
-              `finding-${
-                input.ruleFindings.length +
-                index +
-                1
-              }`,
+    const adapted = adaptExploratoryQaFinding(canonicalFinding, {
+      findingReference: `finding-${input.ruleFindings.length + index + 1}`,
 
-            fingerprint,
+      fingerprint,
 
-            occurrenceReference:
-              `occurrence-${
-                input.ruleFindings.length +
-                index +
-                1
-              }`,
+      occurrenceReference: `occurrence-${input.ruleFindings.length + index + 1}`,
 
-            pageUrl:
-              input.pageUrl,
+      pageUrl: input.pageUrl,
 
-            pageTitle:
-              input.pageTitle,
+      pageTitle: input.pageTitle,
 
-            screenshotReferences
-          }
-        );
+      screenshotReferences
+    });
 
-      const existing =
-        groups.get(fingerprint);
+    const existing = groups.get(fingerprint);
 
-      if (existing) {
-        for (
-          const occurrence of
-          adapted.occurrences
-        ) {
-          mergeOccurrence(
-            existing.finding,
-            occurrence
-          );
-        }
-
-        if (
-          !existing.modelPresentationApplied
-        ) {
-          applyModelPresentation(
-            existing.finding,
-            canonicalFinding
-          );
-
-          existing.modelPresentationApplied =
-            true;
-        }
-      } else {
-        groups.set(fingerprint, {
-          finding: adapted,
-          modelPresentationApplied: true
-        });
+    if (existing) {
+      for (const occurrence of adapted.occurrences) {
+        mergeOccurrence(existing.finding, occurrence);
       }
 
-      if (
-        !candidateFingerprints.has(
-          fingerprint
-        )
-      ) {
-        candidateFindings.push(
-          canonicalFinding
-        );
-        orderedCandidateFingerprints
-          .push(
-            fingerprint
-          );
-        candidateFingerprints.add(
-          fingerprint
-        );
-      }
+      if (!existing.modelPresentationApplied) {
+        applyModelPresentation(existing.finding, canonicalFinding);
 
-      modelReconciliations.push({
-        modelIndex: index,
-        fingerprint,
-        matchingBasis,
-        acceptedRelatedRuleCode
+        existing.modelPresentationApplied = true;
+      }
+    } else {
+      groups.set(fingerprint, {
+        finding: adapted,
+        modelPresentationApplied: true
       });
     }
-  );
 
-  for (
-    const contribution of
-    input.evidenceContributions ?? []
-  ) {
-    const group = groups.get(
-      contribution.fingerprint
-    );
+    if (!candidateFingerprints.has(fingerprint)) {
+      candidateFindings.push(canonicalFinding);
+      orderedCandidateFingerprints.push(fingerprint);
+      candidateFingerprints.add(fingerprint);
+    }
 
-    const occurrence =
-      group?.finding.occurrences[0];
+    modelReconciliations.push({
+      modelIndex: index,
+      fingerprint,
+      matchingBasis,
+      acceptedRelatedRuleCode
+    });
+  });
+
+  for (const contribution of input.evidenceContributions ?? []) {
+    const group = groups.get(contribution.fingerprint);
+
+    const occurrence = group?.finding.occurrences[0];
 
     if (!group || !occurrence) {
       continue;
     }
 
-    mergeEvidence(
-      occurrence,
-      [contribution.evidence]
-    );
+    mergeEvidence(occurrence, [contribution.evidence]);
 
-    refreshLogicalVerification(
-      group.finding
-    );
+    refreshLogicalVerification(group.finding);
   }
 
   return {
-    findings: Array.from(
-      groups.values(),
-      group => group.finding
-    ),
+    findings: Array.from(groups.values(), group => group.finding),
     candidateFindings,
-    candidateFingerprints:
-      orderedCandidateFingerprints,
+    candidateFingerprints: orderedCandidateFingerprints,
     modelReconciliations
   };
 }

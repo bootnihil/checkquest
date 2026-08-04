@@ -2,9 +2,7 @@ import type { ClassifiedDiagnostics } from './classify-diagnostics';
 import type { PageFinding } from './evaluate-page';
 import type { ExtractedPageContent } from '../browser/extract-page-content';
 import type { VisitedPageObservation } from '../browser/visit-approved-link';
-import type {
-  KnownFindingPromptContext
-} from '../investigation/known-findings';
+import type { KnownFindingPromptContext } from '../investigation/known-findings';
 import {
   createReferencedTechnicalCorsDiagnostics,
   createReferencedTechnicalRequests
@@ -15,13 +13,10 @@ export interface ExploratoryQaPromptInput {
   content: ExtractedPageContent;
   classifiedDiagnostics: ClassifiedDiagnostics;
   ruleBasedFindings: PageFinding[];
-  knownFindings?:
-    KnownFindingPromptContext[];
+  knownFindings?: KnownFindingPromptContext[];
 }
 
-export function buildExploratoryQaPrompt(
-  input: ExploratoryQaPromptInput
-): string {
+export function buildExploratoryQaPrompt(input: ExploratoryQaPromptInput): string {
   const {
     observation,
     content,
@@ -30,21 +25,17 @@ export function buildExploratoryQaPrompt(
     knownFindings = []
   } = input;
 
-  const relevantFailedRequests =
-    classifiedDiagnostics.failedRequests.filter(
-      (item) =>
-        item.disposition !== 'ignored-noise'
-    );
-  const referencedTechnicalRequests =
-    createReferencedTechnicalRequests(
-      classifiedDiagnostics,
-      observation.finalUrl
-    );
-  const referencedTechnicalCors =
-    createReferencedTechnicalCorsDiagnostics(
-      classifiedDiagnostics,
-      observation.finalUrl
-    );
+  const relevantFailedRequests = classifiedDiagnostics.failedRequests.filter(
+    item => item.disposition !== 'ignored-noise'
+  );
+  const referencedTechnicalRequests = createReferencedTechnicalRequests(
+    classifiedDiagnostics,
+    observation.finalUrl
+  );
+  const referencedTechnicalCors = createReferencedTechnicalCorsDiagnostics(
+    classifiedDiagnostics,
+    observation.finalUrl
+  );
 
   const evidence = {
     page: {
@@ -71,45 +62,27 @@ export function buildExploratoryQaPrompt(
        * Informational disclosures retain their deterministic ARIA,
        * safety, ownership, and controlled-region relationships.
        */
-      disclosures:
-        content.disclosures,
+      disclosures: content.disclosures,
 
       /*
        * Conventional tabs retain exact control, tablist, and panel
        * identity plus their strict action eligibility.
        */
-      tabs:
-        content.tabs
+      tabs: content.tabs
     },
 
     browserDiagnostics: {
-      consoleErrors:
-        classifiedDiagnostics.consoleErrors.map(
-          consoleError => ({
-            technicalObservationReference:
-              referencedTechnicalCors
-                .referenceByConsoleError
-                .get(
-                  consoleError
-                ) ??
-              null,
-            ...consoleError
-          })
-        ),
+      consoleErrors: classifiedDiagnostics.consoleErrors.map(consoleError => ({
+        technicalObservationReference:
+          referencedTechnicalCors.referenceByConsoleError.get(consoleError) ?? null,
+        ...consoleError
+      })),
 
-      failedRequests:
-        relevantFailedRequests.map(
-          item => ({
-            technicalObservationReference:
-              referencedTechnicalRequests
-                .referenceByRequest
-                .get(
-                  item.request
-                ) ??
-              null,
-            ...item
-          })
-        )
+      failedRequests: relevantFailedRequests.map(item => ({
+        technicalObservationReference:
+          referencedTechnicalRequests.referenceByRequest.get(item.request) ?? null,
+        ...item
+      }))
     },
 
     ruleBasedFindings,

@@ -1,389 +1,574 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>CheckQuest — AI website tester that explores on its own</title>
-  <meta name="description" content="Give CheckQuest a website. It explores autonomously, investigates within deterministic safety boundaries, and reports only what the collected evidence supports.">
-  <meta name="theme-color" content="#071321">
-  <meta property="og:type" content="website">
-  <meta property="og:title" content="CheckQuest — Explore. Investigate. Report.">
-  <meta property="og:description" content="Autonomous exploratory QA with deterministic guardrails, evidence-backed investigation, and explicit verified-or-inconclusive outcomes.">
-  <meta property="og:url" content="https://bootnihil.github.io/checkquest/">
-  <meta property="og:image" content="https://bootnihil.github.io/checkquest/assets/checkquest-social-preview.png">
-  <meta name="twitter:card" content="summary_large_image">
-  <link rel="icon" type="image/png" href="assets/checkquest-icon-512.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,500,0,0">
-  <link rel="stylesheet" href="styles.css">
-</head>
-<body>
-  <a class="skip-link" href="#main">Skip to content</a>
-  <svg class="svg-defs" aria-hidden="true">
-    <symbol id="github-mark" viewBox="0 0 24 24">
-      <path fill="currentColor" d="M12 .7a11.5 11.5 0 0 0-3.64 22.41c.58.11.79-.25.79-.56v-2.23c-3.22.7-3.9-1.37-3.9-1.37-.53-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.71.08-.71 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.57-.29-5.27-1.29-5.27-5.73 0-1.27.45-2.3 1.19-3.12-.12-.29-.52-1.47.11-3.07 0 0 .97-.31 3.16 1.19A10.9 10.9 0 0 1 12 6.02c.98 0 1.95.13 2.87.38 2.19-1.5 3.16-1.19 3.16-1.19.63 1.6.23 2.78.11 3.07.74.82 1.19 1.85 1.19 3.12 0 4.45-2.71 5.43-5.29 5.72.42.36.79 1.07.79 2.15v3.19c0 .31.21.68.8.56A11.5 11.5 0 0 0 12 .7Z"></path>
-    </symbol>
-  </svg>
-  <header class="site-header">
-    <div class="shell header-inner">
-      <a class="brand" href="#top" aria-label="CheckQuest home">
-        <img class="brand-icon" src="assets/checkquest-icon-512.png" width="40" height="40" alt="">
-        <span class="brand-name">Check<span>Quest</span></span>
-      </a>
-      <nav class="nav" aria-label="Primary">
-        <a href="#how-it-works">How it works</a>
-        <a href="#where-it-fits">Where it fits</a>
-        <a href="#safety">Safety</a>
-        <a class="nav-github github-link" href="https://github.com/bootnihil/checkquest" target="_blank" rel="noreferrer">
-          <svg width="17" height="17" aria-hidden="true"><use href="#github-mark"></use></svg>
-          <span>GitHub</span>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CheckQuest — AI website tester that explores on its own</title>
+    <meta
+      name="description"
+      content="Give CheckQuest a website. It explores autonomously, investigates within deterministic safety boundaries, and reports only what the collected evidence supports."
+    />
+    <meta name="theme-color" content="#071321" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="CheckQuest — Explore. Investigate. Report." />
+    <meta
+      property="og:description"
+      content="Autonomous exploratory QA with deterministic guardrails, evidence-backed investigation, and explicit verified-or-inconclusive outcomes."
+    />
+    <meta property="og:url" content="https://bootnihil.github.io/checkquest/" />
+    <meta
+      property="og:image"
+      content="https://bootnihil.github.io/checkquest/assets/checkquest-social-preview.png"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/png" href="assets/checkquest-icon-512.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,500,0,0"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <svg class="svg-defs" aria-hidden="true">
+      <symbol id="github-mark" viewBox="0 0 24 24">
+        <path
+          fill="currentColor"
+          d="M12 .7a11.5 11.5 0 0 0-3.64 22.41c.58.11.79-.25.79-.56v-2.23c-3.22.7-3.9-1.37-3.9-1.37-.53-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.71.08-.71 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.57-.29-5.27-1.29-5.27-5.73 0-1.27.45-2.3 1.19-3.12-.12-.29-.52-1.47.11-3.07 0 0 .97-.31 3.16 1.19A10.9 10.9 0 0 1 12 6.02c.98 0 1.95.13 2.87.38 2.19-1.5 3.16-1.19 3.16-1.19.63 1.6.23 2.78.11 3.07.74.82 1.19 1.85 1.19 3.12 0 4.45-2.71 5.43-5.29 5.72.42.36.79 1.07.79 2.15v3.19c0 .31.21.68.8.56A11.5 11.5 0 0 0 12 .7Z"
+        ></path>
+      </symbol>
+    </svg>
+    <header class="site-header">
+      <div class="shell header-inner">
+        <a class="brand" href="#top" aria-label="CheckQuest home">
+          <img
+            class="brand-icon"
+            src="assets/checkquest-icon-512.png"
+            width="40"
+            height="40"
+            alt=""
+          />
+          <span class="brand-name">Check<span>Quest</span></span>
         </a>
-      </nav>
-    </div>
-  </header>
-  <main id="main">
-    <section class="hero" id="top">
-      <div class="hero-grid-overlay" aria-hidden="true"></div>
-      <div class="hero-glow hero-glow-one" aria-hidden="true"></div>
-      <div class="hero-glow hero-glow-two" aria-hidden="true"></div>
-
-      <div class="shell hero-grid">
-        <div class="hero-copy">
-          <p class="eyebrow">An AI website tester that explores on its own</p>
-          <h1 class="hero-title" aria-label="Explore. Investigate. Report.">
-            <span class="hero-line">Explore.</span>
-            <span class="hero-line hero-line-accent">Investigate.</span>
-            <span class="hero-line">Report.</span>
-          </h1>
-          <p class="hero-lede">
-            Give CheckQuest a website. It explores on its own to look for
-            potential problems you did not already tell it to test for, safely
-            investigates what it finds, and gives you an evidence-backed QA report.
-            AI can suggest what looks suspicious; CheckQuest controls what may be
-            investigated and what the evidence actually proves.
-          </p>
-          <div class="hero-actions">
-            <a class="button button-primary github-button" href="https://github.com/bootnihil/checkquest" target="_blank" rel="noreferrer">
-              <svg width="19" height="19" aria-hidden="true"><use href="#github-mark"></use></svg>
-              <span>View on GitHub</span>
-            </a>
-            <a class="button button-secondary" href="https://github.com/bootnihil/checkquest/blob/main/docs/DEMO.md" target="_blank" rel="noreferrer">
-              See a guided run <span aria-hidden="true">↗</span>
-            </a>
-          </div>
-          <p class="hero-status">
-            <span class="status-dot" aria-hidden="true"></span>
-            Experimental · CLI today · local desktop app next
-          </p>
-        </div>
-        <div class="quest-map" aria-label="A stylized treasure-map representation of a CheckQuest exploratory run">
-          <svg class="map-art" viewBox="0 0 760 600" aria-hidden="true">
-            <defs>
-              <linearGradient id="routeGradientV6" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#58c5e9"/>
-                <stop offset="55%" stop-color="#6688ff"/>
-                <stop offset="100%" stop-color="#ffc14d"/>
-              </linearGradient>
-              <linearGradient id="landGradientV6" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stop-color="#143859"/>
-                <stop offset="100%" stop-color="#0d2a45"/>
-              </linearGradient>
-            </defs>
-            <path class="island island-start" d="M74 132 C106 96 176 90 218 120 C257 148 261 215 220 241 C179 266 118 256 84 222 C52 189 46 159 74 132Z"/>
-            <path class="island island-explore" d="M504 146 C542 112 609 111 648 143 C690 178 692 236 651 267 C611 296 551 292 515 262 C474 227 470 177 504 146Z"/>
-            <path class="island island-candidate" d="M128 384 C166 347 241 348 286 382 C330 416 336 481 290 512 C247 541 180 538 141 504 C104 472 95 417 128 384Z"/>
-            <path class="island island-evidence" d="M534 402 C570 370 630 370 669 402 C709 435 712 492 674 523 C636 554 576 553 540 523 C500 490 495 433 534 402Z"/>
-            <g class="contours">
-              <path d="M104 167 C136 141 185 144 209 170"/>
-              <path d="M114 189 C144 167 178 169 199 190"/>
-              <path d="M533 179 C565 154 614 154 638 181"/>
-              <path d="M543 201 C573 179 607 180 629 201"/>
-              <path d="M155 429 C184 407 231 410 259 437"/>
-              <path d="M563 448 C593 424 640 427 663 452"/>
-              <path class="wave wave-a" d="M350 214 q10 -8 20 0 q10 8 20 0"/>
-              <path class="wave wave-b" d="M369 219 q9 -7 18 0 q9 7 18 0"/>
-              <path class="wave wave-c" d="M114 320 q18 -18 36 0 q18 18 36 0"/>
-              <path class="wave wave-d" d="M600 324 q17 -16 34 0 q17 16 34 0"/>
-              <path class="wave wave-e" d="M247 153 q15 -13 30 0 q15 13 30 0"/>
-              <path class="wave wave-f" d="M470 470 q15 -13 30 0 q15 13 30 0"/>
-              <path class="wave wave-g" d="M545 108 q14 -12 28 0 q14 12 28 0"/>
-              <path class="wave wave-h" d="M160 470 q14 -12 28 0 q14 12 28 0"/>
-            </g>
-            <path class="treasure-route" d="M182 210 C302 255 454 251 540 230 C580 276 522 360 430 398 C352 430 257 437 205 430 C262 472 392 487 520 445 C563 431 600 438 636 462"/>
-            <g class="route-port ripple-start" transform="translate(182 210)">
-              <circle class="ripple-ring" r="22"/>
-              <circle r="14"/><circle r="5"/>
-            </g>
-            <g class="route-port ripple-explore" transform="translate(540 230)">
-              <circle class="ripple-ring" r="22"/>
-              <circle r="14"/><circle r="5"/>
-            </g>
-            <g class="route-port route-port-amber ripple-candidate" transform="translate(205 430)">
-              <circle class="ripple-ring" r="24"/>
-              <circle r="15"/><circle r="6"/>
-            </g>
-            <g class="route-port ripple-evidence" transform="translate(520 445)">
-              <circle class="ripple-ring" r="22"/>
-              <circle r="14"/><circle r="5"/>
-            </g>
-            <g class="route-port route-port-target" transform="translate(636 462)">
-              <circle r="24"/><path d="M-8 -8 L8 8 M8 -8 L-8 8"/></g>
-          </svg>
-          <div class="compass-card" aria-hidden="true">
-            <div class="compass-ring">
-              <span class="compass-n">N</span>
-              <span class="compass-e">E</span>
-              <span class="compass-s">S</span>
-              <span class="compass-w">W</span>
-              <div class="compass-needle"></div>
-              <div class="compass-center"></div>
-            </div>
-          </div>
-          <div class="map-label map-label-start">
-            <span class="map-badge map-badge-blue"><span class="material-symbols-rounded" aria-hidden="true">home</span></span>
-            <span>
-              <span class="map-kicker">Start</span>
-              <strong>Home page</strong>
-            </span>
-          </div>
-          <div class="map-label map-label-explore">
-            <span class="map-badge map-badge-cyan"><span class="material-symbols-rounded" aria-hidden="true">travel_explore</span></span>
-            <span>
-              <span class="map-kicker">Explore</span>
-              <strong>New route</strong>
-            </span>
-          </div>
-          <div class="map-label map-label-candidate">
-            <span class="map-badge map-badge-amber"><span class="material-symbols-rounded" aria-hidden="true">help</span></span>
-            <span>
-              <span class="map-kicker">Candidate</span>
-              <strong>Possible issue</strong>
-            </span>
-          </div>
-          <div class="map-label map-label-evidence">
-            <span class="map-badge map-badge-green"><span class="material-symbols-rounded" aria-hidden="true">check</span></span>
-            <span>
-              <span class="map-kicker">Evidence</span>
-              <strong>Ready to report</strong>
-            </span>
-          </div>
-        </div>
-      </div>
-    </section>
-    <section class="section section-steps" id="how-it-works">
-      <div class="shell">
-        <div class="section-heading compact-heading">
-          <p class="eyebrow">How a run works</p>
-          <h2>From first pass to final report.</h2>
-        </div>
-        <div class="steps-grid">
-          <article class="step-card">
-            <div class="card-meta">
-              <span class="outline-number">01</span>
-              <span class="icon-chip"><span class="material-symbols-rounded" aria-hidden="true">travel_explore</span></span>
-            </div>
-            <h3>Explore</h3>
-            <p>Inspect the start page, then spend the remaining page budget on useful, different internal routes.</p>
-          </article>
-          <article class="step-card step-card-accent">
-            <div class="card-meta">
-              <span class="outline-number">02</span>
-              <span class="icon-chip icon-chip-amber"><span class="material-symbols-rounded" aria-hidden="true">manage_search</span></span>
-            </div>
-            <h3>Investigate</h3>
-            <p>Take only narrow, approved actions that can gather evidence for a specific potential issue.</p>
-          </article>
-          <article class="step-card">
-            <div class="card-meta">
-              <span class="outline-number">03</span>
-              <span class="icon-chip icon-chip-green"><span class="material-symbols-rounded" aria-hidden="true">assignment_turned_in</span></span>
-            </div>
-            <h3>Report</h3>
-            <p>Reconcile what happened into explicit verified or inconclusive findings with supporting evidence.</p>
-          </article>
-        </div>
-      </div>
-    </section>
-    <section class="section section-steps" id="why-checkquest">
-      <div class="shell">
-        <div class="section-heading compact-heading">
-          <p class="eyebrow">More than an LLM with a browser</p>
-          <h2>AI can propose. Evidence has to be earned.</h2>
-          <p>CheckQuest uses a model for exploratory judgment, but the model is not the authority on what is true. The QA system around it controls scope, interaction, evidence, and finding state.</p>
-        </div>
-        <div class="steps-grid">
-          <article class="step-card">
-            <div class="card-meta">
-              <span class="outline-number">01</span>
-              <span class="icon-chip"><span class="material-symbols-rounded" aria-hidden="true">psychology</span></span>
-            </div>
-            <h3>The model proposes</h3>
-            <p>Which route, observation, or page-local candidate looks worth spending a bounded exploratory budget on?</p>
-          </article>
-          <article class="step-card step-card-accent">
-            <div class="card-meta">
-              <span class="outline-number">02</span>
-              <span class="icon-chip icon-chip-amber"><span class="material-symbols-rounded" aria-hidden="true">policy</span></span>
-            </div>
-            <h3>CheckQuest constrains</h3>
-            <p>Deterministic budgets, host policy, candidate-linked actions, and safety boundaries decide what the browser may actually do.</p>
-          </article>
-          <article class="step-card">
-            <div class="card-meta">
-              <span class="outline-number">03</span>
-              <span class="icon-chip icon-chip-green"><span class="material-symbols-rounded" aria-hidden="true">fact_check</span></span>
-            </div>
-            <h3>The evidence decides</h3>
-            <p>Repeated observations are reconciled into explicit verified or inconclusive findings. A successful browser action is not proof by itself.</p>
-          </article>
-        </div>
-      </div>
-    </section>
-    <section class="section fit-section" id="where-it-fits">
-      <div class="shell">
-        <div class="section-heading fit-heading">
-          <p class="eyebrow">Where it fits</p>
-          <h2>A different job in the QA toolbox.</h2>
-          <p>CheckQuest is not trying to swallow the rest of your test stack. It fills one specific gap: a repeatable autonomous exploratory pass.</p>
-        </div>
-        <div class="fit-contrast">
-          <div class="not-this-panel">
-            <p class="contrast-label contrast-label-muted">Not the same as</p>
-            <div class="not-list-wrap">
-              <div class="not-item">
-                <span class="not-icon">×</span>
-                <div>
-                  <strong>Site crawler</strong>
-                  <small>Predefined rules and configuration determine what gets checked.</small>
-                </div>
-              </div>
-              <div class="not-item">
-                <span class="not-icon">×</span>
-                <div>
-                  <strong>Generic browser agent</strong>
-                  <small>General-purpose browser operation without CheckQuest's QA-specific evidence and verification model.</small>
-                </div>
-              </div>
-              <div class="not-item">
-                <span class="not-icon">×</span>
-                <div>
-                  <strong>Human + AI assistant</strong>
-                  <small>The tester decides what to investigate; AI helps analyze, reason, or generate test ideas and code.</small>
-                </div>
-              </div>
-              <div class="not-item">
-                <span class="not-icon">×</span>
-                <div>
-                  <strong>Pentest tool</strong>
-                  <small>Actively probes security weaknesses.</small>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="this-is-panel">
-            <div class="this-is-orbit" aria-hidden="true"></div>
-            <div class="this-is-icon">↗</div>
-            <p class="contrast-label contrast-label-bright">What it is</p>
-            <h3>An autonomous exploratory QA pass.</h3>
-            <p>Start from a URL. Decisions about what merits investigation happen at runtime, within user-defined bounds. CheckQuest takes only approved actions that can gather evidence, then reports what that evidence actually supports.</p>
-            <p><strong>The model proposes. CheckQuest constrains, investigates, verifies, and reports.</strong></p>
-            <p class="fit-support">Built to complement Playwright, Cypress, Selenium, site-quality tooling, and human exploratory testing — not replace them.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-    <section class="section safety-section" id="safety">
-      <div class="shell">
-        <div class="section-heading safety-heading">
-          <p class="eyebrow">Safety by design</p>
-          <h2>Autonomous, not unbounded.</h2>
-          <p>AI can help decide what looks interesting. Deterministic code decides what the browser is actually allowed to do.</p>
-        </div>
-        <div class="guardrail-grid">
-          <article class="guardrail-card">
-            <div class="card-meta">
-              <span class="outline-number">01</span>
-              <span class="icon-chip"><span class="material-symbols-rounded" aria-hidden="true">timer</span></span>
-            </div>
-            <h3>Bound the run</h3>
-            <p>Explicit page and navigation budgets keep the exploratory pass finite.</p>
-            <div class="guardrail-tags"><span>Page budgets</span><span>Bounded navigation</span></div>
-          </article>
-          <article class="guardrail-card">
-            <div class="card-meta">
-              <span class="outline-number">02</span>
-              <span class="icon-chip icon-chip-amber"><span class="material-symbols-rounded" aria-hidden="true">rule_settings</span></span>
-            </div>
-            <h3>Constrain interaction</h3>
-            <p>Autonomous actions stay narrow, candidate-linked, and purpose-specific.</p>
-            <div class="guardrail-tags"><span>Guarded actions</span><span>No arbitrary clicks</span><span>No form submission</span></div>
-          </article>
-          <article class="guardrail-card">
-            <div class="card-meta">
-              <span class="outline-number">03</span>
-              <span class="icon-chip icon-chip-cyan"><span class="material-symbols-rounded" aria-hidden="true">shield_lock</span></span>
-            </div>
-            <h3>Back off when sensitive</h3>
-            <p>Sensitive contexts reduce authority instead of inviting more experimentation.</p>
-            <div class="guardrail-tags"><span>Password-page backoff</span><span>Rollback</span></div>
-          </article>
-          <article class="guardrail-card">
-            <div class="card-meta">
-              <span class="outline-number">04</span>
-              <span class="icon-chip icon-chip-green"><span class="material-symbols-rounded" aria-hidden="true">security</span></span>
-            </div>
-            <h3>Keep security passive</h3>
-            <p>Observe useful security posture without turning the run into vulnerability probing.</p>
-            <div class="guardrail-tags"><span>Authorized sites only</span><span>No active probing</span></div>
-          </article>
-        </div>
-        <a class="text-link" href="https://github.com/bootnihil/checkquest/blob/main/docs/ARCHITECTURE.md" target="_blank" rel="noreferrer">Read the architecture and safety model <span aria-hidden="true">↗</span></a>
-      </div>
-    </section>
-    <section class="section now-section">
-      <div class="shell">
-        <div class="now-card">
-          <div class="now-heading">
-            <p class="eyebrow">Right now</p>
-            <h2>The engine exists. The shell is catching up.</h2>
-          </div>
-          <div class="now-status">
-            <div>
-              <span class="now-label">Available</span>
-              <p>CLI · arbitrary authorized URLs · Gemini API key (BYOK) · structured reports</p>
-            </div>
-            <div>
-              <span class="now-label now-label-next">Next</span>
-              <p>Local desktop product shell</p>
-            </div>
-          </div>
-          <a class="button button-primary github-button now-button" href="https://github.com/bootnihil/checkquest" target="_blank" rel="noreferrer">
-            <svg width="19" height="19" aria-hidden="true"><use href="#github-mark"></use></svg>
-            <span>Explore the repository</span>
+        <nav class="nav" aria-label="Primary">
+          <a href="#how-it-works">How it works</a>
+          <a href="#where-it-fits">Where it fits</a>
+          <a href="#safety">Safety</a>
+          <a
+            class="nav-github github-link"
+            href="https://github.com/bootnihil/checkquest"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <svg width="17" height="17" aria-hidden="true"><use href="#github-mark"></use></svg>
+            <span>GitHub</span>
           </a>
+        </nav>
+      </div>
+    </header>
+    <main id="main">
+      <section class="hero" id="top">
+        <div class="hero-grid-overlay" aria-hidden="true"></div>
+        <div class="hero-glow hero-glow-one" aria-hidden="true"></div>
+        <div class="hero-glow hero-glow-two" aria-hidden="true"></div>
+
+        <div class="shell hero-grid">
+          <div class="hero-copy">
+            <p class="eyebrow">An AI website tester that explores on its own</p>
+            <h1 class="hero-title" aria-label="Explore. Investigate. Report.">
+              <span class="hero-line">Explore.</span>
+              <span class="hero-line hero-line-accent">Investigate.</span>
+              <span class="hero-line">Report.</span>
+            </h1>
+            <p class="hero-lede">
+              Give CheckQuest a website. It explores on its own to look for potential problems you
+              did not already tell it to test for, safely investigates what it finds, and gives you
+              an evidence-backed QA report. AI can suggest what looks suspicious; CheckQuest
+              controls what may be investigated and what the evidence actually proves.
+            </p>
+            <div class="hero-actions">
+              <a
+                class="button button-primary github-button"
+                href="https://github.com/bootnihil/checkquest"
+                target="_blank"
+                rel="noreferrer"
+              >
+                <svg width="19" height="19" aria-hidden="true"><use href="#github-mark"></use></svg>
+                <span>View on GitHub</span>
+              </a>
+              <a
+                class="button button-secondary"
+                href="https://github.com/bootnihil/checkquest/blob/main/docs/DEMO.md"
+                target="_blank"
+                rel="noreferrer"
+              >
+                See a guided run <span aria-hidden="true">↗</span>
+              </a>
+            </div>
+            <p class="hero-status">
+              <span class="status-dot" aria-hidden="true"></span>
+              Experimental · CLI today · local desktop app next
+            </p>
+          </div>
+          <div
+            class="quest-map"
+            aria-label="A stylized treasure-map representation of a CheckQuest exploratory run"
+          >
+            <svg class="map-art" viewBox="0 0 760 600" aria-hidden="true">
+              <defs>
+                <linearGradient id="routeGradientV6" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#58c5e9" />
+                  <stop offset="55%" stop-color="#6688ff" />
+                  <stop offset="100%" stop-color="#ffc14d" />
+                </linearGradient>
+                <linearGradient id="landGradientV6" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0%" stop-color="#143859" />
+                  <stop offset="100%" stop-color="#0d2a45" />
+                </linearGradient>
+              </defs>
+              <path
+                class="island island-start"
+                d="M74 132 C106 96 176 90 218 120 C257 148 261 215 220 241 C179 266 118 256 84 222 C52 189 46 159 74 132Z"
+              />
+              <path
+                class="island island-explore"
+                d="M504 146 C542 112 609 111 648 143 C690 178 692 236 651 267 C611 296 551 292 515 262 C474 227 470 177 504 146Z"
+              />
+              <path
+                class="island island-candidate"
+                d="M128 384 C166 347 241 348 286 382 C330 416 336 481 290 512 C247 541 180 538 141 504 C104 472 95 417 128 384Z"
+              />
+              <path
+                class="island island-evidence"
+                d="M534 402 C570 370 630 370 669 402 C709 435 712 492 674 523 C636 554 576 553 540 523 C500 490 495 433 534 402Z"
+              />
+              <g class="contours">
+                <path d="M104 167 C136 141 185 144 209 170" />
+                <path d="M114 189 C144 167 178 169 199 190" />
+                <path d="M533 179 C565 154 614 154 638 181" />
+                <path d="M543 201 C573 179 607 180 629 201" />
+                <path d="M155 429 C184 407 231 410 259 437" />
+                <path d="M563 448 C593 424 640 427 663 452" />
+                <path class="wave wave-a" d="M350 214 q10 -8 20 0 q10 8 20 0" />
+                <path class="wave wave-b" d="M369 219 q9 -7 18 0 q9 7 18 0" />
+                <path class="wave wave-c" d="M114 320 q18 -18 36 0 q18 18 36 0" />
+                <path class="wave wave-d" d="M600 324 q17 -16 34 0 q17 16 34 0" />
+                <path class="wave wave-e" d="M247 153 q15 -13 30 0 q15 13 30 0" />
+                <path class="wave wave-f" d="M470 470 q15 -13 30 0 q15 13 30 0" />
+                <path class="wave wave-g" d="M545 108 q14 -12 28 0 q14 12 28 0" />
+                <path class="wave wave-h" d="M160 470 q14 -12 28 0 q14 12 28 0" />
+              </g>
+              <path
+                class="treasure-route"
+                d="M182 210 C302 255 454 251 540 230 C580 276 522 360 430 398 C352 430 257 437 205 430 C262 472 392 487 520 445 C563 431 600 438 636 462"
+              />
+              <g class="route-port ripple-start" transform="translate(182 210)">
+                <circle class="ripple-ring" r="22" />
+                <circle r="14" />
+                <circle r="5" />
+              </g>
+              <g class="route-port ripple-explore" transform="translate(540 230)">
+                <circle class="ripple-ring" r="22" />
+                <circle r="14" />
+                <circle r="5" />
+              </g>
+              <g
+                class="route-port route-port-amber ripple-candidate"
+                transform="translate(205 430)"
+              >
+                <circle class="ripple-ring" r="24" />
+                <circle r="15" />
+                <circle r="6" />
+              </g>
+              <g class="route-port ripple-evidence" transform="translate(520 445)">
+                <circle class="ripple-ring" r="22" />
+                <circle r="14" />
+                <circle r="5" />
+              </g>
+              <g class="route-port route-port-target" transform="translate(636 462)">
+                <circle r="24" />
+                <path d="M-8 -8 L8 8 M8 -8 L-8 8" />
+              </g>
+            </svg>
+            <div class="compass-card" aria-hidden="true">
+              <div class="compass-ring">
+                <span class="compass-n">N</span>
+                <span class="compass-e">E</span>
+                <span class="compass-s">S</span>
+                <span class="compass-w">W</span>
+                <div class="compass-needle"></div>
+                <div class="compass-center"></div>
+              </div>
+            </div>
+            <div class="map-label map-label-start">
+              <span class="map-badge map-badge-blue"
+                ><span class="material-symbols-rounded" aria-hidden="true">home</span></span
+              >
+              <span>
+                <span class="map-kicker">Start</span>
+                <strong>Home page</strong>
+              </span>
+            </div>
+            <div class="map-label map-label-explore">
+              <span class="map-badge map-badge-cyan"
+                ><span class="material-symbols-rounded" aria-hidden="true"
+                  >travel_explore</span
+                ></span
+              >
+              <span>
+                <span class="map-kicker">Explore</span>
+                <strong>New route</strong>
+              </span>
+            </div>
+            <div class="map-label map-label-candidate">
+              <span class="map-badge map-badge-amber"
+                ><span class="material-symbols-rounded" aria-hidden="true">help</span></span
+              >
+              <span>
+                <span class="map-kicker">Candidate</span>
+                <strong>Possible issue</strong>
+              </span>
+            </div>
+            <div class="map-label map-label-evidence">
+              <span class="map-badge map-badge-green"
+                ><span class="material-symbols-rounded" aria-hidden="true">check</span></span
+              >
+              <span>
+                <span class="map-kicker">Evidence</span>
+                <strong>Ready to report</strong>
+              </span>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="section section-steps" id="how-it-works">
+        <div class="shell">
+          <div class="section-heading compact-heading">
+            <p class="eyebrow">How a run works</p>
+            <h2>From first pass to final report.</h2>
+          </div>
+          <div class="steps-grid">
+            <article class="step-card">
+              <div class="card-meta">
+                <span class="outline-number">01</span>
+                <span class="icon-chip"
+                  ><span class="material-symbols-rounded" aria-hidden="true"
+                    >travel_explore</span
+                  ></span
+                >
+              </div>
+              <h3>Explore</h3>
+              <p>
+                Inspect the start page, then spend the remaining page budget on useful, different
+                internal routes.
+              </p>
+            </article>
+            <article class="step-card step-card-accent">
+              <div class="card-meta">
+                <span class="outline-number">02</span>
+                <span class="icon-chip icon-chip-amber"
+                  ><span class="material-symbols-rounded" aria-hidden="true"
+                    >manage_search</span
+                  ></span
+                >
+              </div>
+              <h3>Investigate</h3>
+              <p>
+                Take only narrow, approved actions that can gather evidence for a specific potential
+                issue.
+              </p>
+            </article>
+            <article class="step-card">
+              <div class="card-meta">
+                <span class="outline-number">03</span>
+                <span class="icon-chip icon-chip-green"
+                  ><span class="material-symbols-rounded" aria-hidden="true"
+                    >assignment_turned_in</span
+                  ></span
+                >
+              </div>
+              <h3>Report</h3>
+              <p>
+                Reconcile what happened into explicit verified or inconclusive findings with
+                supporting evidence.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+      <section class="section section-steps" id="why-checkquest">
+        <div class="shell">
+          <div class="section-heading compact-heading">
+            <p class="eyebrow">More than an LLM with a browser</p>
+            <h2>AI can propose. Evidence has to be earned.</h2>
+            <p>
+              CheckQuest uses a model for exploratory judgment, but the model is not the authority
+              on what is true. The QA system around it controls scope, interaction, evidence, and
+              finding state.
+            </p>
+          </div>
+          <div class="steps-grid">
+            <article class="step-card">
+              <div class="card-meta">
+                <span class="outline-number">01</span>
+                <span class="icon-chip"
+                  ><span class="material-symbols-rounded" aria-hidden="true">psychology</span></span
+                >
+              </div>
+              <h3>The model proposes</h3>
+              <p>
+                Which route, observation, or page-local candidate looks worth spending a bounded
+                exploratory budget on?
+              </p>
+            </article>
+            <article class="step-card step-card-accent">
+              <div class="card-meta">
+                <span class="outline-number">02</span>
+                <span class="icon-chip icon-chip-amber"
+                  ><span class="material-symbols-rounded" aria-hidden="true">policy</span></span
+                >
+              </div>
+              <h3>CheckQuest constrains</h3>
+              <p>
+                Deterministic budgets, host policy, candidate-linked actions, and safety boundaries
+                decide what the browser may actually do.
+              </p>
+            </article>
+            <article class="step-card">
+              <div class="card-meta">
+                <span class="outline-number">03</span>
+                <span class="icon-chip icon-chip-green"
+                  ><span class="material-symbols-rounded" aria-hidden="true">fact_check</span></span
+                >
+              </div>
+              <h3>The evidence decides</h3>
+              <p>
+                Repeated observations are reconciled into explicit verified or inconclusive
+                findings. A successful browser action is not proof by itself.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+      <section class="section fit-section" id="where-it-fits">
+        <div class="shell">
+          <div class="section-heading fit-heading">
+            <p class="eyebrow">Where it fits</p>
+            <h2>A different job in the QA toolbox.</h2>
+            <p>
+              CheckQuest is not trying to swallow the rest of your test stack. It fills one specific
+              gap: a repeatable autonomous exploratory pass.
+            </p>
+          </div>
+          <div class="fit-contrast">
+            <div class="not-this-panel">
+              <p class="contrast-label contrast-label-muted">Not the same as</p>
+              <div class="not-list-wrap">
+                <div class="not-item">
+                  <span class="not-icon">×</span>
+                  <div>
+                    <strong>Site crawler</strong>
+                    <small>Predefined rules and configuration determine what gets checked.</small>
+                  </div>
+                </div>
+                <div class="not-item">
+                  <span class="not-icon">×</span>
+                  <div>
+                    <strong>Generic browser agent</strong>
+                    <small
+                      >General-purpose browser operation without CheckQuest's QA-specific evidence
+                      and verification model.</small
+                    >
+                  </div>
+                </div>
+                <div class="not-item">
+                  <span class="not-icon">×</span>
+                  <div>
+                    <strong>Human + AI assistant</strong>
+                    <small
+                      >The tester decides what to investigate; AI helps analyze, reason, or generate
+                      test ideas and code.</small
+                    >
+                  </div>
+                </div>
+                <div class="not-item">
+                  <span class="not-icon">×</span>
+                  <div>
+                    <strong>Pentest tool</strong>
+                    <small>Actively probes security weaknesses.</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="this-is-panel">
+              <div class="this-is-orbit" aria-hidden="true"></div>
+              <div class="this-is-icon">↗</div>
+              <p class="contrast-label contrast-label-bright">What it is</p>
+              <h3>An autonomous exploratory QA pass.</h3>
+              <p>
+                Start from a URL. Decisions about what merits investigation happen at runtime,
+                within user-defined bounds. CheckQuest takes only approved actions that can gather
+                evidence, then reports what that evidence actually supports.
+              </p>
+              <p>
+                <strong
+                  >The model proposes. CheckQuest constrains, investigates, verifies, and
+                  reports.</strong
+                >
+              </p>
+              <p class="fit-support">
+                Built to complement Playwright, Cypress, Selenium, site-quality tooling, and human
+                exploratory testing — not replace them.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="section safety-section" id="safety">
+        <div class="shell">
+          <div class="section-heading safety-heading">
+            <p class="eyebrow">Safety by design</p>
+            <h2>Autonomous, not unbounded.</h2>
+            <p>
+              AI can help decide what looks interesting. Deterministic code decides what the browser
+              is actually allowed to do.
+            </p>
+          </div>
+          <div class="guardrail-grid">
+            <article class="guardrail-card">
+              <div class="card-meta">
+                <span class="outline-number">01</span>
+                <span class="icon-chip"
+                  ><span class="material-symbols-rounded" aria-hidden="true">timer</span></span
+                >
+              </div>
+              <h3>Bound the run</h3>
+              <p>Explicit page and navigation budgets keep the exploratory pass finite.</p>
+              <div class="guardrail-tags">
+                <span>Page budgets</span><span>Bounded navigation</span>
+              </div>
+            </article>
+            <article class="guardrail-card">
+              <div class="card-meta">
+                <span class="outline-number">02</span>
+                <span class="icon-chip icon-chip-amber"
+                  ><span class="material-symbols-rounded" aria-hidden="true"
+                    >rule_settings</span
+                  ></span
+                >
+              </div>
+              <h3>Constrain interaction</h3>
+              <p>Autonomous actions stay narrow, candidate-linked, and purpose-specific.</p>
+              <div class="guardrail-tags">
+                <span>Guarded actions</span><span>No arbitrary clicks</span
+                ><span>No form submission</span>
+              </div>
+            </article>
+            <article class="guardrail-card">
+              <div class="card-meta">
+                <span class="outline-number">03</span>
+                <span class="icon-chip icon-chip-cyan"
+                  ><span class="material-symbols-rounded" aria-hidden="true"
+                    >shield_lock</span
+                  ></span
+                >
+              </div>
+              <h3>Back off when sensitive</h3>
+              <p>Sensitive contexts reduce authority instead of inviting more experimentation.</p>
+              <div class="guardrail-tags">
+                <span>Password-page backoff</span><span>Rollback</span>
+              </div>
+            </article>
+            <article class="guardrail-card">
+              <div class="card-meta">
+                <span class="outline-number">04</span>
+                <span class="icon-chip icon-chip-green"
+                  ><span class="material-symbols-rounded" aria-hidden="true">security</span></span
+                >
+              </div>
+              <h3>Keep security passive</h3>
+              <p>
+                Observe useful security posture without turning the run into vulnerability probing.
+              </p>
+              <div class="guardrail-tags">
+                <span>Authorized sites only</span><span>No active probing</span>
+              </div>
+            </article>
+          </div>
+          <a
+            class="text-link"
+            href="https://github.com/bootnihil/checkquest/blob/main/docs/ARCHITECTURE.md"
+            target="_blank"
+            rel="noreferrer"
+            >Read the architecture and safety model <span aria-hidden="true">↗</span></a
+          >
+        </div>
+      </section>
+      <section class="section now-section">
+        <div class="shell">
+          <div class="now-card">
+            <div class="now-heading">
+              <p class="eyebrow">Right now</p>
+              <h2>The engine exists. The shell is catching up.</h2>
+            </div>
+            <div class="now-status">
+              <div>
+                <span class="now-label">Available</span>
+                <p>CLI · arbitrary authorized URLs · Gemini API key (BYOK) · structured reports</p>
+              </div>
+              <div>
+                <span class="now-label now-label-next">Next</span>
+                <p>Local desktop product shell</p>
+              </div>
+            </div>
+            <a
+              class="button button-primary github-button now-button"
+              href="https://github.com/bootnihil/checkquest"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <svg width="19" height="19" aria-hidden="true"><use href="#github-mark"></use></svg>
+              <span>Explore the repository</span>
+            </a>
+          </div>
+        </div>
+      </section>
+    </main>
+    <footer class="site-footer">
+      <div class="shell footer-inner">
+        <div class="footer-brand">
+          <img src="assets/checkquest-icon-512.png" width="36" height="36" alt="" />
+          <div>
+            <strong>CheckQuest</strong>
+            <span>Explore. Investigate. Report.</span>
+          </div>
+        </div>
+        <div class="footer-links">
+          <a
+            class="footer-github github-link"
+            href="https://github.com/bootnihil/checkquest"
+            target="_blank"
+            rel="noreferrer"
+          >
+            <svg width="16" height="16" aria-hidden="true"><use href="#github-mark"></use></svg>
+            <span>GitHub</span>
+          </a>
+          <a
+            href="https://github.com/bootnihil/checkquest/blob/main/docs/DEMO.md"
+            target="_blank"
+            rel="noreferrer"
+            >Demo</a
+          >
+          <a
+            href="https://github.com/bootnihil/checkquest/blob/main/docs/ROADMAP-V2.md"
+            target="_blank"
+            rel="noreferrer"
+            >Roadmap</a
+          >
         </div>
       </div>
-    </section>
-  </main>
-  <footer class="site-footer">
-    <div class="shell footer-inner">
-      <div class="footer-brand">
-        <img src="assets/checkquest-icon-512.png" width="36" height="36" alt="">
-        <div>
-          <strong>CheckQuest</strong>
-          <span>Explore. Investigate. Report.</span>
-        </div>
-      </div>
-      <div class="footer-links">
-        <a class="footer-github github-link" href="https://github.com/bootnihil/checkquest" target="_blank" rel="noreferrer">
-          <svg width="16" height="16" aria-hidden="true"><use href="#github-mark"></use></svg>
-          <span>GitHub</span>
-        </a>
-        <a href="https://github.com/bootnihil/checkquest/blob/main/docs/DEMO.md" target="_blank" rel="noreferrer">Demo</a>
-        <a href="https://github.com/bootnihil/checkquest/blob/main/docs/ROADMAP-V2.md" target="_blank" rel="noreferrer">Roadmap</a>
-      </div>
-    </div>
-  </footer>
-</body>
+    </footer>
+  </body>
 </html>

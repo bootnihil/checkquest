@@ -1,19 +1,10 @@
-export interface PageInspectionSequenceOptions<
-  PageInput,
-  PageResult
-> {
+export interface PageInspectionSequenceOptions<PageInput, PageResult> {
   startPage: PageInput;
   maxPages: number;
 
-  inspectPage: (
-    page: PageInput,
-    pageIndex: number
-  ) => Promise<PageResult>;
+  inspectPage: (page: PageInput, pageIndex: number) => Promise<PageResult>;
 
-  getNextPage: (
-    inspectedPages:
-      readonly PageResult[]
-  ) => Promise<PageInput | null>;
+  getNextPage: (inspectedPages: readonly PageResult[]) => Promise<PageInput | null>;
 }
 
 /**
@@ -23,57 +14,25 @@ export interface PageInspectionSequenceOptions<
  * Navigation is requested only after the current page has been inspected and
  * only while page budget remains.
  */
-export async function runPageInspectionSequence<
-  PageInput,
-  PageResult
->(
-  options:
-    PageInspectionSequenceOptions<
-      PageInput,
-      PageResult
-    >
+export async function runPageInspectionSequence<PageInput, PageResult>(
+  options: PageInspectionSequenceOptions<PageInput, PageResult>
 ): Promise<PageResult[]> {
-  if (
-    !Number.isInteger(
-      options.maxPages
-    ) ||
-    options.maxPages < 1
-  ) {
-    throw new Error(
-      `maxPages must be a positive integer. Received: ${options.maxPages}.`
-    );
+  if (!Number.isInteger(options.maxPages) || options.maxPages < 1) {
+    throw new Error(`maxPages must be a positive integer. Received: ${options.maxPages}.`);
   }
 
-  const inspectedPages:
-    PageResult[] = [];
+  const inspectedPages: PageResult[] = [];
 
-  let currentPage:
-    PageInput | null =
-      options.startPage;
+  let currentPage: PageInput | null = options.startPage;
 
-  while (
-    currentPage !== null &&
-    inspectedPages.length <
-      options.maxPages
-  ) {
-    inspectedPages.push(
-      await options.inspectPage(
-        currentPage,
-        inspectedPages.length
-      )
-    );
+  while (currentPage !== null && inspectedPages.length < options.maxPages) {
+    inspectedPages.push(await options.inspectPage(currentPage, inspectedPages.length));
 
-    if (
-      inspectedPages.length >=
-      options.maxPages
-    ) {
+    if (inspectedPages.length >= options.maxPages) {
       break;
     }
 
-    currentPage =
-      await options.getNextPage(
-        inspectedPages
-      );
+    currentPage = await options.getNextPage(inspectedPages);
   }
 
   return inspectedPages;

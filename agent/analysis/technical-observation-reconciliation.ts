@@ -1,15 +1,10 @@
-import {
-  createHash
-} from 'node:crypto';
+import { createHash } from 'node:crypto';
 
 import type {
   ConsoleErrorObservation,
   FailedRequestObservation
 } from '../browser/collect-page-diagnostics';
-import type {
-  ClassifiedDiagnostics,
-  ClassifiedFailedRequest
-} from './classify-diagnostics';
+import type { ClassifiedDiagnostics, ClassifiedFailedRequest } from './classify-diagnostics';
 import type {
   ExploratoryQaAnalysis,
   ExploratoryQaFinding,
@@ -18,178 +13,97 @@ import type {
   TechnicalObservationIdentity
 } from './exploratory-qa-schema';
 
-export const CROSS_ORIGIN_DNS_FAILURE_TEXT =
-  'net::ERR_NAME_NOT_RESOLVED';
+export const CROSS_ORIGIN_DNS_FAILURE_TEXT = 'net::ERR_NAME_NOT_RESOLVED';
 
-const CROSS_ORIGIN_DNS_TITLE =
-  'Cross-origin DNS resolution failure observed';
+const CROSS_ORIGIN_DNS_TITLE = 'Cross-origin DNS resolution failure observed';
 
 const OBSERVER_ENVIRONMENT_CAUSES =
   'local DNS policy, filtering, privacy tooling, proxy configuration, or another observer-environment condition';
 
 export interface ReferencedTechnicalRequestGroup {
   reference: string;
-  identity:
-    TechnicalFailedRequestIdentity;
-  requests:
-    ClassifiedFailedRequest[];
+  identity: TechnicalFailedRequestIdentity;
+  requests: ClassifiedFailedRequest[];
 }
 
 export interface ReferencedTechnicalRequests {
-  groups:
-    ReferencedTechnicalRequestGroup[];
-  referenceByRequest:
-    Map<
-      FailedRequestObservation,
-      string
-  >;
+  groups: ReferencedTechnicalRequestGroup[];
+  referenceByRequest: Map<FailedRequestObservation, string>;
 }
 
 export interface ReferencedTechnicalCorsGroup {
   reference: string;
-  identity:
-    TechnicalCorsIdentity;
-  consoleErrors:
-    ConsoleErrorObservation[];
+  identity: TechnicalCorsIdentity;
+  consoleErrors: ConsoleErrorObservation[];
 }
 
 export interface ReferencedTechnicalCorsDiagnostics {
-  groups:
-    ReferencedTechnicalCorsGroup[];
-  referenceByConsoleError:
-    Map<
-      ConsoleErrorObservation,
-      string
-  >;
+  groups: ReferencedTechnicalCorsGroup[];
+  referenceByConsoleError: Map<ConsoleErrorObservation, string>;
 }
 
 function createTechnicalIdentity(
-  request:
-    FailedRequestObservation,
-  pageUrl:
-    string
+  request: FailedRequestObservation,
+  pageUrl: string
 ): TechnicalFailedRequestIdentity | null {
-  const failureText =
-    request.failureText
-      .trim();
-  const method =
-    request.method
-      .trim()
-      .toUpperCase();
-  const resourceType =
-    request.resourceType
-      .trim()
-      .toLowerCase();
+  const failureText = request.failureText.trim();
+  const method = request.method.trim().toUpperCase();
+  const resourceType = request.resourceType.trim().toLowerCase();
 
-  if (
-    failureText.length ===
-      0 ||
-    method.length ===
-      0 ||
-    resourceType.length ===
-      0
-  ) {
+  if (failureText.length === 0 || method.length === 0 || resourceType.length === 0) {
     return null;
   }
 
-  let resourceUrl:
-    URL;
-  let inspectedPageUrl:
-    URL;
+  let resourceUrl: URL;
+  let inspectedPageUrl: URL;
 
   try {
-    resourceUrl =
-      new URL(
-        request.url
-      );
-    inspectedPageUrl =
-      new URL(
-        pageUrl
-      );
+    resourceUrl = new URL(request.url);
+    inspectedPageUrl = new URL(pageUrl);
   } catch {
     return null;
   }
 
   if (
-    (
-      resourceUrl.protocol !==
-        'http:' &&
-      resourceUrl.protocol !==
-        'https:'
-    ) ||
-    (
-      inspectedPageUrl.protocol !==
-        'http:' &&
-      inspectedPageUrl.protocol !==
-        'https:'
-    )
+    (resourceUrl.protocol !== 'http:' && resourceUrl.protocol !== 'https:') ||
+    (inspectedPageUrl.protocol !== 'http:' && inspectedPageUrl.protocol !== 'https:')
   ) {
     return null;
   }
 
-  resourceUrl.hash =
-    '';
+  resourceUrl.hash = '';
 
   return {
-    kind:
-      'failed-request',
+    kind: 'failed-request',
     failureText,
     method,
     resourceType,
-    resourceUrl:
-      resourceUrl.href,
-    originRelation:
-      resourceUrl.origin ===
-        inspectedPageUrl.origin
-        ? 'same-origin'
-        : 'cross-origin'
+    resourceUrl: resourceUrl.href,
+    originRelation: resourceUrl.origin === inspectedPageUrl.origin ? 'same-origin' : 'cross-origin'
   };
 }
 
-export function isCrossOriginDnsFailureIdentity(
-  identity:
-    TechnicalObservationIdentity
-): boolean {
+export function isCrossOriginDnsFailureIdentity(identity: TechnicalObservationIdentity): boolean {
   return (
-    identity.kind ===
-      'failed-request' &&
-    identity.originRelation ===
-      'cross-origin' &&
-    identity.failureText ===
-      CROSS_ORIGIN_DNS_FAILURE_TEXT
+    identity.kind === 'failed-request' &&
+    identity.originRelation === 'cross-origin' &&
+    identity.failureText === CROSS_ORIGIN_DNS_FAILURE_TEXT
   );
 }
 
-function identityKey(
-  identity:
-    TechnicalObservationIdentity
-): string {
-  return JSON.stringify(
-    identity
-  );
+function identityKey(identity: TechnicalObservationIdentity): string {
+  return JSON.stringify(identity);
 }
 
-function parseHttpUrl(
-  value:
-    string
-): URL | null {
+function parseHttpUrl(value: string): URL | null {
   try {
-    const parsed =
-      new URL(
-        value
-      );
+    const parsed = new URL(value);
 
-    if (
-      parsed.protocol !==
-        'http:' &&
-      parsed.protocol !==
-        'https:'
-    ) {
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
       return null;
     }
 
-    parsed.hash =
-      '';
+    parsed.hash = '';
 
     return parsed;
   } catch {
@@ -198,317 +112,150 @@ function parseHttpUrl(
 }
 
 function createCorsIdentity(
-  consoleError:
-    ConsoleErrorObservation,
-  failedRequests:
-    ClassifiedFailedRequest[],
-  pageUrl:
-    string
+  consoleError: ConsoleErrorObservation,
+  failedRequests: ClassifiedFailedRequest[],
+  pageUrl: string
 ): TechnicalCorsIdentity | null {
   const match =
-    /^Access to (XMLHttpRequest|fetch) at '([^'\r\n]+)' from origin '([^'\r\n]+)' has been blocked by CORS policy:\s*(.+)$/u
-      .exec(
-        consoleError.text
-      );
+    /^Access to (XMLHttpRequest|fetch) at '([^'\r\n]+)' from origin '([^'\r\n]+)' has been blocked by CORS policy:\s*(.+)$/u.exec(
+      consoleError.text
+    );
 
-  if (
-    match ===
-      null
-  ) {
+  if (match === null) {
     return null;
   }
 
-  const requestKind =
-    match[1];
-  const resourceUrl =
-    parseHttpUrl(
-      match[2] ??
-      ''
-    );
-  const requestingOriginUrl =
-    parseHttpUrl(
-      match[3] ??
-      ''
-    );
-  const inspectedPageUrl =
-    parseHttpUrl(
-      pageUrl
-    );
+  const requestKind = match[1];
+  const resourceUrl = parseHttpUrl(match[2] ?? '');
+  const requestingOriginUrl = parseHttpUrl(match[3] ?? '');
+  const inspectedPageUrl = parseHttpUrl(pageUrl);
   const consoleSourceUrl =
-    consoleError.sourceUrl ===
-      null
-      ? null
-      : parseHttpUrl(
-          consoleError.sourceUrl
-        );
-  const mechanism =
-    (
-      match[4] ??
-      ''
-    )
-      .replace(
-        /\s+/g,
-        ' '
-      )
-      .trim();
+    consoleError.sourceUrl === null ? null : parseHttpUrl(consoleError.sourceUrl);
+  const mechanism = (match[4] ?? '').replace(/\s+/g, ' ').trim();
 
   if (
-    resourceUrl ===
-      null ||
-    requestingOriginUrl ===
-      null ||
-    inspectedPageUrl ===
-      null ||
-    consoleSourceUrl ===
-      null ||
-    mechanism.length ===
-      0 ||
-    requestingOriginUrl.origin !==
-      inspectedPageUrl.origin ||
-    consoleSourceUrl.origin !==
-      inspectedPageUrl.origin ||
-    resourceUrl.origin ===
-      requestingOriginUrl.origin
+    resourceUrl === null ||
+    requestingOriginUrl === null ||
+    inspectedPageUrl === null ||
+    consoleSourceUrl === null ||
+    mechanism.length === 0 ||
+    requestingOriginUrl.origin !== inspectedPageUrl.origin ||
+    consoleSourceUrl.origin !== inspectedPageUrl.origin ||
+    resourceUrl.origin === requestingOriginUrl.origin
   ) {
     return null;
   }
 
-  const resourceType =
-    requestKind ===
-      'XMLHttpRequest'
-      ? 'xhr'
-      : 'fetch';
-  const matchingRequests =
-    failedRequests.filter(
-      item => {
-        const failedUrl =
-          parseHttpUrl(
-            item.request.url
-          );
+  const resourceType = requestKind === 'XMLHttpRequest' ? 'xhr' : 'fetch';
+  const matchingRequests = failedRequests.filter(item => {
+    const failedUrl = parseHttpUrl(item.request.url);
 
-        return (
-          failedUrl !==
-            null &&
-          failedUrl.href ===
-            resourceUrl.href &&
-          item.request
-            .resourceType
-            .trim()
-            .toLowerCase() ===
-            resourceType &&
-          item.request
-            .failureText
-            .trim() ===
-            'net::ERR_FAILED'
-        );
-      }
+    return (
+      failedUrl !== null &&
+      failedUrl.href === resourceUrl.href &&
+      item.request.resourceType.trim().toLowerCase() === resourceType &&
+      item.request.failureText.trim() === 'net::ERR_FAILED'
     );
+  });
 
-  if (
-    matchingRequests.length !==
-      1
-  ) {
+  if (matchingRequests.length !== 1) {
     return null;
   }
 
-  const method =
-    matchingRequests[0]
-      ?.request
-      .method
-      .trim()
-      .toUpperCase() ??
-    '';
+  const method = matchingRequests[0]?.request.method.trim().toUpperCase() ?? '';
 
-  if (
-    method.length ===
-      0
-  ) {
+  if (method.length === 0) {
     return null;
   }
 
   return {
-    kind:
-      'cors',
+    kind: 'cors',
     mechanism,
     method,
     resourceType,
-    resourceUrl:
-      resourceUrl.href,
-    requestingOrigin:
-      requestingOriginUrl.origin,
-    originRelation:
-      'cross-origin'
+    resourceUrl: resourceUrl.href,
+    requestingOrigin: requestingOriginUrl.origin,
+    originRelation: 'cross-origin'
   };
 }
 
 export function createReferencedTechnicalCorsDiagnostics(
-  diagnostics:
-    ClassifiedDiagnostics,
-  pageUrl:
-    string
+  diagnostics: ClassifiedDiagnostics,
+  pageUrl: string
 ): ReferencedTechnicalCorsDiagnostics {
-  const groupsByIdentity =
-    new Map<
-      string,
-      ReferencedTechnicalCorsGroup
-    >();
-  const referenceByConsoleError =
-    new Map<
-      ConsoleErrorObservation,
-      string
-    >();
+  const groupsByIdentity = new Map<string, ReferencedTechnicalCorsGroup>();
+  const referenceByConsoleError = new Map<ConsoleErrorObservation, string>();
 
-  for (
-    const consoleError of
-      diagnostics.consoleErrors
-  ) {
-    const identity =
-      createCorsIdentity(
-        consoleError,
-        diagnostics.failedRequests,
-        pageUrl
-      );
+  for (const consoleError of diagnostics.consoleErrors) {
+    const identity = createCorsIdentity(consoleError, diagnostics.failedRequests, pageUrl);
 
-    if (
-      identity ===
-        null
-    ) {
+    if (identity === null) {
       continue;
     }
 
-    const key =
-      identityKey(
-        identity
-      );
-    let group =
-      groupsByIdentity.get(
-        key
-      );
+    const key = identityKey(identity);
+    let group = groupsByIdentity.get(key);
 
-    if (
-      group ===
-        undefined
-    ) {
+    if (group === undefined) {
       group = {
-        reference:
-          `technical-cors-${groupsByIdentity.size + 1}`,
+        reference: `technical-cors-${groupsByIdentity.size + 1}`,
         identity,
         consoleErrors: []
       };
-      groupsByIdentity.set(
-        key,
-        group
-      );
+      groupsByIdentity.set(key, group);
     }
 
-    group.consoleErrors.push(
-      consoleError
-    );
-    referenceByConsoleError.set(
-      consoleError,
-      group.reference
-    );
+    group.consoleErrors.push(consoleError);
+    referenceByConsoleError.set(consoleError, group.reference);
   }
 
   return {
-    groups:
-      Array.from(
-        groupsByIdentity
-          .values()
-      ),
+    groups: Array.from(groupsByIdentity.values()),
     referenceByConsoleError
   };
 }
 
 export function createReferencedTechnicalRequests(
-  diagnostics:
-    ClassifiedDiagnostics,
-  pageUrl:
-    string
+  diagnostics: ClassifiedDiagnostics,
+  pageUrl: string
 ): ReferencedTechnicalRequests {
-  const groupsByIdentity =
-    new Map<
-      string,
-      ReferencedTechnicalRequestGroup
-    >();
-  const referenceByRequest =
-    new Map<
-      FailedRequestObservation,
-      string
-    >();
+  const groupsByIdentity = new Map<string, ReferencedTechnicalRequestGroup>();
+  const referenceByRequest = new Map<FailedRequestObservation, string>();
 
-  for (
-    const item of
-      diagnostics.failedRequests
-  ) {
-    if (
-      item.disposition !==
-      'actionable'
-    ) {
+  for (const item of diagnostics.failedRequests) {
+    if (item.disposition !== 'actionable') {
       continue;
     }
 
-    const identity =
-      createTechnicalIdentity(
-        item.request,
-        pageUrl
-      );
+    const identity = createTechnicalIdentity(item.request, pageUrl);
 
-    if (
-      identity ===
-      null
-    ) {
+    if (identity === null) {
       continue;
     }
 
-    const key =
-      identityKey(
-        identity
-      );
-    let group =
-      groupsByIdentity.get(
-        key
-      );
+    const key = identityKey(identity);
+    let group = groupsByIdentity.get(key);
 
-    if (
-      group ===
-      undefined
-    ) {
+    if (group === undefined) {
       group = {
-        reference:
-          `technical-request-${groupsByIdentity.size + 1}`,
+        reference: `technical-request-${groupsByIdentity.size + 1}`,
         identity,
         requests: []
       };
-      groupsByIdentity.set(
-        key,
-        group
-      );
+      groupsByIdentity.set(key, group);
     }
 
-    group.requests.push(
-      item
-    );
-    referenceByRequest.set(
-      item.request,
-      group.reference
-    );
+    group.requests.push(item);
+    referenceByRequest.set(item.request, group.reference);
   }
 
   return {
-    groups:
-      Array.from(
-        groupsByIdentity
-          .values()
-      ),
+    groups: Array.from(groupsByIdentity.values()),
     referenceByRequest
   };
 }
 
-function createTechnicalEvidenceSummary(
-  identity:
-    TechnicalFailedRequestIdentity
-): string {
+function createTechnicalEvidenceSummary(identity: TechnicalFailedRequestIdentity): string {
   return (
     `The ${identity.resourceType} request ` +
     `"${identity.resourceUrl}" failed with ` +
@@ -517,181 +264,89 @@ function createTechnicalEvidenceSummary(
 }
 
 function applyCrossOriginDnsPolicy(
-  finding:
-    ExploratoryQaFinding,
-  identity:
-    TechnicalFailedRequestIdentity
+  finding: ExploratoryQaFinding,
+  identity: TechnicalFailedRequestIdentity
 ): ExploratoryQaFinding {
-  const evidence =
-    createTechnicalEvidenceSummary(
-      identity
-    );
+  const evidence = createTechnicalEvidenceSummary(identity);
 
   return {
     ...finding,
-    severity:
-      'low',
-    confidence:
-      'medium',
-    title:
-      CROSS_ORIGIN_DNS_TITLE,
-    evidence:
-      `${evidence} The failure occurred in the observed browser environment and may reflect ${OBSERVER_ENVIRONMENT_CAUSES}; the request failure alone does not establish who caused it or whether users were affected.`,
-    reasoning:
-      `Because the failed request is cross-origin, this browser observation alone cannot distinguish a remote resource problem from ${OBSERVER_ENVIRONMENT_CAUSES}.`,
+    severity: 'low',
+    confidence: 'medium',
+    title: CROSS_ORIGIN_DNS_TITLE,
+    evidence: `${evidence} The failure occurred in the observed browser environment and may reflect ${OBSERVER_ENVIRONMENT_CAUSES}; the request failure alone does not establish who caused it or whether users were affected.`,
+    reasoning: `Because the failed request is cross-origin, this browser observation alone cannot distinguish a remote resource problem from ${OBSERVER_ENVIRONMENT_CAUSES}.`,
     suggestedCheck:
       'Review the exact request evidence and compare from an independently configured network environment before attributing cause or impact.'
   };
 }
 
-function clearUntrustedTechnicalIdentity(
-  finding:
-    ExploratoryQaFinding
-): ExploratoryQaFinding {
+function clearUntrustedTechnicalIdentity(finding: ExploratoryQaFinding): ExploratoryQaFinding {
   return {
     ...finding,
-    technicalEvidenceReferences:
-      null,
-    technicalIdentity:
-      null
+    technicalEvidenceReferences: null,
+    technicalIdentity: null
   };
 }
 
 export function normalizeTechnicalObservations(
-  analysis:
-    ExploratoryQaAnalysis,
-  diagnostics:
-    ClassifiedDiagnostics,
-  pageUrl:
-    string
+  analysis: ExploratoryQaAnalysis,
+  diagnostics: ClassifiedDiagnostics,
+  pageUrl: string
 ): ExploratoryQaAnalysis {
-  const referenced =
-    createReferencedTechnicalRequests(
-      diagnostics,
-      pageUrl
-    );
-  const referencedCors =
-    createReferencedTechnicalCorsDiagnostics(
-      diagnostics,
-      pageUrl
-    );
-  const groupByReference =
-    new Map(
-      [
-        ...referenced.groups,
-        ...referencedCors.groups
-      ].map(
-        group => [
-          group.reference,
-          group
-        ] as const
-      )
-    );
-  const findings:
-    ExploratoryQaFinding[] =
-      [];
+  const referenced = createReferencedTechnicalRequests(diagnostics, pageUrl);
+  const referencedCors = createReferencedTechnicalCorsDiagnostics(diagnostics, pageUrl);
+  const groupByReference = new Map(
+    [...referenced.groups, ...referencedCors.groups].map(group => [group.reference, group] as const)
+  );
+  const findings: ExploratoryQaFinding[] = [];
 
-  for (
-    const originalFinding of
-      analysis.findings
-  ) {
-    const finding =
-      clearUntrustedTechnicalIdentity(
-        originalFinding
-      );
-    const references =
-      originalFinding
-        .technicalEvidenceReferences;
+  for (const originalFinding of analysis.findings) {
+    const finding = clearUntrustedTechnicalIdentity(originalFinding);
+    const references = originalFinding.technicalEvidenceReferences;
 
     if (
-      finding.category !==
-        'technical' ||
-      references ===
-        undefined ||
-      references ===
-        null ||
-      references.length ===
-        0
+      finding.category !== 'technical' ||
+      references === undefined ||
+      references === null ||
+      references.length === 0
     ) {
-      findings.push(
-        finding
-      );
+      findings.push(finding);
       continue;
     }
 
-    const uniqueReferences =
-      Array.from(
-        new Set(
-          references
-        )
-      );
-    const groups =
-      uniqueReferences.map(
-        reference =>
-          groupByReference.get(
-            reference
-          )
-      );
+    const uniqueReferences = Array.from(new Set(references));
+    const groups = uniqueReferences.map(reference => groupByReference.get(reference));
 
     if (
-      uniqueReferences.length !==
-        references.length ||
-      groups.some(
-        group =>
-          group ===
-          undefined
-      )
+      uniqueReferences.length !== references.length ||
+      groups.some(group => group === undefined)
     ) {
-      findings.push(
-        finding
-      );
+      findings.push(finding);
       continue;
     }
 
-    for (
-      const group of
-        groups
-    ) {
-      if (
-        group ===
-        undefined
-      ) {
+    for (const group of groups) {
+      if (group === undefined) {
         continue;
       }
 
       findings.push({
-        ...(
-          isCrossOriginDnsFailureIdentity(
-            group.identity
-          ) &&
-          group.identity.kind ===
-            'failed-request'
-            ? applyCrossOriginDnsPolicy(
-                finding,
-                group.identity
-              )
-            : {
-                ...finding,
-                evidence:
-                  group.identity.kind ===
-                    'failed-request'
-                    ? createTechnicalEvidenceSummary(
-                        group.identity
-                      )
-                    : finding.evidence
-              }
-        ),
-        evidenceTarget:
-          null,
-        presentationTarget:
-          null,
-        structuredIdentity:
-          null,
-        technicalEvidenceReferences: [
-          group.reference
-        ],
-        technicalIdentity:
-          group.identity
+        ...(isCrossOriginDnsFailureIdentity(group.identity) &&
+        group.identity.kind === 'failed-request'
+          ? applyCrossOriginDnsPolicy(finding, group.identity)
+          : {
+              ...finding,
+              evidence:
+                group.identity.kind === 'failed-request'
+                  ? createTechnicalEvidenceSummary(group.identity)
+                  : finding.evidence
+            }),
+        evidenceTarget: null,
+        presentationTarget: null,
+        structuredIdentity: null,
+        technicalEvidenceReferences: [group.reference],
+        technicalIdentity: group.identity
       });
     }
   }
@@ -703,64 +358,36 @@ export function normalizeTechnicalObservations(
 }
 
 export function createTechnicalObservationFingerprint(
-  identity:
-    TechnicalObservationIdentity
+  identity: TechnicalObservationIdentity
 ): string {
-  const resourceUrl =
-    new URL(
-      identity.resourceUrl
-    );
-  const resourceDigest =
-    createHash(
-      'sha256'
-    )
-      .update(
-        identity.resourceUrl
-      )
-      .digest(
-        'hex'
-      )
-      .slice(
-        0,
-        16
-      );
+  const resourceUrl = new URL(identity.resourceUrl);
+  const resourceDigest = createHash('sha256')
+    .update(identity.resourceUrl)
+    .digest('hex')
+    .slice(0, 16);
 
-  if (
-    identity.kind ===
-      'failed-request'
-  ) {
+  if (identity.kind === 'failed-request') {
     return [
       'technical',
       identity.kind,
-      identity.failureText
-        .toLowerCase(),
-      identity.method
-        .toLowerCase(),
+      identity.failureText.toLowerCase(),
+      identity.method.toLowerCase(),
       identity.resourceType,
       identity.originRelation,
-      resourceUrl.hostname
-        .toLowerCase(),
+      resourceUrl.hostname.toLowerCase(),
       resourceDigest
-    ].join(
-      '|'
-    );
+    ].join('|');
   }
 
   return [
     'technical',
     identity.kind,
-    identity.mechanism
-      .toLowerCase(),
-    identity.method
-      .toLowerCase(),
+    identity.mechanism.toLowerCase(),
+    identity.method.toLowerCase(),
     identity.resourceType,
     identity.originRelation,
-    identity.requestingOrigin
-      .toLowerCase(),
-    resourceUrl.hostname
-      .toLowerCase(),
+    identity.requestingOrigin.toLowerCase(),
+    resourceUrl.hostname.toLowerCase(),
     resourceDigest
-  ].join(
-    '|'
-  );
+  ].join('|');
 }

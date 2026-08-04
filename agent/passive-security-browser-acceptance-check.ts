@@ -1,23 +1,13 @@
 import assert from 'node:assert/strict';
-import {
-  createServer
-} from 'node:http';
+import { createServer } from 'node:http';
 
-import {
-  chromium
-} from '@playwright/test';
+import { chromium } from '@playwright/test';
 
-import {
-  listenOnBrowserSafeLoopbackPort
-} from './testing/listen-on-browser-safe-loopback-port';
+import { listenOnBrowserSafeLoopbackPort } from './testing/listen-on-browser-safe-loopback-port';
 
-import {
-  visitApprovedLinkWithPassiveSecurity
-} from './browser/visit-approved-link';
+import { visitApprovedLinkWithPassiveSecurity } from './browser/visit-approved-link';
 
-import {
-  captureMainDocumentSecurity
-} from './security/capture-main-document-security';
+import { captureMainDocumentSecurity } from './security/capture-main-document-security';
 
 import {
   createPassiveSecurityRegistry,
@@ -31,10 +21,8 @@ interface ReceivedRequest {
   body: string;
 }
 
-async function main():
-  Promise<void> {
-  const receivedRequests:
-    ReceivedRequest[] = [];
+async function main(): Promise<void> {
+  const receivedRequests: ReceivedRequest[] = [];
 
   const cspSecrets = [
     'BROWSER_NONCE_SECRET',
@@ -65,109 +53,51 @@ async function main():
     "object-src 'none'"
   ];
 
-  const server =
-    createServer(
-      (
-        request,
-        response
-      ) => {
-        const chunks:
-          Buffer[] = [];
+  const server = createServer((request, response) => {
+    const chunks: Buffer[] = [];
 
-        request.on(
-          'data',
-          chunk => {
-            chunks.push(
-              Buffer.from(
-                chunk
-              )
-            );
-          }
-        );
+    request.on('data', chunk => {
+      chunks.push(Buffer.from(chunk));
+    });
 
-        request.on(
-          'end',
-          () => {
-            const requestUrl =
-              new URL(
-                request.url ??
-                  '/',
-                'http://127.0.0.1'
-              );
+    request.on('end', () => {
+      const requestUrl = new URL(request.url ?? '/', 'http://127.0.0.1');
 
-            receivedRequests.push({
-              method:
-                request.method ??
-                '',
-              path:
-                requestUrl.pathname,
-              body:
-                Buffer.concat(
-                  chunks
-                ).toString(
-                  'utf8'
-                )
-            });
+      receivedRequests.push({
+        method: request.method ?? '',
+        path: requestUrl.pathname,
+        body: Buffer.concat(chunks).toString('utf8')
+      });
 
-            if (
-              requestUrl.pathname ===
-              '/start'
-            ) {
-              response.writeHead(
-                302,
-                {
-                  location:
-                    '/home?code=redirect-secret'
-                }
-              );
-              response.end();
-              return;
-            }
+      if (requestUrl.pathname === '/start') {
+        response.writeHead(302, {
+          location: '/home?code=redirect-secret'
+        });
+        response.end();
+        return;
+      }
 
-            if (
-              requestUrl.pathname !==
-                '/home' &&
-              requestUrl.pathname !==
-                '/next'
-            ) {
-              response.writeHead(
-                404,
-                {
-                  'content-type':
-                    'text/plain'
-                }
-              );
-              response.end(
-                'not found'
-              );
-              return;
-            }
+      if (requestUrl.pathname !== '/home' && requestUrl.pathname !== '/next') {
+        response.writeHead(404, {
+          'content-type': 'text/plain'
+        });
+        response.end('not found');
+        return;
+      }
 
-            response.setHeader(
-              'CoNtEnT-SeCuRiTy-PoLiCy',
-              cspValues
-            );
+      response.setHeader('CoNtEnT-SeCuRiTy-PoLiCy', cspValues);
 
-            response.writeHead(
-              200,
-              {
-                'content-type':
-                  'text/html; charset=utf-8',
-                'x-content-type-options':
-                  'nosniff',
-                server:
-                  'checkquest-fixture',
-                'set-cookie':
-                  'session=super-secret-cookie-value; HttpOnly',
-                authorization:
-                  'Bearer super-secret-authorization-value',
-                'x-secret-token':
-                  'super-secret-header-value'
-              }
-            );
+      response.writeHead(200, {
+        'content-type': 'text/html; charset=utf-8',
+        'x-content-type-options': 'nosniff',
+        server: 'checkquest-fixture',
+        'set-cookie': 'session=super-secret-cookie-value; HttpOnly',
+        authorization: 'Bearer super-secret-authorization-value',
+        'x-secret-token': 'super-secret-header-value'
+      });
 
-            response.end(
-              `<!doctype html>
+      response.end(
+        `<!doctype html>
 <html>
   <head>
     <title>${requestUrl.pathname}</title>
@@ -183,297 +113,157 @@ async function main():
     </form>
   </body>
 </html>`
-            );
-          }
-        );
-      }
-    );
-
-  const port =
-    await listenOnBrowserSafeLoopbackPort(
-      server,
-      'Local passive-security fixture'
-    );
-
-  const origin =
-    `http://127.0.0.1:${port}`;
-
-  const browser =
-    await chromium.launch({
-      headless:
-        true
+      );
     });
+  });
+
+  const port = await listenOnBrowserSafeLoopbackPort(server, 'Local passive-security fixture');
+
+  const origin = `http://127.0.0.1:${port}`;
+
+  const browser = await chromium.launch({
+    headless: true
+  });
 
   try {
-    const page =
-      await browser.newPage({
-        serviceWorkers:
-          'block'
-      });
+    const page = await browser.newPage({
+      serviceWorkers: 'block'
+    });
 
-    const startResponse =
-      await page.goto(
-        `${origin}/start`,
-        {
-          waitUntil:
-            'domcontentloaded'
-        }
-      );
+    const startResponse = await page.goto(`${origin}/start`, {
+      waitUntil: 'domcontentloaded'
+    });
 
-    const startSnapshot =
-      await captureMainDocumentSecurity({
-        response:
-          startResponse,
-        requestedUrl:
-          `${origin}/start`,
-        finalUrl:
-          page.url(),
-        pageTitle:
-          await page.title()
-      });
+    const startSnapshot = await captureMainDocumentSecurity({
+      response: startResponse,
+      requestedUrl: `${origin}/start`,
+      finalUrl: page.url(),
+      pageTitle: await page.title()
+    });
 
-    assert.equal(
-      startSnapshot.redirects.length,
-      1
-    );
+    assert.equal(startSnapshot.redirects.length, 1);
 
-    assert.equal(
-      startSnapshot.redirects[0]
-        .status,
-      302
-    );
+    assert.equal(startSnapshot.redirects[0].status, 302);
+
+    assert.equal(startSnapshot.redirects[0].location, `${origin}/home`);
+
+    assert.deepEqual(Object.keys(startSnapshot.headers).sort(), [
+      'content-security-policy',
+      'content-type',
+      'server',
+      'x-content-type-options'
+    ]);
+
+    const capturedCspValues = startSnapshot.headers['content-security-policy'] ?? [];
+
+    assert.equal(capturedCspValues.length, 10);
 
     assert.equal(
-      startSnapshot.redirects[0]
-        .location,
-      `${origin}/home`
-    );
-
-    assert.deepEqual(
-      Object.keys(
-        startSnapshot.headers
-      ).sort(),
-      [
-        'content-security-policy',
-        'content-type',
-        'server',
-        'x-content-type-options'
-      ]
-    );
-
-    const capturedCspValues =
-      startSnapshot
-        .headers[
-          'content-security-policy'
-        ] ??
-      [];
-
-    assert.equal(
-      capturedCspValues.length,
-      10
-    );
-
-    assert.equal(
-      capturedCspValues.every(
-        value =>
-          value.length <=
-          4_000
-      ),
+      capturedCspValues.every(value => value.length <= 4_000),
       true
     );
 
     assert.equal(
-      capturedCspValues.some(
-        value =>
-          value.length ===
-          4_000
-      ),
+      capturedCspValues.some(value => value.length === 4_000),
       true
     );
 
-    assert.equal(
-      capturedCspValues.filter(
-        value =>
-          value ===
-          "frame-ancestors 'self'"
-      ).length,
-      2
-    );
+    assert.equal(capturedCspValues.filter(value => value === "frame-ancestors 'self'").length, 2);
 
-    const serializedSnapshot =
-      JSON.stringify(
-        startSnapshot
-      );
+    const serializedSnapshot = JSON.stringify(startSnapshot);
 
-    for (
-      const secret of
-        cspSecrets
-    ) {
+    for (const secret of cspSecrets) {
       assert.equal(
-        serializedSnapshot.includes(
-          secret
-        ),
+        serializedSnapshot.includes(secret),
         false,
         `Passive snapshot serialized CSP secret: ${secret}.`
       );
     }
 
     assert.equal(
-      capturedCspValues.some(
-        value =>
-          value.includes(
-            'https://api.example.test/data'
-          )
-      ),
+      capturedCspValues.some(value => value.includes('https://api.example.test/data')),
       true
     );
 
     assert.equal(
-      capturedCspValues.some(
-        value =>
-          value.includes(
-            '//cdn.example.test/library.js'
-          )
-      ),
+      capturedCspValues.some(value => value.includes('//cdn.example.test/library.js')),
       true
     );
 
-    const nextVisit =
-      await visitApprovedLinkWithPassiveSecurity(
-        page,
-        {
-          text:
-            'Next',
-          url:
-            `${origin}/next`
-        },
-        [
-          '127.0.0.1'
-        ]
-      );
-
-    const registry =
-      createPassiveSecurityRegistry();
-
-    registerPassiveSecuritySnapshot(
-      registry,
-      startSnapshot
+    const nextVisit = await visitApprovedLinkWithPassiveSecurity(
+      page,
+      {
+        text: 'Next',
+        url: `${origin}/next`
+      },
+      ['127.0.0.1']
     );
 
-    registerPassiveSecuritySnapshot(
-      registry,
-      nextVisit
-        .passiveSecuritySnapshot
-    );
+    const registry = createPassiveSecurityRegistry();
 
-    const passiveReport =
-      getPassiveSecurityReport(
-        registry
-      );
+    registerPassiveSecuritySnapshot(registry, startSnapshot);
+
+    registerPassiveSecuritySnapshot(registry, nextVisit.passiveSecuritySnapshot);
+
+    const passiveReport = getPassiveSecurityReport(registry);
 
     assert.deepEqual(
-      receivedRequests.map(
-        request =>
-          [
-            request.method,
-            request.path
-          ]
-      ),
+      receivedRequests.map(request => [request.method, request.path]),
       [
-        [
-          'GET',
-          '/start'
-        ],
-        [
-          'GET',
-          '/home'
-        ],
-        [
-          'GET',
-          '/next'
-        ]
+        ['GET', '/start'],
+        ['GET', '/home'],
+        ['GET', '/next']
       ]
     );
 
     assert.equal(
-      receivedRequests.some(
-        request =>
-          request.body.length >
-          0
-      ),
+      receivedRequests.some(request => request.body.length > 0),
       false
     );
 
-    const forbiddenMethods =
-      new Set([
-        'HEAD',
-        'OPTIONS',
-        'TRACE',
-        'POST',
-        'PUT',
-        'PATCH',
-        'DELETE'
-      ]);
+    const forbiddenMethods = new Set([
+      'HEAD',
+      'OPTIONS',
+      'TRACE',
+      'POST',
+      'PUT',
+      'PATCH',
+      'DELETE'
+    ]);
 
     assert.equal(
-      receivedRequests.some(
-        request =>
-          forbiddenMethods.has(
-            request.method
-          )
-      ),
+      receivedRequests.some(request => forbiddenMethods.has(request.method)),
       false
     );
 
-    const serialized =
-      JSON.stringify(
-        passiveReport
-      );
+    const serialized = JSON.stringify(passiveReport);
 
-    for (
-      const sensitiveValue of
-        [
-          'super-secret-cookie-value',
-          'super-secret-authorization-value',
-          'super-secret-header-value',
-          'redirect-secret',
-          'set-cookie',
-          'authorization',
-          'x-secret-token',
-          ...cspSecrets
-        ]
-    ) {
+    for (const sensitiveValue of [
+      'super-secret-cookie-value',
+      'super-secret-authorization-value',
+      'super-secret-header-value',
+      'redirect-secret',
+      'set-cookie',
+      'authorization',
+      'x-secret-token',
+      ...cspSecrets
+    ]) {
       assert.equal(
-        serialized.includes(
-          sensitiveValue
-        ),
+        serialized.includes(sensitiveValue),
         false,
         `Passive report serialized forbidden value: ${sensitiveValue}.`
       );
     }
 
     assert.equal(
-      passiveReport
-        .observations
-        .filter(
-          observation =>
-            observation.code ===
-            'PS_HTTP_DOCUMENT'
-        )
+      passiveReport.observations.filter(observation => observation.code === 'PS_HTTP_DOCUMENT')
         .length,
       1
     );
 
     assert.equal(
-      passiveReport
-        .observations
-        .find(
-          observation =>
-            observation.code ===
-              'PS_HTTP_DOCUMENT'
-        )
-        ?.occurrences
-        .length,
+      passiveReport.observations.find(observation => observation.code === 'PS_HTTP_DOCUMENT')
+        ?.occurrences.length,
       2
     );
 
@@ -483,39 +273,21 @@ async function main():
   } finally {
     await browser.close();
 
-    await new Promise<void>(
-      (
-        resolve,
-        reject
-      ) => {
-        server.close(
-          error => {
-            if (
-              error
-            ) {
-              reject(
-                error
-              );
-              return;
-            }
+    await new Promise<void>((resolve, reject) => {
+      server.close(error => {
+        if (error) {
+          reject(error);
+          return;
+        }
 
-            resolve();
-          }
-        );
-      }
-    );
+        resolve();
+      });
+    });
   }
 }
 
-main().catch(
-  error => {
-    console.error(
-      'Stage 7.1 local browser safety acceptance failed.'
-    );
-    console.error(
-      error
-    );
-    process.exitCode =
-      1;
-  }
-);
+main().catch(error => {
+  console.error('Stage 7.1 local browser safety acceptance failed.');
+  console.error(error);
+  process.exitCode = 1;
+});

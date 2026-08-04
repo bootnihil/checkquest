@@ -1,6 +1,4 @@
-import type {
-  DesktopRunEvent
-} from './contracts';
+import type { DesktopRunEvent } from './contracts';
 
 export type DesktopUiPhase =
   | 'ready'
@@ -18,146 +16,90 @@ export type DesktopUiPhase =
   | 'failed';
 
 export interface DesktopUiState {
-  phase:
-    DesktopUiPhase;
-  label:
-    string;
-  detail:
-    string;
-  runActive:
-    boolean;
+  phase: DesktopUiPhase;
+  label: string;
+  detail: string;
+  runActive: boolean;
 }
 
 export interface DesktopRunButtonPresentation {
-  label:
-    'Run CheckQuest' |
-    'Checking…' |
-    'Running…' |
-    'Cancelling…';
-  busy:
-    boolean;
+  label: 'Run CheckQuest' | 'Checking…' | 'Running…' | 'Cancelling…';
+  busy: boolean;
 }
 
-export const initialDesktopUiState:
-  DesktopUiState = {
-    phase:
-      'ready',
-    label:
-      'Ready',
-    detail:
-      'Configure a run to begin.',
-    runActive:
-      false
-  };
+export const initialDesktopUiState: DesktopUiState = {
+  phase: 'ready',
+  label: 'Ready',
+  detail: 'Configure a run to begin.',
+  runActive: false
+};
 
-export function createStartingUiState():
-  DesktopUiState {
+export function createStartingUiState(): DesktopUiState {
   return {
-    phase:
-      'starting',
-    label:
-      'Starting',
-    detail:
-      'Validating the run and preparing CheckQuest.',
-    runActive:
-      true
+    phase: 'starting',
+    label: 'Starting',
+    detail: 'Validating the run and preparing CheckQuest.',
+    runActive: true
   };
 }
 
-export function createCheckingCredentialsUiState():
-  DesktopUiState {
+export function createCheckingCredentialsUiState(): DesktopUiState {
   return {
-    phase:
-      'checking-credentials',
-    label:
-      'Checking credentials…',
-    detail:
-      'Confirming access with Gemini before the run starts.',
-    runActive:
-      true
+    phase: 'checking-credentials',
+    label: 'Checking credentials…',
+    detail: 'Confirming access with Gemini before the run starts.',
+    runActive: true
   };
 }
 
-export function createCheckingWebsiteUiState():
-  DesktopUiState {
+export function createCheckingWebsiteUiState(): DesktopUiState {
   return {
-    phase:
-      'checking-website',
-    label:
-      'Checking website…',
-    detail:
-      'Confirming the target can be reached before the run starts.',
-    runActive:
-      true
+    phase: 'checking-website',
+    label: 'Checking website…',
+    detail: 'Confirming the target can be reached before the run starts.',
+    runActive: true
   };
 }
 
-export function createReadyUiState():
-  DesktopUiState {
+export function createReadyUiState(): DesktopUiState {
   return {
     ...initialDesktopUiState
   };
 }
 
-export function createCancelledUiState():
-  DesktopUiState {
+export function createCancelledUiState(): DesktopUiState {
   return {
-    phase:
-      'cancelled',
-    label:
-      'Cancelled',
-    detail:
-      'The run was cancelled.',
-    runActive:
-      false
+    phase: 'cancelled',
+    label: 'Cancelled',
+    detail: 'The run was cancelled.',
+    runActive: false
   };
 }
 
-export function createStartRejectedUiState(
-  message:
-    string
-): DesktopUiState {
+export function createStartRejectedUiState(message: string): DesktopUiState {
   return {
-    phase:
-      'failed',
-    label:
-      'Failed',
-    detail:
-      message,
-    runActive:
-      false
+    phase: 'failed',
+    label: 'Failed',
+    detail: message,
+    runActive: false
   };
 }
 
-export function createCancellingUiState(
-  state:
-    DesktopUiState
-): DesktopUiState {
-  if (
-    !state.runActive
-  ) {
+export function createCancellingUiState(state: DesktopUiState): DesktopUiState {
+  if (!state.runActive) {
     return state;
   }
 
   return {
-    phase:
-      'cancelling',
-    label:
-      'Cancelling…',
-    detail:
-      'Stopping current work and cleaning up…',
-    runActive:
-      true
+    phase: 'cancelling',
+    label: 'Cancelling…',
+    detail: 'Stopping current work and cleaning up…',
+    runActive: true
   };
 }
 
-export function getDesktopUiReadinessMessage(
-  state:
-    DesktopUiState
-): string | null {
-  switch (
-    state.phase
-  ) {
+export function getDesktopUiReadinessMessage(state: DesktopUiState): string | null {
+  switch (state.phase) {
     case 'completed':
     case 'cancelled':
       return 'Ready for another run';
@@ -171,20 +113,15 @@ export function getDesktopUiReadinessMessage(
 }
 
 export function getDesktopRunButtonPresentation(
-  state:
-    DesktopUiState
+  state: DesktopUiState
 ): DesktopRunButtonPresentation {
-  switch (
-    state.phase
-  ) {
+  switch (state.phase) {
     case 'checking-credentials':
     case 'checking-website':
     case 'starting':
       return {
-        label:
-          'Checking…',
-        busy:
-          true
+        label: 'Checking…',
+        busy: true
       };
 
     case 'running':
@@ -193,18 +130,14 @@ export function getDesktopRunButtonPresentation(
     case 'analyzing':
     case 'retrying':
       return {
-        label:
-          'Running…',
-        busy:
-          true
+        label: 'Running…',
+        busy: true
       };
 
     case 'cancelling':
       return {
-        label:
-          'Cancelling…',
-        busy:
-          true
+        label: 'Cancelling…',
+        busy: true
       };
 
     case 'ready':
@@ -212,190 +145,115 @@ export function getDesktopRunButtonPresentation(
     case 'completed':
     case 'failed':
       return {
-        label:
-          'Run CheckQuest',
-        busy:
-          false
+        label: 'Run CheckQuest',
+        busy: false
       };
   }
 }
 
-function preserveCancellation(
-  state:
-    DesktopUiState,
-  event:
-    DesktopRunEvent
-): boolean {
+function preserveCancellation(state: DesktopUiState, event: DesktopRunEvent): boolean {
   return (
-    state.phase ===
-      'cancelling' &&
-    event.type !==
-      'run-completed' &&
-    event.type !==
-      'run-failed'
+    state.phase === 'cancelling' && event.type !== 'run-completed' && event.type !== 'run-failed'
   );
 }
 
 export function formatDesktopCompletionSummary(
-  inspectedPageCount:
-    number,
-  confirmedFindingCount:
-    number,
-  reviewFindingCount:
-    number,
-  technicalObservationCount:
-    number
+  inspectedPageCount: number,
+  confirmedFindingCount: number,
+  reviewFindingCount: number,
+  technicalObservationCount: number
 ): string {
-  const findingCount =
-    confirmedFindingCount +
-    reviewFindingCount;
+  const findingCount = confirmedFindingCount + reviewFindingCount;
 
   return `${inspectedPageCount} ${
-    inspectedPageCount ===
-      1
-      ? 'page'
-      : 'pages'
+    inspectedPageCount === 1 ? 'page' : 'pages'
   } inspected · ${findingCount} ${
-    findingCount ===
-      1
-      ? 'finding'
-      : 'findings'
+    findingCount === 1 ? 'finding' : 'findings'
   } · ${technicalObservationCount} technical ${
-    technicalObservationCount ===
-      1
-      ? 'observation'
-      : 'observations'
+    technicalObservationCount === 1 ? 'observation' : 'observations'
   }`;
 }
 
 export function reduceDesktopUiState(
-  state:
-    DesktopUiState,
-  event:
-    DesktopRunEvent
+  state: DesktopUiState,
+  event: DesktopRunEvent
 ): DesktopUiState {
-  if (
-    preserveCancellation(
-      state,
-      event
-    )
-  ) {
+  if (preserveCancellation(state, event)) {
     return state;
   }
 
-  switch (
-    event.type
-  ) {
+  switch (event.type) {
     case 'target-preflight-started':
       return createCheckingWebsiteUiState();
 
     case 'run-started':
       return {
-        phase:
-          'running',
-        label:
-          'Running',
-        detail:
-          `Up to ${event.pageBudget} pages and ${event.navigationBudget} navigation steps.`,
-        runActive:
-          true
+        phase: 'running',
+        label: 'Running',
+        detail: `Up to ${event.pageBudget} pages and ${event.navigationBudget} navigation steps.`,
+        runActive: true
       };
 
     case 'inspection-started':
       return {
-        phase:
-          'inspecting',
-        label:
-          `Inspecting page ${event.pageNumber}`,
-        detail:
-          'Collecting bounded page observations.',
-        runActive:
-          true
+        phase: 'inspecting',
+        label: `Inspecting page ${event.pageNumber}`,
+        detail: 'Collecting bounded page observations.',
+        runActive: true
       };
 
     case 'navigation-started':
       return {
-        phase:
-          'navigating',
-        label:
-          'Navigating',
-        detail:
-          `Navigation step ${event.navigationStep} of ${event.navigationBudget}.`,
-        runActive:
-          true
+        phase: 'navigating',
+        label: 'Navigating',
+        detail: `Navigation step ${event.navigationStep} of ${event.navigationBudget}.`,
+        runActive: true
       };
 
     case 'model-request-started':
       return {
-        phase:
-          'analyzing',
-        label:
-          'Analyzing',
-        detail:
-          `Model operation: ${event.operation}.`,
-        runActive:
-          true
+        phase: 'analyzing',
+        label: 'Analyzing',
+        detail: `Model operation: ${event.operation}.`,
+        runActive: true
       };
 
     case 'model-request-retrying':
       return {
-        phase:
-          'retrying',
-        label:
-          'Retrying model request',
-        detail:
-          `Attempt ${event.attempt} of ${event.maxAttempts}.`,
-        runActive:
-          true
+        phase: 'retrying',
+        label: 'Retrying model request',
+        detail: `Attempt ${event.attempt} of ${event.maxAttempts}.`,
+        runActive: true
       };
 
     case 'run-completed':
       return {
-        phase:
-          'completed',
-        label:
-          'Completed',
-        detail:
-          formatDesktopCompletionSummary(
-            event
-              .inspectedPageCount,
-            event
-              .confirmedFindingCount,
-            event
-              .reviewFindingCount,
-            event
-              .technicalObservationCount
-          ),
-        runActive:
-          false
+        phase: 'completed',
+        label: 'Completed',
+        detail: formatDesktopCompletionSummary(
+          event.inspectedPageCount,
+          event.confirmedFindingCount,
+          event.reviewFindingCount,
+          event.technicalObservationCount
+        ),
+        runActive: false
       };
 
     case 'run-failed':
-      if (
-        event.code ===
-          'CANCELLED'
-      ) {
+      if (event.code === 'CANCELLED') {
         return {
-          phase:
-            'cancelled',
-          label:
-            'Cancelled',
-          detail:
-            'The run stopped safely and browser cleanup completed.',
-          runActive:
-            false
+          phase: 'cancelled',
+          label: 'Cancelled',
+          detail: 'The run stopped safely and browser cleanup completed.',
+          runActive: false
         };
       }
 
       return {
-        phase:
-          'failed',
-        label:
-          'Failed',
-        detail:
-          event.message,
-        runActive:
-          false
+        phase: 'failed',
+        label: 'Failed',
+        detail: event.message,
+        runActive: false
       };
 
     case 'inspection-completed':
@@ -403,14 +261,10 @@ export function reduceDesktopUiState(
     case 'model-request-completed':
     case 'investigation-completed':
       return {
-        phase:
-          'running',
-        label:
-          'Running',
-        detail:
-          event.message,
-        runActive:
-          true
+        phase: 'running',
+        label: 'Running',
+        detail: event.message,
+        runActive: true
       };
   }
 }

@@ -53,57 +53,32 @@ async function main(): Promise<void> {
       </html>
     `);
 
-    const evidence =
-      await captureSelectOptionEvidence(
-        page,
-        'targeted-evidence-check',
-        1,
-        1,
-        {
-          kind: 'select-option',
-          controlLabel: 'Country',
-          controlName: 'country',
-          controlId: 'country',
-          optionText: 'Equador'
-        }
-      );
+    const evidence = await captureSelectOptionEvidence(page, 'targeted-evidence-check', 1, 1, {
+      kind: 'select-option',
+      controlLabel: 'Country',
+      controlName: 'country',
+      controlId: 'country',
+      optionText: 'Equador'
+    });
 
-    await access(
-      evidence.filePath
-    );
+    await access(evidence.filePath);
 
-    const selectedValue =
-      await page
-        .locator('#country')
-        .inputValue();
+    const selectedValue = await page.locator('#country').inputValue();
 
-    console.log(
-      'Targeted evidence captured successfully.'
-    );
+    console.log('Targeted evidence captured successfully.');
 
-    console.log(
-      `Selected value: ${selectedValue}`
-    );
+    console.log(`Selected value: ${selectedValue}`);
 
-    console.log(
-      `Locator strategy: ${evidence.locatorStrategy}`
-    );
+    console.log(`Locator strategy: ${evidence.locatorStrategy}`);
 
-    console.log(
-      `Screenshot: ${evidence.filePath}`
-    );
+    console.log(`Screenshot: ${evidence.filePath}`);
   } finally {
     await browser.close();
   }
 }
 
-main().catch(
-  (error: unknown) => {
-    console.error(
-      'Targeted evidence check failed:',
-      error
-    );
+main().catch((error: unknown) => {
+  console.error('Targeted evidence check failed:', error);
 
-    process.exitCode = 1;
-  }
-);
+  process.exitCode = 1;
+});

@@ -2,27 +2,13 @@ import type {
   ExploratoryQaAnalysis,
   ExploratoryQaFinding
 } from '../analysis/exploratory-qa-schema';
-import {
-  admitAccessibilityFindings
-} from '../analysis/accessibility-finding-admission';
-import type {
-  ClassifiedDiagnostics
-} from '../analysis/classify-diagnostics';
-import {
-  normalizeTechnicalObservations
-} from '../analysis/technical-observation-reconciliation';
-import type {
-  PageFinding
-} from '../analysis/evaluate-page';
-import type {
-  ExtractedPageContent
-} from '../browser/extract-page-content';
-import {
-  createExploratoryFindingFingerprint
-} from '../investigation/finding-fingerprint';
-import type {
-  FindingInvestigationOutcome
-} from '../investigation/evaluate-finding-investigation-outcome';
+import { admitAccessibilityFindings } from '../analysis/accessibility-finding-admission';
+import type { ClassifiedDiagnostics } from '../analysis/classify-diagnostics';
+import { normalizeTechnicalObservations } from '../analysis/technical-observation-reconciliation';
+import type { PageFinding } from '../analysis/evaluate-page';
+import type { ExtractedPageContent } from '../browser/extract-page-content';
+import { createExploratoryFindingFingerprint } from '../investigation/finding-fingerprint';
+import type { FindingInvestigationOutcome } from '../investigation/evaluate-finding-investigation-outcome';
 import {
   buildKnownFindingPromptContext,
   createKnownFindingState,
@@ -55,368 +41,202 @@ import {
   reconcileFindingObservations,
   type ReconciledPageFindingObservations
 } from './reconcile-finding-observations';
-import type {
-  UnifiedFinding
-} from './finding-model';
-import {
-  applyRunTechnicalObservationPolicy
-} from './technical-observation-policy';
+import type { UnifiedFinding } from './finding-model';
+import { applyRunTechnicalObservationPolicy } from './technical-observation-policy';
 
 export interface RunFindingLifecycleState {
-  unifiedFindingRegistry:
-    UnifiedFindingRegistry;
+  unifiedFindingRegistry: UnifiedFindingRegistry;
 
-  knownFindingState:
-    KnownFindingState;
+  knownFindingState: KnownFindingState;
 
-  unifiedFingerprintAliases:
-    Map<string, string>;
+  unifiedFingerprintAliases: Map<string, string>;
 }
 
 export interface KnownFindingAnalysisPreparation {
-  deterministicKnownOccurrenceDrafts:
-    KnownFindingOccurrenceDraft[];
+  deterministicKnownOccurrenceDrafts: KnownFindingOccurrenceDraft[];
 
-  knownFindingContext:
-    KnownFindingPromptContext[];
+  knownFindingContext: KnownFindingPromptContext[];
 }
 
 interface CandidateLifecycleInput {
-  finding:
-    ExploratoryQaFinding;
+  finding: ExploratoryQaFinding;
 
-  knownFingerprint:
-    string | null;
+  knownFingerprint: string | null;
 
-  unifiedFingerprint:
-    string;
+  unifiedFingerprint: string;
 }
 
 export interface ReconciledRunPageFindings {
-  exploratoryQaAnalysis:
-    ExploratoryQaAnalysis;
+  exploratoryQaAnalysis: ExploratoryQaAnalysis;
 
-  reconciledFindingObservations:
-    ReconciledPageFindingObservations;
+  reconciledFindingObservations: ReconciledPageFindingObservations;
 
-  reconciledPageFindings:
-    ReconciledPageFindings;
+  reconciledPageFindings: ReconciledPageFindings;
 
-  pageCandidates:
-    PageCandidate[];
+  pageCandidates: PageCandidate[];
 
-  knownFingerprintByCandidateReference:
-    Map<
-      PageCandidateReference,
-      string
-    >;
+  knownFingerprintByCandidateReference: Map<PageCandidateReference, string>;
 
-  unifiedFingerprintByCandidateReference:
-    Map<
-      PageCandidateReference,
-      string
-    >;
+  unifiedFingerprintByCandidateReference: Map<PageCandidateReference, string>;
 }
 
 export interface ReconcileRunPageFindingsInput {
   pageUrl: string;
   pageTitle: string;
-  pageContent?:
-    ExtractedPageContent;
-  ruleFindings:
-    PageFinding[];
-  rawExploratoryQaAnalysis:
-    ExploratoryQaAnalysis;
-  classifiedDiagnostics?:
-    ClassifiedDiagnostics;
-  knownFindingPreparation:
-    KnownFindingAnalysisPreparation;
+  pageContent?: ExtractedPageContent;
+  ruleFindings: PageFinding[];
+  rawExploratoryQaAnalysis: ExploratoryQaAnalysis;
+  classifiedDiagnostics?: ClassifiedDiagnostics;
+  knownFindingPreparation: KnownFindingAnalysisPreparation;
 }
 
 export interface PageFindingInvestigationResult {
-  candidateReference:
-    PageCandidateReference;
+  candidateReference: PageCandidateReference;
 
-  finding:
-    ExploratoryQaFinding;
+  finding: ExploratoryQaFinding;
 
-  outcome:
-    FindingInvestigationOutcome;
+  outcome: FindingInvestigationOutcome;
 }
 
 export interface CommitRunPageFindingsInput {
-  page:
-    ReconciledRunPageFindings;
+  page: ReconciledRunPageFindings;
 
   pageUrl: string;
   pageTitle: string;
   pageNumber: number;
 
-  screenshotPath:
-    string | null;
+  screenshotPath: string | null;
 
-  exploratoryFindingResults:
-    PageFindingInvestigationResult[];
+  exploratoryFindingResults: PageFindingInvestigationResult[];
 }
 
 function validateInvestigationResults(
-  input:
-    CommitRunPageFindingsInput
-): Map<
-  PageCandidateReference,
-  PageFindingInvestigationResult
-> {
-  const candidateByReference =
-    new Map<
-      PageCandidateReference,
-      PageCandidate
-    >();
+  input: CommitRunPageFindingsInput
+): Map<PageCandidateReference, PageFindingInvestigationResult> {
+  const candidateByReference = new Map<PageCandidateReference, PageCandidate>();
 
-  for (
-    const candidate of
-      input.page.pageCandidates
-  ) {
-    if (
-      candidateByReference.has(
-        candidate.reference
-      )
-    ) {
+  for (const candidate of input.page.pageCandidates) {
+    if (candidateByReference.has(candidate.reference)) {
       throw new Error(
         `Prepared lifecycle contains duplicate candidate reference "${candidate.reference}".`
       );
     }
 
-    candidateByReference.set(
-      candidate.reference,
-      candidate
-    );
+    candidateByReference.set(candidate.reference, candidate);
 
-    if (
-      !input
-        .page
-        .unifiedFingerprintByCandidateReference
-        .has(
-          candidate.reference
-        )
-    ) {
+    if (!input.page.unifiedFingerprintByCandidateReference.has(candidate.reference)) {
       throw new Error(
         `Candidate "${candidate.reference}" is missing its unified finding identity.`
       );
     }
   }
 
-  const newFindingCandidateCount =
-    input
-      .page
-      .pageCandidates
-      .filter(
-        candidate =>
-          !input
-            .page
-            .knownFingerprintByCandidateReference
-            .has(
-              candidate.reference
-            )
-      )
-      .length;
+  const newFindingCandidateCount = input.page.pageCandidates.filter(
+    candidate => !input.page.knownFingerprintByCandidateReference.has(candidate.reference)
+  ).length;
 
-  if (
-    newFindingCandidateCount !==
-    input
-      .page
-      .reconciledPageFindings
-      .newFindings
-      .length
-  ) {
+  if (newFindingCandidateCount !== input.page.reconciledPageFindings.newFindings.length) {
     throw new Error(
       'Prepared lifecycle candidate identities do not match the new-finding collection.'
     );
   }
 
-  const resultByCandidateReference =
-    new Map<
-      PageCandidateReference,
-      PageFindingInvestigationResult
-    >();
+  const resultByCandidateReference = new Map<
+    PageCandidateReference,
+    PageFindingInvestigationResult
+  >();
 
-  for (
-    const result of
-      input.exploratoryFindingResults
-  ) {
-    if (
-      resultByCandidateReference.has(
-        result.candidateReference
-      )
-    ) {
+  for (const result of input.exploratoryFindingResults) {
+    if (resultByCandidateReference.has(result.candidateReference)) {
       throw new Error(
         `Duplicate investigation result for candidate "${result.candidateReference}".`
       );
     }
 
-    const candidate =
-      candidateByReference.get(
-        result.candidateReference
-      );
+    const candidate = candidateByReference.get(result.candidateReference);
 
-    if (
-      candidate ===
-      undefined
-    ) {
+    if (candidate === undefined) {
       throw new Error(
         `Unexpected investigation result for candidate "${result.candidateReference}".`
       );
     }
 
     if (
-      createExploratoryFindingFingerprint(
-        result.finding
-      ) !==
-      createExploratoryFindingFingerprint(
-        candidate.finding
-      )
+      createExploratoryFindingFingerprint(result.finding) !==
+      createExploratoryFindingFingerprint(candidate.finding)
     ) {
       throw new Error(
         `Investigation result for candidate "${result.candidateReference}" does not match its prepared finding identity.`
       );
     }
 
-    resultByCandidateReference.set(
-      result.candidateReference,
-      result
-    );
+    resultByCandidateReference.set(result.candidateReference, result);
   }
 
-  for (
-    const candidate of
-      input.page.pageCandidates
-  ) {
-    if (
-      !resultByCandidateReference.has(
-        candidate.reference
-      )
-    ) {
-      throw new Error(
-        `Missing investigation result for candidate "${candidate.reference}".`
-      );
+  for (const candidate of input.page.pageCandidates) {
+    if (!resultByCandidateReference.has(candidate.reference)) {
+      throw new Error(`Missing investigation result for candidate "${candidate.reference}".`);
     }
   }
 
   return resultByCandidateReference;
 }
 
-function createModelFindingIdentity(
-  finding:
-    ExploratoryQaFinding
-): string {
-  const {
-    knownFindingReference:
-      _knownFindingReference,
-    ...identity
-  } = finding;
+function createModelFindingIdentity(finding: ExploratoryQaFinding): string {
+  const { knownFindingReference: _knownFindingReference, ...identity } = finding;
 
-  return JSON.stringify(
-    identity
-  );
+  return JSON.stringify(identity);
 }
 
 function createCandidateFingerprintQueues(
-  page:
-    ReconciledPageFindingObservations
+  page: ReconciledPageFindingObservations
 ): Map<string, string[]> {
-  const queues =
-    new Map<string, string[]>();
+  const queues = new Map<string, string[]>();
 
-  page.candidateFindings.forEach(
-    (
-      finding,
-      index
-    ) => {
-      const fingerprint =
-        page
-          .candidateFingerprints[
-            index
-          ];
+  page.candidateFindings.forEach((finding, index) => {
+    const fingerprint = page.candidateFingerprints[index];
 
-      if (
-        fingerprint ===
-        undefined
-      ) {
-        throw new Error(
-          `Reconciled candidate at index ${index} is missing its unified finding identity.`
-        );
-      }
-
-      const identity =
-        createModelFindingIdentity(
-          finding
-        );
-      const queue =
-        queues.get(
-          identity
-        ) ??
-        [];
-
-      queue.push(
-        fingerprint
-      );
-      queues.set(
-        identity,
-        queue
+    if (fingerprint === undefined) {
+      throw new Error(
+        `Reconciled candidate at index ${index} is missing its unified finding identity.`
       );
     }
-  );
+
+    const identity = createModelFindingIdentity(finding);
+    const queue = queues.get(identity) ?? [];
+
+    queue.push(fingerprint);
+    queues.set(identity, queue);
+  });
 
   return queues;
 }
 
 function takeCandidateFingerprint(
-  queues:
-    Map<string, string[]>,
-  finding:
-    ExploratoryQaFinding
+  queues: Map<string, string[]>,
+  finding: ExploratoryQaFinding
 ): string {
-  const identity =
-    createModelFindingIdentity(
-      finding
-    );
-  const fingerprint =
-    queues.get(
-      identity
-    )
-      ?.shift();
+  const identity = createModelFindingIdentity(finding);
+  const fingerprint = queues.get(identity)?.shift();
 
-  if (
-    fingerprint ===
-    undefined
-  ) {
-    throw new Error(
-      'Reconciled candidate is missing its unified finding identity.'
-    );
+  if (fingerprint === undefined) {
+    throw new Error('Reconciled candidate is missing its unified finding identity.');
   }
 
   return fingerprint;
 }
 
-export function createRunFindingLifecycle():
-  RunFindingLifecycleState {
-  const unifiedFindingRegistry =
-    createUnifiedFindingRegistry();
+export function createRunFindingLifecycle(): RunFindingLifecycleState {
+  const unifiedFindingRegistry = createUnifiedFindingRegistry();
 
-  const unifiedFingerprintAliases =
-    new Map<string, string>();
+  const unifiedFingerprintAliases = new Map<string, string>();
 
-  const knownFindingState =
-    createKnownFindingState(
-      fingerprint =>
-        getUnifiedFindingVerificationState(
-          unifiedFindingRegistry,
-          unifiedFingerprintAliases
-            .get(
-              fingerprint
-            ) ??
-          fingerprint
-        )
-    );
+  const knownFindingState = createKnownFindingState(fingerprint =>
+    getUnifiedFindingVerificationState(
+      unifiedFindingRegistry,
+      unifiedFingerprintAliases.get(fingerprint) ?? fingerprint
+    )
+  );
 
   return {
     unifiedFindingRegistry,
@@ -426,25 +246,18 @@ export function createRunFindingLifecycle():
 }
 
 export function prepareKnownFindingAnalysis(
-  state:
-    RunFindingLifecycleState,
-  pageContent:
-    ExtractedPageContent
+  state: RunFindingLifecycleState,
+  pageContent: ExtractedPageContent
 ): KnownFindingAnalysisPreparation {
-  const deterministicKnownOccurrenceDrafts =
-    detectStructuredKnownFindingOccurrences(
-      state.knownFindingState,
-      pageContent
-    );
+  const deterministicKnownOccurrenceDrafts = detectStructuredKnownFindingOccurrences(
+    state.knownFindingState,
+    pageContent
+  );
 
-  const knownFindingContext =
-    buildKnownFindingPromptContext(
-      state.knownFindingState,
-      deterministicKnownOccurrenceDrafts.map(
-        draft =>
-          draft.fingerprint
-      )
-    );
+  const knownFindingContext = buildKnownFindingPromptContext(
+    state.knownFindingState,
+    deterministicKnownOccurrenceDrafts.map(draft => draft.fingerprint)
+  );
 
   return {
     deterministicKnownOccurrenceDrafts,
@@ -453,52 +266,34 @@ export function prepareKnownFindingAnalysis(
 }
 
 export function reconcileRunPageFindings(
-  state:
-    RunFindingLifecycleState,
-  input:
-    ReconcileRunPageFindingsInput
+  state: RunFindingLifecycleState,
+  input: ReconcileRunPageFindingsInput
 ): ReconciledRunPageFindings {
   const normalizedExploratoryQaAnalysis =
-    input.classifiedDiagnostics ===
-      undefined
-      ? input
-          .rawExploratoryQaAnalysis
+    input.classifiedDiagnostics === undefined
+      ? input.rawExploratoryQaAnalysis
       : normalizeTechnicalObservations(
-          input
-            .rawExploratoryQaAnalysis,
-          input
-            .classifiedDiagnostics,
+          input.rawExploratoryQaAnalysis,
+          input.classifiedDiagnostics,
           input.pageUrl
         );
-  const admittedExploratoryQaAnalysis =
-    admitAccessibilityFindings(
-      normalizedExploratoryQaAnalysis,
-      input.pageContent
-    );
-  const reconciledFindingObservations =
-    reconcileFindingObservations({
-      pageUrl:
-        input.pageUrl,
-      pageTitle:
-        input.pageTitle,
-      ruleFindings:
-        input.ruleFindings,
-      modelFindings:
-        admittedExploratoryQaAnalysis
-          .findings,
-      pageContent:
-        input.pageContent
-    });
+  const admittedExploratoryQaAnalysis = admitAccessibilityFindings(
+    normalizedExploratoryQaAnalysis,
+    input.pageContent
+  );
+  const reconciledFindingObservations = reconcileFindingObservations({
+    pageUrl: input.pageUrl,
+    pageTitle: input.pageTitle,
+    ruleFindings: input.ruleFindings,
+    modelFindings: admittedExploratoryQaAnalysis.findings,
+    pageContent: input.pageContent
+  });
 
-  const reconciledPageFindings =
-    reconcilePageFindings(
-      state.knownFindingState,
-      reconciledFindingObservations
-        .candidateFindings,
-      input
-        .knownFindingPreparation
-        .deterministicKnownOccurrenceDrafts
-    );
+  const reconciledPageFindings = reconcilePageFindings(
+    state.knownFindingState,
+    reconciledFindingObservations.candidateFindings,
+    input.knownFindingPreparation.deterministicKnownOccurrenceDrafts
+  );
 
   const exploratoryQaAnalysis = {
     ...admittedExploratoryQaAnalysis,
@@ -507,145 +302,65 @@ export function reconcileRunPageFindings(
      * Keep page-local analysis findings limited to genuinely
      * new findings. Known occurrences are recorded separately.
      */
-    findings:
-      reconciledPageFindings
-        .newFindings
+    findings: reconciledPageFindings.newFindings
   };
 
-  const candidateFingerprintQueues =
-    createCandidateFingerprintQueues(
-      reconciledFindingObservations
-    );
+  const candidateFingerprintQueues = createCandidateFingerprintQueues(
+    reconciledFindingObservations
+  );
 
-  admittedExploratoryQaAnalysis
-    .findings
-    .forEach(
-      (
-        finding,
-        index
-      ) => {
-        const reconciliation =
-          reconciledFindingObservations
-            .modelReconciliations[
-              index
-            ];
+  admittedExploratoryQaAnalysis.findings.forEach((finding, index) => {
+    const reconciliation = reconciledFindingObservations.modelReconciliations[index];
 
-        if (
-          reconciliation ===
-          undefined
-        ) {
-          return;
-        }
+    if (reconciliation === undefined) {
+      return;
+    }
 
-        const modelFingerprint =
-          createExploratoryFindingFingerprint(
-            finding
-          );
+    const modelFingerprint = createExploratoryFindingFingerprint(finding);
 
-        if (
-          !modelFingerprint.startsWith(
-            'unstructured|'
-          )
-        ) {
-          state
-            .unifiedFingerprintAliases
-            .set(
-              modelFingerprint,
-              reconciliation
-                .fingerprint
-            );
-        }
-      }
-    );
+    if (!modelFingerprint.startsWith('unstructured|')) {
+      state.unifiedFingerprintAliases.set(modelFingerprint, reconciliation.fingerprint);
+    }
+  });
 
-  const candidateInputs:
-    CandidateLifecycleInput[] = [
-      ...reconciledPageFindings
-        .newFindings
-        .map(
-          finding => ({
-            finding,
-            knownFingerprint:
-              null,
-            unifiedFingerprint:
-              takeCandidateFingerprint(
-                candidateFingerprintQueues,
-                finding
-              )
-          })
-        ),
+  const candidateInputs: CandidateLifecycleInput[] = [
+    ...reconciledPageFindings.newFindings.map(finding => ({
+      finding,
+      knownFingerprint: null,
+      unifiedFingerprint: takeCandidateFingerprint(candidateFingerprintQueues, finding)
+    })),
 
-      ...reconciledPageFindings
-        .reinvestigationFindings
-        .map(
-          item => ({
-            finding:
-              item.finding,
-            knownFingerprint:
-              item.fingerprint,
-            unifiedFingerprint:
-              item.fingerprint
-          })
-        )
-    ];
+    ...reconciledPageFindings.reinvestigationFindings.map(item => ({
+      finding: item.finding,
+      knownFingerprint: item.fingerprint,
+      unifiedFingerprint: item.fingerprint
+    }))
+  ];
 
-  const pageCandidates =
-    assignPageCandidateReferences(
-      candidateInputs.map(
-        item =>
-          item.finding
-      )
-    );
+  const pageCandidates = assignPageCandidateReferences(candidateInputs.map(item => item.finding));
 
-  const knownFingerprintByCandidateReference =
-    new Map<
-      PageCandidateReference,
-      string
-    >();
+  const knownFingerprintByCandidateReference = new Map<PageCandidateReference, string>();
 
-  const unifiedFingerprintByCandidateReference =
-    new Map<
-      PageCandidateReference,
-      string
-    >();
+  const unifiedFingerprintByCandidateReference = new Map<PageCandidateReference, string>();
 
   /*
    * Preserve the existing candidate ordering contract:
    * new findings are assigned references first, followed by
    * reinvestigation candidates.
    */
-  pageCandidates.forEach(
-    (
-      candidate,
-      index
-    ) => {
-      unifiedFingerprintByCandidateReference
-        .set(
-          candidate.reference,
-          candidateInputs[
-            index
-          ]
-            .unifiedFingerprint
-        );
+  pageCandidates.forEach((candidate, index) => {
+    unifiedFingerprintByCandidateReference.set(
+      candidate.reference,
+      candidateInputs[index].unifiedFingerprint
+    );
 
-      if (
-        candidateInputs[
-          index
-        ]
-          .knownFingerprint !==
-        null
-      ) {
-        knownFingerprintByCandidateReference
-          .set(
-            candidate.reference,
-            candidateInputs[
-              index
-            ]
-              .knownFingerprint
-          );
-      }
+    if (candidateInputs[index].knownFingerprint !== null) {
+      knownFingerprintByCandidateReference.set(
+        candidate.reference,
+        candidateInputs[index].knownFingerprint
+      );
     }
-  );
+  });
 
   return {
     exploratoryQaAnalysis,
@@ -658,262 +373,118 @@ export function reconcileRunPageFindings(
 }
 
 export function commitRunPageFindings(
-  state:
-    RunFindingLifecycleState,
-  input:
-    CommitRunPageFindingsInput
+  state: RunFindingLifecycleState,
+  input: CommitRunPageFindingsInput
 ): KnownFindingOccurrence[] {
   /*
    * Validate the complete candidate/result contract before either registry
    * is mutated. A malformed result collection must fail closed without
    * leaving partial canonical or compatibility state behind.
    */
-  const findingResultByCandidateReference =
-    validateInvestigationResults(
-      input
-    );
+  const findingResultByCandidateReference = validateInvestigationResults(input);
 
   registerUnifiedPageFindings(
     state.unifiedFindingRegistry,
-    input
-      .page
-      .reconciledFindingObservations
-      .findings,
+    input.page.reconciledFindingObservations.findings,
     input.screenshotPath
   );
 
-  for (
-    const draft of
-      input
-        .page
-        .reconciledPageFindings
-        .knownOccurrenceDrafts
-  ) {
-    if (
-      draft.matchingBases
-        .includes(
-          'structured-target'
-        )
-    ) {
-      registerCompatibilityOccurrence(
-        state.unifiedFindingRegistry,
-        {
-          fingerprint:
-            draft.fingerprint,
-          finding:
-            draft.finding,
-          pageUrl:
-            input.pageUrl,
-          pageTitle:
-            input.pageTitle,
-          target:
-            draft.evidenceTarget,
-          evidenceSummaries:
-            draft.occurrenceEvidence,
-          screenshotPath:
-            input.screenshotPath,
-          redundantInvestigationSkipped:
-            draft
-              .redundantInvestigationSkipped
-        }
-      );
+  for (const draft of input.page.reconciledPageFindings.knownOccurrenceDrafts) {
+    if (draft.matchingBases.includes('structured-target')) {
+      registerCompatibilityOccurrence(state.unifiedFindingRegistry, {
+        fingerprint: draft.fingerprint,
+        finding: draft.finding,
+        pageUrl: input.pageUrl,
+        pageTitle: input.pageTitle,
+        target: draft.evidenceTarget,
+        evidenceSummaries: draft.occurrenceEvidence,
+        screenshotPath: input.screenshotPath,
+        redundantInvestigationSkipped: draft.redundantInvestigationSkipped
+      });
     }
 
-    if (
-      draft
-        .redundantInvestigationSkipped
-    ) {
-      markOccurrenceSuppressed(
-        state.unifiedFindingRegistry,
-        {
-          fingerprint:
-            draft.fingerprint,
-          pageUrl:
-            input.pageUrl,
-          target:
-            draft.evidenceTarget
-        }
-      );
+    if (draft.redundantInvestigationSkipped) {
+      markOccurrenceSuppressed(state.unifiedFindingRegistry, {
+        fingerprint: draft.fingerprint,
+        pageUrl: input.pageUrl,
+        target: draft.evidenceTarget
+      });
     }
   }
 
-  for (
-    const candidate of
-      input.page.pageCandidates
-  ) {
-    const result =
-      findingResultByCandidateReference
-        .get(
-          candidate.reference
-        )!;
+  for (const candidate of input.page.pageCandidates) {
+    const result = findingResultByCandidateReference.get(candidate.reference)!;
 
-    const unifiedFingerprint =
-      input
-        .page
-        .unifiedFingerprintByCandidateReference
-        .get(
-          candidate.reference
-        );
+    const unifiedFingerprint = input.page.unifiedFingerprintByCandidateReference.get(
+      candidate.reference
+    );
 
-    if (
-      unifiedFingerprint ===
-      undefined
-    ) {
+    if (unifiedFingerprint === undefined) {
       throw new Error(
         `Candidate "${candidate.reference}" is missing its unified finding identity.`
       );
     }
 
-    attachInvestigationOutcome(
-      state.unifiedFindingRegistry,
-      {
-        fingerprint:
-          unifiedFingerprint,
-        pageUrl:
-          input.pageUrl,
-        target:
-          candidate.finding
-            .evidenceTarget,
-        finding:
-          candidate.finding,
-        outcome:
-          result.outcome,
-        candidateReference:
-          candidate.reference,
-        pageNumber:
-          input.pageNumber
-      }
-    );
+    attachInvestigationOutcome(state.unifiedFindingRegistry, {
+      fingerprint: unifiedFingerprint,
+      pageUrl: input.pageUrl,
+      target: candidate.finding.evidenceTarget,
+      finding: candidate.finding,
+      outcome: result.outcome,
+      candidateReference: candidate.reference,
+      pageNumber: input.pageNumber
+    });
   }
 
-  const knownFindingOccurrences =
-    input
-      .page
-      .reconciledPageFindings
-      .knownOccurrenceDrafts
-      .map(
-        draft => {
-          const reinvestigationCandidateReference =
-            Array.from(
-              input
-                .page
-                .knownFingerprintByCandidateReference
-                .entries()
-            )
-              .find(
-                (
-                  [
-                    ,
-                    fingerprint
-                  ]
-                ) =>
-                  fingerprint ===
-                  draft.fingerprint
-              )
-              ?.[0];
+  const knownFindingOccurrences = input.page.reconciledPageFindings.knownOccurrenceDrafts.map(
+    draft => {
+      const reinvestigationCandidateReference = Array.from(
+        input.page.knownFingerprintByCandidateReference.entries()
+      ).find(([, fingerprint]) => fingerprint === draft.fingerprint)?.[0];
 
-          const verificationOutcome =
-            reinvestigationCandidateReference ===
-              undefined
-              ? null
-              : findingResultByCandidateReference
-                  .get(
-                    reinvestigationCandidateReference
-                  )
-                  ?.outcome ??
-                null;
+      const verificationOutcome =
+        reinvestigationCandidateReference === undefined
+          ? null
+          : (findingResultByCandidateReference.get(reinvestigationCandidateReference)?.outcome ??
+            null);
 
-          return registerKnownFindingOccurrence(
-            state.knownFindingState,
-            {
-              fingerprint:
-                draft.fingerprint,
-              finding:
-                draft.finding,
-              pageUrl:
-                input.pageUrl,
-              pageTitle:
-                input.pageTitle,
-              screenshotPath:
-                input.screenshotPath,
-              occurrenceEvidence:
-                draft.occurrenceEvidence,
-              evidenceTarget:
-                draft.evidenceTarget,
-              matchingBases:
-                draft.matchingBases,
-              modelKnownFindingReference:
-                draft
-                  .modelKnownFindingReference,
-              modelReferenceMatched:
-                draft
-                  .modelReferenceMatched,
-              redundantInvestigationSkipped:
-                draft
-                  .redundantInvestigationSkipped,
-              verificationOutcome
-            }
-          );
-        }
-      );
+      return registerKnownFindingOccurrence(state.knownFindingState, {
+        fingerprint: draft.fingerprint,
+        finding: draft.finding,
+        pageUrl: input.pageUrl,
+        pageTitle: input.pageTitle,
+        screenshotPath: input.screenshotPath,
+        occurrenceEvidence: draft.occurrenceEvidence,
+        evidenceTarget: draft.evidenceTarget,
+        matchingBases: draft.matchingBases,
+        modelKnownFindingReference: draft.modelKnownFindingReference,
+        modelReferenceMatched: draft.modelReferenceMatched,
+        redundantInvestigationSkipped: draft.redundantInvestigationSkipped,
+        verificationOutcome
+      });
+    }
+  );
 
-  const newFindingCandidates =
-    input
-      .page
-      .pageCandidates
-      .filter(
-        candidate =>
-          !input
-            .page
-            .knownFingerprintByCandidateReference
-            .has(
-              candidate.reference
-            )
-      );
+  const newFindingCandidates = input.page.pageCandidates.filter(
+    candidate => !input.page.knownFingerprintByCandidateReference.has(candidate.reference)
+  );
 
-  for (
-    const candidate of
-      newFindingCandidates
-  ) {
-    const result =
-      findingResultByCandidateReference
-        .get(
-          candidate.reference
-        )!;
+  for (const candidate of newFindingCandidates) {
+    const result = findingResultByCandidateReference.get(candidate.reference)!;
 
-    registerNewFinding(
-      state.knownFindingState,
-      {
-        finding:
-          candidate.finding,
-        fingerprint:
-          input.page
-            .unifiedFingerprintByCandidateReference
-            .get(
-              candidate.reference
-            ),
-        pageUrl:
-          input.pageUrl,
-        pageTitle:
-          input.pageTitle,
-        screenshotPath:
-          input.screenshotPath,
-        verificationOutcome:
-          result.outcome
-      }
-    );
+    registerNewFinding(state.knownFindingState, {
+      finding: candidate.finding,
+      fingerprint: input.page.unifiedFingerprintByCandidateReference.get(candidate.reference),
+      pageUrl: input.pageUrl,
+      pageTitle: input.pageTitle,
+      screenshotPath: input.screenshotPath,
+      verificationOutcome: result.outcome
+    });
   }
 
   return knownFindingOccurrences;
 }
 
-export function getRunFindings(
-  state:
-    RunFindingLifecycleState
-): UnifiedFinding[] {
-  return applyRunTechnicalObservationPolicy(
-    getUnifiedFindings(
-      state.unifiedFindingRegistry
-    )
-  );
+export function getRunFindings(state: RunFindingLifecycleState): UnifiedFinding[] {
+  return applyRunTechnicalObservationPolicy(getUnifiedFindings(state.unifiedFindingRegistry));
 }

@@ -1,58 +1,39 @@
-import type {
-  DesktopRunEvent
-} from '../contracts';
+import type { DesktopRunEvent } from '../contracts';
 
 export interface DesktopBudgetProgress {
-  pageNumber:
-    number;
-  pageBudget:
-    number;
-  navigationUsed:
-    number;
-  navigationBudget:
-    number;
+  pageNumber: number;
+  pageBudget: number;
+  navigationUsed: number;
+  navigationBudget: number;
 }
 
 export function reduceDesktopBudgetProgress(
-  progress:
-    DesktopBudgetProgress | null,
-  event:
-    DesktopRunEvent
+  progress: DesktopBudgetProgress | null,
+  event: DesktopRunEvent
 ): DesktopBudgetProgress | null {
-  switch (
-    event.type
-  ) {
+  switch (event.type) {
     case 'run-started':
       return {
-        pageNumber:
-          0,
-        pageBudget:
-          event.pageBudget,
-        navigationUsed:
-          0,
-        navigationBudget:
-          event.navigationBudget
+        pageNumber: 0,
+        pageBudget: event.pageBudget,
+        navigationUsed: 0,
+        navigationBudget: event.navigationBudget
       };
 
     case 'inspection-started':
-      return progress ===
-        null
+      return progress === null
         ? null
         : {
             ...progress,
-            pageNumber:
-              event.pageNumber
+            pageNumber: event.pageNumber
           };
 
     case 'navigation-started':
-      return progress ===
-        null
+      return progress === null
         ? null
         : {
             ...progress,
-            navigationUsed:
-              event
-                .navigationStep
+            navigationUsed: event.navigationStep
           };
 
     default:

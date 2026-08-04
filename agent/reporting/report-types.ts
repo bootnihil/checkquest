@@ -1,10 +1,6 @@
-import type {
-  ClassifiedDiagnostics
-} from '../analysis/classify-diagnostics';
+import type { ClassifiedDiagnostics } from '../analysis/classify-diagnostics';
 
-import type {
-  PageFinding
-} from '../analysis/evaluate-page';
+import type { PageFinding } from '../analysis/evaluate-page';
 
 import type {
   ExploratoryQaAnalysis,
@@ -12,56 +8,31 @@ import type {
   FindingPresentationTarget
 } from '../analysis/exploratory-qa-schema';
 
-import type {
-  PageDiagnostics
-} from '../browser/collect-page-diagnostics';
+import type { PageDiagnostics } from '../browser/collect-page-diagnostics';
 
-import type {
-  NavigationLink
-} from '../browser/inspect-navigation';
+import type { NavigationLink } from '../browser/inspect-navigation';
 
-import type {
-  VisitedPageObservation
-} from '../browser/visit-approved-link';
+import type { VisitedPageObservation } from '../browser/visit-approved-link';
 
-import type {
-  FindingInvestigationOutcome
-} from '../investigation/evaluate-finding-investigation-outcome';
-import type {
-  PageCandidateReference
-} from '../investigation/page-candidates';
-import type {
-  KnownFindingOccurrence
-} from '../investigation/known-findings';
+import type { FindingInvestigationOutcome } from '../investigation/evaluate-finding-investigation-outcome';
+import type { PageCandidateReference } from '../investigation/page-candidates';
+import type { KnownFindingOccurrence } from '../investigation/known-findings';
 
-import type {
-  InspectedPageNovelty
-} from '../exploration/page-novelty';
+import type { InspectedPageNovelty } from '../exploration/page-novelty';
 import type {
   NavigationBudgetContext,
   NavigationPolicyBand,
   RouteValueClassCounts,
   RouteValueReasonCounts
 } from '../exploration/navigation-policy';
-import type {
-  RouteValueClass,
-  RouteValueReason
-} from '../exploration/route-value';
-import type {
-  UnifiedFinding
-} from '../findings/finding-model';
+import type { RouteValueClass, RouteValueReason } from '../exploration/route-value';
+import type { UnifiedFinding } from '../findings/finding-model';
 
-import type {
-  PassiveSecurityReport
-} from '../security/passive-security-model';
+import type { PassiveSecurityReport } from '../security/passive-security-model';
 
-import type {
-  ExploratoryLoopResult
-} from '../planning/run-exploratory-loop';
+import type { ExploratoryLoopResult } from '../planning/run-exploratory-loop';
 
-import type {
-  SiteWideExploratoryFinding
-} from './build-site-wide-exploratory-findings';
+import type { SiteWideExploratoryFinding } from './build-site-wide-exploratory-findings';
 
 export interface HomepageObservation {
   requestedUrl: string;
@@ -73,17 +44,11 @@ export interface HomepageObservation {
 export interface NavigationSelectionAudit {
   traversalDepth: number;
   requestedUrl: string;
-  policyBand:
-    | 'start-page'
-    | NavigationPolicyBand;
-  valueClass:
-    RouteValueClass | null;
-  valueReasons:
-    RouteValueReason[];
-  eligibleValueClassCounts:
-    RouteValueClassCounts | null;
-  deferredValueReasonCounts:
-    RouteValueReasonCounts;
+  policyBand: 'start-page' | NavigationPolicyBand;
+  valueClass: RouteValueClass | null;
+  valueReasons: RouteValueReason[];
+  eligibleValueClassCounts: RouteValueClassCounts | null;
+  deferredValueReasonCounts: RouteValueReasonCounts;
   predictedAreaKey: string;
   predictedRouteFamilyKey: string;
   firstDiscoveredFromUrl: string | null;
@@ -95,20 +60,16 @@ export interface SelectedNavigationTarget {
   type: 'agent-navigation';
   link: NavigationLink;
   reason: string;
-  navigationAudit?:
-    NavigationSelectionAudit;
+  navigationAudit?: NavigationSelectionAudit;
 }
 
 export interface StartUrlInspectionTarget {
   type: 'start-url';
   url: string;
-  navigationAudit?:
-    NavigationSelectionAudit;
+  navigationAudit?: NavigationSelectionAudit;
 }
 
-export type PageInspectionSelection =
-  | StartUrlInspectionTarget
-  | SelectedNavigationTarget;
+export type PageInspectionSelection = StartUrlInspectionTarget | SelectedNavigationTarget;
 
 /**
  * Connects one original exploratory QA candidate finding
@@ -120,42 +81,25 @@ export type PageInspectionSelection =
  * CLI, JSON, desktop, and web presentation layers.
  */
 export interface ExploratoryFindingResult {
-  candidateReference:
-    PageCandidateReference;
+  candidateReference: PageCandidateReference;
 
-  finding:
-    ExploratoryQaFinding;
+  finding: ExploratoryQaFinding;
 
-  outcome:
-    FindingInvestigationOutcome;
+  outcome: FindingInvestigationOutcome;
 }
 
 export interface FindingPresentationEvidence {
-  candidateReference:
-    PageCandidateReference;
-  pageNumber:
-    number;
-  pageUrl:
-    string;
-  target:
-    FindingPresentationTarget |
-    ExploratoryQaFinding[
-      'evidenceTarget'
-    ];
-  screenshotPaths:
-    string[];
-  totalTargetCount:
-    number;
-  shownTargetCount:
-    number;
-  replay?:
-    {
-      action:
-        'select-option';
-      restored:
-        boolean;
-    } |
-    null;
+  candidateReference: PageCandidateReference;
+  pageNumber: number;
+  pageUrl: string;
+  target: FindingPresentationTarget | ExploratoryQaFinding['evidenceTarget'];
+  screenshotPaths: string[];
+  totalTargetCount: number;
+  shownTargetCount: number;
+  replay?: {
+    action: 'select-option';
+    restored: boolean;
+  } | null;
 }
 
 export interface InspectedPageResult {
@@ -193,8 +137,7 @@ export interface InspectedPageResult {
    * identity. The field is optional so existing schema-v3 JSON remains
    * readable without migration.
    */
-  presentationEvidence?:
-    FindingPresentationEvidence[];
+  presentationEvidence?: FindingPresentationEvidence[];
 
   /*
    * Deterministic findings produced by explicit rules.
@@ -217,8 +160,7 @@ export interface InspectedPageResult {
    * Null means that no autonomous investigation was run
    * for this page.
    */
-  exploratoryInvestigation:
-    ExploratoryLoopResult | null;
+  exploratoryInvestigation: ExploratoryLoopResult | null;
 
   /*
    * Candidate findings paired with their deterministic
@@ -230,8 +172,7 @@ export interface InspectedPageResult {
    * the outcome is "inconclusive" rather than silently
    * treating the candidate as disproven.
    */
-  exploratoryFindingResults:
-    ExploratoryFindingResult[];
+  exploratoryFindingResults: ExploratoryFindingResult[];
 
   /*
    * Occurrences reconciled to findings already known earlier
@@ -241,21 +182,17 @@ export interface InspectedPageResult {
    * unless an unresolved known finding is deliberately
    * reinvestigated.
    */
-  knownFindingOccurrences:
-    KnownFindingOccurrence[];
+  knownFindingOccurrences: KnownFindingOccurrence[];
 }
 
 export interface AgentRunOutcome {
-  type:
-    | 'completed'
-    | 'finished';
+  type: 'completed' | 'finished';
 
   summary: string;
 }
 
 export interface SiteAgentReport {
-  reportSchemaVersion:
-    '3';
+  reportSchemaVersion: '3';
 
   runId: string;
   startedAt: string;
@@ -278,8 +215,7 @@ export interface SiteAgentReport {
    * and investigation transcripts. Canonical finding interpretation lives in
    * the run-level `findings` collection below.
    */
-  inspectedPages:
-    InspectedPageResult[];
+  inspectedPages: InspectedPageResult[];
 
   /*
    * Canonical run-level findings.
@@ -287,15 +223,13 @@ export interface SiteAgentReport {
    * This is the sole authoritative finding collection for report consumers.
    * Raw per-page fields remain exhaustive execution detail.
    */
-  findings:
-    UnifiedFinding[];
+  findings: UnifiedFinding[];
 
   /*
    * Stage 3 compatibility projection generated from `findings`.
    * It is not an independent source of truth.
    */
-  siteWideExploratoryFindings:
-    SiteWideExploratoryFinding[];
+  siteWideExploratoryFindings: SiteWideExploratoryFinding[];
 
   /*
    * Dedicated deterministic passive-security posture.
@@ -303,25 +237,18 @@ export interface SiteAgentReport {
    * This collection is intentionally separate from functional findings,
    * verification, Gemini analysis, and autonomous investigation.
    */
-  passiveSecurity:
-    PassiveSecurityReport;
+  passiveSecurity: PassiveSecurityReport;
 
   summary: {
     pagesInspected: number;
 
-    logicalFindingsCount:
-      number;
+    logicalFindingsCount: number;
 
-    findingOccurrencesCount:
-      number;
+    findingOccurrencesCount: number;
 
     findingsCount: number;
 
-    highestSeverity:
-      | 'high'
-      | 'medium'
-      | 'low'
-      | 'none';
+    highestSeverity: 'high' | 'medium' | 'low' | 'none';
 
     /*
      * Total number of original exploratory findings,
@@ -333,38 +260,29 @@ export interface SiteAgentReport {
      * Number of unique site-wide exploratory findings
      * after deterministic deduplication.
      */
-    siteWideExploratoryFindingsCount:
-      number;
+    siteWideExploratoryFindingsCount: number;
 
     /*
      * Occurrences reconciled to findings discovered earlier
      * in the same run.
      */
-    knownFindingOccurrencesCount:
-      number;
+    knownFindingOccurrencesCount: number;
 
     /*
      * Total compact known-finding entries supplied across all
      * page-analysis calls.
      */
-    knownFindingsSuppliedToAnalysisCount:
-      number;
+    knownFindingsSuppliedToAnalysisCount: number;
 
     /*
      * Findings that remained genuinely new after runtime
      * fingerprint reconciliation.
      */
-    newCandidateFindingsCount:
-      number;
+    newCandidateFindingsCount: number;
 
-    redundantInvestigationsSkippedCount:
-      number;
+    redundantInvestigationsSkippedCount: number;
 
-    highestExploratoryQaSeverity:
-      | 'high'
-      | 'medium'
-      | 'low'
-      | 'none';
+    highestExploratoryQaSeverity: 'high' | 'medium' | 'low' | 'none';
 
     actionableDiagnosticsCount: number;
 

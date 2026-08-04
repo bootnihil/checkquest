@@ -3,21 +3,15 @@ import { chromium } from '@playwright/test';
 import { executeAgentAction } from './browser/execute-agent-action';
 import { extractPageContent } from './browser/extract-page-content';
 import { planNextAction } from './planning/plan-next-action';
-import {
-  resolveGeminiApiKey
-} from './ai/resolve-gemini-api-key';
-import {
-  validateDecisionCandidateRelevance
-} from './planning/run-exploratory-loop';
+import { resolveGeminiApiKey } from './ai/resolve-gemini-api-key';
+import { validateDecisionCandidateRelevance } from './planning/run-exploratory-loop';
 import {
   assignPageCandidateReferences,
   isInvestigablePageCandidate
 } from './investigation/page-candidates';
 
 async function main(): Promise<void> {
-  console.log(
-    'Running one-step planner → Playwright → observation check...\n'
-  );
+  console.log('Running one-step planner → Playwright → observation check...\n');
 
   const browser = await chromium.launch({
     headless: true
@@ -97,41 +91,35 @@ async function main(): Promise<void> {
     /*
      * Step 1: Observe the browser before the planner acts.
      */
-    const before =
-      await extractPageContent(page);
+    const before = await extractPageContent(page);
 
-    const investigableCandidates =
-      assignPageCandidateReferences([
-        {
-          category: 'content',
-          severity: 'low',
-          confidence: 'high',
-          title: 'Suspicious country option',
-          evidence: 'The Country select contains Equador.',
-          reasoning: 'Equador may be a misspelling.',
-          suggestedCheck: 'Verify whether Equador is selectable.',
-          evidenceTarget: {
-            kind: 'select-option',
-            controlLabel: 'Country',
-            controlName: 'country',
-            controlId: 'country',
-            optionText: 'Equador'
-          }
+    const investigableCandidates = assignPageCandidateReferences([
+      {
+        category: 'content',
+        severity: 'low',
+        confidence: 'high',
+        title: 'Suspicious country option',
+        evidence: 'The Country select contains Equador.',
+        reasoning: 'Equador may be a misspelling.',
+        suggestedCheck: 'Verify whether Equador is selectable.',
+        evidenceTarget: {
+          kind: 'select-option',
+          controlLabel: 'Country',
+          controlName: 'country',
+          controlId: 'country',
+          optionText: 'Equador'
         }
-      ]).filter(
-        isInvestigablePageCandidate
-      );
+      }
+    ]).filter(isInvestigablePageCandidate);
 
     console.log('Initial browser observation:\n');
 
     console.log(
       JSON.stringify(
         {
-          textFields:
-            before.textFields,
+          textFields: before.textFields,
 
-          selects:
-            before.selects
+          selects: before.selects
         },
         null,
         2
@@ -141,10 +129,9 @@ async function main(): Promise<void> {
     /*
      * Step 2: Let Gemini choose exactly one approved next action.
      */
-    const decision =
-      await planNextAction({
-        pageUrl:
-          'https://example.com/contact',
+    const decision = await planNextAction(
+      {
+        pageUrl: 'https://example.com/contact',
 
         pageContent: before,
 
@@ -154,67 +141,35 @@ async function main(): Promise<void> {
         history: [],
 
         investigableCandidates
-      }, {
-        geminiApiKey:
-          resolveGeminiApiKey(
-            process.env
-          )
-      });
-
-    console.log(
-      '\nValidated Gemini planner decision:\n'
+      },
+      {
+        geminiApiKey: resolveGeminiApiKey(process.env)
+      }
     );
 
-    console.log(
-      JSON.stringify(
-        decision,
-        null,
-        2
-      )
-    );
+    console.log('\nValidated Gemini planner decision:\n');
+
+    console.log(JSON.stringify(decision, null, 2));
 
     /*
      * Step 3: Execute only the validated AgentAction through the
      * deterministic Playwright executor.
      */
-    if (
-      decision.action.kind !== 'stop' &&
-      decision.candidateReference !== 'candidate-1'
-    ) {
-      throw new Error(
-        'Planner returned a non-stop action for an unexpected candidate.'
-      );
+    if (decision.action.kind !== 'stop' && decision.candidateReference !== 'candidate-1') {
+      throw new Error('Planner returned a non-stop action for an unexpected candidate.');
     }
 
-    const rejectionReason =
-      validateDecisionCandidateRelevance(
-        decision,
-        investigableCandidates
-      );
+    const rejectionReason = validateDecisionCandidateRelevance(decision, investigableCandidates);
 
     if (rejectionReason !== null) {
-      throw new Error(
-        `Planner decision failed candidate relevance validation: ${rejectionReason}`
-      );
+      throw new Error(`Planner decision failed candidate relevance validation: ${rejectionReason}`);
     }
 
-    const executionResult =
-      await executeAgentAction(
-        page,
-        decision.action
-      );
+    const executionResult = await executeAgentAction(page, decision.action);
 
-    console.log(
-      '\nDeterministic execution result:\n'
-    );
+    console.log('\nDeterministic execution result:\n');
 
-    console.log(
-      JSON.stringify(
-        executionResult,
-        null,
-        2
-      )
-    );
+    console.log(JSON.stringify(executionResult, null, 2));
 
     /*
      * Step 4: Observe the browser again.
@@ -222,47 +177,34 @@ async function main(): Promise<void> {
      * This is the feedback that a future autonomous loop will give
      * back to Gemini before asking it what to test next.
      */
-    const after =
-      await extractPageContent(page);
+    const after = await extractPageContent(page);
 
-    console.log(
-      '\nBrowser observation after action:\n'
-    );
+    console.log('\nBrowser observation after action:\n');
 
     console.log(
       JSON.stringify(
         {
-          textFields:
-            after.textFields,
+          textFields: after.textFields,
 
-          selects:
-            after.selects
+          selects: after.selects
         },
         null,
         2
       )
     );
 
-    console.log(
-      '\nOne-step planner execution check completed successfully.'
-    );
+    console.log('\nOne-step planner execution check completed successfully.');
 
-    console.log(
-      '\nFlow proven:'
-    );
+    console.log('\nFlow proven:');
 
-    console.log(
-      'Observe → Plan → Validate → Execute → Observe'
-    );
+    console.log('Observe → Plan → Validate → Execute → Observe');
   } finally {
     await browser.close();
   }
 }
 
 main().catch(error => {
-  console.error(
-    '\nPlanner execution check failed.'
-  );
+  console.error('\nPlanner execution check failed.');
 
   if (error instanceof Error) {
     console.error(error.message);

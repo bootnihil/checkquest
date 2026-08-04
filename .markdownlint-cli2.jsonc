@@ -16,10 +16,7 @@
 
     // The README's centered brand banner uses only these two HTML elements.
     "MD033": {
-      "allowed_elements": [
-        "p",
-        "img"
-      ]
+      "allowed_elements": ["p", "img"]
     },
 
     // A deliberate README brand banner may precede the first H1.
@@ -28,7 +25,5 @@
     // Canonical planning/status tables deliberately use compact pipe rows.
     "MD060": false
   },
-  "ignores": [
-    "agent-results/**"
-  ]
+  "ignores": ["agent-results/**"]
 }

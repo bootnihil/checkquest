@@ -3,13 +3,8 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "lib": [
-      "ES2022",
-      "DOM"
-    ],
-    "types": [
-      "node"
-    ],
+    "lib": ["ES2022", "DOM"],
+    "types": ["node"],
     "strict": true,
     "noEmit": true,
     "esModuleInterop": true,
@@ -34,10 +29,5 @@
     "pages/**/*.ts",
     "playwright.config.ts"
   ],
-  "exclude": [
-    "node_modules",
-    "agent-results",
-    "playwright-report",
-    "test-results"
-  ]
+  "exclude": ["node_modules", "agent-results", "playwright-report", "test-results"]
 }

@@ -4,28 +4,17 @@ import type {
   TabStateEvidenceTarget
 } from '../analysis/exploratory-qa-schema';
 
-import type {
-  ExploratoryLoopResult,
-  ExploratoryLoopStep
-} from '../planning/run-exploratory-loop';
-import type {
-  PageCandidate
-} from './page-candidates';
+import type { ExploratoryLoopResult, ExploratoryLoopStep } from '../planning/run-exploratory-loop';
+import type { PageCandidate } from './page-candidates';
 
-export type FindingInvestigationStatus =
-  | 'verified'
-  | 'not-verified'
-  | 'inconclusive';
+export type FindingInvestigationStatus = 'verified' | 'not-verified' | 'inconclusive';
 
 export interface FindingInvestigationOutcome {
-  status:
-    FindingInvestigationStatus;
+  status: FindingInvestigationStatus;
 
-  summary:
-    string;
+  summary: string;
 
-  evidence:
-    string[];
+  evidence: string[];
 }
 
 /**
@@ -40,21 +29,14 @@ export interface FindingInvestigationOutcome {
  * final verification status.
  */
 export function evaluateFindingInvestigationOutcome(
-  candidate:
-    PageCandidate,
+  candidate: PageCandidate,
 
-  investigation:
-    ExploratoryLoopResult | null
+  investigation: ExploratoryLoopResult | null
 ): FindingInvestigationOutcome {
-  const {
-    finding,
-    reference: candidateReference
-  } = candidate;
+  const { finding, reference: candidateReference } = candidate;
 
   if (investigation === null) {
-    return inconclusive(
-      'No autonomous investigation was performed for this finding.'
-    );
+    return inconclusive('No autonomous investigation was performed for this finding.');
   }
 
   if (finding.evidenceTarget === null) {
@@ -65,11 +47,7 @@ export function evaluateFindingInvestigationOutcome(
 
   switch (finding.evidenceTarget.kind) {
     case 'select-option':
-      return evaluateSelectOptionFinding(
-        finding.evidenceTarget,
-        investigation,
-        candidateReference
-      );
+      return evaluateSelectOptionFinding(finding.evidenceTarget, investigation, candidateReference);
 
     case 'disclosure-state':
       return evaluateDisclosureStateFinding(
@@ -79,82 +57,44 @@ export function evaluateFindingInvestigationOutcome(
       );
 
     case 'tab-state':
-      return evaluateTabStateFinding(
-        finding.evidenceTarget,
-        investigation,
-        candidateReference
-      );
+      return evaluateTabStateFinding(finding.evidenceTarget, investigation, candidateReference);
   }
 }
 
 function evaluateTabStateFinding(
-  target:
-    TabStateEvidenceTarget,
-  investigation:
-    ExploratoryLoopResult,
-  candidateReference:
-    string
+  target: TabStateEvidenceTarget,
+  investigation: ExploratoryLoopResult,
+  candidateReference: string
 ): FindingInvestigationOutcome {
-  const relevantStep =
-    investigation.steps.find(
-      step =>
-        step.decision
-          .candidateReference ===
-          candidateReference &&
-        step.decision.action
-          .kind ===
-          'select-tab' &&
-        step.decision.action
-          .target.controlId ===
-          target.controlId &&
-        step.decision.action
-          .target.accessibleName ===
-          target.accessibleName &&
-        step.decision.action
-          .target.tabListId ===
-          target.tabListId &&
-        step.decision.action
-          .target
-          .controlledPanelId ===
-          target.controlledPanelId &&
-        step.decision.action
-          .desiredState ===
-          target.desiredState
-    );
+  const relevantStep = investigation.steps.find(
+    step =>
+      step.decision.candidateReference === candidateReference &&
+      step.decision.action.kind === 'select-tab' &&
+      step.decision.action.target.controlId === target.controlId &&
+      step.decision.action.target.accessibleName === target.accessibleName &&
+      step.decision.action.target.tabListId === target.tabListId &&
+      step.decision.action.target.controlledPanelId === target.controlledPanelId &&
+      step.decision.action.desiredState === target.desiredState
+  );
 
-  if (
-    relevantStep === undefined
-  ) {
+  if (relevantStep === undefined) {
     return inconclusive(
       `The investigation did not execute the candidate-linked tab action for "${target.accessibleName}".`
     );
   }
 
-  if (
-    relevantStep.executionResult
-      .status === 'unsafe'
-  ) {
+  if (relevantStep.executionResult.status === 'unsafe') {
     return inconclusive(
       `The tab interaction was blocked or aborted by the safety boundary: ${relevantStep.executionResult.detail}`,
-      [
-        relevantStep.executionResult
-          .detail
-      ]
+      [relevantStep.executionResult.detail]
     );
   }
 
-  if (
-    relevantStep.executionResult
-      .status !== 'executed'
-  ) {
-    return inconclusive(
-      'The tab interaction did not execute successfully.'
-    );
+  if (relevantStep.executionResult.status !== 'executed') {
+    return inconclusive('The tab interaction did not execute successfully.');
   }
 
-  const evidence =
-    relevantStep.executionResult
-      .tabEvidence;
+  const evidence = relevantStep.executionResult.tabEvidence;
 
   if (evidence == null) {
     return inconclusive(
@@ -162,47 +102,28 @@ function evaluateTabStateFinding(
     );
   }
 
-  if (
-    (
-      relevantStep.executionResult
-        .safetyEvents?.length ??
-      0
-    ) > 0
-  ) {
+  if ((relevantStep.executionResult.safetyEvents?.length ?? 0) > 0) {
     return inconclusive(
       'The tab interaction produced a safety event and cannot verify the finding.',
-      relevantStep.executionResult
-        .safetyEvents
-        ?.map(
-          event =>
-            event.detail
-        ) ??
-        []
+      relevantStep.executionResult.safetyEvents?.map(event => event.detail) ?? []
     );
   }
 
-  if (
-    !evidence.rollbackSucceeded
-  ) {
+  if (!evidence.rollbackSucceeded) {
     return inconclusive(
       'The tab interaction did not restore and verify the exact original tab and panel state.'
     );
   }
 
   if (
-    evidence
-      .selectedTabTransitionObserved &&
-    evidence
-      .previousTabDeselected &&
-    evidence
-      .targetPanelChangedConsistently &&
-    evidence
-      .previousPanelChangedConsistently
+    evidence.selectedTabTransitionObserved &&
+    evidence.previousTabDeselected &&
+    evidence.targetPanelChangedConsistently &&
+    evidence.previousPanelChangedConsistently
   ) {
     return {
       status: 'verified',
-      summary:
-        `The investigation verified that tab "${target.accessibleName}" became selected, revealed its corresponding panel, and restored the original tab afterward.`,
+      summary: `The investigation verified that tab "${target.accessibleName}" became selected, revealed its corresponding panel, and restored the original tab afterward.`,
       evidence: [
         `Observed exact aria-selected transition and panel "${target.controlledPanelId}" becoming visible.`,
         'Verified mandatory rollback to the exact original tab and both original panel visibility states.'
@@ -212,81 +133,47 @@ function evaluateTabStateFinding(
 
   return {
     status: 'not-verified',
-    summary:
-      `The safe tab interaction did not produce the requested selected-tab and corresponding-panel transition for "${target.accessibleName}".`,
+    summary: `The safe tab interaction did not produce the requested selected-tab and corresponding-panel transition for "${target.accessibleName}".`,
     evidence: [
-      relevantStep.executionResult
-        .detail,
+      relevantStep.executionResult.detail,
       'The exact original tab and panel state was restored successfully.'
     ]
   };
 }
 
 function evaluateDisclosureStateFinding(
-  target:
-    DisclosureStateEvidenceTarget,
-  investigation:
-    ExploratoryLoopResult,
-  candidateReference:
-    string
+  target: DisclosureStateEvidenceTarget,
+  investigation: ExploratoryLoopResult,
+  candidateReference: string
 ): FindingInvestigationOutcome {
-  const relevantStep =
-    investigation.steps.find(
-      step =>
-        step.decision
-          .candidateReference ===
-          candidateReference &&
-        step.decision.action
-          .kind ===
-          'set-disclosure-state' &&
-        step.decision.action
-          .target.controlId ===
-          target.controlId &&
-        step.decision.action
-          .target.accessibleName ===
-          target.accessibleName &&
-        step.decision.action
-          .target
-          .controlledRegionId ===
-          target.controlledRegionId &&
-        step.decision.action
-          .desiredState ===
-          target.desiredState
-    );
+  const relevantStep = investigation.steps.find(
+    step =>
+      step.decision.candidateReference === candidateReference &&
+      step.decision.action.kind === 'set-disclosure-state' &&
+      step.decision.action.target.controlId === target.controlId &&
+      step.decision.action.target.accessibleName === target.accessibleName &&
+      step.decision.action.target.controlledRegionId === target.controlledRegionId &&
+      step.decision.action.desiredState === target.desiredState
+  );
 
-  if (
-    relevantStep === undefined
-  ) {
+  if (relevantStep === undefined) {
     return inconclusive(
       `The investigation did not execute the candidate-linked disclosure action for "${target.accessibleName}".`
     );
   }
 
-  if (
-    relevantStep.executionResult
-      .status === 'unsafe'
-  ) {
+  if (relevantStep.executionResult.status === 'unsafe') {
     return inconclusive(
       `The disclosure interaction was blocked or aborted by the safety boundary: ${relevantStep.executionResult.detail}`,
-      [
-        relevantStep.executionResult
-          .detail
-      ]
+      [relevantStep.executionResult.detail]
     );
   }
 
-  if (
-    relevantStep.executionResult
-      .status !== 'executed'
-  ) {
-    return inconclusive(
-      'The disclosure interaction did not execute successfully.'
-    );
+  if (relevantStep.executionResult.status !== 'executed') {
+    return inconclusive('The disclosure interaction did not execute successfully.');
   }
 
-  const evidence =
-    relevantStep.executionResult
-      .disclosureEvidence;
+  const evidence = relevantStep.executionResult.disclosureEvidence;
 
   if (evidence == null) {
     return inconclusive(
@@ -294,43 +181,23 @@ function evaluateDisclosureStateFinding(
     );
   }
 
-  if (
-    (
-      relevantStep.executionResult
-        .safetyEvents?.length ??
-      0
-    ) > 0
-  ) {
+  if ((relevantStep.executionResult.safetyEvents?.length ?? 0) > 0) {
     return inconclusive(
       'The disclosure interaction produced a safety event and cannot verify the finding.',
-      relevantStep.executionResult
-        .safetyEvents
-        ?.map(
-          event =>
-            event.detail
-        ) ??
-        []
+      relevantStep.executionResult.safetyEvents?.map(event => event.detail) ?? []
     );
   }
 
-  if (
-    !evidence.rollbackSucceeded
-  ) {
+  if (!evidence.rollbackSucceeded) {
     return inconclusive(
       'The disclosure interaction did not restore and verify the original state.'
     );
   }
 
-  if (
-    evidence
-      .stateTransitionObserved &&
-    evidence
-      .controlledRegionChangedConsistently
-  ) {
+  if (evidence.stateTransitionObserved && evidence.controlledRegionChangedConsistently) {
     return {
       status: 'verified',
-      summary:
-        `The investigation verified that disclosure "${target.accessibleName}" reached the requested ${target.desiredState} state and was restored afterward.`,
+      summary: `The investigation verified that disclosure "${target.accessibleName}" reached the requested ${target.desiredState} state and was restored afterward.`,
       evidence: [
         `Observed aria-expanded and controlled-region visibility change to ${target.desiredState}.`,
         'Verified mandatory rollback to the original disclosure state.'
@@ -340,11 +207,9 @@ function evaluateDisclosureStateFinding(
 
   return {
     status: 'not-verified',
-    summary:
-      `The safe disclosure interaction did not produce the requested ${target.desiredState} state transition.`,
+    summary: `The safe disclosure interaction did not produce the requested ${target.desiredState} state transition.`,
     evidence: [
-      relevantStep.executionResult
-        .detail,
+      relevantStep.executionResult.detail,
       'The original disclosure state was restored successfully.'
     ]
   };
@@ -364,24 +229,15 @@ function evaluateDisclosureStateFinding(
  * All other cases remain inconclusive.
  */
 function evaluateSelectOptionFinding(
-  target:
-    SelectOptionEvidenceTarget,
+  target: SelectOptionEvidenceTarget,
 
-  investigation:
-    ExploratoryLoopResult,
+  investigation: ExploratoryLoopResult,
 
-  candidateReference:
-    string
+  candidateReference: string
 ): FindingInvestigationOutcome {
-  const relevantStep =
-    investigation.steps.find(
-      step =>
-        isMatchingSelectOptionStep(
-          step,
-          target,
-          candidateReference
-        )
-    );
+  const relevantStep = investigation.steps.find(step =>
+    isMatchingSelectOptionStep(step, target, candidateReference)
+  );
 
   if (relevantStep === undefined) {
     return inconclusive(
@@ -389,59 +245,38 @@ function evaluateSelectOptionFinding(
     );
   }
 
-  if (
-    relevantStep.executionResult.status !==
-    'executed'
-  ) {
+  if (relevantStep.executionResult.status !== 'executed') {
     return inconclusive(
       `The investigation did not successfully execute the select-option action for "${target.optionText}".`,
-      [
-        relevantStep.executionResult.detail
-      ]
+      [relevantStep.executionResult.detail]
     );
   }
 
-  const observedSelect =
-    relevantStep.observationAfter.selects.find(
-      select =>
-        matchesObservedSelect(
-          select,
-          target
-        )
-    );
+  const observedSelect = relevantStep.observationAfter.selects.find(select =>
+    matchesObservedSelect(select, target)
+  );
 
   if (observedSelect === undefined) {
     return inconclusive(
       'The target select control could not be identified in the browser state collected after the investigation action.',
-      [
-        relevantStep.executionResult.detail
-      ]
+      [relevantStep.executionResult.detail]
     );
   }
 
-  const observedOption =
-    observedSelect.options.find(
-      option =>
-        option.text ===
-        target.optionText
-    );
+  const observedOption = observedSelect.options.find(option => option.text === target.optionText);
 
   if (observedOption === undefined) {
     return inconclusive(
       `The option "${target.optionText}" was not present in the captured post-action select evidence, so its final state cannot be determined safely.`,
-      [
-        relevantStep.executionResult.detail
-      ]
+      [relevantStep.executionResult.detail]
     );
   }
 
   if (observedOption.selected) {
     return {
-      status:
-        'verified',
+      status: 'verified',
 
-      summary:
-        `The investigation verified that the suspicious option "${target.optionText}" can be selected.`,
+      summary: `The investigation verified that the suspicious option "${target.optionText}" can be selected.`,
 
       evidence: [
         relevantStep.executionResult.detail,
@@ -452,11 +287,9 @@ function evaluateSelectOptionFinding(
   }
 
   return {
-    status:
-      'not-verified',
+    status: 'not-verified',
 
-    summary:
-      `The investigation did not verify that the suspicious option "${target.optionText}" remains selected after the action.`,
+    summary: `The investigation did not verify that the suspicious option "${target.optionText}" remains selected after the action.`,
 
     evidence: [
       relevantStep.executionResult.detail,
@@ -467,49 +300,31 @@ function evaluateSelectOptionFinding(
 }
 
 function isMatchingSelectOptionStep(
-  step:
-    ExploratoryLoopStep,
+  step: ExploratoryLoopStep,
 
-  target:
-    SelectOptionEvidenceTarget,
+  target: SelectOptionEvidenceTarget,
 
-  candidateReference:
-    string
+  candidateReference: string
 ): boolean {
-  if (
-    step.decision.candidateReference !==
-    candidateReference
-  ) {
+  if (step.decision.candidateReference !== candidateReference) {
     return false;
   }
 
-  if (
-    step.decision.action.kind !==
-    'select-option'
-  ) {
+  if (step.decision.action.kind !== 'select-option') {
     return false;
   }
 
-  if (
-    step.decision.action.optionText !==
-    target.optionText
-  ) {
+  if (step.decision.action.optionText !== target.optionText) {
     return false;
   }
 
   return matchesControlIdentity(
     {
-      label:
-        step.decision.action
-          .target.label,
+      label: step.decision.action.target.label,
 
-      name:
-        step.decision.action
-          .target.name,
+      name: step.decision.action.target.name,
 
-      id:
-        step.decision.action
-          .target.id
+      id: step.decision.action.target.id
     },
     target
   );
@@ -522,13 +337,9 @@ function matchesObservedSelect(
     id: string | null;
   },
 
-  target:
-    SelectOptionEvidenceTarget
+  target: SelectOptionEvidenceTarget
 ): boolean {
-  return matchesControlIdentity(
-    select,
-    target
-  );
+  return matchesControlIdentity(select, target);
 }
 
 /**
@@ -545,60 +356,42 @@ function matchesControlIdentity(
     id: string | null;
   },
 
-  target:
-    SelectOptionEvidenceTarget
+  target: SelectOptionEvidenceTarget
 ): boolean {
   const comparisons = [
     {
-      expected:
-        target.controlLabel,
+      expected: target.controlLabel,
 
-      actual:
-        control.label
+      actual: control.label
     },
 
     {
-      expected:
-        target.controlName,
+      expected: target.controlName,
 
-      actual:
-        control.name
+      actual: control.name
     },
 
     {
-      expected:
-        target.controlId,
+      expected: target.controlId,
 
-      actual:
-        control.id
+      actual: control.id
     }
-  ].filter(
-    comparison =>
-      comparison.expected !==
-      null
-  );
+  ].filter(comparison => comparison.expected !== null);
 
   if (comparisons.length === 0) {
     return false;
   }
 
-  return comparisons.every(
-    comparison =>
-      comparison.actual ===
-      comparison.expected
-  );
+  return comparisons.every(comparison => comparison.actual === comparison.expected);
 }
 
 function inconclusive(
-  summary:
-    string,
+  summary: string,
 
-  evidence:
-    string[] = []
+  evidence: string[] = []
 ): FindingInvestigationOutcome {
   return {
-    status:
-      'inconclusive',
+    status: 'inconclusive',
 
     summary,
 

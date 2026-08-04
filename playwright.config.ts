@@ -13,10 +13,7 @@ export default defineConfig({
 
   workers: process.env.CI ? 1 : undefined,
 
-  reporter: [
-    ['list'],
-    ['html', { open: 'never' }]
-  ],
+  reporter: [['list'], ['html', { open: 'never' }]],
 
   use: {
     trace: 'on-first-retry',

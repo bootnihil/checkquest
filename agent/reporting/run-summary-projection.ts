@@ -1,85 +1,38 @@
-import type {
-  UnifiedFinding
-} from '../findings/finding-model';
-import {
-  exploratoryQaFindingSchema
-} from '../analysis/exploratory-qa-schema';
-import {
-  createTechnicalObservationFingerprint
-} from '../analysis/technical-observation-reconciliation';
-import type {
-  SiteAgentReport
-} from './report-types';
+import type { UnifiedFinding } from '../findings/finding-model';
+import { exploratoryQaFindingSchema } from '../analysis/exploratory-qa-schema';
+import { createTechnicalObservationFingerprint } from '../analysis/technical-observation-reconciliation';
+import type { SiteAgentReport } from './report-types';
 
 export interface ReconciledRunSummaryProjection {
-  inspectedPageCount:
-    number;
-  confirmedFindingCount:
-    number;
-  reviewFindingCount:
-    number;
-  technicalObservationCount:
-    number;
-  securityObservationCount:
-    number;
-  primaryFindingCount:
-    number;
+  inspectedPageCount: number;
+  confirmedFindingCount: number;
+  reviewFindingCount: number;
+  technicalObservationCount: number;
+  securityObservationCount: number;
+  primaryFindingCount: number;
 }
 
-export function hasRuntimeTechnicalGrounding(
-  finding:
-    UnifiedFinding
-): boolean {
-  if (
-    finding.category !==
-      'technical'
-  ) {
+export function hasRuntimeTechnicalGrounding(finding: UnifiedFinding): boolean {
+  if (finding.category !== 'technical') {
     return false;
   }
 
-  for (
-    const occurrence of
-      finding.occurrences
-  ) {
-    for (
-      const evidence of
-        occurrence.evidence
-    ) {
-      if (
-        evidence.source ===
-          'deterministic-rule'
-      ) {
+  for (const occurrence of finding.occurrences) {
+    for (const evidence of occurrence.evidence) {
+      if (evidence.source === 'deterministic-rule') {
         return true;
       }
 
-      if (
-        evidence.rawSource
-          ?.type !==
-          'exploratory-qa-finding'
-      ) {
+      if (evidence.rawSource?.type !== 'exploratory-qa-finding') {
         continue;
       }
 
-      const parsed =
-        exploratoryQaFindingSchema
-          .safeParse(
-            evidence.rawSource
-              .value
-          );
-      const technicalIdentity =
-        parsed.success
-          ? parsed.data
-              .technicalIdentity ??
-            null
-          : null;
+      const parsed = exploratoryQaFindingSchema.safeParse(evidence.rawSource.value);
+      const technicalIdentity = parsed.success ? (parsed.data.technicalIdentity ?? null) : null;
 
       if (
-        technicalIdentity !==
-          null &&
-        finding.fingerprint ===
-          createTechnicalObservationFingerprint(
-            technicalIdentity
-          )
+        technicalIdentity !== null &&
+        finding.fingerprint === createTechnicalObservationFingerprint(technicalIdentity)
       ) {
         return true;
       }
@@ -89,37 +42,20 @@ export function hasRuntimeTechnicalGrounding(
   return false;
 }
 
-export function isPrimaryHumanFinding(
-  finding:
-    UnifiedFinding
-): boolean {
+export function isPrimaryHumanFinding(finding: UnifiedFinding): boolean {
   return (
-    finding.verification.state !==
-      'not-verified' &&
-    (
-      finding.category !==
-        'technical' ||
-      finding.verification.state ===
-        'verified' ||
-      !hasRuntimeTechnicalGrounding(
-        finding
-      )
-    )
+    finding.verification.state !== 'not-verified' &&
+    (finding.category !== 'technical' ||
+      finding.verification.state === 'verified' ||
+      !hasRuntimeTechnicalGrounding(finding))
   );
 }
 
-export function isHumanTechnicalObservation(
-  finding:
-    UnifiedFinding
-): boolean {
+export function isHumanTechnicalObservation(finding: UnifiedFinding): boolean {
   return (
-    finding.category ===
-      'technical' &&
-    finding.verification.state ===
-      'inconclusive' &&
-    hasRuntimeTechnicalGrounding(
-      finding
-    )
+    finding.category === 'technical' &&
+    finding.verification.state === 'inconclusive' &&
+    hasRuntimeTechnicalGrounding(finding)
   );
 }
 
@@ -128,44 +64,21 @@ export function isHumanTechnicalObservation(
  * report. Occurrences and affected pages never inflate item counts.
  */
 export function buildReconciledRunSummaryProjection(
-  report:
-    SiteAgentReport
+  report: SiteAgentReport
 ): ReconciledRunSummaryProjection {
-  const primaryFindings =
-    report.findings.filter(
-      isPrimaryHumanFinding
-    );
-  const technicalObservations =
-    report.findings.filter(
-      isHumanTechnicalObservation
-    );
+  const primaryFindings = report.findings.filter(isPrimaryHumanFinding);
+  const technicalObservations = report.findings.filter(isHumanTechnicalObservation);
 
   return {
-    inspectedPageCount:
-      report.inspectedPages
-        .length,
-    confirmedFindingCount:
-      primaryFindings.filter(
-        finding =>
-          finding.verification
-            .state ===
-          'verified'
-      ).length,
-    reviewFindingCount:
-      primaryFindings.filter(
-        finding =>
-          finding.verification
-            .state ===
-          'inconclusive'
-      ).length,
-    technicalObservationCount:
-      technicalObservations
-        .length,
-    securityObservationCount:
-      report.passiveSecurity
-        .observations
-        .length,
-    primaryFindingCount:
-      primaryFindings.length
+    inspectedPageCount: report.inspectedPages.length,
+    confirmedFindingCount: primaryFindings.filter(
+      finding => finding.verification.state === 'verified'
+    ).length,
+    reviewFindingCount: primaryFindings.filter(
+      finding => finding.verification.state === 'inconclusive'
+    ).length,
+    technicalObservationCount: technicalObservations.length,
+    securityObservationCount: report.passiveSecurity.observations.length,
+    primaryFindingCount: primaryFindings.length
   };
 }

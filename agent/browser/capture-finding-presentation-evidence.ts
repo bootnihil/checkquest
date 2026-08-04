@@ -1,203 +1,93 @@
-import {
-  mkdir
-} from 'node:fs/promises';
-import {
-  join
-} from 'node:path';
+import { mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
 
-import type {
-  Page
-} from '@playwright/test';
+import type { Page } from '@playwright/test';
 
 import type {
   ExploratoryQaFinding,
   FindingPresentationTarget
 } from '../analysis/exploratory-qa-schema';
-import {
-  runPageOperationWithCancellation
-} from './run-page-operation-with-cancellation';
+import { runPageOperationWithCancellation } from './run-page-operation-with-cancellation';
 
-type InvestigationEvidenceTarget =
-  NonNullable<
-    ExploratoryQaFinding[
-      'evidenceTarget'
-    ]
-  >;
+type InvestigationEvidenceTarget = NonNullable<ExploratoryQaFinding['evidenceTarget']>;
 
-export type FindingVisualTarget =
-  FindingPresentationTarget |
-  InvestigationEvidenceTarget;
+export type FindingVisualTarget = FindingPresentationTarget | InvestigationEvidenceTarget;
 
 export interface VisualTargetBox {
-  x:
-    number;
-  y:
-    number;
-  width:
-    number;
-  height:
-    number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
-interface ResolvedVisualTargetBox extends
-  VisualTargetBox {
-  targetIndex:
-    number;
+interface ResolvedVisualTargetBox extends VisualTargetBox {
+  targetIndex: number;
 }
 
 export interface FocusedEvidenceTargetGroup {
-  boxes:
-    VisualTargetBox[];
+  boxes: VisualTargetBox[];
 }
 
 export interface FocusedEvidenceClip {
-  x:
-    number;
-  y:
-    number;
-  width:
-    number;
-  height:
-    number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 export interface FocusedEvidenceCapture {
-  screenshotPaths:
-    string[];
-  totalTargetCount:
-    number;
-  shownTargetCount:
-    number;
-  replay:
-    {
-      action:
-        'select-option';
-      restored:
-        boolean;
-    } |
-    null;
+  screenshotPaths: string[];
+  totalTargetCount: number;
+  shownTargetCount: number;
+  replay: {
+    action: 'select-option';
+    restored: boolean;
+  } | null;
 }
 
 export interface FocusedEvidenceCaptureDependencies {
-  captureScreenshot?:
-    (
-      page:
-        Page,
-      filePath:
-        string,
-      clip:
-        FocusedEvidenceClip
-    ) => Promise<unknown>;
+  captureScreenshot?: (page: Page, filePath: string, clip: FocusedEvidenceClip) => Promise<unknown>;
 }
 
-const maximumFocusedEvidenceImages =
-  3;
-const focusedEvidencePadding =
-  28;
-const annotationAttribute =
-  'data-checkquest-presentation-evidence';
-const targetAttribute =
-  'data-checkquest-presentation-evidence-target';
-const highlightAttribute =
-  'data-checkquest-presentation-evidence-highlight';
-const annotationStyleAttribute =
-  'data-checkquest-presentation-evidence-style';
+const maximumFocusedEvidenceImages = 3;
+const focusedEvidencePadding = 28;
+const annotationAttribute = 'data-checkquest-presentation-evidence';
+const targetAttribute = 'data-checkquest-presentation-evidence-target';
+const highlightAttribute = 'data-checkquest-presentation-evidence-highlight';
+const annotationStyleAttribute = 'data-checkquest-presentation-evidence-style';
 
-function formatSequenceNumber(
-  value:
-    number
-): string {
-  return String(
-    value
-  ).padStart(
-    2,
-    '0'
-  );
+function formatSequenceNumber(value: number): string {
+  return String(value).padStart(2, '0');
 }
 
 export function groupFocusedEvidenceTargets(
-  boxes:
-    readonly VisualTargetBox[],
-  viewportHeight:
-    number
+  boxes: readonly VisualTargetBox[],
+  viewportHeight: number
 ): FocusedEvidenceTargetGroup[] {
-  const sortedBoxes =
-    [
-      ...boxes
-    ].sort(
-      (
-        left,
-        right
-      ) =>
-        left.y -
-          right.y ||
-        left.x -
-          right.x
-    );
-  const groups:
-    FocusedEvidenceTargetGroup[] =
-      [];
+  const sortedBoxes = [...boxes].sort((left, right) => left.y - right.y || left.x - right.x);
+  const groups: FocusedEvidenceTargetGroup[] = [];
 
-  for (
-    const box of
-      sortedBoxes
-  ) {
-    const currentGroup =
-      groups.at(
-        -1
-      );
+  for (const box of sortedBoxes) {
+    const currentGroup = groups.at(-1);
 
-    if (
-      currentGroup ===
-        undefined
-    ) {
+    if (currentGroup === undefined) {
       groups.push({
-        boxes:
-          [
-            box
-          ]
+        boxes: [box]
       });
       continue;
     }
 
-    const groupTop =
-      Math.min(
-        ...currentGroup
-          .boxes
-          .map(
-            item =>
-              item.y
-          )
-      );
-    const combinedBottom =
-      Math.max(
-        box.y +
-          box.height,
-        ...currentGroup
-          .boxes
-          .map(
-            item =>
-              item.y +
-              item.height
-          )
-      );
+    const groupTop = Math.min(...currentGroup.boxes.map(item => item.y));
+    const combinedBottom = Math.max(
+      box.y + box.height,
+      ...currentGroup.boxes.map(item => item.y + item.height)
+    );
 
-    if (
-      combinedBottom -
-        groupTop <=
-      viewportHeight
-    ) {
-      currentGroup
-        .boxes
-        .push(
-          box
-        );
+    if (combinedBottom - groupTop <= viewportHeight) {
+      currentGroup.boxes.push(box);
     } else {
       groups.push({
-        boxes:
-          [
-            box
-          ]
+        boxes: [box]
       });
     }
   }
@@ -206,103 +96,33 @@ export function groupFocusedEvidenceTargets(
 }
 
 export function calculateFocusedEvidenceClip(
-  group:
-    FocusedEvidenceTargetGroup,
+  group: FocusedEvidenceTargetGroup,
   documentSize: {
-    width:
-      number;
-    height:
-      number;
+    width: number;
+    height: number;
   },
-  padding =
-    focusedEvidencePadding
+  padding = focusedEvidencePadding
 ): FocusedEvidenceClip {
-  const left =
-    Math.min(
-      ...group.boxes.map(
-        box =>
-          box.x
-      )
-    );
-  const top =
-    Math.min(
-      ...group.boxes.map(
-        box =>
-          box.y
-      )
-    );
-  const right =
-    Math.max(
-      ...group.boxes.map(
-        box =>
-          box.x +
-          box.width
-      )
-    );
-  const bottom =
-    Math.max(
-      ...group.boxes.map(
-        box =>
-          box.y +
-          box.height
-      )
-    );
-  const x =
-    Math.max(
-      0,
-      Math.floor(
-        left -
-          padding
-      )
-    );
-  const y =
-    Math.max(
-      0,
-      Math.floor(
-        top -
-          padding
-      )
-    );
-  const clippedRight =
-    Math.min(
-      documentSize.width,
-      Math.ceil(
-        right +
-          padding
-      )
-    );
-  const clippedBottom =
-    Math.min(
-      documentSize.height,
-      Math.ceil(
-        bottom +
-          padding
-      )
-    );
+  const left = Math.min(...group.boxes.map(box => box.x));
+  const top = Math.min(...group.boxes.map(box => box.y));
+  const right = Math.max(...group.boxes.map(box => box.x + box.width));
+  const bottom = Math.max(...group.boxes.map(box => box.y + box.height));
+  const x = Math.max(0, Math.floor(left - padding));
+  const y = Math.max(0, Math.floor(top - padding));
+  const clippedRight = Math.min(documentSize.width, Math.ceil(right + padding));
+  const clippedBottom = Math.min(documentSize.height, Math.ceil(bottom + padding));
 
   return {
     x,
     y,
-    width:
-      Math.max(
-        1,
-        clippedRight -
-          x
-      ),
-    height:
-      Math.max(
-        1,
-        clippedBottom -
-          y
-      )
+    width: Math.max(1, clippedRight - x),
+    height: Math.max(1, clippedBottom - y)
   };
 }
 
 async function resolveVisualTargetBoxes(
-  page:
-    Page,
-  target:
-    FindingVisualTarget
+  page: Page,
+  target: FindingVisualTarget
 ): Promise<ResolvedVisualTargetBox[]> {
   return page.evaluate(
     input => {
@@ -312,560 +132,199 @@ async function resolveVisualTargetBoxes(
        * decorated with Node-side naming helpers that do not exist here.
        */
       const browserUtilities = {
-        normalize(
-          value:
-            string | null
-        ): string {
-          return (
-            value ??
-            ''
-          )
-            .replace(
-              /\s+/g,
-              ' '
-            )
-            .trim();
+        normalize(value: string | null): string {
+          return (value ?? '').replace(/\s+/g, ' ').trim();
         },
-        isVisible(
-          element:
-            Element
-        ): boolean {
-          const style =
-            window
-              .getComputedStyle(
-                element
-              );
-          const rectangle =
-            element
-              .getBoundingClientRect();
+        isVisible(element: Element): boolean {
+          const style = window.getComputedStyle(element);
+          const rectangle = element.getBoundingClientRect();
 
           if (
-            'checkVisibility' in
-              element &&
+            'checkVisibility' in element &&
             !element.checkVisibility({
-              checkOpacity:
-                true,
-              checkVisibilityCSS:
-                true
+              checkOpacity: true,
+              checkVisibilityCSS: true
             })
           ) {
             return false;
           }
 
           return (
-            style.display !==
-              'none' &&
-            style.visibility !==
-              'hidden' &&
-            Number(
-              style.opacity
-            ) !==
-              0 &&
-            rectangle.width >
-              0 &&
-            rectangle.height >
-              0
+            style.display !== 'none' &&
+            style.visibility !== 'hidden' &&
+            Number(style.opacity) !== 0 &&
+            rectangle.width > 0 &&
+            rectangle.height > 0
           );
         },
-        accessibleName(
-          element:
-            Element
-        ): string {
-          const labelledBy =
-            element.getAttribute(
-              'aria-labelledby'
-            );
+        accessibleName(element: Element): string {
+          const labelledBy = element.getAttribute('aria-labelledby');
 
-          if (
-            labelledBy !==
-              null
-          ) {
-            const labelledText =
-              labelledBy
-                .split(
-                  /\s+/
-                )
-                .map(
-                  id =>
-                    document
-                      .getElementById(
-                        id
-                      )
-                      ?.textContent ??
-                    ''
-                )
-                .join(
-                  ' '
-                );
+          if (labelledBy !== null) {
+            const labelledText = labelledBy
+              .split(/\s+/)
+              .map(id => document.getElementById(id)?.textContent ?? '')
+              .join(' ');
 
-            if (
-              browserUtilities.normalize(
-                labelledText
-              ) !==
-                ''
-            ) {
-              return browserUtilities.normalize(
-                labelledText
-              );
+            if (browserUtilities.normalize(labelledText) !== '') {
+              return browserUtilities.normalize(labelledText);
             }
           }
 
-          const ariaLabel =
-            browserUtilities.normalize(
-              element.getAttribute(
-                'aria-label'
-              )
-            );
+          const ariaLabel = browserUtilities.normalize(element.getAttribute('aria-label'));
 
-          if (
-            ariaLabel !==
-              ''
-          ) {
+          if (ariaLabel !== '') {
             return ariaLabel;
           }
 
-          const visibleText =
-            browserUtilities.normalize(
-              (
-                element as
-                  HTMLElement
-              ).innerText ||
-              element.textContent
-            );
+          const visibleText = browserUtilities.normalize(
+            (element as HTMLElement).innerText || element.textContent
+          );
 
-          if (
-            visibleText !==
-              ''
-          ) {
+          if (visibleText !== '') {
             return visibleText;
           }
 
-          if (
-            element instanceof
-              HTMLInputElement
-          ) {
-            const inputValue =
-              browserUtilities.normalize(
-                element.value
-              );
+          if (element instanceof HTMLInputElement) {
+            const inputValue = browserUtilities.normalize(element.value);
 
-            if (
-              inputValue !==
-                ''
-            ) {
+            if (inputValue !== '') {
               return inputValue;
             }
           }
 
-          return browserUtilities.normalize(
-            element.getAttribute(
-              'title'
-            )
-          );
+          return browserUtilities.normalize(element.getAttribute('title'));
         }
       };
-      const targetValue =
-        input.target;
-      let candidates:
-        Element[];
+      const targetValue = input.target;
+      let candidates: Element[];
 
-      if (
-        targetValue.kind ===
-          'visible-text'
-      ) {
+      if (targetValue.kind === 'visible-text') {
         const selector =
-          targetValue
-            .elementKind ===
-              'heading'
+          targetValue.elementKind === 'heading'
             ? 'h1,h2,h3,h4,h5,h6,[role="heading"]'
-            : targetValue
-                .elementKind ===
-                  'link'
+            : targetValue.elementKind === 'link'
               ? 'a,[role="link"]'
               : 'button,[role="button"],input[type="button"],input[type="submit"]';
 
-        candidates =
-          [
-            ...document
-              .querySelectorAll(
-                selector
-              )
-          ].filter(
-            element =>
-              browserUtilities.accessibleName(
-                element
-              ) ===
-                browserUtilities.normalize(
-                  targetValue.text
-                )
+        candidates = [...document.querySelectorAll(selector)].filter(
+          element =>
+            browserUtilities.accessibleName(element) ===
+            browserUtilities.normalize(targetValue.text)
+        );
+      } else if (targetValue.kind === 'select-option') {
+        candidates = [...document.querySelectorAll('select')].filter(element => {
+          const select = element as HTMLSelectElement;
+          const labels = [...document.querySelectorAll('label')]
+            .filter(
+              label => (select.id !== '' && label.htmlFor === select.id) || label.contains(select)
+            )
+            .map(label => browserUtilities.normalize(label.textContent));
+          const matchesIdentity =
+            (targetValue.controlId !== null ||
+              targetValue.controlName !== null ||
+              targetValue.controlLabel !== null) &&
+            (targetValue.controlId === null || select.id === targetValue.controlId) &&
+            (targetValue.controlName === null || select.name === targetValue.controlName) &&
+            (targetValue.controlLabel === null ||
+              labels.includes(browserUtilities.normalize(targetValue.controlLabel)));
+          const hasOption = [...select.options].some(
+            option =>
+              browserUtilities.normalize(option.textContent) ===
+              browserUtilities.normalize(targetValue.optionText)
           );
-      } else if (
-        targetValue.kind ===
-          'select-option'
-      ) {
-        candidates =
-          [
-            ...document
-              .querySelectorAll(
-                'select'
-              )
-          ].filter(
-            element => {
-              const select =
-                element as
-                  HTMLSelectElement;
-              const labels =
-                [
-                  ...document
-                    .querySelectorAll(
-                      'label'
-                    )
-                ]
-                  .filter(
-                    label =>
-                      (
-                        select.id !==
-                          '' &&
-                        label.htmlFor ===
-                          select.id
-                      ) ||
-                      label.contains(
-                        select
-                      )
-                  )
-                  .map(
-                    label =>
-                      browserUtilities.normalize(
-                        label.textContent
-                      )
-                  );
-              const matchesIdentity =
-                (
-                  targetValue
-                    .controlId !==
-                    null ||
-                  targetValue
-                    .controlName !==
-                    null ||
-                  targetValue
-                    .controlLabel !==
-                    null
-                ) &&
-                (
-                  targetValue
-                    .controlId ===
-                    null ||
-                  select.id ===
-                    targetValue
-                      .controlId
-                ) &&
-                (
-                  targetValue
-                    .controlName ===
-                    null ||
-                  select.name ===
-                    targetValue
-                      .controlName
-                ) &&
-                (
-                  targetValue
-                    .controlLabel ===
-                    null ||
-                  labels.includes(
-                    browserUtilities.normalize(
-                      targetValue
-                        .controlLabel
-                    )
-                  )
-                );
-              const hasOption =
-                [
-                  ...select.options
-                ].some(
-                  option =>
-                    browserUtilities.normalize(
-                      option.textContent
-                    ) ===
-                      browserUtilities.normalize(
-                        targetValue
-                          .optionText
-                      )
-                );
 
-              return (
-                matchesIdentity &&
-                hasOption
-              );
-            }
+          return matchesIdentity && hasOption;
+        });
+      } else if (targetValue.kind === 'disclosure-state') {
+        candidates = [...document.querySelectorAll('[id]')].filter(element => {
+          const role = browserUtilities.normalize(element.getAttribute('role')).toLowerCase();
+          const type = browserUtilities.normalize(element.getAttribute('type')).toLowerCase();
+          const approvedControl =
+            (element instanceof HTMLButtonElement && type === 'button') || role === 'button';
+          const controlledIds = browserUtilities
+            .normalize(element.getAttribute('aria-controls'))
+            .split(/\s+/)
+            .filter(value => value.length > 0);
+          const controlledRegions = [...document.querySelectorAll('[id]')].filter(
+            candidate => candidate.id === targetValue.controlledRegionId
           );
-      } else if (
-        targetValue.kind ===
-          'disclosure-state'
-      ) {
-        candidates =
-          [
-            ...document
-              .querySelectorAll(
-                '[id]'
-              )
-          ].filter(
-            element => {
-              const role =
-                browserUtilities.normalize(
-                  element.getAttribute(
-                    'role'
-                  )
-                ).toLowerCase();
-              const type =
-                browserUtilities.normalize(
-                  element.getAttribute(
-                    'type'
-                  )
-                ).toLowerCase();
-              const approvedControl =
-                (
-                  element instanceof
-                    HTMLButtonElement &&
-                  type ===
-                    'button'
-                ) ||
-                role ===
-                  'button';
-              const controlledIds =
-                browserUtilities.normalize(
-                  element.getAttribute(
-                    'aria-controls'
-                  )
-                )
-                  .split(
-                    /\s+/
-                  )
-                  .filter(
-                    value =>
-                      value.length >
-                      0
-                  );
-              const controlledRegions =
-                [
-                  ...document
-                    .querySelectorAll(
-                      '[id]'
-                    )
-                ].filter(
-                  candidate =>
-                    candidate.id ===
-                      targetValue
-                        .controlledRegionId
-                );
-              const expanded =
-                browserUtilities.normalize(
-                  element.getAttribute(
-                    'aria-expanded'
-                  )
-                ).toLowerCase();
+          const expanded = browserUtilities
+            .normalize(element.getAttribute('aria-expanded'))
+            .toLowerCase();
 
-              return (
-                element.id ===
-                  targetValue
-                    .controlId &&
-                browserUtilities.accessibleName(
-                  element
-                ) ===
-                  browserUtilities.normalize(
-                    targetValue
-                      .accessibleName
-                  ) &&
-                approvedControl &&
-                (
-                  expanded ===
-                    'true' ||
-                  expanded ===
-                    'false'
-                ) &&
-                controlledIds.length ===
-                  1 &&
-                controlledIds[0] ===
-                  targetValue
-                    .controlledRegionId &&
-                controlledRegions.length ===
-                  1
-              );
-            }
+          return (
+            element.id === targetValue.controlId &&
+            browserUtilities.accessibleName(element) ===
+              browserUtilities.normalize(targetValue.accessibleName) &&
+            approvedControl &&
+            (expanded === 'true' || expanded === 'false') &&
+            controlledIds.length === 1 &&
+            controlledIds[0] === targetValue.controlledRegionId &&
+            controlledRegions.length === 1
           );
+        });
       } else {
-        candidates =
-          [
-            ...document
-              .querySelectorAll(
-                '[role="tab"]'
-              )
-          ].filter(
-            element => {
-              const controlledIds =
-                browserUtilities.normalize(
-                  element.getAttribute(
-                    'aria-controls'
-                  )
-                )
-                  .split(
-                    /\s+/
-                  )
-                  .filter(
-                    value =>
-                      value.length >
-                      0
-                  );
-              const controlledPanels =
-                [
-                  ...document
-                    .querySelectorAll(
-                      '[id]'
-                    )
-                ].filter(
-                  candidate =>
-                    candidate.id ===
-                      targetValue
-                        .controlledPanelId
-                );
-              const tabLists =
-                [
-                  ...document
-                    .querySelectorAll(
-                      '[id]'
-                    )
-                ].filter(
-                  candidate =>
-                    candidate.id ===
-                      targetValue
-                        .tabListId
-                );
-              const selected =
-                browserUtilities.normalize(
-                  element.getAttribute(
-                    'aria-selected'
-                  )
-                ).toLowerCase();
-
-              return (
-                element.id ===
-                  targetValue
-                    .controlId &&
-                browserUtilities.accessibleName(
-                  element
-                ) ===
-                  browserUtilities.normalize(
-                    targetValue
-                      .accessibleName
-                  ) &&
-                (
-                  selected ===
-                    'true' ||
-                  selected ===
-                    'false'
-                ) &&
-                controlledIds.length ===
-                  1 &&
-                controlledIds[0] ===
-                  targetValue
-                    .controlledPanelId &&
-                controlledPanels.length ===
-                  1 &&
-                browserUtilities.normalize(
-                  controlledPanels[0]
-                    ?.getAttribute(
-                      'role'
-                    ) ??
-                    null
-                ).toLowerCase() ===
-                  'tabpanel' &&
-                tabLists.length ===
-                  1 &&
-                browserUtilities.normalize(
-                  tabLists[0]
-                    ?.getAttribute(
-                      'role'
-                    ) ??
-                    null
-                ).toLowerCase() ===
-                  'tablist' &&
-                element.closest(
-                  '[role="tablist"]'
-                ) ===
-                  tabLists[0]
-              );
-            }
+        candidates = [...document.querySelectorAll('[role="tab"]')].filter(element => {
+          const controlledIds = browserUtilities
+            .normalize(element.getAttribute('aria-controls'))
+            .split(/\s+/)
+            .filter(value => value.length > 0);
+          const controlledPanels = [...document.querySelectorAll('[id]')].filter(
+            candidate => candidate.id === targetValue.controlledPanelId
           );
+          const tabLists = [...document.querySelectorAll('[id]')].filter(
+            candidate => candidate.id === targetValue.tabListId
+          );
+          const selected = browserUtilities
+            .normalize(element.getAttribute('aria-selected'))
+            .toLowerCase();
+
+          return (
+            element.id === targetValue.controlId &&
+            browserUtilities.accessibleName(element) ===
+              browserUtilities.normalize(targetValue.accessibleName) &&
+            (selected === 'true' || selected === 'false') &&
+            controlledIds.length === 1 &&
+            controlledIds[0] === targetValue.controlledPanelId &&
+            controlledPanels.length === 1 &&
+            browserUtilities
+              .normalize(controlledPanels[0]?.getAttribute('role') ?? null)
+              .toLowerCase() === 'tabpanel' &&
+            tabLists.length === 1 &&
+            browserUtilities.normalize(tabLists[0]?.getAttribute('role') ?? null).toLowerCase() ===
+              'tablist' &&
+            element.closest('[role="tablist"]') === tabLists[0]
+          );
+        });
       }
 
-      const visibleCandidates =
-        candidates
-        .filter(
-          (
-            element,
-            index,
-            all
-          ) =>
-            browserUtilities.isVisible(
-              element
-            ) &&
-            all.indexOf(
-              element
-            ) ===
-              index
-        );
+      const visibleCandidates = candidates.filter(
+        (element, index, all) =>
+          browserUtilities.isVisible(element) && all.indexOf(element) === index
+      );
 
-      for (
-        const staleTarget of
-          document.querySelectorAll(
-            `[${input.targetAttribute}]`
-          )
-      ) {
-        staleTarget.removeAttribute(
-          input.targetAttribute
-        );
+      for (const staleTarget of document.querySelectorAll(`[${input.targetAttribute}]`)) {
+        staleTarget.removeAttribute(input.targetAttribute);
       }
 
-      if (
-        targetValue.kind !==
-          'visible-text' &&
-        visibleCandidates.length !==
-          1
-      ) {
+      if (targetValue.kind !== 'visible-text' && visibleCandidates.length !== 1) {
         return [];
       }
 
-      return visibleCandidates
-        .map(
-          (
-            element,
-            targetIndex
-          ) => {
-            const rectangle =
-              element
-                .getBoundingClientRect();
+      return visibleCandidates.map((element, targetIndex) => {
+        const rectangle = element.getBoundingClientRect();
 
-            element.setAttribute(
-              input.targetAttribute,
-              String(
-                targetIndex
-              )
-            );
+        element.setAttribute(input.targetAttribute, String(targetIndex));
 
-            return {
-              x:
-                rectangle.left +
-                window.scrollX,
-              y:
-                rectangle.top +
-                window.scrollY,
-              width:
-                rectangle.width,
-              height:
-                rectangle.height,
-              targetIndex
-            };
-          }
-        );
+        return {
+          x: rectangle.left + window.scrollX,
+          y: rectangle.top + window.scrollY,
+          width: rectangle.width,
+          height: rectangle.height,
+          targetIndex
+        };
+      });
     },
     {
       target,
@@ -875,57 +334,28 @@ async function resolveVisualTargetBoxes(
 }
 
 async function addEvidenceAnnotations(
-  page:
-    Page,
-  boxes:
-    readonly ResolvedVisualTargetBox[],
-  target:
-    FindingVisualTarget
+  page: Page,
+  boxes: readonly ResolvedVisualTargetBox[],
+  target: FindingVisualTarget
 ): Promise<ResolvedVisualTargetBox[]> {
   return page.evaluate(
-    (
-      input
-    ) => {
+    input => {
       const browserUtilities = {
-        normalize(
-          value:
-            string | null
-        ): string {
-          return (
-            value ??
-            ''
-          )
-            .replace(
-              /\s+/g,
-              ' '
-            )
-            .trim();
+        normalize(value: string | null): string {
+          return (value ?? '').replace(/\s+/g, ' ').trim();
         },
-        isVisible(
-          element:
-            Element
-        ): boolean {
-          const rectangle =
-            element
-              .getBoundingClientRect();
+        isVisible(element: Element): boolean {
+          const rectangle = element.getBoundingClientRect();
 
-          if (
-            rectangle.width <=
-              0 ||
-            rectangle.height <=
-              0
-          ) {
+          if (rectangle.width <= 0 || rectangle.height <= 0) {
             return false;
           }
 
           if (
-            'checkVisibility' in
-              element &&
+            'checkVisibility' in element &&
             !element.checkVisibility({
-              checkOpacity:
-                true,
-              checkVisibilityCSS:
-                true
+              checkOpacity: true,
+              checkVisibilityCSS: true
             })
           ) {
             return false;
@@ -933,187 +363,83 @@ async function addEvidenceAnnotations(
 
           return true;
         },
-        accessibleName(
-          element:
-            Element
-        ): string {
-          const labelledBy =
-            element.getAttribute(
-              'aria-labelledby'
-            );
+        accessibleName(element: Element): string {
+          const labelledBy = element.getAttribute('aria-labelledby');
 
-          if (
-            labelledBy !==
-              null
-          ) {
-            const labelledText =
-              labelledBy
-                .split(
-                  /\s+/
-                )
-                .map(
-                  id =>
-                    document
-                      .getElementById(
-                        id
-                      )
-                      ?.textContent ??
-                    ''
-                )
-                .join(
-                  ' '
-                );
+          if (labelledBy !== null) {
+            const labelledText = labelledBy
+              .split(/\s+/)
+              .map(id => document.getElementById(id)?.textContent ?? '')
+              .join(' ');
 
-            if (
-              browserUtilities.normalize(
-                labelledText
-              ) !==
-                ''
-            ) {
-              return browserUtilities.normalize(
-                labelledText
-              );
+            if (browserUtilities.normalize(labelledText) !== '') {
+              return browserUtilities.normalize(labelledText);
             }
           }
 
           return browserUtilities.normalize(
-            element.getAttribute(
-              'aria-label'
-            ) ??
-            element.textContent
+            element.getAttribute('aria-label') ?? element.textContent
           );
         },
-        matchesTarget(
-          element:
-            Element
-        ): boolean {
-          if (
-            input.target.kind !==
-              'visible-text'
-          ) {
+        matchesTarget(element: Element): boolean {
+          if (input.target.kind !== 'visible-text') {
             return true;
           }
 
           return (
-            browserUtilities.accessibleName(
-              element
-            ) ===
-            browserUtilities.normalize(
-              input.target.text
-            )
+            browserUtilities.accessibleName(element) ===
+            browserUtilities.normalize(input.target.text)
           );
         }
       };
-      const style =
-        document.createElement(
-          'style'
-        );
-      style.setAttribute(
-        input.styleAttribute,
-        'true'
-      );
+      const style = document.createElement('style');
+      style.setAttribute(input.styleAttribute, 'true');
       style.textContent = `
         [${input.highlightAttribute}] {
           outline: 3px solid #e11d48 !important;
           outline-offset: 0 !important;
         }
       `;
-      document.documentElement
-        .append(
-          style
-        );
-      const shownBoxes:
-        ResolvedVisualTargetBox[] =
-        [];
+      document.documentElement.append(style);
+      const shownBoxes: ResolvedVisualTargetBox[] = [];
 
-      for (
-        const [
-          index,
-          box
-        ] of
-        input.boxes.entries()
-      ) {
-        const element =
-          document.querySelector(
-            `[${input.targetAttribute}="${box.targetIndex}"]`
-          );
+      for (const [index, box] of input.boxes.entries()) {
+        const element = document.querySelector(`[${input.targetAttribute}="${box.targetIndex}"]`);
 
         if (
-          element ===
-            null ||
-          !browserUtilities.isVisible(
-            element
-          ) ||
-          !browserUtilities.matchesTarget(
-            element
-          )
+          element === null ||
+          !browserUtilities.isVisible(element) ||
+          !browserUtilities.matchesTarget(element)
         ) {
           continue;
         }
 
-        const rectangle =
-          element
-            .getBoundingClientRect();
+        const rectangle = element.getBoundingClientRect();
 
-        element.setAttribute(
-          input.highlightAttribute,
-          'true'
-        );
-        const annotation =
-          document.createElement(
-            'div'
-          );
-        annotation.setAttribute(
-          input.annotationAttribute,
-          String(
-            box.targetIndex
-          )
-        );
-        annotation.textContent =
-          `CheckQuest evidence ${index + 1}`;
-        Object.assign(
-          annotation.style,
-          {
-            position:
-              'fixed',
-            zIndex:
-              '2147483647',
-            pointerEvents:
-              'none',
-            boxSizing:
-              'border-box',
-            color:
-              '#ffffff',
-            background:
-              'rgba(225, 29, 72, 0.96)',
-            borderRadius:
-              '3px',
-            font:
-              '600 12px/18px system-ui, sans-serif',
-            padding:
-              '1px 5px',
-            whiteSpace:
-              'nowrap'
-          }
-        );
-        document.documentElement
-          .append(
-            annotation
-          );
+        element.setAttribute(input.highlightAttribute, 'true');
+        const annotation = document.createElement('div');
+        annotation.setAttribute(input.annotationAttribute, String(box.targetIndex));
+        annotation.textContent = `CheckQuest evidence ${index + 1}`;
+        Object.assign(annotation.style, {
+          position: 'fixed',
+          zIndex: '2147483647',
+          pointerEvents: 'none',
+          boxSizing: 'border-box',
+          color: '#ffffff',
+          background: 'rgba(225, 29, 72, 0.96)',
+          borderRadius: '3px',
+          font: '600 12px/18px system-ui, sans-serif',
+          padding: '1px 5px',
+          whiteSpace: 'nowrap'
+        });
+        document.documentElement.append(annotation);
 
         shownBoxes.push({
-          x:
-            rectangle.left +
-            window.scrollX,
-          y:
-            rectangle.top +
-            window.scrollY,
-          width:
-            rectangle.width,
-          height:
-            rectangle.height,
-          targetIndex:
-            box.targetIndex
+          x: rectangle.left + window.scrollX,
+          y: rectangle.top + window.scrollY,
+          width: rectangle.width,
+          height: rectangle.height,
+          targetIndex: box.targetIndex
         });
       }
 
@@ -1125,204 +451,100 @@ async function addEvidenceAnnotations(
       targetAttribute,
       highlightAttribute,
       annotationAttribute,
-      styleAttribute:
-        annotationStyleAttribute
+      styleAttribute: annotationStyleAttribute
     }
   );
 }
 
 async function removeEvidenceAnnotations(
-  page:
-    Page,
+  page: Page,
   scrollPosition: {
-    x:
-      number;
-    y:
-      number;
+    x: number;
+    y: number;
   }
 ): Promise<void> {
   await page.evaluate(
-    (
-      input
-    ) => {
-      for (
-        const annotation of
-        document.querySelectorAll(
-          `[${input.attribute}]`
-        )
-      ) {
+    input => {
+      for (const annotation of document.querySelectorAll(`[${input.attribute}]`)) {
         annotation.remove();
       }
 
-      for (
-        const target of
-          document.querySelectorAll(
-            `[${input.targetAttribute}]`
-          )
-      ) {
-        target.removeAttribute(
-          input.targetAttribute
-        );
-        target.removeAttribute(
-          input.highlightAttribute
-        );
+      for (const target of document.querySelectorAll(`[${input.targetAttribute}]`)) {
+        target.removeAttribute(input.targetAttribute);
+        target.removeAttribute(input.highlightAttribute);
       }
 
-      for (
-        const style of
-          document.querySelectorAll(
-            `[${input.styleAttribute}]`
-          )
-      ) {
+      for (const style of document.querySelectorAll(`[${input.styleAttribute}]`)) {
         style.remove();
       }
 
-      window.scrollTo(
-        input.scrollPosition.x,
-        input.scrollPosition.y
-      );
+      window.scrollTo(input.scrollPosition.x, input.scrollPosition.y);
     },
     {
-      attribute:
-        annotationAttribute,
+      attribute: annotationAttribute,
       targetAttribute,
       highlightAttribute,
-      styleAttribute:
-        annotationStyleAttribute,
+      styleAttribute: annotationStyleAttribute,
       scrollPosition
     }
   );
 }
 
 async function retainCaptureableEvidenceAnnotations(
-  page:
-    Page,
-  boxes:
-    readonly ResolvedVisualTargetBox[],
-  clip:
-    FocusedEvidenceClip,
-  sequenceOffset:
-    number
+  page: Page,
+  boxes: readonly ResolvedVisualTargetBox[],
+  clip: FocusedEvidenceClip,
+  sequenceOffset: number
 ): Promise<number[]> {
   return page.evaluate(
     input => {
-      const captureableTargetIndices:
-        number[] =
-        [];
+      const captureableTargetIndices: number[] = [];
 
-      for (
-        const box of
-          input.boxes
-      ) {
-        const element =
-          document.querySelector(
-            `[${input.targetAttribute}="${box.targetIndex}"]`
-          );
+      for (const box of input.boxes) {
+        const element = document.querySelector(`[${input.targetAttribute}="${box.targetIndex}"]`);
 
-        if (
-          element ===
-            null ||
-          element.getAttribute(
-            input.highlightAttribute
-          ) !==
-            'true'
-        ) {
+        if (element === null || element.getAttribute(input.highlightAttribute) !== 'true') {
           continue;
         }
 
-        const rectangle =
-          element
-            .getBoundingClientRect();
+        const rectangle = element.getBoundingClientRect();
         const isInsideClip =
-          rectangle.left >=
-            input.clip.x &&
-          rectangle.top >=
-            input.clip.y &&
-          rectangle.right <=
-            input.clip.x +
-              input.clip.width &&
-          rectangle.bottom <=
-            input.clip.y +
-              input.clip.height;
-        const topmostAtCenter =
-          document.elementFromPoint(
-            rectangle.left +
-              rectangle.width /
-                2,
-            rectangle.top +
-              rectangle.height /
-                2
-          );
+          rectangle.left >= input.clip.x &&
+          rectangle.top >= input.clip.y &&
+          rectangle.right <= input.clip.x + input.clip.width &&
+          rectangle.bottom <= input.clip.y + input.clip.height;
+        const topmostAtCenter = document.elementFromPoint(
+          rectangle.left + rectangle.width / 2,
+          rectangle.top + rectangle.height / 2
+        );
         const isUnobscuredAtCenter =
-          topmostAtCenter !==
-            null &&
-          (
-            topmostAtCenter ===
-              element ||
-            element.contains(
-              topmostAtCenter
-            )
-          );
+          topmostAtCenter !== null &&
+          (topmostAtCenter === element || element.contains(topmostAtCenter));
 
-        if (
-          isInsideClip &&
-          isUnobscuredAtCenter
-        ) {
-          captureableTargetIndices
-            .push(
-              box.targetIndex
-            );
+        if (isInsideClip && isUnobscuredAtCenter) {
+          captureableTargetIndices.push(box.targetIndex);
           continue;
         }
 
-        element.removeAttribute(
-          input.highlightAttribute
-        );
-        document.querySelector(
-          `[${input.annotationAttribute}="${box.targetIndex}"]`
-        )?.remove();
+        element.removeAttribute(input.highlightAttribute);
+        document.querySelector(`[${input.annotationAttribute}="${box.targetIndex}"]`)?.remove();
       }
 
-      for (
-        const [
-          index,
-          targetIndex
-        ] of
-        captureableTargetIndices
-          .entries()
-      ) {
-        const element =
-          document.querySelector(
-            `[${input.targetAttribute}="${targetIndex}"]`
-          );
-        const annotation =
-          document.querySelector(
-            `[${input.annotationAttribute}="${targetIndex}"]`
-          ) as
-            HTMLElement |
-            null;
+      for (const [index, targetIndex] of captureableTargetIndices.entries()) {
+        const element = document.querySelector(`[${input.targetAttribute}="${targetIndex}"]`);
+        const annotation = document.querySelector(
+          `[${input.annotationAttribute}="${targetIndex}"]`
+        ) as HTMLElement | null;
 
-        if (
-          element ===
-            null ||
-          annotation ===
-            null
-        ) {
+        if (element === null || annotation === null) {
           continue;
         }
 
-        const rectangle =
-          element
-            .getBoundingClientRect();
-        annotation.textContent =
-          `CheckQuest evidence ${input.sequenceOffset + index + 1}`;
-        annotation.style.left =
-          `${rectangle.left - 3}px`;
+        const rectangle = element.getBoundingClientRect();
+        annotation.textContent = `CheckQuest evidence ${input.sequenceOffset + index + 1}`;
+        annotation.style.left = `${rectangle.left - 3}px`;
         annotation.style.top =
-          rectangle.top >
-            24
-            ? `${rectangle.top - 24}px`
-            : `${rectangle.bottom + 6}px`;
+          rectangle.top > 24 ? `${rectangle.top - 24}px` : `${rectangle.bottom + 6}px`;
       }
 
       return captureableTargetIndices;
@@ -1339,49 +561,30 @@ async function retainCaptureableEvidenceAnnotations(
 }
 
 async function resolveAnnotatedTargetViewportBoxes(
-  page:
-    Page,
-  boxes:
-    readonly ResolvedVisualTargetBox[]
+  page: Page,
+  boxes: readonly ResolvedVisualTargetBox[]
 ): Promise<ResolvedVisualTargetBox[]> {
   return page.evaluate(
     input =>
-      input.boxes.flatMap(
-        box => {
-          const element =
-            document.querySelector(
-              `[${input.targetAttribute}="${box.targetIndex}"]`
-            );
+      input.boxes.flatMap(box => {
+        const element = document.querySelector(`[${input.targetAttribute}="${box.targetIndex}"]`);
 
-          if (
-            element ===
-              null ||
-            element.getAttribute(
-              input.highlightAttribute
-            ) !==
-              'true'
-          ) {
-            return [];
-          }
-
-          const rectangle =
-            element
-              .getBoundingClientRect();
-
-          return [{
-            x:
-              rectangle.left,
-            y:
-              rectangle.top,
-            width:
-              rectangle.width,
-            height:
-              rectangle.height,
-            targetIndex:
-              box.targetIndex
-          }];
+        if (element === null || element.getAttribute(input.highlightAttribute) !== 'true') {
+          return [];
         }
-      ),
+
+        const rectangle = element.getBoundingClientRect();
+
+        return [
+          {
+            x: rectangle.left,
+            y: rectangle.top,
+            width: rectangle.width,
+            height: rectangle.height,
+            targetIndex: box.targetIndex
+          }
+        ];
+      }),
     {
       boxes,
       targetAttribute,
@@ -1390,94 +593,41 @@ async function resolveAnnotatedTargetViewportBoxes(
   );
 }
 
-async function waitForPresentationLayoutStability(
-  page:
-    Page
-): Promise<void> {
+async function waitForPresentationLayoutStability(page: Page): Promise<void> {
   await page.evaluate(
     input =>
-      new Promise<void>(
-        resolve => {
-          let previousSignature =
-            '';
-          let stableFrameCount =
-            0;
-          let remainingFrameCount =
-            60;
-          const tracker = {
-            check(): void {
-              const targetRectangles =
-                [
-                  ...document
-                    .querySelectorAll(
-                      `[${input.targetAttribute}]`
-                    )
-                ].map(
-                  element => {
-                    const rectangle =
-                      element
-                        .getBoundingClientRect();
+      new Promise<void>(resolve => {
+        let previousSignature = '';
+        let stableFrameCount = 0;
+        let remainingFrameCount = 60;
+        const tracker = {
+          check(): void {
+            const targetRectangles = [
+              ...document.querySelectorAll(`[${input.targetAttribute}]`)
+            ].map(element => {
+              const rectangle = element.getBoundingClientRect();
 
-                    return [
-                      rectangle.x,
-                      rectangle.y,
-                      rectangle.width,
-                      rectangle.height
-                    ]
-                      .map(
-                        value =>
-                          value.toFixed(
-                            2
-                          )
-                      )
-                      .join(
-                        ','
-                      );
-                  }
-                );
-              const signature =
-                [
-                  window.scrollX,
-                  window.scrollY,
-                  ...targetRectangles
-                ].join(
-                  '|'
-                );
+              return [rectangle.x, rectangle.y, rectangle.width, rectangle.height]
+                .map(value => value.toFixed(2))
+                .join(',');
+            });
+            const signature = [window.scrollX, window.scrollY, ...targetRectangles].join('|');
 
-              stableFrameCount =
-                signature ===
-                  previousSignature
-                  ? stableFrameCount +
-                    1
-                  : 0;
-              previousSignature =
-                signature;
-              remainingFrameCount -=
-                1;
+            stableFrameCount = signature === previousSignature ? stableFrameCount + 1 : 0;
+            previousSignature = signature;
+            remainingFrameCount -= 1;
 
-              if (
-                stableFrameCount >=
-                  3 ||
-                remainingFrameCount <=
-                  0
-              ) {
-                resolve();
-                return;
-              }
-
-              window.requestAnimationFrame(
-                () =>
-                  tracker.check()
-              );
+            if (stableFrameCount >= 3 || remainingFrameCount <= 0) {
+              resolve();
+              return;
             }
-          };
 
-          window.requestAnimationFrame(
-            () =>
-              tracker.check()
-          );
-        }
-      ),
+            window.requestAnimationFrame(() => tracker.check());
+          }
+        };
+
+        window.requestAnimationFrame(() => tracker.check());
+      }),
     {
       targetAttribute
     }
@@ -1485,530 +635,254 @@ async function waitForPresentationLayoutStability(
 }
 
 export async function captureFindingPresentationEvidence(
-  page:
-    Page,
+  page: Page,
   input: {
-    runId:
-      string;
-    pageNumber:
-      number;
-    candidateNumber:
-      number;
-    target:
-      FindingVisualTarget;
-    allowObservedStateReplay?:
-      boolean;
-    signal?:
-      AbortSignal;
+    runId: string;
+    pageNumber: number;
+    candidateNumber: number;
+    target: FindingVisualTarget;
+    allowObservedStateReplay?: boolean;
+    signal?: AbortSignal;
   },
-  dependencies: FocusedEvidenceCaptureDependencies =
-    {}
+  dependencies: FocusedEvidenceCaptureDependencies = {}
 ): Promise<FocusedEvidenceCapture> {
-  if (
-    input.target.kind ===
-      'select-option' &&
-    input.allowObservedStateReplay !==
-      true
-  ) {
+  if (input.target.kind === 'select-option' && input.allowObservedStateReplay !== true) {
     return {
-      screenshotPaths:
-        [],
-      totalTargetCount:
-        0,
-      shownTargetCount:
-        0,
-      replay:
-        null
+      screenshotPaths: [],
+      totalTargetCount: 0,
+      shownTargetCount: 0,
+      replay: null
     };
   }
 
-  const [
-    boxes,
-    viewport,
-    documentSize,
-    scrollPosition
-  ] =
-    await Promise.all([
-      resolveVisualTargetBoxes(
-        page,
-        input.target
+  const [boxes, viewport, documentSize, scrollPosition] = await Promise.all([
+    resolveVisualTargetBoxes(page, input.target),
+    page.evaluate(() => ({
+      width: window.innerWidth,
+      height: window.innerHeight
+    })),
+    page.evaluate(() => ({
+      width: Math.max(
+        document.documentElement.scrollWidth,
+        document.body?.scrollWidth ?? 0,
+        window.innerWidth
       ),
-      page.evaluate(
-        () => ({
-          width:
-            window.innerWidth,
-          height:
-            window.innerHeight
-        })
-      ),
-      page.evaluate(
-        () => ({
-          width:
-            Math.max(
-              document.documentElement
-                .scrollWidth,
-              document.body
-                ?.scrollWidth ??
-                0,
-              window.innerWidth
-            ),
-          height:
-            Math.max(
-              document.documentElement
-                .scrollHeight,
-              document.body
-                ?.scrollHeight ??
-                0,
-              window.innerHeight
-            )
-        })
-      ),
-      page.evaluate(
-        () => ({
-          x:
-            window.scrollX,
-          y:
-            window.scrollY
-        })
+      height: Math.max(
+        document.documentElement.scrollHeight,
+        document.body?.scrollHeight ?? 0,
+        window.innerHeight
       )
-    ]);
+    })),
+    page.evaluate(() => ({
+      x: window.scrollX,
+      y: window.scrollY
+    }))
+  ]);
 
-  if (
-    boxes.length ===
-      0
-  ) {
+  if (boxes.length === 0) {
     return {
-      screenshotPaths:
-        [],
-      totalTargetCount:
-        0,
-      shownTargetCount:
-        0,
-      replay:
-        null
+      screenshotPaths: [],
+      totalTargetCount: 0,
+      shownTargetCount: 0,
+      replay: null
     };
   }
 
-  const selectedCandidateGroups =
-    groupFocusedEvidenceTargets(
-      boxes,
-      viewport.height
-    ).slice(
-      0,
-      maximumFocusedEvidenceImages
-    );
-  const selectedBoxes =
-    selectedCandidateGroups.flatMap(
-      group =>
-        group.boxes
-    ) as
-      ResolvedVisualTargetBox[];
-  const screenshotPaths:
-    string[] =
-      [];
-  const evidenceDirectory =
-    join(
-      'agent-results',
-      input.runId,
-      'evidence'
-    );
-
-  await mkdir(
-    evidenceDirectory,
-    {
-      recursive:
-        true
-    }
+  const selectedCandidateGroups = groupFocusedEvidenceTargets(boxes, viewport.height).slice(
+    0,
+    maximumFocusedEvidenceImages
   );
+  const selectedBoxes = selectedCandidateGroups.flatMap(
+    group => group.boxes
+  ) as ResolvedVisualTargetBox[];
+  const screenshotPaths: string[] = [];
+  const evidenceDirectory = join('agent-results', input.runId, 'evidence');
 
-  let replayOriginalValue:
-    string | null =
-      null;
-  let replayRestored =
-    false;
+  await mkdir(evidenceDirectory, {
+    recursive: true
+  });
 
-  if (
-    input.target.kind ===
-      'select-option'
-  ) {
-    replayOriginalValue =
-      await page.evaluate(
-        replay => {
-          const matchingSelects =
-            [
-              ...document.querySelectorAll(
-                'select'
-              )
-            ].filter(
-              candidate =>
-                candidate.getAttribute(
-                  replay.targetAttribute
-                ) ===
-                  '0'
-            );
-          const select =
-            matchingSelects.length ===
-              1
-              ? matchingSelects[0]
-              : undefined;
-          const option =
-            select ===
-              undefined
-              ? undefined
-              : [
-                  ...select.options
-                ].find(
-                  item =>
-                    (
-                      item.textContent ??
-                      ''
-                    )
-                      .replace(
-                        /\s+/g,
-                        ' '
-                      )
-                      .trim() ===
-                    replay.optionText
-                );
+  let replayOriginalValue: string | null = null;
+  let replayRestored = false;
 
-          if (
-            select ===
-              undefined ||
-            option ===
-              undefined
-          ) {
-            return null;
-          }
+  if (input.target.kind === 'select-option') {
+    replayOriginalValue = await page.evaluate(
+      replay => {
+        const matchingSelects = [...document.querySelectorAll('select')].filter(
+          candidate => candidate.getAttribute(replay.targetAttribute) === '0'
+        );
+        const select = matchingSelects.length === 1 ? matchingSelects[0] : undefined;
+        const option =
+          select === undefined
+            ? undefined
+            : [...select.options].find(
+                item => (item.textContent ?? '').replace(/\s+/g, ' ').trim() === replay.optionText
+              );
 
-          const originalValue =
-            select.value;
-          select.value =
-            option.value;
-          select.dispatchEvent(
-            new Event(
-              'input',
-              {
-                bubbles:
-                  true
-              }
-            )
-          );
-          select.dispatchEvent(
-            new Event(
-              'change',
-              {
-                bubbles:
-                  true
-              }
-            )
-          );
-          return originalValue;
-        },
-        {
-          optionText:
-            input.target
-              .optionText,
-          targetAttribute
+        if (select === undefined || option === undefined) {
+          return null;
         }
-      );
 
-    if (
-      replayOriginalValue ===
-        null
-    ) {
-      await removeEvidenceAnnotations(
-        page,
-        scrollPosition
-      ).catch(
-        () => undefined
-      );
+        const originalValue = select.value;
+        select.value = option.value;
+        select.dispatchEvent(
+          new Event('input', {
+            bubbles: true
+          })
+        );
+        select.dispatchEvent(
+          new Event('change', {
+            bubbles: true
+          })
+        );
+        return originalValue;
+      },
+      {
+        optionText: input.target.optionText,
+        targetAttribute
+      }
+    );
+
+    if (replayOriginalValue === null) {
+      await removeEvidenceAnnotations(page, scrollPosition).catch(() => undefined);
 
       return {
-        screenshotPaths:
-          [],
-        totalTargetCount:
-          0,
-        shownTargetCount:
-          0,
-        replay:
-          null
+        screenshotPaths: [],
+        totalTargetCount: 0,
+        shownTargetCount: 0,
+        replay: null
       };
     }
   }
 
-  const capturedTargetIndices =
-    new Set<number>();
+  const capturedTargetIndices = new Set<number>();
 
   try {
-    const shownBoxes =
-      await addEvidenceAnnotations(
+    const shownBoxes = await addEvidenceAnnotations(page, selectedBoxes, input.target);
+    const selectedGroups = groupFocusedEvidenceTargets(shownBoxes, viewport.height).slice(
+      0,
+      maximumFocusedEvidenceImages
+    );
+
+    for (const [groupIndex, group] of selectedGroups.entries()) {
+      const filePath = join(
+        evidenceDirectory,
+        `page-${formatSequenceNumber(input.pageNumber)}-finding-${formatSequenceNumber(
+          input.candidateNumber
+        )}-evidence-${formatSequenceNumber(groupIndex + 1)}.png`
+      );
+      const groupTop = Math.min(...group.boxes.map(box => box.y));
+      const groupBottom = Math.max(...group.boxes.map(box => box.y + box.height));
+      const centeredGroupTop = Math.max(
+        focusedEvidencePadding,
+        (viewport.height - (groupBottom - groupTop)) / 2
+      );
+      const desiredScrollY = Math.min(
+        Math.max(0, groupTop - centeredGroupTop),
+        Math.max(0, documentSize.height - viewport.height)
+      );
+
+      await page.evaluate(scrollY => window.scrollTo(0, scrollY), desiredScrollY);
+      await waitForPresentationLayoutStability(page);
+      const currentViewportBoxes = await resolveAnnotatedTargetViewportBoxes(
         page,
-        selectedBoxes,
-        input.target
-      );
-    const selectedGroups =
-      groupFocusedEvidenceTargets(
-        shownBoxes,
-        viewport.height
-      ).slice(
-        0,
-        maximumFocusedEvidenceImages
+        group.boxes as ResolvedVisualTargetBox[]
       );
 
-    for (
-      const [
-        groupIndex,
-        group
-      ] of
-      selectedGroups.entries()
-    ) {
-      const filePath =
-        join(
-          evidenceDirectory,
-          `page-${formatSequenceNumber(
-            input.pageNumber
-          )}-finding-${formatSequenceNumber(
-            input.candidateNumber
-          )}-evidence-${formatSequenceNumber(
-            groupIndex + 1
-          )}.png`
-        );
-      const groupTop =
-        Math.min(
-          ...group.boxes.map(
-            box =>
-              box.y
-          )
-        );
-      const groupBottom =
-        Math.max(
-          ...group.boxes.map(
-            box =>
-              box.y +
-              box.height
-          )
-        );
-      const centeredGroupTop =
-        Math.max(
-          focusedEvidencePadding,
-          (
-            viewport.height -
-            (
-              groupBottom -
-              groupTop
-            )
-          ) /
-            2
-        );
-      const desiredScrollY =
-        Math.min(
-          Math.max(
-            0,
-            groupTop -
-              centeredGroupTop
-          ),
-          Math.max(
-            0,
-            documentSize.height -
-              viewport.height
-          )
-        );
-
-      await page.evaluate(
-        scrollY =>
-          window.scrollTo(
-            0,
-            scrollY
-          ),
-        desiredScrollY
-      );
-      await waitForPresentationLayoutStability(
-        page
-      );
-      const currentViewportBoxes =
-        await resolveAnnotatedTargetViewportBoxes(
-          page,
-          group.boxes as
-            ResolvedVisualTargetBox[]
-        );
-
-      if (
-        currentViewportBoxes
-          .length ===
-          0
-      ) {
+      if (currentViewportBoxes.length === 0) {
         continue;
       }
 
-      const viewportClip =
-        calculateFocusedEvidenceClip(
-          {
-            boxes:
-              currentViewportBoxes
-          },
-          {
-            width:
-              viewport.width,
-            height:
-              viewport.height
-          }
-        );
-      const captureableTargetIndices =
-        await retainCaptureableEvidenceAnnotations(
-          page,
-          currentViewportBoxes,
-          viewportClip,
-          capturedTargetIndices.size
-        );
+      const viewportClip = calculateFocusedEvidenceClip(
+        {
+          boxes: currentViewportBoxes
+        },
+        {
+          width: viewport.width,
+          height: viewport.height
+        }
+      );
+      const captureableTargetIndices = await retainCaptureableEvidenceAnnotations(
+        page,
+        currentViewportBoxes,
+        viewportClip,
+        capturedTargetIndices.size
+      );
 
-      if (
-        captureableTargetIndices
-          .length ===
-          0
-      ) {
+      if (captureableTargetIndices.length === 0) {
         continue;
       }
 
       await runPageOperationWithCancellation(
         page,
         async () =>
-          dependencies
-            .captureScreenshot !==
-              undefined
-            ? dependencies
-                .captureScreenshot(
-                  page,
-                  filePath,
-                  viewportClip
-                )
+          dependencies.captureScreenshot !== undefined
+            ? dependencies.captureScreenshot(page, filePath, viewportClip)
             : page.screenshot({
-                path:
-                  filePath,
-                clip:
-                  viewportClip
+                path: filePath,
+                clip: viewportClip
               }),
         {
-          signal:
-            input.signal,
-          runId:
-            input.runId,
-          phase:
-            'focused-evidence-screenshot'
+          signal: input.signal,
+          runId: input.runId,
+          phase: 'focused-evidence-screenshot'
         }
       );
-      screenshotPaths.push(
-        filePath
-      );
+      screenshotPaths.push(filePath);
 
-      for (
-        const targetIndex of
-          captureableTargetIndices
-      ) {
-        capturedTargetIndices.add(
-          targetIndex
-        );
+      for (const targetIndex of captureableTargetIndices) {
+        capturedTargetIndices.add(targetIndex);
       }
     }
   } finally {
-    if (
-      !page.isClosed()
-    ) {
-      if (
-        input.target.kind ===
-          'select-option' &&
-        replayOriginalValue !==
-          null
-      ) {
-        replayRestored =
-          await page.evaluate(
-            (
-              restore
-            ) => {
-              const matchingSelects =
-                [
-                  ...document.querySelectorAll(
-                    'select'
-                  )
-                ].filter(
-                  candidate =>
-                    candidate.getAttribute(
-                      restore
-                        .targetAttribute
-                    ) ===
-                      '0'
-                );
-              const select =
-                matchingSelects.length ===
-                  1
-                  ? matchingSelects[0]
-                  : undefined;
+    if (!page.isClosed()) {
+      if (input.target.kind === 'select-option' && replayOriginalValue !== null) {
+        replayRestored = await page
+          .evaluate(
+            restore => {
+              const matchingSelects = [...document.querySelectorAll('select')].filter(
+                candidate => candidate.getAttribute(restore.targetAttribute) === '0'
+              );
+              const select = matchingSelects.length === 1 ? matchingSelects[0] : undefined;
 
-              if (
-                select ===
-                  undefined
-              ) {
+              if (select === undefined) {
                 return false;
               }
 
-              select.value =
-                restore.value;
+              select.value = restore.value;
               select.dispatchEvent(
-                new Event(
-                  'input',
-                  {
-                    bubbles:
-                      true
-                  }
-                )
+                new Event('input', {
+                  bubbles: true
+                })
               );
               select.dispatchEvent(
-                new Event(
-                  'change',
-                  {
-                    bubbles:
-                      true
-                  }
-                )
+                new Event('change', {
+                  bubbles: true
+                })
               );
-              return (
-                select.value ===
-                restore.value
-              );
+              return select.value === restore.value;
             },
             {
-              value:
-                replayOriginalValue,
+              value: replayOriginalValue,
               targetAttribute
             }
-          ).catch(
-            () =>
-              false
-          );
+          )
+          .catch(() => false);
       }
 
-      await removeEvidenceAnnotations(
-        page,
-        scrollPosition
-      ).catch(
-        () => undefined
-      );
+      await removeEvidenceAnnotations(page, scrollPosition).catch(() => undefined);
     }
   }
 
   return {
     screenshotPaths,
-    totalTargetCount:
-      boxes.length,
-    shownTargetCount:
-      capturedTargetIndices.size,
+    totalTargetCount: boxes.length,
+    shownTargetCount: capturedTargetIndices.size,
     replay:
-      input.target.kind ===
-        'select-option'
+      input.target.kind === 'select-option'
         ? {
-            action:
-              'select-option',
-            restored:
-              replayRestored
+            action: 'select-option',
+            restored: replayRestored
           }
         : null
   };

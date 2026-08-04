@@ -17,9 +17,7 @@ function expectInvalid(name: string, input: unknown): void {
   const result = plannerDecisionSchema.safeParse(input);
 
   if (result.success) {
-    throw new Error(
-      `${name}: expected planner decision to be rejected, but validation succeeded.`
-    );
+    throw new Error(`${name}: expected planner decision to be rejected, but validation succeeded.`);
   }
 
   console.log(`✓ REJECTED: ${name}`);
@@ -28,11 +26,9 @@ function expectInvalid(name: string, input: unknown): void {
 console.log('Checking exploratory planner decision schema...\n');
 
 expectValid('Test malformed email input', {
-  candidateReference:
-    'candidate-1',
+  candidateReference: 'candidate-1',
 
-  hypothesis:
-    'The Email field may validate malformed email addresses after losing focus.',
+  hypothesis: 'The Email field may validate malformed email addresses after losing focus.',
 
   reasoning:
     'The page contains an email input. Entering a malformed value locally is a safe way to investigate client-side validation without submitting the form.',
@@ -53,8 +49,7 @@ expectValid('Test malformed email input', {
 });
 
 expectValid('Stop exploration', {
-  hypothesis:
-    'No additional safe interaction is likely to produce meaningful QA evidence.',
+  hypothesis: 'No additional safe interaction is likely to produce meaningful QA evidence.',
 
   reasoning:
     'The remaining visible content is informational and no useful untested controls are available.',
@@ -64,16 +59,13 @@ expectValid('Stop exploration', {
     reason: 'No additional useful safe exploratory actions remain.'
   },
 
-  expectedObservation:
-    'Exploration should end without performing another browser interaction.'
+  expectedObservation: 'Exploration should end without performing another browser interaction.'
 });
 
 expectInvalid('Non-stop action without candidate reference', {
-  hypothesis:
-    'Test a field without associating the action with a candidate.',
+  hypothesis: 'Test a field without associating the action with a candidate.',
 
-  reasoning:
-    'The action is otherwise schema-valid.',
+  reasoning: 'The action is otherwise schema-valid.',
 
   action: {
     kind: 'fill-text-field',
@@ -86,46 +78,38 @@ expectInvalid('Non-stop action without candidate reference', {
     value: 'not-an-email'
   },
 
-  expectedObservation:
-    'The action would modify the local field value.'
+  expectedObservation: 'The action would modify the local field value.'
 });
 
 expectInvalid('Attempt forbidden form submission', {
-  hypothesis:
-    'Submitting the form may reveal server-side validation.',
+  hypothesis: 'Submitting the form may reveal server-side validation.',
 
-  reasoning:
-    'The planner wants to submit the form.',
+  reasoning: 'The planner wants to submit the form.',
 
   action: {
     kind: 'submit-form'
   },
 
-  expectedObservation:
-    'The server may return a validation response.'
+  expectedObservation: 'The server may return a validation response.'
 });
 
 expectInvalid('Attempt arbitrary browser click', {
-  hypothesis:
-    'Clicking an arbitrary element may reveal new content.',
+  hypothesis: 'Clicking an arbitrary element may reveal new content.',
 
-  reasoning:
-    'The planner wants direct selector-based browser control.',
+  reasoning: 'The planner wants direct selector-based browser control.',
 
   action: {
     kind: 'click',
     selector: '#submit-button'
   },
 
-  expectedObservation:
-    'Something may happen.'
+  expectedObservation: 'Something may happen.'
 });
 
 expectInvalid('Decision with empty hypothesis', {
   hypothesis: '',
 
-  reasoning:
-    'A decision must explain what is being investigated.',
+  reasoning: 'A decision must explain what is being investigated.',
 
   action: {
     kind: 'scroll',
@@ -133,8 +117,7 @@ expectInvalid('Decision with empty hypothesis', {
     viewportCount: 1
   },
 
-  expectedObservation:
-    'More page content may become visible.'
+  expectedObservation: 'More page content may become visible.'
 });
 
 console.log('\nAll exploratory planner decision schema checks passed.');

@@ -21,8 +21,7 @@ export const formControlTargetSchema = z
       target.id !== null ||
       target.placeholder !== null,
     {
-      message:
-        'A form control target must contain at least one identifying attribute.'
+      message: 'A form control target must contain at least one identifying attribute.'
     }
   );
 
@@ -60,18 +59,22 @@ export const setDisclosureStateActionSchema = z.object({
   desiredState: z.enum(['expanded', 'collapsed'])
 });
 
-export const tabControlTargetSchema = z.object({
-  controlId: z.string().min(1).max(500),
-  accessibleName: z.string().min(1).max(500),
-  tabListId: z.string().min(1).max(500),
-  controlledPanelId: z.string().min(1).max(500)
-}).strict();
+export const tabControlTargetSchema = z
+  .object({
+    controlId: z.string().min(1).max(500),
+    accessibleName: z.string().min(1).max(500),
+    tabListId: z.string().min(1).max(500),
+    controlledPanelId: z.string().min(1).max(500)
+  })
+  .strict();
 
-export const selectTabActionSchema = z.object({
-  kind: z.literal('select-tab'),
-  target: tabControlTargetSchema,
-  desiredState: z.literal('selected')
-}).strict();
+export const selectTabActionSchema = z
+  .object({
+    kind: z.literal('select-tab'),
+    target: tabControlTargetSchema,
+    desiredState: z.literal('selected')
+  })
+  .strict();
 
 export const scrollActionSchema = z.object({
   kind: z.literal('scroll'),
@@ -103,10 +106,6 @@ export const agentActionSchema = z.discriminatedUnion('kind', [
 ]);
 
 export type FormControlTarget = z.infer<typeof formControlTargetSchema>;
-export type DisclosureControlTarget = z.infer<
-  typeof disclosureControlTargetSchema
->;
-export type TabControlTarget = z.infer<
-  typeof tabControlTargetSchema
->;
+export type DisclosureControlTarget = z.infer<typeof disclosureControlTargetSchema>;
+export type TabControlTarget = z.infer<typeof tabControlTargetSchema>;
 export type AgentAction = z.infer<typeof agentActionSchema>;

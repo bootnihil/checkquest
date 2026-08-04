@@ -1,0 +1,26 @@
+# Dependencies and local agent tooling
+node_modules/
+.agents/
+
+# Generated build, run, and test output
+.desktop-dist/
+agent-results/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+playwright/.auth/
+
+# Package-manager generated content
+package-lock.json
+
+# Visual and binary assets
+assets/
+site/assets/
+
+# Desktop sources with intentional source-text boundary assertions
+desktop/renderer/index.html
+desktop/renderer/styles.css
+
+# Documentation remains governed by the existing Markdown lint workflow
+**/*.md

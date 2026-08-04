@@ -1,25 +1,15 @@
 import assert from 'node:assert/strict';
 
-import type {
-  Page
-} from '@playwright/test';
+import type { Page } from '@playwright/test';
 
-import type {
-  ExploratoryQaFinding
-} from './analysis/exploratory-qa-schema';
-import {
-  buildExploratoryQaPrompt
-} from './analysis/build-exploratory-qa-prompt';
-import type {
-  ExtractedPageContent
-} from './browser/extract-page-content';
+import type { ExploratoryQaFinding } from './analysis/exploratory-qa-schema';
+import { buildExploratoryQaPrompt } from './analysis/build-exploratory-qa-prompt';
+import type { ExtractedPageContent } from './browser/extract-page-content';
 import {
   evaluateFindingInvestigationOutcome,
   type FindingInvestigationOutcome
 } from './investigation/evaluate-finding-investigation-outcome';
-import {
-  createExploratoryFindingFingerprint
-} from './investigation/finding-fingerprint';
+import { createExploratoryFindingFingerprint } from './investigation/finding-fingerprint';
 import {
   buildKnownFindingPromptContext,
   createKnownFindingState,
@@ -28,188 +18,119 @@ import {
   registerKnownFindingOccurrence,
   registerNewFinding
 } from './investigation/known-findings';
-import {
-  assignPageCandidateReferences
-} from './investigation/page-candidates';
-import {
-  runExploratoryLoop,
-  type ExploratoryLoopResult
-} from './planning/run-exploratory-loop';
+import { assignPageCandidateReferences } from './investigation/page-candidates';
+import { runExploratoryLoop, type ExploratoryLoopResult } from './planning/run-exploratory-loop';
 
-const verifiedOutcome:
-  FindingInvestigationOutcome = {
-  status:
-    'verified',
+const verifiedOutcome: FindingInvestigationOutcome = {
+  status: 'verified',
 
-  summary:
-    'The suspicious option was verified.',
+  summary: 'The suspicious option was verified.',
 
-  evidence: [
-    'Deterministic selected-state evidence.'
-  ]
+  evidence: ['Deterministic selected-state evidence.']
 };
 
-const inconclusiveOutcome:
-  FindingInvestigationOutcome = {
-  status:
-    'inconclusive',
+const inconclusiveOutcome: FindingInvestigationOutcome = {
+  status: 'inconclusive',
 
-  summary:
-    'No conclusive action evidence was collected.',
+  summary: 'No conclusive action evidence was collected.',
 
   evidence: []
 };
 
-const notVerifiedOutcome:
-  FindingInvestigationOutcome = {
-  status:
-    'not-verified',
+const notVerifiedOutcome: FindingInvestigationOutcome = {
+  status: 'not-verified',
 
-  summary:
-    'The action did not verify the expected selected state.',
+  summary: 'The action did not verify the expected selected state.',
 
-  evidence: [
-    'The option remained unselected.'
-  ]
+  evidence: ['The option remained unselected.']
 };
 
 function createSelectFinding(
   optionText: string,
   options: {
     title?: string;
-    category?:
-      ExploratoryQaFinding['category'];
+    category?: ExploratoryQaFinding['category'];
     controlLabel?: string;
-    knownFindingReference?:
-      string | null;
+    knownFindingReference?: string | null;
   } = {}
 ): ExploratoryQaFinding {
   return {
-    knownFindingReference:
-      options
-        .knownFindingReference ??
-      null,
+    knownFindingReference: options.knownFindingReference ?? null,
 
-    category:
-      options.category ??
-      'content',
+    category: options.category ?? 'content',
 
-    severity:
-      'low',
+    severity: 'low',
 
-    confidence:
-      'high',
+    confidence: 'high',
 
-    title:
-      options.title ??
-      `Suspicious option ${optionText}`,
+    title: options.title ?? `Suspicious option ${optionText}`,
 
-    evidence:
-      `The Country select contains "${optionText}".`,
+    evidence: `The Country select contains "${optionText}".`,
 
-    reasoning:
-      'The option may contain incorrect content.',
+    reasoning: 'The option may contain incorrect content.',
 
-    suggestedCheck:
-      'Verify whether the option can be selected.',
+    suggestedCheck: 'Verify whether the option can be selected.',
 
     evidenceTarget: {
-      kind:
-        'select-option',
+      kind: 'select-option',
 
-      controlLabel:
-        options.controlLabel ??
-        'COUNTRY*',
+      controlLabel: options.controlLabel ?? 'COUNTRY*',
 
-      controlName:
-        'country',
+      controlName: 'country',
 
-      controlId:
-        'country-first-page',
+      controlId: 'country-first-page',
 
       optionText
     }
   };
 }
 
-function createDisclosureFinding():
-  ExploratoryQaFinding {
+function createDisclosureFinding(): ExploratoryQaFinding {
   return {
-    category:
-      'interaction',
-    severity:
-      'low',
-    confidence:
-      'medium',
-    title:
-      'FAQ disclosure state issue',
-    evidence:
-      'The FAQ disclosure has a structured state target.',
-    reasoning:
-      'The informational disclosure requires deterministic state verification.',
-    suggestedCheck:
-      'Expand the disclosure and verify its controlled region.',
+    category: 'interaction',
+    severity: 'low',
+    confidence: 'medium',
+    title: 'FAQ disclosure state issue',
+    evidence: 'The FAQ disclosure has a structured state target.',
+    reasoning: 'The informational disclosure requires deterministic state verification.',
+    suggestedCheck: 'Expand the disclosure and verify its controlled region.',
     evidenceTarget: {
-      kind:
-        'disclosure-state',
-      controlId:
-        'faq-control',
-      accessibleName:
-        'What does CheckQuest test?',
-      controlledRegionId:
-        'faq-answer',
-      desiredState:
-        'expanded'
+      kind: 'disclosure-state',
+      controlId: 'faq-control',
+      accessibleName: 'What does CheckQuest test?',
+      controlledRegionId: 'faq-answer',
+      desiredState: 'expanded'
     }
   };
 }
 
-function createTabFinding():
-  ExploratoryQaFinding {
+function createTabFinding(): ExploratoryQaFinding {
   return {
-    category:
-      'interaction',
-    severity:
-      'low',
-    confidence:
-      'medium',
-    title:
-      'Details tab requires verification',
-    evidence:
-      'The Details tab has a structured panel target.',
-    reasoning:
-      'The conventional tab requires deterministic selected-state verification.',
-    suggestedCheck:
-      'Select the tab and verify its controlled panel.',
+    category: 'interaction',
+    severity: 'low',
+    confidence: 'medium',
+    title: 'Details tab requires verification',
+    evidence: 'The Details tab has a structured panel target.',
+    reasoning: 'The conventional tab requires deterministic selected-state verification.',
+    suggestedCheck: 'Select the tab and verify its controlled panel.',
     evidenceTarget: {
       kind: 'tab-state',
-      controlId:
-        'details-tab',
-      accessibleName:
-        'Details',
-      tabListId:
-        'product-tabs',
-      controlledPanelId:
-        'details-panel',
-      desiredState:
-        'selected'
+      controlId: 'details-tab',
+      accessibleName: 'Details',
+      tabListId: 'product-tabs',
+      controlledPanelId: 'details-panel',
+      desiredState: 'selected'
     }
   };
 }
 
-function createPageContent(
-  optionText = 'Equador'
-): ExtractedPageContent {
+function createPageContent(optionText = 'Equador'): ExtractedPageContent {
   return {
-    title:
-      'Later page',
+    title: 'Later page',
 
-    headings: [
-      'Later page'
-    ],
+    headings: ['Later page'],
 
-    bodyText:
-      `Country Ecuador ${optionText}`,
+    bodyText: `Country Ecuador ${optionText}`,
 
     links: [],
 
@@ -219,48 +140,35 @@ function createPageContent(
 
     selects: [
       {
-        label:
-          'Country',
+        label: 'Country',
 
-        name:
-          'country',
+        name: 'country',
 
-        id:
-          'country-later-page',
+        id: 'country-later-page',
 
-        required:
-          true,
+        required: true,
 
-        disabled:
-          false,
+        disabled: false,
 
-        totalOptions:
-          2,
+        totalOptions: 2,
 
-        optionsTruncated:
-          false,
+        optionsTruncated: false,
 
         options: [
           {
-            text:
-              'Ecuador',
+            text: 'Ecuador',
 
-            value:
-              'Ecuador',
+            value: 'Ecuador',
 
-            selected:
-              true
+            selected: true
           },
 
           {
-            text:
-              optionText,
+            text: optionText,
 
-            value:
-              optionText,
+            value: optionText,
 
-            selected:
-              false
+            selected: false
           }
         ]
       }
@@ -271,969 +179,495 @@ function createPageContent(
   };
 }
 
-function buildVerifiedInvestigation():
-  ExploratoryLoopResult {
-  const content =
-    createPageContent();
+function buildVerifiedInvestigation(): ExploratoryLoopResult {
+  const content = createPageContent();
 
-  const selectedContent:
-    ExtractedPageContent = {
+  const selectedContent: ExtractedPageContent = {
     ...content,
 
-    selects:
-      content.selects.map(
-        select => ({
-          ...select,
+    selects: content.selects.map(select => ({
+      ...select,
 
-          id:
-            'country-first-page',
+      id: 'country-first-page',
 
-          label:
-            'COUNTRY*',
+      label: 'COUNTRY*',
 
-          options:
-            select.options.map(
-              option => ({
-                ...option,
+      options: select.options.map(option => ({
+        ...option,
 
-                selected:
-                  option.text ===
-                  'Equador'
-              })
-            )
-        })
-      )
+        selected: option.text === 'Equador'
+      }))
+    }))
   };
 
   return {
-    pageUrl:
-      'https://example.com/first',
+    pageUrl: 'https://example.com/first',
 
-    maxPlannerDecisions:
-      1,
+    maxPlannerDecisions: 1,
 
-    plannerDecisionCount:
-      1,
+    plannerDecisionCount: 1,
 
-    executedInvestigationActionCount:
-      1,
+    executedInvestigationActionCount: 1,
 
-    stopReason:
-      'max-planner-decisions-reached',
+    stopReason: 'max-planner-decisions-reached',
 
     steps: [
       {
-        step:
-          1,
+        step: 1,
 
-        observationBefore:
-          selectedContent,
+        observationBefore: selectedContent,
 
         decision: {
-          candidateReference:
-            'candidate-1',
+          candidateReference: 'candidate-1',
 
-          hypothesis:
-            'Verify the suspicious option.',
+          hypothesis: 'Verify the suspicious option.',
 
-          reasoning:
-            'The action directly investigates candidate-1.',
+          reasoning: 'The action directly investigates candidate-1.',
 
           action: {
-            kind:
-              'select-option',
+            kind: 'select-option',
 
             target: {
-              label:
-                'COUNTRY*',
+              label: 'COUNTRY*',
 
-              name:
-                'country',
+              name: 'country',
 
-              id:
-                'country-first-page',
+              id: 'country-first-page',
 
-              placeholder:
-                null
+              placeholder: null
             },
 
-            optionText:
-              'Equador'
+            optionText: 'Equador'
           },
 
-          expectedObservation:
-            'The post-action state will show whether the option is selected.'
+          expectedObservation: 'The post-action state will show whether the option is selected.'
         },
 
         executionResult: {
-          kind:
-            'select-option',
+          kind: 'select-option',
 
-          status:
-            'executed',
+          status: 'executed',
 
-          detail:
-            'Selected Equador.'
+          detail: 'Selected Equador.'
         },
 
-        observationAfter:
-          selectedContent
+        observationAfter: selectedContent
       }
     ]
   };
 }
 
-async function main():
-  Promise<void> {
-  const state =
-    createKnownFindingState();
+async function main(): Promise<void> {
+  const state = createKnownFindingState();
 
-  const firstFinding =
-    createSelectFinding(
-      'Equador'
-    );
+  const firstFinding = createSelectFinding('Equador');
 
-  const firstCandidates =
-    assignPageCandidateReferences([
-      firstFinding
-    ]);
+  const firstCandidates = assignPageCandidateReferences([firstFinding]);
 
-  assert.equal(
-    firstCandidates[0].reference,
-    'candidate-1'
+  assert.equal(firstCandidates[0].reference, 'candidate-1');
+
+  const firstOutcome = evaluateFindingInvestigationOutcome(
+    firstCandidates[0],
+    buildVerifiedInvestigation()
   );
 
-  const firstOutcome =
-    evaluateFindingInvestigationOutcome(
-      firstCandidates[0],
-      buildVerifiedInvestigation()
-    );
+  assert.equal(firstOutcome.status, 'verified');
 
-  assert.equal(
-    firstOutcome.status,
-    'verified'
+  const firstOccurrence = registerNewFinding(state, {
+    finding: firstFinding,
+
+    pageUrl: 'https://example.com/first',
+
+    pageTitle: 'First page',
+
+    screenshotPath: 'page-01.png',
+
+    verificationOutcome: firstOutcome
+  });
+
+  assert.equal(firstOccurrence.knownFindingReference, 'known-1');
+
+  const laterContent = createPageContent();
+
+  const detected = detectStructuredKnownFindingOccurrences(state, laterContent);
+
+  assert.equal(detected.length, 1);
+
+  assert.equal(detected[0].knownFindingReference, 'known-1');
+
+  assert.equal(detected[0].redundantInvestigationSkipped, true);
+
+  const context = buildKnownFindingPromptContext(
+    state,
+    detected.map(item => item.fingerprint)
   );
 
-  const firstOccurrence =
-    registerNewFinding(
-      state,
-      {
-        finding:
-          firstFinding,
+  assert.equal(context.length, 1);
 
-        pageUrl:
-          'https://example.com/first',
+  assert.equal(context[0].knownFindingReference, 'known-1');
 
-        pageTitle:
-          'First page',
+  assert.equal(context[0].verificationStatus, 'verified');
 
-        screenshotPath:
-          'page-01.png',
+  const serializedContext = JSON.stringify(context);
 
-        verificationOutcome:
-          firstOutcome
-      }
-    );
+  assert.equal(serializedContext.includes('fingerprint'), false);
 
-  assert.equal(
-    firstOccurrence
-      .knownFindingReference,
-    'known-1'
-  );
+  assert.equal(serializedContext.includes('planner'), false);
 
-  const laterContent =
-    createPageContent();
+  assert.equal(serializedContext.includes('screenshot'), false);
 
-  const detected =
-    detectStructuredKnownFindingOccurrences(
-      state,
-      laterContent
-    );
+  const promptWithKnownContext = buildExploratoryQaPrompt({
+    observation: {
+      requestedUrl: 'https://example.com/later',
 
-  assert.equal(
-    detected.length,
-    1
-  );
+      finalUrl: 'https://example.com/later',
 
-  assert.equal(
-    detected[0]
-      .knownFindingReference,
-    'known-1'
-  );
+      title: 'Later page',
 
-  assert.equal(
-    detected[0]
-      .redundantInvestigationSkipped,
-    true
-  );
+      httpStatus: 200,
 
-  const context =
-    buildKnownFindingPromptContext(
-      state,
-      detected.map(
-        item =>
-          item.fingerprint
-      )
-    );
+      headings: ['Later page']
+    },
 
-  assert.equal(
-    context.length,
-    1
-  );
+    content: laterContent,
 
-  assert.equal(
-    context[0]
-      .knownFindingReference,
-    'known-1'
-  );
+    classifiedDiagnostics: {
+      consoleErrors: [],
+      failedRequests: []
+    },
 
-  assert.equal(
-    context[0]
-      .verificationStatus,
-    'verified'
-  );
+    ruleBasedFindings: [],
 
-  const serializedContext =
-    JSON.stringify(
-      context
-    );
+    knownFindings: context
+  });
 
-  assert.equal(
-    serializedContext.includes(
-      'fingerprint'
+  assert.match(promptWithKnownContext, /known-1/);
+
+  assert.match(promptWithKnownContext, /prioritize genuinely new issues/i);
+
+  assert.equal(promptWithKnownContext.includes(firstOccurrence.fingerprint), false);
+
+  assert.equal(promptWithKnownContext.includes('page-01.png'), false);
+
+  const suppressedDuplicate = reconcilePageFindings(state, [], detected);
+
+  assert.equal(suppressedDuplicate.newFindings.length, 0);
+
+  assert.equal(suppressedDuplicate.knownOccurrenceDrafts.length, 1);
+
+  assert.equal(suppressedDuplicate.reinvestigationFindings.length, 0);
+
+  let plannerCalls = 0;
+
+  let executorCalls = 0;
+
+  const skippedLoop = await runExploratoryLoop(
+    null as unknown as Page,
+    'https://example.com/later',
+    3,
+    assignPageCandidateReferences(
+      suppressedDuplicate.reinvestigationFindings.map(item => item.finding)
     ),
-    false
-  );
+    {
+      plan: async () => {
+        plannerCalls += 1;
 
-  assert.equal(
-    serializedContext.includes(
-      'planner'
-    ),
-    false
-  );
-
-  assert.equal(
-    serializedContext.includes(
-      'screenshot'
-    ),
-    false
-  );
-
-  const promptWithKnownContext =
-    buildExploratoryQaPrompt({
-      observation: {
-        requestedUrl:
-          'https://example.com/later',
-
-        finalUrl:
-          'https://example.com/later',
-
-        title:
-          'Later page',
-
-        httpStatus:
-          200,
-
-        headings: [
-          'Later page'
-        ]
+        throw new Error('Planner must not be called for a verified duplicate.');
       },
 
-      content:
-        laterContent,
+      execute: async () => {
+        executorCalls += 1;
 
-      classifiedDiagnostics: {
-        consoleErrors: [],
-        failedRequests: []
-      },
-
-      ruleBasedFindings: [],
-
-      knownFindings:
-        context
-    });
-
-  assert.match(
-    promptWithKnownContext,
-    /known-1/
-  );
-
-  assert.match(
-    promptWithKnownContext,
-    /prioritize genuinely new issues/i
-  );
-
-  assert.equal(
-    promptWithKnownContext.includes(
-      firstOccurrence.fingerprint
-    ),
-    false
-  );
-
-  assert.equal(
-    promptWithKnownContext.includes(
-      'page-01.png'
-    ),
-    false
-  );
-
-  const suppressedDuplicate =
-    reconcilePageFindings(
-      state,
-      [],
-      detected
-    );
-
-  assert.equal(
-    suppressedDuplicate
-      .newFindings
-      .length,
-    0
-  );
-
-  assert.equal(
-    suppressedDuplicate
-      .knownOccurrenceDrafts
-      .length,
-    1
-  );
-
-  assert.equal(
-    suppressedDuplicate
-      .reinvestigationFindings
-      .length,
-    0
-  );
-
-  let plannerCalls =
-    0;
-
-  let executorCalls =
-    0;
-
-  const skippedLoop =
-    await runExploratoryLoop(
-      null as unknown as Page,
-      'https://example.com/later',
-      3,
-      assignPageCandidateReferences(
-        suppressedDuplicate
-          .reinvestigationFindings
-          .map(
-            item =>
-              item.finding
-          )
-      ),
-      {
-        plan: async () => {
-          plannerCalls +=
-            1;
-
-          throw new Error(
-            'Planner must not be called for a verified duplicate.'
-          );
-        },
-
-        execute: async () => {
-          executorCalls +=
-            1;
-
-          throw new Error(
-            'Executor must not be called for a verified duplicate.'
-          );
-        }
+        throw new Error('Executor must not be called for a verified duplicate.');
       }
-    );
-
-  assert.equal(
-    skippedLoop
-      .plannerDecisionCount,
-    0
+    }
   );
 
-  assert.equal(
-    plannerCalls,
-    0
+  assert.equal(skippedLoop.plannerDecisionCount, 0);
+
+  assert.equal(plannerCalls, 0);
+
+  assert.equal(executorCalls, 0);
+
+  const differentlyWordedDuplicate = createSelectFinding('Equador', {
+    title: 'Registration list contains an unexpected country spelling',
+
+    category: 'consistency',
+
+    knownFindingReference: 'known-999'
+  });
+
+  const reconciledModelDuplicate = reconcilePageFindings(
+    state,
+    [differentlyWordedDuplicate],
+    detected
   );
 
-  assert.equal(
-    executorCalls,
-    0
-  );
+  assert.equal(reconciledModelDuplicate.newFindings.length, 0);
 
-  const differentlyWordedDuplicate =
-    createSelectFinding(
-      'Equador',
-      {
-        title:
-          'Registration list contains an unexpected country spelling',
+  assert.equal(reconciledModelDuplicate.knownOccurrenceDrafts.length, 1);
 
-        category:
-          'consistency',
+  assert.deepEqual(reconciledModelDuplicate.knownOccurrenceDrafts[0].matchingBases, [
+    'structured-target',
+    'finding-fingerprint'
+  ]);
 
-        knownFindingReference:
-          'known-999'
-      }
-    );
-
-  const reconciledModelDuplicate =
-    reconcilePageFindings(
-      state,
-      [
-        differentlyWordedDuplicate
-      ],
-      detected
-    );
+  assert.equal(reconciledModelDuplicate.knownOccurrenceDrafts[0].knownFindingReference, 'known-1');
 
   assert.equal(
-    reconciledModelDuplicate
-      .newFindings
-      .length,
-    0
-  );
-
-  assert.equal(
-    reconciledModelDuplicate
-      .knownOccurrenceDrafts
-      .length,
-    1
-  );
-
-  assert.deepEqual(
-    reconciledModelDuplicate
-      .knownOccurrenceDrafts[0]
-      .matchingBases,
-    [
-      'structured-target',
-      'finding-fingerprint'
-    ]
-  );
-
-  assert.equal(
-    reconciledModelDuplicate
-      .knownOccurrenceDrafts[0]
-      .knownFindingReference,
-    'known-1'
-  );
-
-  assert.equal(
-    reconciledModelDuplicate
-      .knownOccurrenceDrafts[0]
-      .modelKnownFindingReference,
+    reconciledModelDuplicate.knownOccurrenceDrafts[0].modelKnownFindingReference,
     'known-999'
   );
 
-  assert.equal(
-    reconciledModelDuplicate
-      .knownOccurrenceDrafts[0]
-      .modelReferenceMatched,
-    false
+  assert.equal(reconciledModelDuplicate.knownOccurrenceDrafts[0].modelReferenceMatched, false);
+
+  const distinctFinding = createSelectFinding('Ecuador', {
+    title: 'Possible country option issue',
+
+    knownFindingReference: 'known-1'
+  });
+
+  const distinctResult = reconcilePageFindings(state, [distinctFinding], []);
+
+  assert.equal(distinctResult.newFindings.length, 1);
+
+  assert.equal(distinctResult.newFindings[0].knownFindingReference, null);
+
+  const secondKnownFinding = createSelectFinding('Atlantis', {
+    title: 'Unexpected fictional country option',
+
+    controlLabel: 'Region'
+  });
+
+  const secondOccurrence = registerNewFinding(state, {
+    finding: secondKnownFinding,
+
+    pageUrl: 'https://example.com/region',
+
+    pageTitle: 'Region page',
+
+    screenshotPath: null,
+
+    verificationOutcome: verifiedOutcome
+  });
+
+  assert.equal(secondOccurrence.knownFindingReference, 'known-2');
+
+  const wrongExistingReference = reconcilePageFindings(
+    state,
+    [
+      createSelectFinding('Equador', {
+        knownFindingReference: 'known-2'
+      })
+    ],
+    []
   );
 
-  const distinctFinding =
-    createSelectFinding(
-      'Ecuador',
-      {
-        title:
-          'Possible country option issue',
+  assert.equal(wrongExistingReference.knownOccurrenceDrafts[0].knownFindingReference, 'known-1');
 
-        knownFindingReference:
-          'known-1'
-      }
-    );
+  assert.equal(wrongExistingReference.knownOccurrenceDrafts[0].modelReferenceMatched, false);
 
-  const distinctResult =
-    reconcilePageFindings(
-      state,
-      [
-        distinctFinding
-      ],
-      []
-    );
+  const inconclusiveState = createKnownFindingState();
 
-  assert.equal(
-    distinctResult
-      .newFindings
-      .length,
-    1
-  );
+  registerNewFinding(inconclusiveState, {
+    finding: firstFinding,
 
-  assert.equal(
-    distinctResult
-      .newFindings[0]
-      .knownFindingReference,
-    null
-  );
+    pageUrl: 'https://example.com/inconclusive-first',
 
-  const secondKnownFinding =
-    createSelectFinding(
-      'Atlantis',
-      {
-        title:
-          'Unexpected fictional country option',
+    pageTitle: 'Inconclusive first page',
 
-        controlLabel:
-          'Region'
-      }
-    );
+    screenshotPath: null,
 
-  const secondOccurrence =
-    registerNewFinding(
-      state,
-      {
-        finding:
-          secondKnownFinding,
+    verificationOutcome: inconclusiveOutcome
+  });
 
-        pageUrl:
-          'https://example.com/region',
-
-        pageTitle:
-          'Region page',
-
-        screenshotPath:
-          null,
-
-        verificationOutcome:
-          verifiedOutcome
-      }
-    );
-
-  assert.equal(
-    secondOccurrence
-      .knownFindingReference,
-    'known-2'
-  );
-
-  const wrongExistingReference =
-    reconcilePageFindings(
-      state,
-      [
-        createSelectFinding(
-          'Equador',
-          {
-            knownFindingReference:
-              'known-2'
-          }
-        )
-      ],
-      []
-    );
-
-  assert.equal(
-    wrongExistingReference
-      .knownOccurrenceDrafts[0]
-      .knownFindingReference,
-    'known-1'
-  );
-
-  assert.equal(
-    wrongExistingReference
-      .knownOccurrenceDrafts[0]
-      .modelReferenceMatched,
-    false
-  );
-
-  const inconclusiveState =
-    createKnownFindingState();
-
-  registerNewFinding(
+  const inconclusiveDetected = detectStructuredKnownFindingOccurrences(
     inconclusiveState,
-    {
-      finding:
-        firstFinding,
-
-      pageUrl:
-        'https://example.com/inconclusive-first',
-
-      pageTitle:
-        'Inconclusive first page',
-
-      screenshotPath:
-        null,
-
-      verificationOutcome:
-        inconclusiveOutcome
-    }
+    laterContent
   );
 
-  const inconclusiveDetected =
-    detectStructuredKnownFindingOccurrences(
-      inconclusiveState,
-      laterContent
-    );
+  const inconclusiveReconciled = reconcilePageFindings(inconclusiveState, [], inconclusiveDetected);
 
-  const inconclusiveReconciled =
-    reconcilePageFindings(
-      inconclusiveState,
-      [],
-      inconclusiveDetected
-    );
-
-  assert.equal(
-    inconclusiveReconciled
-      .reinvestigationFindings
-      .length,
-    1
-  );
+  assert.equal(inconclusiveReconciled.reinvestigationFindings.length, 1);
 
   assert.equal(
     assignPageCandidateReferences(
-      inconclusiveReconciled
-        .reinvestigationFindings
-        .map(
-          item =>
-            item.finding
-        )
-    )[0]
-      .reference,
+      inconclusiveReconciled.reinvestigationFindings.map(item => item.finding)
+    )[0].reference,
     'candidate-1'
   );
 
-  const notVerifiedState =
-    createKnownFindingState();
+  const notVerifiedState = createKnownFindingState();
 
-  registerNewFinding(
+  registerNewFinding(notVerifiedState, {
+    finding: firstFinding,
+
+    pageUrl: 'https://example.com/not-verified-first',
+
+    pageTitle: 'Not verified first page',
+
+    screenshotPath: null,
+
+    verificationOutcome: notVerifiedOutcome
+  });
+
+  const notVerifiedReconciled = reconcilePageFindings(
     notVerifiedState,
-    {
-      finding:
-        firstFinding,
-
-      pageUrl:
-        'https://example.com/not-verified-first',
-
-      pageTitle:
-        'Not verified first page',
-
-      screenshotPath:
-        null,
-
-      verificationOutcome:
-        notVerifiedOutcome
-    }
+    [],
+    detectStructuredKnownFindingOccurrences(notVerifiedState, laterContent)
   );
 
-  const notVerifiedReconciled =
-    reconcilePageFindings(
-      notVerifiedState,
-      [],
-      detectStructuredKnownFindingOccurrences(
-        notVerifiedState,
-        laterContent
-      )
-    );
+  assert.equal(notVerifiedReconciled.reinvestigationFindings.length, 1);
 
-  assert.equal(
-    notVerifiedReconciled
-      .reinvestigationFindings
-      .length,
-    1
-  );
+  const registeredLaterOccurrence = registerKnownFindingOccurrence(inconclusiveState, {
+    fingerprint: inconclusiveReconciled.knownOccurrenceDrafts[0].fingerprint,
 
-  const registeredLaterOccurrence =
-    registerKnownFindingOccurrence(
-      inconclusiveState,
-      {
-        fingerprint:
-          inconclusiveReconciled
-            .knownOccurrenceDrafts[0]
-            .fingerprint,
+    finding: inconclusiveReconciled.knownOccurrenceDrafts[0].finding,
 
-        finding:
-          inconclusiveReconciled
-            .knownOccurrenceDrafts[0]
-            .finding,
+    pageUrl: 'https://example.com/later',
 
-        pageUrl:
-          'https://example.com/later',
+    pageTitle: 'Later page',
 
-        pageTitle:
-          'Later page',
+    screenshotPath: 'page-02.png',
 
-        screenshotPath:
-          'page-02.png',
+    occurrenceEvidence: inconclusiveReconciled.knownOccurrenceDrafts[0].occurrenceEvidence,
 
-        occurrenceEvidence:
-          inconclusiveReconciled
-            .knownOccurrenceDrafts[0]
-            .occurrenceEvidence,
+    evidenceTarget: inconclusiveReconciled.knownOccurrenceDrafts[0].evidenceTarget,
 
-        evidenceTarget:
-          inconclusiveReconciled
-            .knownOccurrenceDrafts[0]
-            .evidenceTarget,
+    matchingBases: inconclusiveReconciled.knownOccurrenceDrafts[0].matchingBases,
 
-        matchingBases:
-          inconclusiveReconciled
-            .knownOccurrenceDrafts[0]
-            .matchingBases,
+    modelKnownFindingReference: null,
 
-        modelKnownFindingReference:
-          null,
+    modelReferenceMatched: null,
 
-        modelReferenceMatched:
-          null,
+    redundantInvestigationSkipped: false,
 
-        redundantInvestigationSkipped:
-          false,
+    verificationOutcome: verifiedOutcome
+  });
 
-        verificationOutcome:
-          verifiedOutcome
-      }
-    );
+  assert.equal(registeredLaterOccurrence.verificationOutcome?.status, 'verified');
 
-  assert.equal(
-    registeredLaterOccurrence
-      .verificationOutcome
-      ?.status,
-    'verified'
-  );
-
-  assert.equal(
-    buildKnownFindingPromptContext(
-      inconclusiveState
-    )[0]
-      .verificationStatus,
-    'verified'
-  );
+  assert.equal(buildKnownFindingPromptContext(inconclusiveState)[0].verificationStatus, 'verified');
 
   /*
    * The prompt projection is deterministically capped at 20,
    * while a relevant structured match remains first.
    */
-  const cappedState =
-    createKnownFindingState();
+  const cappedState = createKnownFindingState();
 
-  const cappedFingerprints:
-    string[] = [];
+  const cappedFingerprints: string[] = [];
 
-  for (
-    let index = 1;
-    index <= 25;
-    index += 1
-  ) {
-    const finding =
-      createSelectFinding(
-        `Option ${index}`,
-        {
-          controlLabel:
-            `Control ${index}`
-        }
-      );
+  for (let index = 1; index <= 25; index += 1) {
+    const finding = createSelectFinding(`Option ${index}`, {
+      controlLabel: `Control ${index}`
+    });
 
-    cappedFingerprints.push(
-      createExploratoryFindingFingerprint(
-        finding
-      )
-    );
+    cappedFingerprints.push(createExploratoryFindingFingerprint(finding));
 
-    registerNewFinding(
-      cappedState,
-      {
-        finding,
+    registerNewFinding(cappedState, {
+      finding,
 
-        pageUrl:
-          `https://example.com/page-${index}`,
+      pageUrl: `https://example.com/page-${index}`,
 
-        pageTitle:
-          `Page ${index}`,
+      pageTitle: `Page ${index}`,
 
-        screenshotPath:
-          null,
+      screenshotPath: null,
 
-        verificationOutcome:
-          verifiedOutcome
-      }
-    );
+      verificationOutcome: verifiedOutcome
+    });
   }
 
-  const cappedContext =
-    buildKnownFindingPromptContext(
-      cappedState,
-      [
-        cappedFingerprints[0]
-      ]
-    );
+  const cappedContext = buildKnownFindingPromptContext(cappedState, [cappedFingerprints[0]]);
 
-  assert.equal(
-    cappedContext.length,
-    20
-  );
+  assert.equal(cappedContext.length, 20);
 
-  assert.equal(
-    cappedContext[0]
-      .knownFindingReference,
-    'known-1'
-  );
+  assert.equal(cappedContext[0].knownFindingReference, 'known-1');
 
   /*
    * Candidate references restart per page and remain isolated
    * from known-N run identity.
    */
-  assert.equal(
-    assignPageCandidateReferences([
-      distinctFinding
-    ])[0]
-      .reference,
-    'candidate-1'
-  );
+  assert.equal(assignPageCandidateReferences([distinctFinding])[0].reference, 'candidate-1');
 
-  assert.equal(
-    assignPageCandidateReferences([
-      secondKnownFinding
-    ])[0]
-      .reference,
-    'candidate-1'
-  );
+  assert.equal(assignPageCandidateReferences([secondKnownFinding])[0].reference, 'candidate-1');
 
   /*
    * Stage 4A disclosure targets use the same authoritative
    * fingerprint and structured-occurrence pipeline as select targets.
    */
-  const disclosureState =
-    createKnownFindingState();
-  const disclosureFinding =
-    createDisclosureFinding();
-  const disclosureOccurrence =
-    registerNewFinding(
-      disclosureState,
-      {
-        finding:
-          disclosureFinding,
-        pageUrl:
-          'https://example.com/faq',
-        pageTitle:
-          'FAQ',
-        screenshotPath:
-          null,
-        verificationOutcome:
-          verifiedOutcome
-      }
-    );
-  const disclosureContent:
-    ExtractedPageContent = {
+  const disclosureState = createKnownFindingState();
+  const disclosureFinding = createDisclosureFinding();
+  const disclosureOccurrence = registerNewFinding(disclosureState, {
+    finding: disclosureFinding,
+    pageUrl: 'https://example.com/faq',
+    pageTitle: 'FAQ',
+    screenshotPath: null,
+    verificationOutcome: verifiedOutcome
+  });
+  const disclosureContent: ExtractedPageContent = {
     title: 'FAQ',
-    headings: [
-      'Frequently Asked Questions'
-    ],
-    bodyText:
-      'What does CheckQuest test?',
+    headings: ['Frequently Asked Questions'],
+    bodyText: 'What does CheckQuest test?',
     links: [],
-    buttons: [
-      'What does CheckQuest test?'
-    ],
+    buttons: ['What does CheckQuest test?'],
     textFields: [],
     selects: [],
     disclosures: [
       {
-        tagName:
-          'button',
-        role:
-          null,
-        buttonType:
-          'button',
-        controlId:
-          'faq-control',
-        accessibleName:
-          'What does CheckQuest test?',
-        ariaExpanded:
-          'false',
-        ariaControls:
-          'faq-answer',
-        disabled:
-          false,
-        ariaDisabled:
-          false,
-        href:
-          null,
-        hasLinkSemantics:
-          false,
-        ariaHasPopup:
-          null,
-        formAssociated:
-          false,
-        formAncestor:
-          false,
-        hasSubmitOrResetSemantics:
-          false,
-        controlledRegionExists:
-          true,
-        controlledRegionVisible:
-          false,
-        controlledRegionHasEditableOrSubmissionControls:
-          false,
-        eligibleForDisclosureAction:
-          true,
-        eligibilityRejectionReasons:
-          []
+        tagName: 'button',
+        role: null,
+        buttonType: 'button',
+        controlId: 'faq-control',
+        accessibleName: 'What does CheckQuest test?',
+        ariaExpanded: 'false',
+        ariaControls: 'faq-answer',
+        disabled: false,
+        ariaDisabled: false,
+        href: null,
+        hasLinkSemantics: false,
+        ariaHasPopup: null,
+        formAssociated: false,
+        formAncestor: false,
+        hasSubmitOrResetSemantics: false,
+        controlledRegionExists: true,
+        controlledRegionVisible: false,
+        controlledRegionHasEditableOrSubmissionControls: false,
+        eligibleForDisclosureAction: true,
+        eligibilityRejectionReasons: []
       }
     ],
     tabs: []
   };
-  const detectedDisclosure =
-    detectStructuredKnownFindingOccurrences(
-      disclosureState,
-      disclosureContent
-    );
+  const detectedDisclosure = detectStructuredKnownFindingOccurrences(
+    disclosureState,
+    disclosureContent
+  );
 
-  assert.equal(
-    detectedDisclosure.length,
-    1
-  );
-  assert.equal(
-    detectedDisclosure[0]
-      .fingerprint,
-    disclosureOccurrence
-      .fingerprint
-  );
-  assert.equal(
-    detectedDisclosure[0]
-      .redundantInvestigationSkipped,
-    true
-  );
-  assert.equal(
-    detectedDisclosure[0]
-      .reinvestigationEligible,
-      false
-  );
+  assert.equal(detectedDisclosure.length, 1);
+  assert.equal(detectedDisclosure[0].fingerprint, disclosureOccurrence.fingerprint);
+  assert.equal(detectedDisclosure[0].redundantInvestigationSkipped, true);
+  assert.equal(detectedDisclosure[0].reinvestigationEligible, false);
 
   /*
    * Stage 4B tab targets use the same authoritative fingerprint and
    * verified-occurrence suppression pipeline without weakening the
    * disclosure or select-option paths above.
    */
-  const tabState =
-    createKnownFindingState();
-  const tabFinding =
-    createTabFinding();
-  const tabOccurrence =
-    registerNewFinding(
-      tabState,
-      {
-        finding:
-          tabFinding,
-        pageUrl:
-          'https://example.com/product',
-        pageTitle:
-          'Product',
-        screenshotPath:
-          null,
-        verificationOutcome:
-          verifiedOutcome
-      }
-    );
-  const tabContent:
-    ExtractedPageContent = {
+  const tabState = createKnownFindingState();
+  const tabFinding = createTabFinding();
+  const tabOccurrence = registerNewFinding(tabState, {
+    finding: tabFinding,
+    pageUrl: 'https://example.com/product',
+    pageTitle: 'Product',
+    screenshotPath: null,
+    verificationOutcome: verifiedOutcome
+  });
+  const tabContent: ExtractedPageContent = {
     title: 'Product',
-    headings: [
-      'Product information'
-    ],
-    bodyText:
-      'Overview Details',
+    headings: ['Product information'],
+    bodyText: 'Overview Details',
     links: [],
-    buttons: [
-      'Overview',
-      'Details'
-    ],
+    buttons: ['Overview', 'Details'],
     textFields: [],
     selects: [],
     disclosures: [],
@@ -1241,85 +675,40 @@ async function main():
       {
         tagName: 'button',
         role: 'tab',
-        controlId:
-          'details-tab',
-        accessibleName:
-          'Details',
-        tabListId:
-          'product-tabs',
-        ariaSelected:
-          'false',
-        ariaControls:
-          'details-panel',
+        controlId: 'details-tab',
+        accessibleName: 'Details',
+        tabListId: 'product-tabs',
+        ariaSelected: 'false',
+        ariaControls: 'details-panel',
         disabled: false,
         ariaDisabled: false,
         href: null,
-        hasLinkSemantics:
-          false,
+        hasLinkSemantics: false,
         ariaHasPopup: null,
-        formAssociated:
-          false,
-        formAncestor:
-          false,
-        hasSubmitOrResetSemantics:
-          false,
-        controlledPanelExists:
-          true,
-        controlledPanelRole:
-          'tabpanel',
-        controlledPanelVisible:
-          false,
-        controlledPanelHasEditableOrSubmissionControls:
-          false,
-        eligibleForTabAction:
-          true,
-        eligibilityRejectionReasons:
-          []
+        formAssociated: false,
+        formAncestor: false,
+        hasSubmitOrResetSemantics: false,
+        controlledPanelExists: true,
+        controlledPanelRole: 'tabpanel',
+        controlledPanelVisible: false,
+        controlledPanelHasEditableOrSubmissionControls: false,
+        eligibleForTabAction: true,
+        eligibilityRejectionReasons: []
       }
     ]
   };
-  const detectedTab =
-    detectStructuredKnownFindingOccurrences(
-      tabState,
-      tabContent
-    );
+  const detectedTab = detectStructuredKnownFindingOccurrences(tabState, tabContent);
 
-  assert.equal(
-    detectedTab.length,
-    1
-  );
-  assert.equal(
-    detectedTab[0]
-      .fingerprint,
-    tabOccurrence.fingerprint
-  );
-  assert.equal(
-    detectedTab[0]
-      .redundantInvestigationSkipped,
-    true
-  );
-  assert.equal(
-    detectedTab[0]
-      .reinvestigationEligible,
-    false
-  );
+  assert.equal(detectedTab.length, 1);
+  assert.equal(detectedTab[0].fingerprint, tabOccurrence.fingerprint);
+  assert.equal(detectedTab[0].redundantInvestigationSkipped, true);
+  assert.equal(detectedTab[0].reinvestigationEligible, false);
 
-  console.log(
-    'All Stage 3 known-finding context checks passed.'
-  );
+  console.log('All Stage 3 known-finding context checks passed.');
 }
 
-main().catch(
-  (
-    error:
-      unknown
-  ) => {
-    console.error(
-      'Stage 3 known-finding context check failed:',
-      error
-    );
+main().catch((error: unknown) => {
+  console.error('Stage 3 known-finding context check failed:', error);
 
-    process.exitCode =
-      1;
-  }
-);
+  process.exitCode = 1;
+});

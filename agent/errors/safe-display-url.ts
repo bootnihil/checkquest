@@ -1,21 +1,11 @@
-export function createSafeDisplayUrl(
-  value:
-    string
-): string {
+export function createSafeDisplayUrl(value: string): string {
   try {
-    const url =
-      new URL(
-        value
-      );
+    const url = new URL(value);
 
-    url.username =
-      '';
-    url.password =
-      '';
-    url.search =
-      '';
-    url.hash =
-      '';
+    url.username = '';
+    url.password = '';
+    url.search = '';
+    url.hash = '';
 
     return url.toString();
   } catch {

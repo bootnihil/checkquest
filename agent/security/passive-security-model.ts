@@ -8,26 +8,15 @@ export const passiveSecurityCategories = [
   'infrastructure'
 ] as const;
 
-export type PassiveSecurityCategory =
-  typeof passiveSecurityCategories[number];
+export type PassiveSecurityCategory = (typeof passiveSecurityCategories)[number];
 
-export type PassiveSecurityPosture =
-  | 'misconfiguration'
-  | 'defense-in-depth-gap'
-  | 'informational';
+export type PassiveSecurityPosture = 'misconfiguration' | 'defense-in-depth-gap' | 'informational';
 
-export type PassiveSecuritySeverity =
-  | 'medium'
-  | 'low'
-  | 'info';
+export type PassiveSecuritySeverity = 'medium' | 'low' | 'info';
 
-export type PassiveSecurityConfidence =
-  | 'high'
-  | 'medium'
-  | 'low';
+export type PassiveSecurityConfidence = 'high' | 'medium' | 'low';
 
-export type PassiveSecurityObservationReference =
-  `security-observation-${number}`;
+export type PassiveSecurityObservationReference = `security-observation-${number}`;
 
 export const selectedSecurityHeaderNames = [
   'strict-transport-security',
@@ -42,16 +31,9 @@ export const selectedSecurityHeaderNames = [
   'content-type'
 ] as const;
 
-export type SelectedSecurityHeaderName =
-  typeof selectedSecurityHeaderNames[number];
+export type SelectedSecurityHeaderName = (typeof selectedSecurityHeaderNames)[number];
 
-export type SelectedSecurityHeaders =
-  Partial<
-    Record<
-      SelectedSecurityHeaderName,
-      string[]
-    >
-  >;
+export type SelectedSecurityHeaders = Partial<Record<SelectedSecurityHeaderName, string[]>>;
 
 export interface PassiveRedirectEvidence {
   requestedUrl: string;
@@ -73,16 +55,13 @@ export interface PassivePageSecuritySnapshot {
   headers: SelectedSecurityHeaders;
 }
 
-export type PassiveSecurityEvidenceKind =
-  | 'transport'
-  | 'response-header';
+export type PassiveSecurityEvidenceKind = 'transport' | 'response-header';
 
 export interface PassiveSecurityEvidence {
   kind: PassiveSecurityEvidenceKind;
   subject: string;
   summary: string;
-  headerName?:
-    SelectedSecurityHeaderName;
+  headerName?: SelectedSecurityHeaderName;
   headerValues?: string[];
 }
 
@@ -94,37 +73,25 @@ export interface PassiveSecurityOccurrence {
 }
 
 export interface PassiveSecurityScope {
-  type:
-    | 'origin'
-    | 'host'
-    | 'page'
-    | 'response';
+  type: 'origin' | 'host' | 'page' | 'response';
   key: string;
 }
 
 export interface PassiveSecurityObservation {
-  observationReference:
-    PassiveSecurityObservationReference;
+  observationReference: PassiveSecurityObservationReference;
   fingerprint: string;
   code: string;
-  category:
-    PassiveSecurityCategory;
-  posture:
-    PassiveSecurityPosture;
-  severity:
-    PassiveSecuritySeverity;
-  confidence:
-    PassiveSecurityConfidence;
-  source:
-    'deterministic-passive';
-  scope:
-    PassiveSecurityScope;
+  category: PassiveSecurityCategory;
+  posture: PassiveSecurityPosture;
+  severity: PassiveSecuritySeverity;
+  confidence: PassiveSecurityConfidence;
+  source: 'deterministic-passive';
+  scope: PassiveSecurityScope;
   subject: string;
   title: string;
   description: string;
   remediation: string | null;
-  occurrences:
-    PassiveSecurityOccurrence[];
+  occurrences: PassiveSecurityOccurrence[];
 }
 
 export interface PassiveSecuritySummary {
@@ -134,24 +101,16 @@ export interface PassiveSecuritySummary {
     low: number;
     info: number;
   };
-  byCategory:
-    Record<
-      PassiveSecurityCategory,
-      number
-    >;
+  byCategory: Record<PassiveSecurityCategory, number>;
   originsObserved: number;
 }
 
 export interface PassiveSecurityReport {
-  mode:
-    'passive-observation-only';
+  mode: 'passive-observation-only';
   disclaimer: string;
-  pageSnapshots:
-    PassivePageSecuritySnapshot[];
-  observations:
-    PassiveSecurityObservation[];
-  summary:
-    PassiveSecuritySummary;
+  pageSnapshots: PassivePageSecuritySnapshot[];
+  observations: PassiveSecurityObservation[];
+  summary: PassiveSecuritySummary;
 }
 
 export const passiveSecurityDisclaimer =

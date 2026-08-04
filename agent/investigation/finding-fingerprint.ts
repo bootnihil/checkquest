@@ -5,12 +5,8 @@ import type {
   SelectOptionEvidenceTarget,
   TabStateEvidenceTarget
 } from '../analysis/exploratory-qa-schema';
-import type {
-  ExtractedPageContent
-} from '../browser/extract-page-content';
-import {
-  createTechnicalObservationFingerprint
-} from '../analysis/technical-observation-reconciliation';
+import type { ExtractedPageContent } from '../browser/extract-page-content';
+import { createTechnicalObservationFingerprint } from '../analysis/technical-observation-reconciliation';
 
 type SelectControlIdentity = {
   controlLabel: string | null;
@@ -28,9 +24,7 @@ type SelectControlIdentity = {
  *   "COUNTRY*"  -> "country"
  *   " Equador " -> "equador"
  */
-export function normalizeFingerprintText(
-  value: string | null
-): string {
+export function normalizeFingerprintText(value: string | null): string {
   if (value === null) {
     return '';
   }
@@ -38,15 +32,9 @@ export function normalizeFingerprintText(
   return value
     .normalize('NFKC')
     .toLocaleLowerCase()
-    .replace(
-      /[^\p{L}\p{N}]+/gu,
-      ' '
-    )
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
     .trim()
-    .replace(
-      /\s+/g,
-      ' '
-    );
+    .replace(/\s+/g, ' ');
 }
 
 /*
@@ -57,25 +45,13 @@ export function normalizeFingerprintText(
  * human-readable and stable across pages. The field name and
  * element ID are used only when no label is available.
  */
-function getSelectControlIdentity(
-  target: SelectControlIdentity
-): string {
-  const candidates = [
-    target.controlLabel,
-    target.controlName,
-    target.controlId
-  ];
+function getSelectControlIdentity(target: SelectControlIdentity): string {
+  const candidates = [target.controlLabel, target.controlName, target.controlId];
 
   for (const candidate of candidates) {
-    const normalizedCandidate =
-      normalizeFingerprintText(
-        candidate
-      );
+    const normalizedCandidate = normalizeFingerprintText(candidate);
 
-    if (
-      normalizedCandidate.length >
-      0
-    ) {
+    if (normalizedCandidate.length > 0) {
       return normalizedCandidate;
     }
   }
@@ -83,141 +59,75 @@ function getSelectControlIdentity(
   return 'unknown control';
 }
 
-export function createSelectOptionTargetFingerprint(
-  target: SelectOptionEvidenceTarget
-): string {
+export function createSelectOptionTargetFingerprint(target: SelectOptionEvidenceTarget): string {
   return [
     'target',
     target.kind,
-    getSelectControlIdentity(
-      target
-    ),
-    normalizeFingerprintText(
-      target.optionText
-    )
+    getSelectControlIdentity(target),
+    normalizeFingerprintText(target.optionText)
   ].join('|');
 }
 
 export function createDisclosureStateTargetFingerprint(
-  target:
-    DisclosureStateEvidenceTarget
+  target: DisclosureStateEvidenceTarget
 ): string {
   return [
     'target',
     target.kind,
-    normalizeFingerprintText(
-      target.controlId
-    ),
-    normalizeFingerprintText(
-      target.accessibleName
-    ),
-    normalizeFingerprintText(
-      target.controlledRegionId
-    ),
+    normalizeFingerprintText(target.controlId),
+    normalizeFingerprintText(target.accessibleName),
+    normalizeFingerprintText(target.controlledRegionId),
     target.desiredState
   ].join('|');
 }
 
-export function createTabStateTargetFingerprint(
-  target:
-    TabStateEvidenceTarget
-): string {
+export function createTabStateTargetFingerprint(target: TabStateEvidenceTarget): string {
   return [
     'target',
     target.kind,
-    normalizeFingerprintText(
-      target.controlId
-    ),
-    normalizeFingerprintText(
-      target.accessibleName
-    ),
-    normalizeFingerprintText(
-      target.tabListId
-    ),
-    normalizeFingerprintText(
-      target.controlledPanelId
-    ),
+    normalizeFingerprintText(target.controlId),
+    normalizeFingerprintText(target.accessibleName),
+    normalizeFingerprintText(target.tabListId),
+    normalizeFingerprintText(target.controlledPanelId),
     target.desiredState
   ].join('|');
 }
 
-function getStructuredSubjectIdentity(
-  identity:
-    FindingStructuredIdentity
-): string {
-  return normalizeFingerprintText(
-    identity.subject
-      .componentId ??
-    identity.subject
-      .controlId
-  );
+function getStructuredSubjectIdentity(identity: FindingStructuredIdentity): string {
+  return normalizeFingerprintText(identity.subject.componentId ?? identity.subject.controlId);
 }
 
-export function createStructuredIdentityFingerprint(
-  identity:
-    FindingStructuredIdentity
-): string {
+export function createStructuredIdentityFingerprint(identity: FindingStructuredIdentity): string {
   return [
     'identity',
-    normalizeFingerprintText(
-      identity.mechanism
-    ),
-    normalizeFingerprintText(
-      identity.observedValue
-    ),
-    normalizeFingerprintText(
-      identity.source
-    ),
-    normalizeFingerprintText(
-      identity.subject
-        .controlType
-    ),
-    getStructuredSubjectIdentity(
-      identity
-    )
+    normalizeFingerprintText(identity.mechanism),
+    normalizeFingerprintText(identity.observedValue),
+    normalizeFingerprintText(identity.source),
+    normalizeFingerprintText(identity.subject.controlType),
+    getStructuredSubjectIdentity(identity)
   ].join('|');
 }
 
 export function validateStructuredIdentity(
-  identity:
-    FindingStructuredIdentity,
-  content:
-    ExtractedPageContent
+  identity: FindingStructuredIdentity,
+  content: ExtractedPageContent
 ): boolean {
-  const subject =
-    identity.subject;
+  const subject = identity.subject;
 
-  if (
-    subject.controlType ===
-      'tab'
-  ) {
+  if (subject.controlType === 'tab') {
     return content.tabs.some(
       control =>
-        control.controlId ===
-          subject.controlId &&
-        control.accessibleName ===
-          identity.observedValue &&
-        (
-          subject.componentId ===
-            null ||
-          control.tabListId ===
-            subject.componentId
-        )
+        control.controlId === subject.controlId &&
+        control.accessibleName === identity.observedValue &&
+        (subject.componentId === null || control.tabListId === subject.componentId)
     );
   }
 
   return content.disclosures.some(
     control =>
-      control.controlId ===
-        subject.controlId &&
-      control.accessibleName ===
-        identity.observedValue &&
-      (
-        subject.componentId ===
-          null ||
-        control.ariaControls ===
-          subject.componentId
-      )
+      control.controlId === subject.controlId &&
+      control.accessibleName === identity.observedValue &&
+      (subject.componentId === null || control.ariaControls === subject.componentId)
   );
 }
 
@@ -231,65 +141,37 @@ export function validateStructuredIdentity(
  */
 export function createExploratoryFindingFingerprint(
   finding: ExploratoryQaFinding,
-  content?:
-    ExtractedPageContent,
-  unstructuredDiscriminator =
-    'no-stable-identity'
+  content?: ExtractedPageContent,
+  unstructuredDiscriminator = 'no-stable-identity'
 ): string {
-  const target =
-    finding.evidenceTarget;
+  const target = finding.evidenceTarget;
 
   if (target !== null) {
     switch (target.kind) {
       case 'select-option':
-        return createSelectOptionTargetFingerprint(
-          target
-        );
+        return createSelectOptionTargetFingerprint(target);
 
       case 'disclosure-state':
-        return createDisclosureStateTargetFingerprint(
-          target
-        );
+        return createDisclosureStateTargetFingerprint(target);
 
       case 'tab-state':
-        return createTabStateTargetFingerprint(
-          target
-        );
+        return createTabStateTargetFingerprint(target);
     }
   }
 
-  const technicalIdentity =
-    finding.technicalIdentity ??
-    null;
+  const technicalIdentity = finding.technicalIdentity ?? null;
 
-  if (
-    technicalIdentity !==
-    null
-  ) {
-    return createTechnicalObservationFingerprint(
-      technicalIdentity
-    );
+  if (technicalIdentity !== null) {
+    return createTechnicalObservationFingerprint(technicalIdentity);
   }
 
-  const structuredIdentity =
-    finding.structuredIdentity ??
-    null;
+  const structuredIdentity = finding.structuredIdentity ?? null;
 
   if (
-    structuredIdentity !==
-      null &&
-    (
-      content ===
-        undefined ||
-      validateStructuredIdentity(
-        structuredIdentity,
-        content
-      )
-    )
+    structuredIdentity !== null &&
+    (content === undefined || validateStructuredIdentity(structuredIdentity, content))
   ) {
-    return createStructuredIdentityFingerprint(
-      structuredIdentity
-    );
+    return createStructuredIdentityFingerprint(structuredIdentity);
   }
 
   /*
@@ -297,10 +179,5 @@ export function createExploratoryFindingFingerprint(
    * identity, the caller must supply an observation-scoped discriminator and
    * must not infer sameness from wording.
    */
-  return [
-    'unstructured',
-    normalizeFingerprintText(
-      unstructuredDiscriminator
-    )
-  ].join('|');
+  return ['unstructured', normalizeFingerprintText(unstructuredDiscriminator)].join('|');
 }

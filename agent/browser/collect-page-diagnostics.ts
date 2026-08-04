@@ -1,8 +1,4 @@
-import type {
-  ConsoleMessage,
-  Page,
-  Request
-} from '@playwright/test';
+import type { ConsoleMessage, Page, Request } from '@playwright/test';
 
 const MAX_CONSOLE_ERRORS = 50;
 const MAX_FAILED_REQUESTS = 100;
@@ -33,10 +29,7 @@ export interface PageDiagnosticsCollector {
 }
 
 function normalizeText(text: string): string {
-  return text
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 1_000);
+  return text.replace(/\s+/g, ' ').trim().slice(0, 1_000);
 }
 
 function isDuplicateFailedResourceMessage(
@@ -45,31 +38,22 @@ function isDuplicateFailedResourceMessage(
 ): boolean {
   if (
     consoleError.sourceUrl === null ||
-    !consoleError.text.startsWith(
-      'Failed to load resource:'
-    )
+    !consoleError.text.startsWith('Failed to load resource:')
   ) {
     return false;
   }
 
-  return failedRequests.some(
-    (failedRequest) =>
-      failedRequest.url === consoleError.sourceUrl
-  );
+  return failedRequests.some(failedRequest => failedRequest.url === consoleError.sourceUrl);
 }
 
-export function collectPageDiagnostics(
-  page: Page
-): PageDiagnosticsCollector {
+export function collectPageDiagnostics(page: Page): PageDiagnosticsCollector {
   let consoleErrors: ConsoleErrorObservation[] = [];
   let failedRequests: FailedRequestObservation[] = [];
 
   const consoleErrorKeys = new Set<string>();
   const failedRequestKeys = new Set<string>();
 
-  const handleConsoleMessage = (
-    message: ConsoleMessage
-  ): void => {
+  const handleConsoleMessage = (message: ConsoleMessage): void => {
     if (message.type() !== 'error') {
       return;
     }
@@ -97,9 +81,7 @@ export function collectPageDiagnostics(
     consoleErrors.push(observation);
   };
 
-  const handleFailedRequest = (
-    request: Request
-  ): void => {
+  const handleFailedRequest = (request: Request): void => {
     if (failedRequests.length >= MAX_FAILED_REQUESTS) {
       return;
     }
@@ -108,9 +90,7 @@ export function collectPageDiagnostics(
       url: request.url(),
       method: request.method(),
       resourceType: request.resourceType(),
-      failureText:
-        request.failure()?.errorText ??
-        'Unknown request failure'
+      failureText: request.failure()?.errorText ?? 'Unknown request failure'
     };
 
     const key = JSON.stringify(observation);
@@ -136,14 +116,9 @@ export function collectPageDiagnostics(
     },
 
     snapshot(): PageDiagnostics {
-      const filteredConsoleErrors =
-        consoleErrors.filter(
-          (consoleError) =>
-            !isDuplicateFailedResourceMessage(
-              consoleError,
-              failedRequests
-            )
-        );
+      const filteredConsoleErrors = consoleErrors.filter(
+        consoleError => !isDuplicateFailedResourceMessage(consoleError, failedRequests)
+      );
 
       return {
         consoleErrors: [...filteredConsoleErrors],

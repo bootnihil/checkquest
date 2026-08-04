@@ -6,10 +6,7 @@ const healthyPage: VisitedPageObservation = {
   finalUrl: 'https://example.com/solutions/',
   title: 'Solutions | Example',
   httpStatus: 200,
-  headings: [
-    'Our Solutions',
-    'Discover what we offer'
-  ]
+  headings: ['Our Solutions', 'Discover what we offer']
 };
 
 const brokenPage: VisitedPageObservation = {
@@ -21,19 +18,7 @@ const brokenPage: VisitedPageObservation = {
 };
 
 console.log('Healthy page findings:');
-console.log(
-  JSON.stringify(
-    evaluatePageObservation(healthyPage),
-    null,
-    2
-  )
-);
+console.log(JSON.stringify(evaluatePageObservation(healthyPage), null, 2));
 
 console.log('\nBroken page findings:');
-console.log(
-  JSON.stringify(
-    evaluatePageObservation(brokenPage),
-    null,
-    2
-  )
-);
+console.log(JSON.stringify(evaluatePageObservation(brokenPage), null, 2));

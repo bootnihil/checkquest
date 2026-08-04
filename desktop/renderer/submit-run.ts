@@ -15,161 +15,91 @@ import {
 
 export type DesktopFormSubmissionResult =
   | {
-      outcome:
-        'started';
+      outcome: 'started';
     }
   | {
-      outcome:
-        'field-errors';
-      fieldErrors:
-        DesktopRunFieldErrors;
-      state:
-        DesktopUiState;
+      outcome: 'field-errors';
+      fieldErrors: DesktopRunFieldErrors;
+      state: DesktopUiState;
     }
   | {
-      outcome:
-        'cancelled';
-      state:
-        DesktopUiState;
+      outcome: 'cancelled';
+      state: DesktopUiState;
     }
   | {
-      outcome:
-        'failed';
-      state:
-        DesktopUiState;
+      outcome: 'failed';
+      state: DesktopUiState;
     };
 
 export interface SubmitDesktopRunOptions {
-  request:
-    DesktopStartRunInput;
-  startRun:
-    CheckQuestDesktopApi[
-      'startRun'
-    ];
-  onPreflightStarted:
-    (
-      state:
-        DesktopUiState
-    ) => void;
-  sessionCredentialAvailable?:
-    boolean;
+  request: DesktopStartRunInput;
+  startRun: CheckQuestDesktopApi['startRun'];
+  onPreflightStarted: (state: DesktopUiState) => void;
+  sessionCredentialAvailable?: boolean;
 }
 
 export async function submitDesktopRun(
-  options:
-    SubmitDesktopRunOptions
-): Promise<
-  DesktopFormSubmissionResult
-> {
-  const validation =
-    validateDesktopStartRunInput(
-      options.request,
-      {
-        sessionCredentialAvailable:
-          options
-            .sessionCredentialAvailable
-      }
-    );
+  options: SubmitDesktopRunOptions
+): Promise<DesktopFormSubmissionResult> {
+  const validation = validateDesktopStartRunInput(options.request, {
+    sessionCredentialAvailable: options.sessionCredentialAvailable
+  });
 
-  if (
-    !validation.success
-  ) {
-    options.request
-      .geminiApiKey =
-        '';
+  if (!validation.success) {
+    options.request.geminiApiKey = '';
 
     return {
-      outcome:
-        'field-errors',
-      fieldErrors:
-        validation.fieldErrors,
-      state:
-        createReadyUiState()
+      outcome: 'field-errors',
+      fieldErrors: validation.fieldErrors,
+      state: createReadyUiState()
     };
   }
 
-  const input =
-    validation.input;
+  const input = validation.input;
 
   options.onPreflightStarted(
-    input.geminiApiKey ===
-      undefined
+    input.geminiApiKey === undefined
       ? createCheckingWebsiteUiState()
       : createCheckingCredentialsUiState()
   );
 
   try {
-    const reply =
-      await options.startRun(
-        input
-      );
+    const reply = await options.startRun(input);
 
-    if (
-      reply.accepted
-    ) {
+    if (reply.accepted) {
       return {
-        outcome:
-          'started'
+        outcome: 'started'
       };
     }
 
-    if (
-      reply.fieldErrors !==
-        undefined &&
-      Object.keys(
-        reply.fieldErrors
-      ).length >
-        0
-    ) {
+    if (reply.fieldErrors !== undefined && Object.keys(reply.fieldErrors).length > 0) {
       return {
-        outcome:
-          'field-errors',
-        fieldErrors:
-          reply.fieldErrors,
-        state:
-          createReadyUiState()
+        outcome: 'field-errors',
+        fieldErrors: reply.fieldErrors,
+        state: createReadyUiState()
       };
     }
 
-    if (
-      reply.reason ===
-        'cancelled'
-    ) {
+    if (reply.reason === 'cancelled') {
       return {
-        outcome:
-          'cancelled',
-        state:
-          createCancelledUiState()
+        outcome: 'cancelled',
+        state: createCancelledUiState()
       };
     }
 
     return {
-      outcome:
-        'failed',
-      state:
-        createStartRejectedUiState(
-          reply.message
-        )
+      outcome: 'failed',
+      state: createStartRejectedUiState(reply.message)
     };
   } catch {
     return {
-      outcome:
-        'failed',
-      state:
-        createStartRejectedUiState(
-          'The desktop application could not start the run.'
-        )
+      outcome: 'failed',
+      state: createStartRejectedUiState('The desktop application could not start the run.')
     };
   } finally {
-    options.request
-      .geminiApiKey =
-        '';
-    if (
-      input.geminiApiKey !==
-        undefined
-    ) {
-      input.geminiApiKey =
-        '';
+    options.request.geminiApiKey = '';
+    if (input.geminiApiKey !== undefined) {
+      input.geminiApiKey = '';
     }
   }
 }

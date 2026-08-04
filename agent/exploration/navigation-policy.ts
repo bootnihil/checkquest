@@ -1,6 +1,4 @@
-import type {
-  NavigationLink
-} from '../browser/inspect-navigation';
+import type { NavigationLink } from '../browser/inspect-navigation';
 
 import {
   buildNoveltyCandidateWindow,
@@ -9,11 +7,7 @@ import {
   type PageNoveltyState
 } from './page-novelty';
 
-import {
-  assessRouteValue,
-  type RouteValueClass,
-  type RouteValueReason
-} from './route-value';
+import { assessRouteValue, type RouteValueClass, type RouteValueReason } from './route-value';
 
 import {
   isNavigationUrlEligible,
@@ -21,8 +15,7 @@ import {
   type NavigationUrlState
 } from './visited-links';
 
-export const maximumNavigationCandidateWindow =
-  20;
+export const maximumNavigationCandidateWindow = 20;
 
 export interface NavigationFrontierEntry {
   link: NavigationLink;
@@ -60,16 +53,9 @@ export interface RouteValueClassCounts {
   'strong-low-value': number;
 }
 
-export type RouteValueReasonCounts =
-  Partial<
-    Record<
-      RouteValueReason,
-      number
-    >
-  >;
+export type RouteValueReasonCounts = Partial<Record<RouteValueReason, number>>;
 
-export interface NavigationPolicyCandidate
-  extends NoveltyNavigationCandidate {
+export interface NavigationPolicyCandidate extends NoveltyNavigationCandidate {
   firstDiscoveryOrder: number;
   firstDiscoveredFromUrl: string;
   minimumDiscoveryDepth: number;
@@ -85,10 +71,8 @@ export interface NavigationPolicyWindow {
   candidates: NavigationPolicyCandidate[];
   budget: NavigationBudgetContext;
   areaBreadthConstrained: boolean;
-  eligibleValueClassCounts:
-    RouteValueClassCounts;
-  deferredValueReasonCounts:
-    RouteValueReasonCounts;
+  eligibleValueClassCounts: RouteValueClassCounts;
+  deferredValueReasonCounts: RouteValueReasonCounts;
 }
 
 export interface BuildNavigationPolicyWindowInput {
@@ -99,28 +83,23 @@ export interface BuildNavigationPolicyWindowInput {
   maximumCandidates?: number;
 }
 
-const navigationPolicyBandOrder:
-  readonly NavigationPolicyBand[] = [
-    'neutral-unseen-area',
-    'weak-low-value-unseen-area',
-    'neutral-unseen-route-family',
-    'weak-low-value-unseen-route-family',
-    'neutral-seen-route-family',
-    'weak-low-value-seen-route-family',
-    'strong-low-value-unseen-area',
-    'strong-low-value-unseen-route-family',
-    'strong-low-value-seen-route-family'
-  ];
+const navigationPolicyBandOrder: readonly NavigationPolicyBand[] = [
+  'neutral-unseen-area',
+  'weak-low-value-unseen-area',
+  'neutral-unseen-route-family',
+  'weak-low-value-unseen-route-family',
+  'neutral-seen-route-family',
+  'weak-low-value-seen-route-family',
+  'strong-low-value-unseen-area',
+  'strong-low-value-unseen-route-family',
+  'strong-low-value-seen-route-family'
+];
 
-function createEmptyRouteValueClassCounts():
-  RouteValueClassCounts {
+function createEmptyRouteValueClassCounts(): RouteValueClassCounts {
   return {
-    neutral:
-      0,
-    'weak-low-value':
-      0,
-    'strong-low-value':
-      0
+    neutral: 0,
+    'weak-low-value': 0,
+    'strong-low-value': 0
   };
 }
 
@@ -128,20 +107,14 @@ function getNavigationPolicyBand(
   valueClass: RouteValueClass,
   noveltyTier: NavigationNoveltyTier
 ): NavigationPolicyBand {
-  return (
-    `${valueClass}-${noveltyTier}` as
-      NavigationPolicyBand
-  );
+  return `${valueClass}-${noveltyTier}` as NavigationPolicyBand;
 }
 
-export function createNavigationFrontier():
-  NavigationFrontier {
+export function createNavigationFrontier(): NavigationFrontier {
   return {
-    entries:
-      new Map(),
+    entries: new Map(),
 
-    nextDiscoveryOrder:
-      0
+    nextDiscoveryOrder: 0
   };
 }
 
@@ -151,90 +124,44 @@ export function registerDiscoveredNavigationLinks(
   discoveredFromUrl: string,
   sourcePageDepth: number
 ): number {
-  if (
-    !Number.isInteger(
-      sourcePageDepth
-    ) ||
-    sourcePageDepth <
-      0
-  ) {
+  if (!Number.isInteger(sourcePageDepth) || sourcePageDepth < 0) {
     throw new Error(
       `sourcePageDepth must be a non-negative integer. Received: ${sourcePageDepth}.`
     );
   }
 
-  const normalizedSourceUrl =
-    normalizeUrlForComparison(
-      discoveredFromUrl
-    );
+  const normalizedSourceUrl = normalizeUrlForComparison(discoveredFromUrl);
 
-  const discoveryDepth =
-    sourcePageDepth +
-    1;
+  const discoveryDepth = sourcePageDepth + 1;
 
-  let addedCount =
-    0;
+  let addedCount = 0;
 
-  for (
-    const link of
-      links
-  ) {
-    const normalizedUrl =
-      normalizeUrlForComparison(
-        link.url
-      );
+  for (const link of links) {
+    const normalizedUrl = normalizeUrlForComparison(link.url);
 
-    const existingEntry =
-      frontier
-        .entries
-        .get(
-          normalizedUrl
-        );
+    const existingEntry = frontier.entries.get(normalizedUrl);
 
-    if (
-      existingEntry
-    ) {
-      if (
-        discoveryDepth <
-          existingEntry
-            .minimumDiscoveryDepth
-      ) {
-        existingEntry
-          .minimumDiscoveryDepth =
-            discoveryDepth;
+    if (existingEntry) {
+      if (discoveryDepth < existingEntry.minimumDiscoveryDepth) {
+        existingEntry.minimumDiscoveryDepth = discoveryDepth;
 
-        existingEntry
-          .minimumDepthDiscoveredFromUrl =
-            normalizedSourceUrl;
+        existingEntry.minimumDepthDiscoveredFromUrl = normalizedSourceUrl;
       }
 
       continue;
     }
 
-    frontier
-      .entries
-      .set(
-        normalizedUrl,
-        {
-          link,
-          firstDiscoveryOrder:
-            frontier
-              .nextDiscoveryOrder,
-          firstDiscoveredFromUrl:
-            normalizedSourceUrl,
-          minimumDiscoveryDepth:
-            discoveryDepth,
-          minimumDepthDiscoveredFromUrl:
-            normalizedSourceUrl
-        }
-      );
+    frontier.entries.set(normalizedUrl, {
+      link,
+      firstDiscoveryOrder: frontier.nextDiscoveryOrder,
+      firstDiscoveredFromUrl: normalizedSourceUrl,
+      minimumDiscoveryDepth: discoveryDepth,
+      minimumDepthDiscoveredFromUrl: normalizedSourceUrl
+    });
 
-    frontier
-      .nextDiscoveryOrder +=
-        1;
+    frontier.nextDiscoveryOrder += 1;
 
-    addedCount +=
-      1;
+    addedCount += 1;
   }
 
   return addedCount;
@@ -243,19 +170,9 @@ export function registerDiscoveredNavigationLinks(
 export function getNavigationFrontierEntries(
   frontier: NavigationFrontier
 ): NavigationFrontierEntry[] {
-  return Array.from(
-    frontier
-      .entries
-      .values()
-  )
-    .sort(
-      (
-        left,
-        right
-      ) =>
-        left.firstDiscoveryOrder -
-        right.firstDiscoveryOrder
-    );
+  return Array.from(frontier.entries.values()).sort(
+    (left, right) => left.firstDiscoveryOrder - right.firstDiscoveryOrder
+  );
 }
 
 export function createNavigationBudgetContext(
@@ -264,28 +181,17 @@ export function createNavigationBudgetContext(
   maxNavigationDecisions: number,
   consumedNavigationDecisionCount: number
 ): NavigationBudgetContext {
-  const remainingPageSlots =
-    Math.max(
-      0,
-      maxPages -
-        fullyInspectedPageCount
-    );
+  const remainingPageSlots = Math.max(0, maxPages - fullyInspectedPageCount);
 
-  const remainingNavigationDecisionSlots =
-    Math.max(
-      0,
-      maxNavigationDecisions -
-        consumedNavigationDecisionCount
-    );
+  const remainingNavigationDecisionSlots = Math.max(
+    0,
+    maxNavigationDecisions - consumedNavigationDecisionCount
+  );
 
   return {
     remainingPageSlots,
     remainingNavigationDecisionSlots,
-    remainingPotentialInspections:
-      Math.min(
-        remainingPageSlots,
-        remainingNavigationDecisionSlots
-      )
+    remainingPotentialInspections: Math.min(remainingPageSlots, remainingNavigationDecisionSlots)
   };
 }
 
@@ -293,198 +199,100 @@ export function consumeNavigationDecision(
   maxNavigationDecisions: number,
   consumedNavigationDecisionCount: number
 ): number {
-  if (
-    !Number.isInteger(
-      maxNavigationDecisions
-    ) ||
-    maxNavigationDecisions <
-      1
-  ) {
+  if (!Number.isInteger(maxNavigationDecisions) || maxNavigationDecisions < 1) {
     throw new Error(
       `maxNavigationDecisions must be a positive integer. Received: ${maxNavigationDecisions}.`
     );
   }
 
-  if (
-    !Number.isInteger(
-      consumedNavigationDecisionCount
-    ) ||
-    consumedNavigationDecisionCount <
-      0
-  ) {
+  if (!Number.isInteger(consumedNavigationDecisionCount) || consumedNavigationDecisionCount < 0) {
     throw new Error(
       `consumedNavigationDecisionCount must be a non-negative integer. Received: ${consumedNavigationDecisionCount}.`
     );
   }
 
-  if (
-    consumedNavigationDecisionCount >=
-      maxNavigationDecisions
-  ) {
+  if (consumedNavigationDecisionCount >= maxNavigationDecisions) {
     throw new Error(
       `No navigation-decision slots remain (${consumedNavigationDecisionCount}/${maxNavigationDecisions}).`
     );
   }
 
-  return (
-    consumedNavigationDecisionCount +
-    1
-  );
+  return consumedNavigationDecisionCount + 1;
 }
 
 function comparePolicyCandidates(
   left: NavigationPolicyCandidate,
   right: NavigationPolicyCandidate
 ): number {
-  const areaVisitDifference =
-    left.areaVisitCount -
-    right.areaVisitCount;
+  const areaVisitDifference = left.areaVisitCount - right.areaVisitCount;
 
-  if (
-    areaVisitDifference !==
-    0
-  ) {
+  if (areaVisitDifference !== 0) {
     return areaVisitDifference;
   }
 
-  const familyVisitDifference =
-    left.routeFamilyVisitCount -
-    right.routeFamilyVisitCount;
+  const familyVisitDifference = left.routeFamilyVisitCount - right.routeFamilyVisitCount;
 
-  if (
-    familyVisitDifference !==
-    0
-  ) {
+  if (familyVisitDifference !== 0) {
     return familyVisitDifference;
   }
 
   const templateVisitDifference =
-    left.observedTemplateVisitCount -
-    right.observedTemplateVisitCount;
+    left.observedTemplateVisitCount - right.observedTemplateVisitCount;
 
-  if (
-    templateVisitDifference !==
-    0
-  ) {
+  if (templateVisitDifference !== 0) {
     return templateVisitDifference;
   }
 
-  const depthDifference =
-    left.minimumDiscoveryDepth -
-    right.minimumDiscoveryDepth;
+  const depthDifference = left.minimumDiscoveryDepth - right.minimumDiscoveryDepth;
 
-  if (
-    depthDifference !==
-    0
-  ) {
+  if (depthDifference !== 0) {
     return depthDifference;
   }
 
-  return (
-    left.firstDiscoveryOrder -
-    right.firstDiscoveryOrder
-  );
+  return left.firstDiscoveryOrder - right.firstDiscoveryOrder;
 }
 
-function buildAreaQueue(
-  candidates: NavigationPolicyCandidate[]
-): NavigationPolicyCandidate[] {
-  const familyQueues =
-    new Map<
-      string,
-      NavigationPolicyCandidate[]
-    >();
+function buildAreaQueue(candidates: NavigationPolicyCandidate[]): NavigationPolicyCandidate[] {
+  const familyQueues = new Map<string, NavigationPolicyCandidate[]>();
 
-  for (
-    const candidate of
-      candidates
-  ) {
-    const familyKey =
-      candidate
-        .predictedIdentity
-        .routeFamilyKey;
+  for (const candidate of candidates) {
+    const familyKey = candidate.predictedIdentity.routeFamilyKey;
 
-    const familyQueue =
-      familyQueues.get(
-        familyKey
-      ) ??
-      [];
+    const familyQueue = familyQueues.get(familyKey) ?? [];
 
-    familyQueue.push(
-      candidate
-    );
+    familyQueue.push(candidate);
 
-    familyQueues.set(
-      familyKey,
-      familyQueue
-    );
+    familyQueues.set(familyKey, familyQueue);
   }
 
-  const orderedFamilyQueues =
-    Array.from(
-      familyQueues.values()
-    )
-      .map(
-        familyQueue =>
-          familyQueue.sort(
-            comparePolicyCandidates
-          )
-      )
-      .sort(
-        (
-          left,
-          right
-        ) =>
-          comparePolicyCandidates(
-            left[0],
-            right[0]
-          )
-      );
+  const orderedFamilyQueues = Array.from(familyQueues.values())
+    .map(familyQueue => familyQueue.sort(comparePolicyCandidates))
+    .sort((left, right) => comparePolicyCandidates(left[0], right[0]));
 
-  const areaQueue:
-    NavigationPolicyCandidate[] =
-      [];
+  const areaQueue: NavigationPolicyCandidate[] = [];
 
-  let familyOffset =
-    0;
+  let familyOffset = 0;
 
-  while (
-    true
-  ) {
-    let addedInRound =
-      false;
+  while (true) {
+    let addedInRound = false;
 
-    for (
-      const familyQueue of
-        orderedFamilyQueues
-    ) {
-      const candidate =
-        familyQueue[
-          familyOffset
-        ];
+    for (const familyQueue of orderedFamilyQueues) {
+      const candidate = familyQueue[familyOffset];
 
-      if (
-        !candidate
-      ) {
+      if (!candidate) {
         continue;
       }
 
-      areaQueue.push(
-        candidate
-      );
+      areaQueue.push(candidate);
 
-      addedInRound =
-        true;
+      addedInRound = true;
     }
 
-    if (
-      !addedInRound
-    ) {
+    if (!addedInRound) {
       break;
     }
 
-    familyOffset +=
-      1;
+    familyOffset += 1;
   }
 
   return areaQueue;
@@ -493,78 +301,42 @@ function buildAreaQueue(
 export function buildNavigationPolicyWindow(
   input: BuildNavigationPolicyWindowInput
 ): NavigationPolicyWindow {
-  const requestedMaximum =
-    input.maximumCandidates ??
-    maximumNavigationCandidateWindow;
+  const requestedMaximum = input.maximumCandidates ?? maximumNavigationCandidateWindow;
 
-  const maximumCandidates =
-    Math.max(
-      0,
-      Math.min(
-        maximumNavigationCandidateWindow,
-        requestedMaximum
-      )
-    );
+  const maximumCandidates = Math.max(
+    0,
+    Math.min(maximumNavigationCandidateWindow, requestedMaximum)
+  );
 
   if (
-    maximumCandidates ===
-      0 ||
-    input
-      .budget
-      .remainingPageSlots ===
-      0 ||
-    input
-      .budget
-      .remainingNavigationDecisionSlots ===
-      0
+    maximumCandidates === 0 ||
+    input.budget.remainingPageSlots === 0 ||
+    input.budget.remainingNavigationDecisionSlots === 0
   ) {
     return {
-      policyBand:
-        null,
-      candidates:
-        [],
-      budget:
-        input.budget,
-      areaBreadthConstrained:
-        false,
-      eligibleValueClassCounts:
-        createEmptyRouteValueClassCounts(),
-      deferredValueReasonCounts:
-        {}
+      policyBand: null,
+      candidates: [],
+      budget: input.budget,
+      areaBreadthConstrained: false,
+      eligibleValueClassCounts: createEmptyRouteValueClassCounts(),
+      deferredValueReasonCounts: {}
     };
   }
 
-  const frontierEntries =
-    getNavigationFrontierEntries(
-      input.frontier
-    );
+  const frontierEntries = getNavigationFrontierEntries(input.frontier);
 
-  const eligibleEntries =
-    frontierEntries.filter(
-      entry =>
-        isNavigationUrlEligible(
-          input.urlState,
-          entry.link.url
-        )
-    );
+  const eligibleEntries = frontierEntries.filter(entry =>
+    isNavigationUrlEligible(input.urlState, entry.link.url)
+  );
 
-  if (
-    eligibleEntries.length ===
-    0
-  ) {
+  if (eligibleEntries.length === 0) {
     return {
-      policyBand:
-        null,
-      candidates:
-        [],
-      budget:
-        input.budget,
-      areaBreadthConstrained:
-        false,
-      eligibleValueClassCounts:
-        createEmptyRouteValueClassCounts(),
-      deferredValueReasonCounts:
-        {}
+      policyBand: null,
+      candidates: [],
+      budget: input.budget,
+      areaBreadthConstrained: false,
+      eligibleValueClassCounts: createEmptyRouteValueClassCounts(),
+      deferredValueReasonCounts: {}
     };
   }
 
@@ -573,298 +345,136 @@ export function buildNavigationPolicyWindow(
    * novelty counts. Asking for every eligible candidate here avoids freezing
    * a stale classification before Stage 6 applies its own bounded window.
    */
-  const noveltyCandidates =
-    buildNoveltyCandidateWindow(
-      eligibleEntries.map(
-        entry =>
-          entry.link
-      ),
-      frontierEntries.map(
-        entry =>
-          entry.link
-      ),
-      input.pageNoveltyState,
-      eligibleEntries.length
-    );
+  const noveltyCandidates = buildNoveltyCandidateWindow(
+    eligibleEntries.map(entry => entry.link),
+    frontierEntries.map(entry => entry.link),
+    input.pageNoveltyState,
+    eligibleEntries.length
+  );
 
-  const entriesByUrl =
-    new Map(
-      eligibleEntries.map(
-        entry => [
-          normalizeUrlForComparison(
-            entry.link.url
-          ),
-          entry
-        ]
-      )
-    );
+  const entriesByUrl = new Map(
+    eligibleEntries.map(entry => [normalizeUrlForComparison(entry.link.url), entry])
+  );
 
-  const policyCandidates:
-    NavigationPolicyCandidate[] =
-    noveltyCandidates
-      .map(
-        candidate => {
-          const frontierEntry =
-            entriesByUrl.get(
-              normalizeUrlForComparison(
-                candidate.link.url
-              )
-            );
+  const policyCandidates: NavigationPolicyCandidate[] = noveltyCandidates.map(candidate => {
+    const frontierEntry = entriesByUrl.get(normalizeUrlForComparison(candidate.link.url));
 
-          if (
-            !frontierEntry
-          ) {
-            throw new Error(
-              `Navigation frontier metadata is missing for ${candidate.link.url}.`
-            );
-          }
+    if (!frontierEntry) {
+      throw new Error(`Navigation frontier metadata is missing for ${candidate.link.url}.`);
+    }
 
-          const routeValue =
-            assessRouteValue(
-              candidate.link.url
-            );
+    const routeValue = assessRouteValue(candidate.link.url);
 
-          const policyBand =
-            getNavigationPolicyBand(
-              routeValue
-                .valueClass,
-              candidate
-                .noveltyTier
-            );
+    const policyBand = getNavigationPolicyBand(routeValue.valueClass, candidate.noveltyTier);
 
-          return {
-            ...candidate,
-            firstDiscoveryOrder:
-              frontierEntry
-                .firstDiscoveryOrder,
-            firstDiscoveredFromUrl:
-              frontierEntry
-                .firstDiscoveredFromUrl,
-            minimumDiscoveryDepth:
-              frontierEntry
-                .minimumDiscoveryDepth,
-            minimumDepthDiscoveredFromUrl:
-              frontierEntry
-                .minimumDepthDiscoveredFromUrl,
-            valueClass:
-              routeValue
-                .valueClass,
-            valueReasons:
-              routeValue
-                .reasons,
-            policyBand,
-            policyReason:
-              `Highest eligible Stage 6.2 policy band: ${policyBand} (route value: ${routeValue.valueClass}; novelty: ${candidate.noveltyTier}); area-diversified before route-family repetition.`
-          };
-        }
-      );
+    return {
+      ...candidate,
+      firstDiscoveryOrder: frontierEntry.firstDiscoveryOrder,
+      firstDiscoveredFromUrl: frontierEntry.firstDiscoveredFromUrl,
+      minimumDiscoveryDepth: frontierEntry.minimumDiscoveryDepth,
+      minimumDepthDiscoveredFromUrl: frontierEntry.minimumDepthDiscoveredFromUrl,
+      valueClass: routeValue.valueClass,
+      valueReasons: routeValue.reasons,
+      policyBand,
+      policyReason: `Highest eligible Stage 6.2 policy band: ${policyBand} (route value: ${routeValue.valueClass}; novelty: ${candidate.noveltyTier}); area-diversified before route-family repetition.`
+    };
+  });
 
-  const eligibleValueClassCounts =
-    createEmptyRouteValueClassCounts();
+  const eligibleValueClassCounts = createEmptyRouteValueClassCounts();
 
-  for (
-    const candidate of
-      policyCandidates
-  ) {
-    eligibleValueClassCounts[
-      candidate.valueClass
-    ] +=
-      1;
+  for (const candidate of policyCandidates) {
+    eligibleValueClassCounts[candidate.valueClass] += 1;
   }
 
   const policyBand =
-    navigationPolicyBandOrder.find(
-      band =>
-        policyCandidates.some(
-          candidate =>
-            candidate.policyBand ===
-            band
-        )
-    ) ??
-    null;
+    navigationPolicyBandOrder.find(band =>
+      policyCandidates.some(candidate => candidate.policyBand === band)
+    ) ?? null;
 
-  if (
-    policyBand ===
-    null
-  ) {
+  if (policyBand === null) {
     return {
       policyBand,
-      candidates:
-        [],
-      budget:
-        input.budget,
-      areaBreadthConstrained:
-        false,
+      candidates: [],
+      budget: input.budget,
+      areaBreadthConstrained: false,
       eligibleValueClassCounts,
-      deferredValueReasonCounts:
-        {}
+      deferredValueReasonCounts: {}
     };
   }
 
-  const bandCandidates =
-    policyCandidates.filter(
-      candidate =>
-        candidate.policyBand ===
-        policyBand
-    );
+  const bandCandidates = policyCandidates.filter(candidate => candidate.policyBand === policyBand);
 
-  const deferredValueReasonCounts:
-    RouteValueReasonCounts =
-      {};
+  const deferredValueReasonCounts: RouteValueReasonCounts = {};
 
-  for (
-    const candidate of
-      policyCandidates
-  ) {
-    if (
-      candidate.policyBand ===
-      policyBand
-    ) {
+  for (const candidate of policyCandidates) {
+    if (candidate.policyBand === policyBand) {
       continue;
     }
 
-    for (
-      const reason of
-        candidate.valueReasons
-    ) {
-      deferredValueReasonCounts[
-        reason
-      ] =
-        (
-          deferredValueReasonCounts[
-            reason
-          ] ??
-          0
-        ) +
-        1;
+    for (const reason of candidate.valueReasons) {
+      deferredValueReasonCounts[reason] = (deferredValueReasonCounts[reason] ?? 0) + 1;
     }
   }
 
-  const candidatesByArea =
-    new Map<
-      string,
-      NavigationPolicyCandidate[]
-    >();
+  const candidatesByArea = new Map<string, NavigationPolicyCandidate[]>();
 
-  for (
-    const candidate of
-      bandCandidates
-  ) {
-    const areaKey =
-      candidate
-        .predictedIdentity
-        .areaKey;
+  for (const candidate of bandCandidates) {
+    const areaKey = candidate.predictedIdentity.areaKey;
 
-    const areaCandidates =
-      candidatesByArea.get(
-        areaKey
-      ) ??
-      [];
+    const areaCandidates = candidatesByArea.get(areaKey) ?? [];
 
-    areaCandidates.push(
-      candidate
-    );
+    areaCandidates.push(candidate);
 
-    candidatesByArea.set(
-      areaKey,
-      areaCandidates
-    );
+    candidatesByArea.set(areaKey, areaCandidates);
   }
 
-  const orderedAreaQueues =
-    Array.from(
-      candidatesByArea.values()
-    )
-      .map(
-        areaCandidates =>
-          buildAreaQueue(
-            areaCandidates
-          )
-      )
-      .sort(
-        (
-          left,
-          right
-        ) =>
-          comparePolicyCandidates(
-            left[0],
-            right[0]
-          )
-      );
+  const orderedAreaQueues = Array.from(candidatesByArea.values())
+    .map(areaCandidates => buildAreaQueue(areaCandidates))
+    .sort((left, right) => comparePolicyCandidates(left[0], right[0]));
 
   const areaBreadthConstrained =
-    orderedAreaQueues.length >
-      1 &&
-    input
-      .budget
-      .remainingPotentialInspections <=
-      orderedAreaQueues.length;
+    orderedAreaQueues.length > 1 &&
+    input.budget.remainingPotentialInspections <= orderedAreaQueues.length;
 
-  const selected:
-    NavigationPolicyCandidate[] =
-      [];
+  const selected: NavigationPolicyCandidate[] = [];
 
-  let areaOffset =
-    0;
+  let areaOffset = 0;
 
-  while (
-    selected.length <
-      maximumCandidates
-  ) {
-    let addedInRound =
-      false;
+  while (selected.length < maximumCandidates) {
+    let addedInRound = false;
 
-    for (
-      const areaQueue of
-        orderedAreaQueues
-    ) {
-      const candidate =
-        areaQueue[
-          areaOffset
-        ];
+    for (const areaQueue of orderedAreaQueues) {
+      const candidate = areaQueue[areaOffset];
 
-      if (
-        !candidate
-      ) {
+      if (!candidate) {
         continue;
       }
 
       selected.push({
         ...candidate,
-        policyReason:
-          areaBreadthConstrained
-            ? `${candidate.policyReason} Remaining budget restricts this window to one candidate per area.`
-            : candidate.policyReason
+        policyReason: areaBreadthConstrained
+          ? `${candidate.policyReason} Remaining budget restricts this window to one candidate per area.`
+          : candidate.policyReason
       });
 
-      addedInRound =
-        true;
+      addedInRound = true;
 
-      if (
-        selected.length >=
-          maximumCandidates
-      ) {
+      if (selected.length >= maximumCandidates) {
         break;
       }
     }
 
-    if (
-      !addedInRound ||
-      areaBreadthConstrained
-    ) {
+    if (!addedInRound || areaBreadthConstrained) {
       break;
     }
 
-    areaOffset +=
-      1;
+    areaOffset += 1;
   }
 
   return {
     policyBand,
-    candidates:
-      selected,
-    budget:
-      input.budget,
+    candidates: selected,
+    budget: input.budget,
     areaBreadthConstrained,
     eligibleValueClassCounts,
     deferredValueReasonCounts

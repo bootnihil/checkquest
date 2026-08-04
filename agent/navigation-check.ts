@@ -20,15 +20,10 @@ async function main(): Promise<void> {
     const currentHost = new URL(page.url()).hostname;
 
     if (!site.allowedHosts.includes(currentHost)) {
-      throw new Error(
-        `Browser reached disallowed host "${currentHost}".`
-      );
+      throw new Error(`Browser reached disallowed host "${currentHost}".`);
     }
 
-    const navigationLinks = await inspectNavigation(
-      page,
-      site.allowedHosts
-    );
+    const navigationLinks = await inspectNavigation(page, site.allowedHosts);
 
     console.log(`Navigation links found: ${navigationLinks.length}`);
     console.log(JSON.stringify(navigationLinks, null, 2));

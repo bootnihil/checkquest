@@ -1,83 +1,52 @@
 import assert from 'node:assert/strict';
 
-import type {
-  ExploratoryQaFinding
-} from './analysis/exploratory-qa-schema';
+import type { ExploratoryQaFinding } from './analysis/exploratory-qa-schema';
 
-import type {
-  ExtractedPageContent
-} from './browser/extract-page-content';
+import type { ExtractedPageContent } from './browser/extract-page-content';
 
-import {
-  evaluateFindingInvestigationOutcome
-} from './investigation/evaluate-finding-investigation-outcome';
-import {
-  assignPageCandidateReferences
-} from './investigation/page-candidates';
+import { evaluateFindingInvestigationOutcome } from './investigation/evaluate-finding-investigation-outcome';
+import { assignPageCandidateReferences } from './investigation/page-candidates';
 
-import type {
-  ExploratoryLoopResult
-} from './planning/run-exploratory-loop';
+import type { ExploratoryLoopResult } from './planning/run-exploratory-loop';
 
 const finding: ExploratoryQaFinding = {
-  category:
-    'content',
+  category: 'content',
 
-  severity:
-    'low',
+  severity: 'low',
 
-  confidence:
-    'high',
+  confidence: 'high',
 
-  title:
-    'Possible typo in country selection list',
+  title: 'Possible typo in country selection list',
 
-  evidence:
-    'The Country select contains both Ecuador and Equador.',
+  evidence: 'The Country select contains both Ecuador and Equador.',
 
   reasoning:
     'Equador appears to be a misspelling of Ecuador and both values are present in the same country list.',
 
-  suggestedCheck:
-    'Verify whether Equador is a genuinely selectable option.',
+  suggestedCheck: 'Verify whether Equador is a genuinely selectable option.',
 
   evidenceTarget: {
-    kind:
-      'select-option',
+    kind: 'select-option',
 
-    controlLabel:
-      'Country',
+    controlLabel: 'Country',
 
-    controlName:
-      'country',
+    controlName: 'country',
 
-    controlId:
-      'country',
+    controlId: 'country',
 
-    optionText:
-      'Equador'
+    optionText: 'Equador'
   }
 };
 
-const candidate =
-  assignPageCandidateReferences([
-    finding
-  ])[0];
+const candidate = assignPageCandidateReferences([finding])[0];
 
-function buildPageContent(
-  selectedOption:
-    'Ecuador' | 'Equador' | null
-): ExtractedPageContent {
+function buildPageContent(selectedOption: 'Ecuador' | 'Equador' | null): ExtractedPageContent {
   return {
-    title:
-      'Contact Us',
+    title: 'Contact Us',
 
-    headings: [
-      'Contact Us'
-    ],
+    headings: ['Contact Us'],
 
-    bodyText:
-      'Country Ecuador Equador',
+    bodyText: 'Country Ecuador Equador',
 
     links: [],
 
@@ -87,50 +56,35 @@ function buildPageContent(
 
     selects: [
       {
-        label:
-          'Country',
+        label: 'Country',
 
-        name:
-          'country',
+        name: 'country',
 
-        id:
-          'country',
+        id: 'country',
 
-        required:
-          true,
+        required: true,
 
-        disabled:
-          false,
+        disabled: false,
 
-        totalOptions:
-          2,
+        totalOptions: 2,
 
-        optionsTruncated:
-          false,
+        optionsTruncated: false,
 
         options: [
           {
-            text:
-              'Ecuador',
+            text: 'Ecuador',
 
-            value:
-              'Ecuador',
+            value: 'Ecuador',
 
-            selected:
-              selectedOption ===
-              'Ecuador'
+            selected: selectedOption === 'Ecuador'
           },
 
           {
-            text:
-              'Equador',
+            text: 'Equador',
 
-            value:
-              'Equador',
+            value: 'Equador',
 
-            selected:
-              selectedOption ===
-              'Equador'
+            selected: selectedOption === 'Equador'
           }
         ]
       }
@@ -142,65 +96,47 @@ function buildPageContent(
 }
 
 function buildSelectInvestigation(
-  selectedAfter:
-    'Ecuador' | 'Equador' | null
+  selectedAfter: 'Ecuador' | 'Equador' | null
 ): ExploratoryLoopResult {
   return {
-    pageUrl:
-      'https://example.com/contact',
+    pageUrl: 'https://example.com/contact',
 
-    maxPlannerDecisions:
-      1,
+    maxPlannerDecisions: 1,
 
-    plannerDecisionCount:
-      1,
+    plannerDecisionCount: 1,
 
-    executedInvestigationActionCount:
-      1,
+    executedInvestigationActionCount: 1,
 
-    stopReason:
-      'max-planner-decisions-reached',
+    stopReason: 'max-planner-decisions-reached',
 
     steps: [
       {
-        step:
-          1,
+        step: 1,
 
-        observationBefore:
-          buildPageContent(
-            'Ecuador'
-          ),
+        observationBefore: buildPageContent('Ecuador'),
 
         decision: {
-          candidateReference:
-            'candidate-1',
+          candidateReference: 'candidate-1',
 
-          hypothesis:
-            'Verify whether the suspicious Equador option can actually be selected.',
+          hypothesis: 'Verify whether the suspicious Equador option can actually be selected.',
 
           reasoning:
             'The observed Country select contains the suspicious option and selecting it is a safe way to collect direct evidence.',
 
           action: {
-            kind:
-              'select-option',
+            kind: 'select-option',
 
             target: {
-              label:
-                'Country',
+              label: 'Country',
 
-              name:
-                'country',
+              name: 'country',
 
-              id:
-                'country',
+              id: 'country',
 
-              placeholder:
-                null
+              placeholder: null
             },
 
-            optionText:
-              'Equador'
+            optionText: 'Equador'
           },
 
           expectedObservation:
@@ -208,20 +144,14 @@ function buildSelectInvestigation(
         },
 
         executionResult: {
-          kind:
-            'select-option',
+          kind: 'select-option',
 
-          status:
-            'executed',
+          status: 'executed',
 
-          detail:
-            'Selected option "Equador" from approved native select control.'
+          detail: 'Selected option "Equador" from approved native select control.'
         },
 
-        observationAfter:
-          buildPageContent(
-            selectedAfter
-          )
+        observationAfter: buildPageContent(selectedAfter)
       }
     ]
   };
@@ -235,32 +165,18 @@ function buildSelectInvestigation(
  * and deterministic browser evidence confirms
  * that the option is selected afterwards.
  */
-const verified =
-  evaluateFindingInvestigationOutcome(
-    candidate,
-    buildSelectInvestigation(
-      'Equador'
-    )
-  );
-
-assert.equal(
-  verified.status,
-  'verified'
+const verified = evaluateFindingInvestigationOutcome(
+  candidate,
+  buildSelectInvestigation('Equador')
 );
 
-assert.match(
-  verified.summary,
-  /verified/i
-);
+assert.equal(verified.status, 'verified');
 
-assert.ok(
-  verified.evidence.length >
-  0
-);
+assert.match(verified.summary, /verified/i);
 
-console.log(
-  'Verified outcome check passed.'
-);
+assert.ok(verified.evidence.length > 0);
+
+console.log('Verified outcome check passed.');
 
 /*
  * NOT VERIFIED
@@ -269,32 +185,18 @@ console.log(
  * post-action browser state directly contradicts
  * the expected result.
  */
-const notVerified =
-  evaluateFindingInvestigationOutcome(
-    candidate,
-    buildSelectInvestigation(
-      'Ecuador'
-    )
-  );
-
-assert.equal(
-  notVerified.status,
-  'not-verified'
+const notVerified = evaluateFindingInvestigationOutcome(
+  candidate,
+  buildSelectInvestigation('Ecuador')
 );
 
-assert.match(
-  notVerified.summary,
-  /did not verify/i
-);
+assert.equal(notVerified.status, 'not-verified');
 
-assert.ok(
-  notVerified.evidence.length >
-  0
-);
+assert.match(notVerified.summary, /did not verify/i);
 
-console.log(
-  'Not-verified outcome check passed.'
-);
+assert.ok(notVerified.evidence.length > 0);
+
+console.log('Not-verified outcome check passed.');
 
 /*
  * INCONCLUSIVE
@@ -304,25 +206,13 @@ console.log(
  * Lack of evidence must never be treated as proof
  * that the candidate finding is false.
  */
-const inconclusive =
-  evaluateFindingInvestigationOutcome(
-    candidate,
-    null
-  );
+const inconclusive = evaluateFindingInvestigationOutcome(candidate, null);
 
-assert.equal(
-  inconclusive.status,
-  'inconclusive'
-);
+assert.equal(inconclusive.status, 'inconclusive');
 
-assert.match(
-  inconclusive.summary,
-  /no autonomous investigation/i
-);
+assert.match(inconclusive.summary, /no autonomous investigation/i);
 
-console.log(
-  'Inconclusive outcome check passed.'
-);
+console.log('Inconclusive outcome check passed.');
 
 /*
  * INCONCLUSIVE — WRONG INVESTIGATION
@@ -331,86 +221,54 @@ console.log(
  * does not accidentally count as evidence for
  * this candidate finding.
  */
-const unrelatedInvestigation:
-  ExploratoryLoopResult = {
-    pageUrl:
-      'https://example.com/contact',
+const unrelatedInvestigation: ExploratoryLoopResult = {
+  pageUrl: 'https://example.com/contact',
 
-    maxPlannerDecisions:
-      1,
+  maxPlannerDecisions: 1,
 
-    plannerDecisionCount:
-      1,
+  plannerDecisionCount: 1,
 
-    executedInvestigationActionCount:
-      0,
+  executedInvestigationActionCount: 0,
 
-    stopReason:
-      'planner-stop',
+  stopReason: 'planner-stop',
 
-    steps: [
-      {
-        step:
-          1,
+  steps: [
+    {
+      step: 1,
 
-        observationBefore:
-          buildPageContent(
-            'Ecuador'
-          ),
+      observationBefore: buildPageContent('Ecuador'),
 
-        decision: {
-          hypothesis:
-            'No further useful action is available.',
+      decision: {
+        hypothesis: 'No further useful action is available.',
 
-          reasoning:
-            'Stop without investigating the candidate.',
+        reasoning: 'Stop without investigating the candidate.',
 
-          action: {
-            kind:
-              'stop',
+        action: {
+          kind: 'stop',
 
-            reason:
-              'No useful safe action selected.'
-          },
-
-          expectedObservation:
-            'No browser interaction will occur.'
+          reason: 'No useful safe action selected.'
         },
 
-        executionResult: {
-          kind:
-            'stop',
+        expectedObservation: 'No browser interaction will occur.'
+      },
 
-          status:
-            'stopped',
+      executionResult: {
+        kind: 'stop',
 
-          detail:
-            'No useful safe action selected.'
-        },
+        status: 'stopped',
 
-        observationAfter:
-          buildPageContent(
-            'Ecuador'
-          )
-      }
-    ]
-  };
+        detail: 'No useful safe action selected.'
+      },
 
-const unrelatedOutcome =
-  evaluateFindingInvestigationOutcome(
-    candidate,
-    unrelatedInvestigation
-  );
+      observationAfter: buildPageContent('Ecuador')
+    }
+  ]
+};
 
-assert.equal(
-  unrelatedOutcome.status,
-  'inconclusive'
-);
+const unrelatedOutcome = evaluateFindingInvestigationOutcome(candidate, unrelatedInvestigation);
 
-console.log(
-  'Unrelated-investigation safety check passed.'
-);
+assert.equal(unrelatedOutcome.status, 'inconclusive');
 
-console.log(
-  '\nAll finding investigation outcome checks passed.'
-);
+console.log('Unrelated-investigation safety check passed.');
+
+console.log('\nAll finding investigation outcome checks passed.');

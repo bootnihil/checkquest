@@ -1,64 +1,34 @@
 import { GoogleGenAI } from '@google/genai';
 import { z } from 'zod';
 
-import {
-  parseModelJsonResponse
-} from '../ai/parse-model-json-response';
-import {
-  requireGeminiApiKey
-} from '../ai/resolve-gemini-api-key';
-import {
-  runGeminiRequest
-} from '../ai/run-gemini-request';
-import type {
-  GeminiOperationOptions
-} from '../ai/gemini-operation-options';
+import { parseModelJsonResponse } from '../ai/parse-model-json-response';
+import { requireGeminiApiKey } from '../ai/resolve-gemini-api-key';
+import { runGeminiRequest } from '../ai/run-gemini-request';
+import type { GeminiOperationOptions } from '../ai/gemini-operation-options';
 
-import type {
-  PredictedPageIdentity
-} from '../exploration/page-novelty';
+import type { PredictedPageIdentity } from '../exploration/page-novelty';
 
 import type {
   NavigationBudgetContext,
   NavigationPolicyCandidate
 } from '../exploration/navigation-policy';
 
-import type {
-  NavigationLink
-} from '../browser/inspect-navigation';
+import type { NavigationLink } from '../browser/inspect-navigation';
 
-import {
-  aiConfig
-} from '../config/ai-config';
-import {
-  CheckQuestError
-} from '../errors/checkquest-error';
+import { aiConfig } from '../config/ai-config';
+import { CheckQuestError } from '../errors/checkquest-error';
 
-import type {
-  SiteConfig
-} from '../config/site-config';
+import type { SiteConfig } from '../config/site-config';
 
-const chooseLinkArguments =
-  z.object({
-    linkIndex:
-      z
-        .number()
-        .int()
-        .nonnegative(),
+const chooseLinkArguments = z.object({
+  linkIndex: z.number().int().nonnegative(),
 
-    reason:
-      z
-        .string()
-        .min(1)
-  });
+  reason: z.string().min(1)
+});
 
-const finishArguments =
-  z.object({
-    summary:
-      z
-        .string()
-        .min(1)
-  });
+const finishArguments = z.object({
+  summary: z.string().min(1)
+});
 
 export interface NavigationChoice {
   type: 'link';
@@ -73,27 +43,19 @@ export interface FinishChoice {
   summary: string;
 }
 
-export type NavigationDecision =
-  | NavigationChoice
-  | FinishChoice;
+export type NavigationDecision = NavigationChoice | FinishChoice;
 
 export async function chooseNavigationLink(
   site: SiteConfig,
   candidates: NavigationPolicyCandidate[],
   budget: NavigationBudgetContext,
-  requestDependencies:
-    GeminiOperationOptions = {}
+  requestDependencies: GeminiOperationOptions = {}
 ): Promise<NavigationDecision> {
-  if (
-    candidates.length ===
-    0
-  ) {
+  if (candidates.length === 0) {
     return {
-      type:
-        'finish',
+      type: 'finish',
 
-      summary:
-        'No safe navigation links were available.'
+      summary: 'No safe navigation links were available.'
     };
   }
 
@@ -102,176 +64,115 @@ export async function chooseNavigationLink(
    * widening "function" into the generic string type.
    */
   const chooseLinkTool = {
-    type:
-      'function' as const,
+    type: 'function' as const,
 
-    name:
-      'choose_navigation_link',
+    name: 'choose_navigation_link',
 
     description:
       'Choose one safe navigation link from the supplied numbered list for the next QA inspection.',
 
     parameters: {
-      type:
-        'object',
+      type: 'object',
 
       properties: {
         linkIndex: {
-          type:
-            'integer',
+          type: 'integer',
 
-          minimum:
-            0,
+          minimum: 0,
 
-          maximum:
-            candidates.length - 1,
+          maximum: candidates.length - 1,
 
-          description:
-            'The zero-based list position of the navigation link to inspect.'
+          description: 'The zero-based list position of the navigation link to inspect.'
         },
 
         reason: {
-          type:
-            'string',
+          type: 'string',
 
-          description:
-            'Why this link is a useful and safe next QA target.'
+          description: 'Why this link is a useful and safe next QA target.'
         }
       },
 
-      required: [
-        'linkIndex',
-        'reason'
-      ]
+      required: ['linkIndex', 'reason']
     }
   };
 
   const finishTool = {
-    type:
-      'function' as const,
+    type: 'function' as const,
 
-    name:
-      'finish',
+    name: 'finish',
 
-    description:
-      'Choose this when none of the available navigation links should be inspected.',
+    description: 'Choose this when none of the available navigation links should be inspected.',
 
     parameters: {
-      type:
-        'object',
+      type: 'object',
 
       properties: {
         summary: {
-          type:
-            'string',
+          type: 'string',
 
-          description:
-            'A short explanation of why no navigation link should be selected.'
+          description: 'A short explanation of why no navigation link should be selected.'
         }
       },
 
-      required: [
-        'summary'
-      ]
+      required: ['summary']
     }
   };
 
-  const numberedLinks =
-    candidates.map(
-      (
-        candidate,
-        index
-      ) => ({
-        index,
+  const numberedLinks = candidates.map((candidate, index) => ({
+    index,
 
-        text:
-          candidate.link.text,
+    text: candidate.link.text,
 
-        url:
-          candidate.link.url,
+    url: candidate.link.url,
 
-        areaKey:
-          candidate
-            .predictedIdentity
-            .areaKey,
+    areaKey: candidate.predictedIdentity.areaKey,
 
-        routeFamilyKey:
-          candidate
-            .predictedIdentity
-            .routeFamilyKey,
+    routeFamilyKey: candidate.predictedIdentity.routeFamilyKey,
 
-        novelty:
-          candidate.noveltyTier,
+    novelty: candidate.noveltyTier,
 
-        traversalDepth:
-          candidate
-            .minimumDiscoveryDepth,
+    traversalDepth: candidate.minimumDiscoveryDepth,
 
-        firstDiscoveredFromUrl:
-          candidate
-            .firstDiscoveredFromUrl,
+    firstDiscoveredFromUrl: candidate.firstDiscoveredFromUrl,
 
-        minimumDepthDiscoveredFromUrl:
-          candidate
-            .minimumDepthDiscoveredFromUrl,
+    minimumDepthDiscoveredFromUrl: candidate.minimumDepthDiscoveredFromUrl,
 
-        policyBand:
-          candidate.policyBand,
+    policyBand: candidate.policyBand,
 
-        valueClass:
-          candidate.valueClass,
+    valueClass: candidate.valueClass,
 
-        valueReasons:
-          candidate.valueReasons,
+    valueReasons: candidate.valueReasons,
 
-        policyReason:
-          candidate.policyReason,
+    policyReason: candidate.policyReason,
 
-        previousAreaVisits:
-          candidate.areaVisitCount,
+    previousAreaVisits: candidate.areaVisitCount,
 
-        previousRouteFamilyVisits:
-          candidate
-            .routeFamilyVisitCount,
+    previousRouteFamilyVisits: candidate.routeFamilyVisitCount,
 
-        previousObservedTemplateVisits:
-          candidate
-            .observedTemplateVisitCount
-      })
-    );
+    previousObservedTemplateVisits: candidate.observedTemplateVisitCount
+  }));
 
-  const ai =
-    new GoogleGenAI({
-      apiKey:
-        requireGeminiApiKey(
-          requestDependencies
-            .geminiApiKey
-        )
-    });
+  const ai = new GoogleGenAI({
+    apiKey: requireGeminiApiKey(requestDependencies.geminiApiKey)
+  });
 
-  const interaction =
-    await runGeminiRequest(
-      'choosing a safe navigation target',
+  const interaction = await runGeminiRequest(
+    'choosing a safe navigation target',
 
-      requestOptions =>
-        ai.interactions.create(
-          {
-            model:
-              requestDependencies
-                .model ??
-              aiConfig.model,
+    requestOptions =>
+      ai.interactions.create(
+        {
+          model: requestDependencies.model ?? aiConfig.model,
 
-            /*
-             * Explicitly choose the non-streaming overload so the
-             * returned object is a completed interaction with steps.
-             */
-            stream:
-              false,
+          /*
+           * Explicitly choose the non-streaming overload so the
+           * returned object is a completed interaction with steps.
+           */
+          stream: false,
 
-            store:
-              false,
+          store: false,
 
-            input: `
+          input: `
 You are a cautious QA agent testing the public website "${site.name}".
 
 Mission:
@@ -293,147 +194,89 @@ Remaining page slots: ${budget.remainingPageSlots}
 Remaining navigation-decision slots: ${budget.remainingNavigationDecisionSlots}
 
 Safe navigation links:
-${JSON.stringify(
-  numberedLinks,
-  null,
-  2
-)}
+${JSON.stringify(numberedLinks, null, 2)}
 `,
 
-            tools: [
-              chooseLinkTool,
-              finishTool
-            ],
+          tools: [chooseLinkTool, finishTool],
 
-            generation_config: {
-              tool_choice:
-                'any',
+          generation_config: {
+            tool_choice: 'any',
 
-              thinking_level:
-                'low'
-            }
-          },
-
-          {
-            timeout_ms:
-              requestOptions
-                .timeout_ms,
-            retries:
-              requestOptions
-                .retries,
-            signal:
-              requestOptions
-                .abortSignal
+            thinking_level: 'low'
           }
-        ),
-      {
-        onEvent:
-          requestDependencies
-            .onEvent,
-        signal:
-          requestDependencies
-            .signal
-      }
-    );
+        },
 
-  const functionCalls =
-    (
-      interaction.steps ??
-      []
-    ).filter(
-      step =>
-        step.type ===
-        'function_call'
-    );
+        {
+          timeout_ms: requestOptions.timeout_ms,
+          retries: requestOptions.retries,
+          signal: requestOptions.abortSignal
+        }
+      ),
+    {
+      onEvent: requestDependencies.onEvent,
+      signal: requestDependencies.signal
+    }
+  );
 
-  if (
-    functionCalls.length !==
-    1
-  ) {
+  const functionCalls = (interaction.steps ?? []).filter(step => step.type === 'function_call');
+
+  if (functionCalls.length !== 1) {
     throw new CheckQuestError(
       'MODEL_RESPONSE',
       'Gemini returned an unsupported navigation decision shape.',
       {
-        phase:
-          'navigation-choice-response',
-        retryable:
-          false
+        phase: 'navigation-choice-response',
+        retryable: false
       }
     );
   }
 
-  const decision =
-    functionCalls[0];
+  const decision = functionCalls[0];
 
-  if (
-    decision.name ===
-    'choose_navigation_link'
-  ) {
-    const argumentsResult =
-      parseModelJsonResponse(
-        JSON.stringify(
-          decision.arguments
-        ),
-        'navigation-choice-arguments',
-        chooseLinkArguments
-      );
+  if (decision.name === 'choose_navigation_link') {
+    const argumentsResult = parseModelJsonResponse(
+      JSON.stringify(decision.arguments),
+      'navigation-choice-arguments',
+      chooseLinkArguments
+    );
 
-    const selectedLink =
-      candidates[
-        argumentsResult.linkIndex
-      ];
+    const selectedLink = candidates[argumentsResult.linkIndex];
 
     if (!selectedLink) {
       throw new CheckQuestError(
         'MODEL_RESPONSE',
         'Gemini selected a navigation link outside the supplied candidate list.',
         {
-          phase:
-            'navigation-choice-response',
-          retryable:
-            false
+          phase: 'navigation-choice-response',
+          retryable: false
         }
       );
     }
 
     return {
-      type:
-        'link',
+      type: 'link',
 
-      link:
-        selectedLink.link,
+      link: selectedLink.link,
 
-      predictedIdentity:
-        selectedLink
-          .predictedIdentity,
+      predictedIdentity: selectedLink.predictedIdentity,
 
-      policyCandidate:
-        selectedLink,
+      policyCandidate: selectedLink,
 
-      reason:
-        argumentsResult.reason
+      reason: argumentsResult.reason
     };
   }
 
-  if (
-    decision.name ===
-    'finish'
-  ) {
-    const argumentsResult =
-      parseModelJsonResponse(
-        JSON.stringify(
-          decision.arguments
-        ),
-        'navigation-finish-arguments',
-        finishArguments
-      );
+  if (decision.name === 'finish') {
+    const argumentsResult = parseModelJsonResponse(
+      JSON.stringify(decision.arguments),
+      'navigation-finish-arguments',
+      finishArguments
+    );
 
     return {
-      type:
-        'finish',
+      type: 'finish',
 
-      summary:
-        argumentsResult.summary
+      summary: argumentsResult.summary
     };
   }
 
@@ -441,10 +284,8 @@ ${JSON.stringify(
     'MODEL_RESPONSE',
     'Gemini returned an unsupported navigation function.',
     {
-      phase:
-        'navigation-choice-response',
-      retryable:
-        false
+      phase: 'navigation-choice-response',
+      retryable: false
     }
   );
 }

@@ -1,40 +1,17 @@
 import assert from 'node:assert/strict';
-import {
-  createServer,
-  type Server
-} from 'node:http';
+import { createServer, type Server } from 'node:http';
 
-import {
-  chromium
-} from '@playwright/test';
+import { chromium } from '@playwright/test';
 
-import {
-  listenOnBrowserSafeLoopbackPort
-} from './testing/listen-on-browser-safe-loopback-port';
+import { listenOnBrowserSafeLoopbackPort } from './testing/listen-on-browser-safe-loopback-port';
 
-import type {
-  ExploratoryQaFinding
-} from './analysis/exploratory-qa-schema';
-import {
-  preparePageForGuardedInteractions
-} from './browser/guarded-interaction-safety-boundary';
-import {
-  extractPageContent,
-  type PageTabControl
-} from './browser/extract-page-content';
-import {
-  evaluateFindingInvestigationOutcome
-} from './investigation/evaluate-finding-investigation-outcome';
-import {
-  assignPageCandidateReferences,
-  type PageCandidate
-} from './investigation/page-candidates';
-import {
-  runExploratoryLoop
-} from './planning/run-exploratory-loop';
-import type {
-  PlannerDecision
-} from './planning/planner-decision-schema';
+import type { ExploratoryQaFinding } from './analysis/exploratory-qa-schema';
+import { preparePageForGuardedInteractions } from './browser/guarded-interaction-safety-boundary';
+import { extractPageContent, type PageTabControl } from './browser/extract-page-content';
+import { evaluateFindingInvestigationOutcome } from './investigation/evaluate-finding-investigation-outcome';
+import { assignPageCandidateReferences, type PageCandidate } from './investigation/page-candidates';
+import { runExploratoryLoop } from './planning/run-exploratory-loop';
+import type { PlannerDecision } from './planning/planner-decision-schema';
 
 const fixtureHtml = `
   <!doctype html>
@@ -131,118 +108,65 @@ interface FixtureServer {
   getRequestCount: () => number;
 }
 
-async function startFixtureServer():
-  Promise<FixtureServer> {
+async function startFixtureServer(): Promise<FixtureServer> {
   let requestCount = 0;
-  const server =
-    createServer(
-      (
-        request,
-        response
-      ) => {
-        requestCount += 1;
+  const server = createServer((request, response) => {
+    requestCount += 1;
 
-        if (
-          request.method === 'GET' &&
-          request.url === '/'
-        ) {
-          response.writeHead(
-            200,
-            {
-              'content-type':
-                'text/html; charset=utf-8',
-              'cache-control':
-                'no-store'
-            }
-          );
-          response.end(
-            fixtureHtml
-          );
-          return;
-        }
+    if (request.method === 'GET' && request.url === '/') {
+      response.writeHead(200, {
+        'content-type': 'text/html; charset=utf-8',
+        'cache-control': 'no-store'
+      });
+      response.end(fixtureHtml);
+      return;
+    }
 
-        response.writeHead(404);
-        response.end(
-          'Not found'
-        );
-      }
-    );
+    response.writeHead(404);
+    response.end('Not found');
+  });
 
-  const port =
-    await listenOnBrowserSafeLoopbackPort(
-      server,
-      'Stage 4B acceptance fixture'
-    );
+  const port = await listenOnBrowserSafeLoopbackPort(server, 'Stage 4B acceptance fixture');
 
   return {
     server,
-    url:
-      `http://127.0.0.1:${port}/`,
-    getRequestCount: () =>
-      requestCount
+    url: `http://127.0.0.1:${port}/`,
+    getRequestCount: () => requestCount
   };
 }
 
-async function closeFixtureServer(
-  server: Server
-): Promise<void> {
-  await new Promise<void>(
-    (
-      resolve,
-      reject
-    ) => {
-      server.close(error => {
-        if (error === undefined) {
-          resolve();
-        } else {
-          reject(error);
-        }
-      });
-    }
-  );
+async function closeFixtureServer(server: Server): Promise<void> {
+  await new Promise<void>((resolve, reject) => {
+    server.close(error => {
+      if (error === undefined) {
+        resolve();
+      } else {
+        reject(error);
+      }
+    });
+  });
 }
 
-function selectEligibleInactiveTab(
-  tabs:
-    PageTabControl[]
-): PageTabControl {
-  const selected =
-    tabs.find(
-      tab =>
-        tab
-          .eligibleForTabAction &&
-        tab.ariaSelected ===
-          'false'
-    );
+function selectEligibleInactiveTab(tabs: PageTabControl[]): PageTabControl {
+  const selected = tabs.find(tab => tab.eligibleForTabAction && tab.ariaSelected === 'false');
 
   if (
     selected === undefined ||
     selected.controlId === null ||
-    selected.accessibleName ===
-      null ||
+    selected.accessibleName === null ||
     selected.tabListId === null ||
-    selected.ariaControls ===
-      null
+    selected.ariaControls === null
   ) {
     throw new Error(
       `The owned Stage 4B browser fixture did not produce an eligible inactive tab. Extracted tabs: ${JSON.stringify(
         tabs.map(tab => ({
-          controlId:
-            tab.controlId,
-          accessibleName:
-            tab.accessibleName,
-          tabListId:
-            tab.tabListId,
-          controlledPanelId:
-            tab.ariaControls,
-          ariaSelected:
-            tab.ariaSelected,
-          eligible:
-            tab
-              .eligibleForTabAction,
-          rejectionReasons:
-            tab
-              .eligibilityRejectionReasons
+          controlId: tab.controlId,
+          accessibleName: tab.accessibleName,
+          tabListId: tab.tabListId,
+          controlledPanelId: tab.ariaControls,
+          ariaSelected: tab.ariaSelected,
+          eligible: tab.eligibleForTabAction,
+          rejectionReasons: tab.eligibilityRejectionReasons
         })),
         null,
         2
@@ -253,62 +177,36 @@ function selectEligibleInactiveTab(
   return selected;
 }
 
-function createCandidate(
-  selected:
-    PageTabControl
-): PageCandidate {
-  const finding:
-    ExploratoryQaFinding = {
+function createCandidate(selected: PageTabControl): PageCandidate {
+  const finding: ExploratoryQaFinding = {
     category: 'interaction',
     severity: 'low',
     confidence: 'high',
-    title:
-      `Guarded tab transition: ${selected.accessibleName}`,
-    evidence:
-      `Production extraction identified eligible tab "${selected.accessibleName}" controlling "${selected.ariaControls}" in tablist "${selected.tabListId}".`,
+    title: `Guarded tab transition: ${selected.accessibleName}`,
+    evidence: `Production extraction identified eligible tab "${selected.accessibleName}" controlling "${selected.ariaControls}" in tablist "${selected.tabListId}".`,
     reasoning:
       'A reversible selected-tab transition can provide deterministic browser acceptance evidence.',
-    suggestedCheck:
-      'Select the exact tab, verify its panel, and restore the original tab.',
+    suggestedCheck: 'Select the exact tab, verify its panel, and restore the original tab.',
     evidenceTarget: {
       kind: 'tab-state',
-      controlId:
-        selected.controlId!,
-      accessibleName:
-        selected
-          .accessibleName!,
-      tabListId:
-        selected.tabListId!,
-      controlledPanelId:
-        selected.ariaControls!,
+      controlId: selected.controlId!,
+      accessibleName: selected.accessibleName!,
+      tabListId: selected.tabListId!,
+      controlledPanelId: selected.ariaControls!,
       desiredState: 'selected'
     }
   };
 
-  return assignPageCandidateReferences(
-    [
-      finding
-    ]
-  )[0];
+  return assignPageCandidateReferences([finding])[0];
 }
 
-function createDecision(
-  candidate:
-    PageCandidate
-): PlannerDecision {
-  const target =
-    candidate.finding
-      .evidenceTarget;
+function createDecision(candidate: PageCandidate): PlannerDecision {
+  const target = candidate.finding.evidenceTarget;
 
-  assert.ok(
-    target !== null &&
-    target.kind ===
-      'tab-state'
-  );
+  assert.ok(target !== null && target.kind === 'tab-state');
 
   return {
-    candidateReference:
-      candidate.reference,
+    candidateReference: candidate.reference,
     hypothesis:
       'The exact inactive tab should become selected and reveal only its corresponding informational panel.',
     reasoning:
@@ -316,18 +214,12 @@ function createDecision(
     action: {
       kind: 'select-tab',
       target: {
-        controlId:
-          target.controlId,
-        accessibleName:
-          target.accessibleName,
-        tabListId:
-          target.tabListId,
-        controlledPanelId:
-          target
-            .controlledPanelId
+        controlId: target.controlId,
+        accessibleName: target.accessibleName,
+        tabListId: target.tabListId,
+        controlledPanelId: target.controlledPanelId
       },
-      desiredState:
-        target.desiredState
+      desiredState: target.desiredState
     },
     expectedObservation:
       'The target aria-selected and panel visibility should transition, then mandatory rollback should restore the original tab and panels.'
@@ -335,306 +227,120 @@ function createDecision(
 }
 
 async function runTransaction(
-  page:
-    Parameters<
-      typeof runExploratoryLoop
-    >[0],
+  page: Parameters<typeof runExploratoryLoop>[0],
   fixtureUrl: string,
-  candidate:
-    PageCandidate
+  candidate: PageCandidate
 ) {
-  return runExploratoryLoop(
-    page,
-    fixtureUrl,
-    1,
-    [
-      candidate
-    ],
-    {
-      plan: async () =>
-        createDecision(
-          candidate
-        )
-    }
-  );
+  return runExploratoryLoop(page, fixtureUrl, 1, [candidate], {
+    plan: async () => createDecision(candidate)
+  });
 }
 
 function assertSuccessfulTransaction(
-  investigation:
-    Awaited<
-      ReturnType<
-        typeof runExploratoryLoop
-      >
-    >
+  investigation: Awaited<ReturnType<typeof runExploratoryLoop>>
 ) {
-  assert.equal(
-    investigation.steps.length,
-    1
-  );
-  assert.equal(
-    investigation
-      .executedInvestigationActionCount,
-    1
-  );
-  const result =
-    investigation.steps[0]
-      .executionResult;
+  assert.equal(investigation.steps.length, 1);
+  assert.equal(investigation.executedInvestigationActionCount, 1);
+  const result = investigation.steps[0].executionResult;
 
-  assert.equal(
-    result.status,
-    'executed',
-    result.detail
-  );
-  assert.deepEqual(
-    result.safetyEvents,
-    []
-  );
-  assert.equal(
-    result.hardBreach,
-    false
-  );
-  assert.ok(
-    result.tabEvidence
-  );
-  assert.equal(
-    result.tabEvidence
-      .selectedTabTransitionObserved,
-    true
-  );
-  assert.equal(
-    result.tabEvidence
-      .previousTabDeselected,
-    true
-  );
-  assert.equal(
-    result.tabEvidence
-      .targetPanelChangedConsistently,
-    true
-  );
-  assert.equal(
-    result.tabEvidence
-      .previousPanelChangedConsistently,
-    true
-  );
-  assert.equal(
-    result.tabEvidence
-      .rollbackAttempted,
-    true
-  );
-  assert.equal(
-    result.tabEvidence
-      .rollbackSucceeded,
-    true
-  );
-  assert.deepEqual(
-    result.tabEvidence
-      .rollback,
-    result.tabEvidence
-      .before
-  );
+  assert.equal(result.status, 'executed', result.detail);
+  assert.deepEqual(result.safetyEvents, []);
+  assert.equal(result.hardBreach, false);
+  assert.ok(result.tabEvidence);
+  assert.equal(result.tabEvidence.selectedTabTransitionObserved, true);
+  assert.equal(result.tabEvidence.previousTabDeselected, true);
+  assert.equal(result.tabEvidence.targetPanelChangedConsistently, true);
+  assert.equal(result.tabEvidence.previousPanelChangedConsistently, true);
+  assert.equal(result.tabEvidence.rollbackAttempted, true);
+  assert.equal(result.tabEvidence.rollbackSucceeded, true);
+  assert.deepEqual(result.tabEvidence.rollback, result.tabEvidence.before);
 
   return result.tabEvidence;
 }
 
-async function main():
-  Promise<void> {
-  const fixture =
-    await startFixtureServer();
-  const browser =
-    await chromium.launch({
-      headless: true
-    });
+async function main(): Promise<void> {
+  const fixture = await startFixtureServer();
+  const browser = await chromium.launch({
+    headless: true
+  });
 
   try {
-    const context =
-      await browser.newContext({
-        acceptDownloads: true,
-        serviceWorkers: 'block'
-      });
-    const page =
-      await context.newPage();
+    const context = await browser.newContext({
+      acceptDownloads: true,
+      serviceWorkers: 'block'
+    });
+    const page = await context.newPage();
 
     try {
-      await preparePageForGuardedInteractions(
-        page
-      );
-      const response =
-        await page.goto(
-          fixture.url,
-          {
-            waitUntil:
-              'load'
-          }
-        );
+      await preparePageForGuardedInteractions(page);
+      const response = await page.goto(fixture.url, {
+        waitUntil: 'load'
+      });
 
-      assert.equal(
-        response?.status(),
-        200
-      );
+      assert.equal(response?.status(), 200);
 
-      const extracted =
-        await extractPageContent(
-          page
-        );
-      const selected =
-        selectEligibleInactiveTab(
-          extracted.tabs
-        );
-      const candidate =
-        createCandidate(
-          selected
-        );
-      const requestCountBefore =
-        fixture
-          .getRequestCount();
-      const first =
-        await runTransaction(
-          page,
-          fixture.url,
-          candidate
-        );
-      const firstEvidence =
-        assertSuccessfulTransaction(
-          first
-        );
-      const restored =
-        await extractPageContent(
-          page
-        );
-      const restoredTarget =
-        restored.tabs.find(
-          tab =>
-            tab.controlId ===
-            selected.controlId
-        );
-      const restoredOriginal =
-        restored.tabs.find(
-          tab =>
-            tab.controlId ===
-            firstEvidence.before
-              .selectedTab
-              .controlId
-        );
-
-      assert.equal(
-        restoredTarget
-          ?.ariaSelected,
-        'false'
-      );
-      assert.equal(
-        restoredTarget
-          ?.controlledPanelVisible,
-        false
-      );
-      assert.equal(
-        restoredOriginal
-          ?.ariaSelected,
-        'true'
-      );
-      assert.equal(
-        restoredOriginal
-          ?.controlledPanelVisible,
-        true
+      const extracted = await extractPageContent(page);
+      const selected = selectEligibleInactiveTab(extracted.tabs);
+      const candidate = createCandidate(selected);
+      const requestCountBefore = fixture.getRequestCount();
+      const first = await runTransaction(page, fixture.url, candidate);
+      const firstEvidence = assertSuccessfulTransaction(first);
+      const restored = await extractPageContent(page);
+      const restoredTarget = restored.tabs.find(tab => tab.controlId === selected.controlId);
+      const restoredOriginal = restored.tabs.find(
+        tab => tab.controlId === firstEvidence.before.selectedTab.controlId
       );
 
-      const second =
-        await runTransaction(
-          page,
-          fixture.url,
-          candidate
-        );
-      assertSuccessfulTransaction(
-        second
-      );
+      assert.equal(restoredTarget?.ariaSelected, 'false');
+      assert.equal(restoredTarget?.controlledPanelVisible, false);
+      assert.equal(restoredOriginal?.ariaSelected, 'true');
+      assert.equal(restoredOriginal?.controlledPanelVisible, true);
+
+      const second = await runTransaction(page, fixture.url, candidate);
+      assertSuccessfulTransaction(second);
 
       assert.equal(
-        fixture
-          .getRequestCount(),
+        fixture.getRequestCount(),
         requestCountBefore,
         'A guarded tab interaction triggered unexpected fixture-server traffic.'
       );
 
-      const outcome =
-        evaluateFindingInvestigationOutcome(
-          candidate,
-          first
-        );
+      const outcome = evaluateFindingInvestigationOutcome(candidate, first);
 
-      assert.equal(
-        outcome.status,
-        'verified'
-      );
+      assert.equal(outcome.status, 'verified');
 
-      console.log(
-        'Stage 4B real-browser acceptance passed.'
-      );
+      console.log('Stage 4B real-browser acceptance passed.');
       console.log(
         JSON.stringify(
           {
-            fixtureUrl:
-              fixture.url,
-            fixtureRequestCount:
-              fixture
-                .getRequestCount(),
+            fixtureUrl: fixture.url,
+            fixtureRequestCount: fixture.getRequestCount(),
             selectedTab: {
-              controlId:
-                selected.controlId,
-              accessibleName:
-                selected
-                  .accessibleName,
-              tabListId:
-                selected.tabListId,
-              controlledPanelId:
-                selected
-                  .ariaControls,
-              originalSelected:
-                selected
-                  .ariaSelected,
-              originalPanelVisible:
-                selected
-                  .controlledPanelVisible,
-              desiredState:
-                'selected'
+              controlId: selected.controlId,
+              accessibleName: selected.accessibleName,
+              tabListId: selected.tabListId,
+              controlledPanelId: selected.ariaControls,
+              originalSelected: selected.ariaSelected,
+              originalPanelVisible: selected.controlledPanelVisible,
+              desiredState: 'selected'
             },
             firstTransaction: {
-              status:
-                first.steps[0]
-                  .executionResult
-                  .status,
+              status: first.steps[0].executionResult.status,
               safetyEvents:
-                'safetyEvents' in
-                  first.steps[0]
-                    .executionResult
-                  ? first.steps[0]
-                      .executionResult
-                      .safetyEvents
+                'safetyEvents' in first.steps[0].executionResult
+                  ? first.steps[0].executionResult.safetyEvents
                   : undefined,
-              evidence:
-                firstEvidence
+              evidence: firstEvidence
             },
             restoredState: {
-              originalTabId:
-                restoredOriginal
-                  ?.controlId,
-              originalSelected:
-                restoredOriginal
-                  ?.ariaSelected,
-              originalPanelVisible:
-                restoredOriginal
-                  ?.controlledPanelVisible,
-              targetSelected:
-                restoredTarget
-                  ?.ariaSelected,
-              targetPanelVisible:
-                restoredTarget
-                  ?.controlledPanelVisible
+              originalTabId: restoredOriginal?.controlId,
+              originalSelected: restoredOriginal?.ariaSelected,
+              originalPanelVisible: restoredOriginal?.controlledPanelVisible,
+              targetSelected: restoredTarget?.ariaSelected,
+              targetPanelVisible: restoredTarget?.controlledPanelVisible
             },
-            secondTransactionStatus:
-              second.steps[0]
-                .executionResult
-                .status,
-            findingOutcome:
-              outcome
+            secondTransactionStatus: second.steps[0].executionResult.status,
+            findingOutcome: outcome
           },
           null,
           2
@@ -645,16 +351,12 @@ async function main():
     }
   } finally {
     await browser.close();
-    await closeFixtureServer(
-      fixture.server
-    );
+    await closeFixtureServer(fixture.server);
   }
 }
 
 main().catch(error => {
-  console.error(
-    'Stage 4B real-browser acceptance failed.'
-  );
+  console.error('Stage 4B real-browser acceptance failed.');
   console.error(error);
   process.exitCode = 1;
 });

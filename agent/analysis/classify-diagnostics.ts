@@ -3,10 +3,7 @@ import type {
   PageDiagnostics
 } from '../browser/collect-page-diagnostics';
 
-export type DiagnosticDisposition =
-  | 'actionable'
-  | 'ignored-noise'
-  | 'needs-review';
+export type DiagnosticDisposition = 'actionable' | 'ignored-noise' | 'needs-review';
 
 export interface ClassifiedFailedRequest {
   request: FailedRequestObservation;
@@ -19,9 +16,7 @@ export interface ClassifiedDiagnostics {
   failedRequests: ClassifiedFailedRequest[];
 }
 
-function isKnownTelemetryNoise(
-  request: FailedRequestObservation
-): boolean {
+function isKnownTelemetryNoise(request: FailedRequestObservation): boolean {
   const url = request.url.toLowerCase();
 
   return (
@@ -32,40 +27,36 @@ function isKnownTelemetryNoise(
   );
 }
 
-export function classifyDiagnostics(
-  diagnostics: PageDiagnostics
-): ClassifiedDiagnostics {
-  const failedRequests =
-    diagnostics.failedRequests.map((request) => {
-      if (isKnownTelemetryNoise(request)) {
-        return {
-          request,
-          disposition: 'ignored-noise' as const,
-          reason:
-            'Known telemetry, analytics, advertising, or embedded-media tracking request.'
-        };
-      }
-
-      if (
-        request.resourceType === 'document' ||
-        request.resourceType === 'script' ||
-        request.resourceType === 'stylesheet'
-      ) {
-        return {
-          request,
-          disposition: 'actionable' as const,
-          reason:
-            'A failed document, script, or stylesheet request may directly affect page functionality or presentation.'
-        };
-      }
-
+export function classifyDiagnostics(diagnostics: PageDiagnostics): ClassifiedDiagnostics {
+  const failedRequests = diagnostics.failedRequests.map(request => {
+    if (isKnownTelemetryNoise(request)) {
       return {
         request,
-        disposition: 'needs-review' as const,
-        reason:
-          'The request failed but requires additional context before it can be treated as a user-facing issue.'
+        disposition: 'ignored-noise' as const,
+        reason: 'Known telemetry, analytics, advertising, or embedded-media tracking request.'
       };
-    });
+    }
+
+    if (
+      request.resourceType === 'document' ||
+      request.resourceType === 'script' ||
+      request.resourceType === 'stylesheet'
+    ) {
+      return {
+        request,
+        disposition: 'actionable' as const,
+        reason:
+          'A failed document, script, or stylesheet request may directly affect page functionality or presentation.'
+      };
+    }
+
+    return {
+      request,
+      disposition: 'needs-review' as const,
+      reason:
+        'The request failed but requires additional context before it can be treated as a user-facing issue.'
+    };
+  });
 
   return {
     consoleErrors: diagnostics.consoleErrors,

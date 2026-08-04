@@ -1,20 +1,12 @@
 import type { Locator, Page } from '@playwright/test';
 
-import type {
-  AgentAction,
-  FormControlTarget
-} from '../actions/agent-action-schema';
+import type { AgentAction, FormControlTarget } from '../actions/agent-action-schema';
 import {
   executeGuardedDisclosureAction,
   type DisclosureActionEvidence
 } from './execute-guarded-disclosure-action';
-import type {
-  GuardedInteractionSafetyEvent
-} from './guarded-interaction-safety-boundary';
-import {
-  executeGuardedTabAction,
-  type TabActionEvidence
-} from './execute-guarded-tab-action';
+import type { GuardedInteractionSafetyEvent } from './guarded-interaction-safety-boundary';
+import { executeGuardedTabAction, type TabActionEvidence } from './execute-guarded-tab-action';
 
 export interface ExecutedAgentActionResult {
   kind: AgentAction['kind'];
@@ -22,10 +14,8 @@ export interface ExecutedAgentActionResult {
   detail: string;
   safetyEvents?: GuardedInteractionSafetyEvent[];
   hardBreach?: boolean;
-  disclosureEvidence?:
-    DisclosureActionEvidence | null;
-  tabEvidence?:
-    TabActionEvidence | null;
+  disclosureEvidence?: DisclosureActionEvidence | null;
+  tabEvidence?: TabActionEvidence | null;
 }
 
 /**
@@ -40,18 +30,12 @@ export interface ExecutedAgentActionResult {
  *
  * Ambiguous matches are rejected rather than guessed.
  */
-async function resolveFormControl(
-  page: Page,
-  target: FormControlTarget
-): Promise<Locator> {
+async function resolveFormControl(page: Page, target: FormControlTarget): Promise<Locator> {
   if (target.id !== null) {
     const match = await findUniqueControlByAttribute(page, 'id', target.id);
 
     if (match !== null) {
-      await assertFormControlIdentityConsistency(
-        match,
-        target
-      );
+      await assertFormControlIdentityConsistency(match, target);
       return match;
     }
   }
@@ -60,10 +44,7 @@ async function resolveFormControl(
     const match = await findUniqueControlByAttribute(page, 'name', target.name);
 
     if (match !== null) {
-      await assertFormControlIdentityConsistency(
-        match,
-        target
-      );
+      await assertFormControlIdentityConsistency(match, target);
       return match;
     }
   }
@@ -76,10 +57,7 @@ async function resolveFormControl(
 
     if (match !== null) {
       await assertSupportedFormControl(match);
-      await assertFormControlIdentityConsistency(
-        match,
-        target
-      );
+      await assertFormControlIdentityConsistency(match, target);
       return match;
     }
   }
@@ -92,181 +70,86 @@ async function resolveFormControl(
 
     if (match !== null) {
       await assertSupportedFormControl(match);
-      await assertFormControlIdentityConsistency(
-        match,
-        target
-      );
+      await assertFormControlIdentityConsistency(match, target);
       return match;
     }
   }
 
-  throw new Error(
-    `Unable to locate form control. Target: ${JSON.stringify(target)}`
-  );
+  throw new Error(`Unable to locate form control. Target: ${JSON.stringify(target)}`);
 }
 
 async function assertFormControlIdentityConsistency(
   locator: Locator,
   target: FormControlTarget
 ): Promise<void> {
-  const observed =
-    await locator.evaluate(
-      element => {
-        let label:
-          string | null = null;
+  const observed = await locator.evaluate(element => {
+    let label: string | null = null;
 
-        if (
-          (
-            element instanceof
-              HTMLInputElement ||
-            element instanceof
-              HTMLTextAreaElement ||
-            element instanceof
-              HTMLSelectElement
-          ) &&
-          element.labels !== null &&
-          element.labels.length > 0
-        ) {
-          const labelText =
-            Array.from(
-              element.labels
-            )
-              .map(
-                labelElement =>
-                  (
-                    labelElement.innerText ||
-                    labelElement.textContent ||
-                    ''
-                  )
-                    .replace(
-                      /\s+/g,
-                      ' '
-                    )
-                    .trim()
-              )
-              .filter(
-                value =>
-                  value.length > 0
-              )
-              .join(' ')
-              .replace(/\s+/g, ' ')
-              .trim();
+    if (
+      (element instanceof HTMLInputElement ||
+        element instanceof HTMLTextAreaElement ||
+        element instanceof HTMLSelectElement) &&
+      element.labels !== null &&
+      element.labels.length > 0
+    ) {
+      const labelText = Array.from(element.labels)
+        .map(labelElement =>
+          (labelElement.innerText || labelElement.textContent || '').replace(/\s+/g, ' ').trim()
+        )
+        .filter(value => value.length > 0)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
 
-          if (
-            labelText.length > 0
-          ) {
-            label =
-              labelText;
-          }
-        }
-
-        if (label === null) {
-          const ariaLabel =
-            (
-              element.getAttribute(
-                'aria-label'
-              ) ??
-              ''
-            )
-              .replace(/\s+/g, ' ')
-              .trim();
-
-          if (
-            ariaLabel.length > 0
-          ) {
-            label =
-              ariaLabel;
-          }
-        }
-
-        const rawName =
-          (
-            element.getAttribute(
-              'name'
-            ) ??
-            ''
-          )
-            .replace(/\s+/g, ' ')
-            .trim();
-        const rawId =
-          (
-            element.getAttribute(
-              'id'
-            ) ??
-            ''
-          )
-            .replace(/\s+/g, ' ')
-            .trim();
-        const rawPlaceholder =
-          (
-            element.getAttribute(
-              'placeholder'
-            ) ??
-            ''
-          )
-            .replace(/\s+/g, ' ')
-            .trim();
-
-        return {
-          label,
-          name:
-            rawName.length > 0
-              ? rawName
-              : null,
-          id:
-            rawId.length > 0
-              ? rawId
-              : null,
-          placeholder:
-            rawPlaceholder.length >
-            0
-              ? rawPlaceholder
-              : null
-        };
+      if (labelText.length > 0) {
+        label = labelText;
       }
-    );
+    }
 
-  const mismatch =
-    [
-      {
-        field: 'label',
-        expected:
-          target.label,
-        actual:
-          observed.label
-      },
-      {
-        field: 'name',
-        expected:
-          target.name,
-        actual:
-          observed.name
-      },
-      {
-        field: 'id',
-        expected:
-          target.id,
-        actual:
-          observed.id
-      },
-      {
-        field:
-          'placeholder',
-        expected:
-          target.placeholder,
-        actual:
-          observed.placeholder
+    if (label === null) {
+      const ariaLabel = (element.getAttribute('aria-label') ?? '').replace(/\s+/g, ' ').trim();
+
+      if (ariaLabel.length > 0) {
+        label = ariaLabel;
       }
-    ]
-      .filter(
-        item =>
-          item.expected !== null
-      )
-      .find(
-        item =>
-          item.expected !==
-          item.actual
-      );
+    }
+
+    const rawName = (element.getAttribute('name') ?? '').replace(/\s+/g, ' ').trim();
+    const rawId = (element.getAttribute('id') ?? '').replace(/\s+/g, ' ').trim();
+    const rawPlaceholder = (element.getAttribute('placeholder') ?? '').replace(/\s+/g, ' ').trim();
+
+    return {
+      label,
+      name: rawName.length > 0 ? rawName : null,
+      id: rawId.length > 0 ? rawId : null,
+      placeholder: rawPlaceholder.length > 0 ? rawPlaceholder : null
+    };
+  });
+
+  const mismatch = [
+    {
+      field: 'label',
+      expected: target.label,
+      actual: observed.label
+    },
+    {
+      field: 'name',
+      expected: target.name,
+      actual: observed.name
+    },
+    {
+      field: 'id',
+      expected: target.id,
+      actual: observed.id
+    },
+    {
+      field: 'placeholder',
+      expected: target.placeholder,
+      actual: observed.placeholder
+    }
+  ]
+    .filter(item => item.expected !== null)
+    .find(item => item.expected !== item.actual);
 
   if (mismatch !== undefined) {
     throw new Error(
@@ -285,9 +168,7 @@ async function findUniqueControlByAttribute(
   const matchingIndices = await controls.evaluateAll(
     (elements, args) =>
       elements
-        .map((element, index) =>
-          element.getAttribute(args.attribute) === args.value ? index : -1
-        )
+        .map((element, index) => (element.getAttribute(args.attribute) === args.value ? index : -1))
         .filter(index => index >= 0),
     {
       attribute,
@@ -308,10 +189,7 @@ async function findUniqueControlByAttribute(
   return controls.nth(matchingIndices[0]);
 }
 
-async function findUniqueLocator(
-  locator: Locator,
-  description: string
-): Promise<Locator | null> {
+async function findUniqueLocator(locator: Locator, description: string): Promise<Locator | null> {
   const count = await locator.count();
 
   if (count === 0) {
@@ -319,18 +197,14 @@ async function findUniqueLocator(
   }
 
   if (count > 1) {
-    throw new Error(
-      `Ambiguous form-control target: ${count} controls match ${description}.`
-    );
+    throw new Error(`Ambiguous form-control target: ${count} controls match ${description}.`);
   }
 
   return locator;
 }
 
 async function assertSupportedFormControl(locator: Locator): Promise<void> {
-  const tagName = await locator.evaluate(element =>
-    element.tagName.toLowerCase()
-  );
+  const tagName = await locator.evaluate(element => element.tagName.toLowerCase());
 
   if (!['input', 'textarea', 'select'].includes(tagName)) {
     throw new Error(
@@ -342,10 +216,7 @@ async function assertSupportedFormControl(locator: Locator): Promise<void> {
 async function assertTextEntryControl(locator: Locator): Promise<void> {
   const control = await locator.evaluate(element => ({
     tagName: element.tagName.toLowerCase(),
-    type:
-      element instanceof HTMLInputElement
-        ? element.type.toLowerCase()
-        : null
+    type: element instanceof HTMLInputElement ? element.type.toLowerCase() : null
   }));
 
   if (control.tagName === 'textarea') {
@@ -368,20 +239,13 @@ async function assertTextEntryControl(locator: Locator): Promise<void> {
     'number'
   ]);
 
-  if (
-    control.type === null ||
-    !allowedInputTypes.has(control.type)
-  ) {
-    throw new Error(
-      `Input type "${control.type}" is not approved for text-entry actions.`
-    );
+  if (control.type === null || !allowedInputTypes.has(control.type)) {
+    throw new Error(`Input type "${control.type}" is not approved for text-entry actions.`);
   }
 }
 
 async function assertSelectControl(locator: Locator): Promise<void> {
-  const tagName = await locator.evaluate(element =>
-    element.tagName.toLowerCase()
-  );
+  const tagName = await locator.evaluate(element => element.tagName.toLowerCase());
 
   if (tagName !== 'select') {
     throw new Error(
@@ -448,8 +312,7 @@ async function executeSelectOption(
   const optionExists = await control
     .locator('option')
     .evaluateAll(
-      (options, optionText) =>
-        options.some(option => option.textContent?.trim() === optionText),
+      (options, optionText) => options.some(option => option.textContent?.trim() === optionText),
       action.optionText
     );
 
@@ -478,10 +341,7 @@ async function executeScroll(
 
   await page.evaluate(
     ({ multiplier, viewportCount }) => {
-      window.scrollBy(
-        0,
-        window.innerHeight * viewportCount * multiplier
-      );
+      window.scrollBy(0, window.innerHeight * viewportCount * multiplier);
     },
     {
       multiplier,
@@ -521,48 +381,28 @@ export async function executeAgentAction(
       return executeSelectOption(page, action);
 
     case 'set-disclosure-state': {
-      const result =
-        await executeGuardedDisclosureAction(
-          page,
-          action
-        );
+      const result = await executeGuardedDisclosureAction(page, action);
 
       return {
-        kind:
-          action.kind,
-        status:
-          result.status,
-        detail:
-          result.detail,
-        safetyEvents:
-          result.safetyEvents,
-        hardBreach:
-          result.hardBreach,
-        disclosureEvidence:
-          result.evidence
+        kind: action.kind,
+        status: result.status,
+        detail: result.detail,
+        safetyEvents: result.safetyEvents,
+        hardBreach: result.hardBreach,
+        disclosureEvidence: result.evidence
       };
     }
 
     case 'select-tab': {
-      const result =
-        await executeGuardedTabAction(
-          page,
-          action
-        );
+      const result = await executeGuardedTabAction(page, action);
 
       return {
-        kind:
-          action.kind,
-        status:
-          result.status,
-        detail:
-          result.detail,
-        safetyEvents:
-          result.safetyEvents,
-        hardBreach:
-          result.hardBreach,
-        tabEvidence:
-          result.evidence
+        kind: action.kind,
+        status: result.status,
+        detail: result.detail,
+        safetyEvents: result.safetyEvents,
+        hardBreach: result.hardBreach,
+        tabEvidence: result.evidence
       };
     }
 

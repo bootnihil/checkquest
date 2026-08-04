@@ -38,47 +38,25 @@ const diagnostics: PageDiagnostics = {
   ]
 };
 
-const classified = classifyDiagnostics(
-  diagnostics
-);
+const classified = classifyDiagnostics(diagnostics);
 
-console.log(
-  'Classified diagnostics:'
-);
+console.log('Classified diagnostics:');
 
-console.log(
-  JSON.stringify(
-    classified,
-    null,
-    2
-  )
-);
+console.log(JSON.stringify(classified, null, 2));
 
-const actionableCount =
-  classified.failedRequests.filter(
-    (item) =>
-      item.disposition === 'actionable'
-  ).length;
+const actionableCount = classified.failedRequests.filter(
+  item => item.disposition === 'actionable'
+).length;
 
-const ignoredNoiseCount =
-  classified.failedRequests.filter(
-    (item) =>
-      item.disposition === 'ignored-noise'
-  ).length;
+const ignoredNoiseCount = classified.failedRequests.filter(
+  item => item.disposition === 'ignored-noise'
+).length;
 
-const needsReviewCount =
-  classified.failedRequests.filter(
-    (item) =>
-      item.disposition === 'needs-review'
-  ).length;
+const needsReviewCount = classified.failedRequests.filter(
+  item => item.disposition === 'needs-review'
+).length;
 
 console.log('\nClassification counts:');
-console.log(
-  `Actionable: ${actionableCount}`
-);
-console.log(
-  `Ignored noise: ${ignoredNoiseCount}`
-);
-console.log(
-  `Needs review: ${needsReviewCount}`
-);
+console.log(`Actionable: ${actionableCount}`);
+console.log(`Ignored noise: ${ignoredNoiseCount}`);
+console.log(`Needs review: ${needsReviewCount}`);

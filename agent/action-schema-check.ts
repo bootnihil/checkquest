@@ -17,9 +17,7 @@ function expectInvalid(name: string, input: unknown): void {
   const result = agentActionSchema.safeParse(input);
 
   if (result.success) {
-    throw new Error(
-      `${name}: expected action to be rejected, but validation succeeded.`
-    );
+    throw new Error(`${name}: expected action to be rejected, but validation succeeded.`);
   }
 
   console.log(`✓ REJECTED: ${name}`);
@@ -53,10 +51,8 @@ expectValid('Expand an informational disclosure', {
   kind: 'set-disclosure-state',
   target: {
     controlId: 'faq-control',
-    accessibleName:
-      'What does CheckQuest test?',
-    controlledRegionId:
-      'faq-answer'
+    accessibleName: 'What does CheckQuest test?',
+    controlledRegionId: 'faq-answer'
   },
   desiredState: 'expanded'
 });
@@ -64,17 +60,12 @@ expectValid('Expand an informational disclosure', {
 expectValid('Select an exact conventional tab', {
   kind: 'select-tab',
   target: {
-    controlId:
-      'details-tab',
-    accessibleName:
-      'Details',
-    tabListId:
-      'product-tabs',
-    controlledPanelId:
-      'details-panel'
+    controlId: 'details-tab',
+    accessibleName: 'Details',
+    tabListId: 'product-tabs',
+    controlledPanelId: 'details-panel'
   },
-  desiredState:
-    'selected'
+  desiredState: 'selected'
 });
 
 expectValid('Scroll down two viewports', {
@@ -119,61 +110,43 @@ expectInvalid('Arbitrary CSS selector injected as target', {
 expectInvalid('Disclosure target missing stable identity', {
   kind: 'set-disclosure-state',
   target: {
-    accessibleName:
-      'Question',
-    controlledRegionId:
-      'answer'
+    accessibleName: 'Question',
+    controlledRegionId: 'answer'
   },
-  desiredState:
-    'expanded'
+  desiredState: 'expanded'
 });
 
 expectInvalid('Tab target missing exact tablist identity', {
   kind: 'select-tab',
   target: {
-    controlId:
-      'details-tab',
-    accessibleName:
-      'Details',
-    controlledPanelId:
-      'details-panel'
+    controlId: 'details-tab',
+    accessibleName: 'Details',
+    controlledPanelId: 'details-panel'
   },
-  desiredState:
-    'selected'
+  desiredState: 'selected'
 });
 
 expectInvalid('Tab action cannot request an expanded state', {
   kind: 'select-tab',
   target: {
-    controlId:
-      'details-tab',
-    accessibleName:
-      'Details',
-    tabListId:
-      'product-tabs',
-    controlledPanelId:
-      'details-panel'
+    controlId: 'details-tab',
+    accessibleName: 'Details',
+    tabListId: 'product-tabs',
+    controlledPanelId: 'details-panel'
   },
-  desiredState:
-    'expanded'
+  desiredState: 'expanded'
 });
 
 expectInvalid('Tab action rejects a planner-controlled selector', {
   kind: 'select-tab',
   target: {
-    controlId:
-      'details-tab',
-    accessibleName:
-      'Details',
-    tabListId:
-      'product-tabs',
-    controlledPanelId:
-      'details-panel',
-    selector:
-      '#dangerous-tab'
+    controlId: 'details-tab',
+    accessibleName: 'Details',
+    tabListId: 'product-tabs',
+    controlledPanelId: 'details-panel',
+    selector: '#dangerous-tab'
   },
-  desiredState:
-    'selected'
+  desiredState: 'selected'
 });
 
 console.log('\nAll agent action schema checks passed.');

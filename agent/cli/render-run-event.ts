@@ -1,27 +1,16 @@
-import type {
-  RunEvent
-} from '../run/run-event';
+import type { RunEvent } from '../run/run-event';
 
 /**
  * Human terminal presentation for the reusable run event stream.
  */
-export function renderRunEvent(
-  event:
-    RunEvent
-): void {
-  switch (
-    event.type
-  ) {
+export function renderRunEvent(event: RunEvent): void {
+  switch (event.type) {
     case 'run-started':
-      console.log(
-        `Run ${event.runId} started: ${event.startUrl}`
-      );
+      console.log(`Run ${event.runId} started: ${event.startUrl}`);
       return;
 
     case 'inspection-started':
-      console.log(
-        `Inspecting page ${event.pageNumber}: ${event.url}`
-      );
+      console.log(`Inspecting page ${event.pageNumber}: ${event.url}`);
       return;
 
     case 'inspection-completed':
@@ -37,32 +26,19 @@ export function renderRunEvent(
       return;
 
     case 'navigation-completed':
-      if (
-        event.outcome ===
-        'duplicate-final-url'
-      ) {
-        console.log(
-          `Navigation resolved to an already-inspected page: ${event.finalUrl}`
-        );
+      if (event.outcome === 'duplicate-final-url') {
+        console.log(`Navigation resolved to an already-inspected page: ${event.finalUrl}`);
       }
       return;
 
     case 'model-request-started':
-      console.log(
-        `Model: ${event.operation} (attempt ${event.attempt}/${event.maxAttempts}).`
-      );
+      console.log(`Model: ${event.operation} (attempt ${event.attempt}/${event.maxAttempts}).`);
       return;
 
     case 'model-request-retrying':
       console.warn(
-        `Model request retrying in approximately ${Math.ceil(
-          event.retryDelayMs /
-          1_000
-        )} seconds${
-          event.statusCode ===
-          null
-            ? ''
-            : ` (status ${event.statusCode})`
+        `Model request retrying in approximately ${Math.ceil(event.retryDelayMs / 1_000)} seconds${
+          event.statusCode === null ? '' : ` (status ${event.statusCode})`
         }.`
       );
       return;

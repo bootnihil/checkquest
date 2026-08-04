@@ -1,237 +1,139 @@
 import { GoogleGenAI } from '@google/genai';
-import {
-  resolveGeminiApiKey
-} from './ai/resolve-gemini-api-key';
+import { resolveGeminiApiKey } from './ai/resolve-gemini-api-key';
 
-import {
-  chromium
-} from '@playwright/test';
+import { chromium } from '@playwright/test';
 
-import {
-  z
-} from 'zod';
+import { z } from 'zod';
 
-import {
-  inspectNavigation
-} from './browser/inspect-navigation';
+import { inspectNavigation } from './browser/inspect-navigation';
 
-import {
-  getSiteConfig
-} from './sites';
+import { getSiteConfig } from './sites';
 
-const inspectNavigationArguments =
-  z.object({
-    reason:
-      z
-        .string()
-        .min(1)
-  });
+const inspectNavigationArguments = z.object({
+  reason: z.string().min(1)
+});
 
-const finishArguments =
-  z.object({
-    summary:
-      z
-        .string()
-        .min(1)
-  });
+const finishArguments = z.object({
+  summary: z.string().min(1)
+});
 
 const inspectNavigationTool = {
-  type:
-    'function' as const,
+  type: 'function' as const,
 
-  name:
-    'inspect_navigation',
+  name: 'inspect_navigation',
 
   description:
     'Choose this when the current website should be explored further by inspecting its public navigation links.',
 
   parameters: {
-    type:
-      'object',
+    type: 'object',
 
     properties: {
       reason: {
-        type:
-          'string',
+        type: 'string',
 
-        description:
-          'Why inspecting the navigation is the best next QA action.'
+        description: 'Why inspecting the navigation is the best next QA action.'
       }
     },
 
-    required: [
-      'reason'
-    ]
+    required: ['reason']
   }
 };
 
 const finishTool = {
-  type:
-    'function' as const,
+  type: 'function' as const,
 
-  name:
-    'finish',
+  name: 'finish',
 
   description:
     'Choose this when the available page information is sufficient and no further exploration is needed.',
 
   parameters: {
-    type:
-      'object',
+    type: 'object',
 
     properties: {
       summary: {
-        type:
-          'string',
+        type: 'string',
 
-        description:
-          'A short summary explaining why the run should finish.'
+        description: 'A short summary explaining why the run should finish.'
       }
     },
 
-    required: [
-      'summary'
-    ]
+    required: ['summary']
   }
 };
 
 async function main(): Promise<void> {
-  const siteId =
-    process.argv[2] ??
-    'aidoc';
+  const siteId = process.argv[2] ?? 'aidoc';
 
-  const site =
-    getSiteConfig(
-      siteId
-    );
+  const site = getSiteConfig(siteId);
 
-  const configuredStartUrl =
-    new URL(
-      site.startUrl
-    );
+  const configuredStartUrl = new URL(site.startUrl);
 
-  if (
-    !site.allowedHosts.includes(
-      configuredStartUrl.hostname
-    )
-  ) {
+  if (!site.allowedHosts.includes(configuredStartUrl.hostname)) {
     throw new Error(
       `Configured start host "${configuredStartUrl.hostname}" is not included in the allowedHosts list.`
     );
   }
 
-  console.log(
-    `Selected site: ${site.name}`
-  );
+  console.log(`Selected site: ${site.name}`);
 
-  console.log(
-    `Start URL: ${site.startUrl}`
-  );
+  console.log(`Start URL: ${site.startUrl}`);
 
-  const browser =
-    await chromium.launch({
-      headless:
-        true
-    });
+  const browser = await chromium.launch({
+    headless: true
+  });
 
   try {
-    const page =
-      await browser.newPage();
+    const page = await browser.newPage();
 
-    await page.goto(
-      site.startUrl,
-      {
-        waitUntil:
-          'domcontentloaded'
-      }
-    );
+    await page.goto(site.startUrl, {
+      waitUntil: 'domcontentloaded'
+    });
 
-    const currentHost =
-      new URL(
-        page.url()
-      ).hostname;
+    const currentHost = new URL(page.url()).hostname;
 
-    if (
-      !site.allowedHosts.includes(
-        currentHost
-      )
-    ) {
-      throw new Error(
-        `Browser reached disallowed host "${currentHost}".`
-      );
+    if (!site.allowedHosts.includes(currentHost)) {
+      throw new Error(`Browser reached disallowed host "${currentHost}".`);
     }
 
-    const headings =
-      await page
-        .locator(
-          'h1, h2'
-        )
-        .allTextContents();
+    const headings = await page.locator('h1, h2').allTextContents();
 
     const observations = {
-      siteId:
-        site.id,
+      siteId: site.id,
 
-      siteName:
-        site.name,
+      siteName: site.name,
 
-      title:
-        await page.title(),
+      title: await page.title(),
 
-      url:
-        page.url(),
+      url: page.url(),
 
-      headings:
-        headings
-          .map(
-            heading =>
-              heading.trim()
-          )
-          .filter(
-            heading =>
-              heading.length >
-              0
-          )
-          .slice(
-            0,
-            10
-          )
+      headings: headings
+        .map(heading => heading.trim())
+        .filter(heading => heading.length > 0)
+        .slice(0, 10)
     };
 
-    console.log(
-      '\nPlaywright observations:'
-    );
+    console.log('\nPlaywright observations:');
 
-    console.log(
-      JSON.stringify(
-        observations,
-        null,
-        2
-      )
-    );
+    console.log(JSON.stringify(observations, null, 2));
 
-    const ai =
-      new GoogleGenAI({
-        apiKey:
-          resolveGeminiApiKey()
-      });
+    const ai = new GoogleGenAI({
+      apiKey: resolveGeminiApiKey()
+    });
 
-    const interaction =
-      await ai.interactions.create({
-        model:
-          'gemini-3.5-flash',
+    const interaction = await ai.interactions.create({
+      model: 'gemini-3.5-flash',
 
-        /*
-         * Explicitly request a non-streaming interaction so TypeScript
-         * knows the returned value contains completed interaction steps.
-         */
-        stream:
-          false,
+      /*
+       * Explicitly request a non-streaming interaction so TypeScript
+       * knows the returned value contains completed interaction steps.
+       */
+      stream: false,
 
-        store:
-          false,
+      store: false,
 
-        input: `
+      input: `
 You are a cautious QA agent testing the public website "${site.name}".
 
 Mission:
@@ -245,123 +147,60 @@ Rules:
 - Choose exactly one available function.
 
 Page observations:
-${JSON.stringify(
-  observations,
-  null,
-  2
-)}
+${JSON.stringify(observations, null, 2)}
 `,
 
-        tools: [
-          inspectNavigationTool,
-          finishTool
-        ],
+      tools: [inspectNavigationTool, finishTool],
 
-        generation_config: {
-          tool_choice:
-            'any',
+      generation_config: {
+        tool_choice: 'any',
 
-          thinking_level:
-            'low'
-        }
-      });
+        thinking_level: 'low'
+      }
+    });
 
-    const functionCalls =
-      (
-        interaction.steps ??
-        []
-      ).filter(
-        step =>
-          step.type ===
-          'function_call'
-      );
+    const functionCalls = (interaction.steps ?? []).filter(step => step.type === 'function_call');
 
-    if (
-      functionCalls.length !==
-      1
-    ) {
-      throw new Error(
-        `Expected exactly one agent decision, received ${functionCalls.length}.`
-      );
+    if (functionCalls.length !== 1) {
+      throw new Error(`Expected exactly one agent decision, received ${functionCalls.length}.`);
     }
 
-    const decision =
-      functionCalls[0];
+    const decision = functionCalls[0];
 
-    if (
-      decision.name ===
-      'inspect_navigation'
-    ) {
-      const argumentsResult =
-        inspectNavigationArguments.parse(
-          decision.arguments
-        );
+    if (decision.name === 'inspect_navigation') {
+      const argumentsResult = inspectNavigationArguments.parse(decision.arguments);
 
-      console.log(
-        '\nAgent decision: INSPECT NAVIGATION'
-      );
+      console.log('\nAgent decision: INSPECT NAVIGATION');
 
-      console.log(
-        `Reason: ${argumentsResult.reason}`
-      );
+      console.log(`Reason: ${argumentsResult.reason}`);
 
-      const navigationLinks =
-        await inspectNavigation(
-          page,
-          site.allowedHosts
-        );
+      const navigationLinks = await inspectNavigation(page, site.allowedHosts);
 
-      console.log(
-        `\nAction executed: found ${navigationLinks.length} safe navigation links.`
-      );
+      console.log(`\nAction executed: found ${navigationLinks.length} safe navigation links.`);
 
-      console.log(
-        JSON.stringify(
-          navigationLinks,
-          null,
-          2
-        )
-      );
+      console.log(JSON.stringify(navigationLinks, null, 2));
 
       return;
     }
 
-    if (
-      decision.name ===
-      'finish'
-    ) {
-      const argumentsResult =
-        finishArguments.parse(
-          decision.arguments
-        );
+    if (decision.name === 'finish') {
+      const argumentsResult = finishArguments.parse(decision.arguments);
 
-      console.log(
-        '\nAgent decision: FINISH'
-      );
+      console.log('\nAgent decision: FINISH');
 
-      console.log(
-        `Summary: ${argumentsResult.summary}`
-      );
+      console.log(`Summary: ${argumentsResult.summary}`);
 
       return;
     }
 
-    throw new Error(
-      `Unexpected agent function: ${decision.name}`
-    );
+    throw new Error(`Unexpected agent function: ${decision.name}`);
   } finally {
     await browser.close();
   }
 }
 
-main().catch(
-  (error: unknown) => {
-    console.error(
-      'Agent decision failed:',
-      error
-    );
+main().catch((error: unknown) => {
+  console.error('Agent decision failed:', error);
 
-    process.exitCode =
-      1;
-  }
-);
+  process.exitCode = 1;
+});

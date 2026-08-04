@@ -1,22 +1,12 @@
 import assert from 'node:assert/strict';
-import {
-  createServer
-} from 'node:http';
+import { createServer } from 'node:http';
 
-import {
-  chromium
-} from '@playwright/test';
+import { chromium } from '@playwright/test';
 
-import {
-  listenOnBrowserSafeLoopbackPort
-} from './testing/listen-on-browser-safe-loopback-port';
+import { listenOnBrowserSafeLoopbackPort } from './testing/listen-on-browser-safe-loopback-port';
 
-import {
-  extractPageContent
-} from './browser/extract-page-content';
-import {
-  visitApprovedLink
-} from './browser/visit-approved-link';
+import { extractPageContent } from './browser/extract-page-content';
+import { visitApprovedLink } from './browser/visit-approved-link';
 
 import {
   createPageNoveltyState,
@@ -31,63 +21,32 @@ import {
   recordNavigationResolution
 } from './exploration/visited-links';
 
-async function main():
-  Promise<void> {
-  const server =
-    createServer(
-      (
-        request,
-        response
-      ) => {
-        const requestUrl =
-          new URL(
-            request.url ??
-              '/',
-            'http://127.0.0.1'
-          );
+async function main(): Promise<void> {
+  const server = createServer((request, response) => {
+    const requestUrl = new URL(request.url ?? '/', 'http://127.0.0.1');
 
-        if (
-          requestUrl.pathname ===
-            '/alias-a' ||
-          requestUrl.pathname ===
-            '/alias-b'
-        ) {
-          response.writeHead(
-            302,
-            {
-              location:
-                '/target'
-            }
-          );
-          response.end();
-          return;
-        }
+    if (requestUrl.pathname === '/alias-a' || requestUrl.pathname === '/alias-b') {
+      response.writeHead(302, {
+        location: '/target'
+      });
+      response.end();
+      return;
+    }
 
-        if (
-          requestUrl.pathname ===
-          '/requested-area/alias'
-        ) {
-          response.writeHead(
-            302,
-            {
-              location:
-                '/actual-area/page'
-            }
-          );
-          response.end();
-          return;
-        }
+    if (requestUrl.pathname === '/requested-area/alias') {
+      response.writeHead(302, {
+        location: '/actual-area/page'
+      });
+      response.end();
+      return;
+    }
 
-        response.writeHead(
-          200,
-          {
-            'content-type':
-              'text/html; charset=utf-8'
-          }
-        );
+    response.writeHead(200, {
+      'content-type': 'text/html; charset=utf-8'
+    });
 
-        response.end(
-          `<!doctype html>
+    response.end(
+      `<!doctype html>
 <html>
   <head>
     <title>${requestUrl.pathname}</title>
@@ -101,259 +60,120 @@ async function main():
     </nav>
   </body>
 </html>`
-        );
-      }
     );
+  });
 
-  const port =
-    await listenOnBrowserSafeLoopbackPort(
-      server,
-      'Local navigation fixture'
-    );
+  const port = await listenOnBrowserSafeLoopbackPort(server, 'Local navigation fixture');
 
-  const origin =
-    `http://127.0.0.1:${port}`;
+  const origin = `http://127.0.0.1:${port}`;
 
-  const browser =
-    await chromium.launch({
-      headless:
-        true
-    });
+  const browser = await chromium.launch({
+    headless: true
+  });
 
   try {
-    const page =
-      await browser.newPage();
+    const page = await browser.newPage();
 
-    await page.goto(
-      `${origin}/`,
-      {
-        waitUntil:
-          'domcontentloaded'
-      }
-    );
+    await page.goto(`${origin}/`, {
+      waitUntil: 'domcontentloaded'
+    });
 
-    const urlState =
-      createNavigationUrlState();
+    const urlState = createNavigationUrlState();
 
-    const noveltyState =
-      createPageNoveltyState();
+    const noveltyState = createPageNoveltyState();
 
-    markNavigationUrlAttempted(
-      urlState,
-      `${origin}/`
-    );
+    markNavigationUrlAttempted(urlState, `${origin}/`);
 
-    recordNavigationResolution(
-      urlState,
-      `${origin}/`,
-      page.url()
-    );
+    recordNavigationResolution(urlState, `${origin}/`, page.url());
 
-    markFinalUrlInspected(
-      urlState,
-      page.url()
-    );
+    markFinalUrlInspected(urlState, page.url());
 
     const aliasA = {
-      text:
-        'Alias A',
-      url:
-        `${origin}/alias-a`
+      text: 'Alias A',
+      url: `${origin}/alias-a`
     };
 
-    markNavigationUrlAttempted(
+    markNavigationUrlAttempted(urlState, aliasA.url);
+
+    const firstObservation = await visitApprovedLink(page, aliasA, ['127.0.0.1']);
+
+    const firstResolution = recordNavigationResolution(
       urlState,
-      aliasA.url
-    );
-
-    const firstObservation =
-      await visitApprovedLink(
-        page,
-        aliasA,
-        [
-          '127.0.0.1'
-        ]
-      );
-
-    const firstResolution =
-      recordNavigationResolution(
-        urlState,
-        aliasA.url,
-        firstObservation.finalUrl
-      );
-
-    assert.equal(
-      firstResolution
-        .finalUrlAlreadyInspected,
-      false
-    );
-
-    registerInspectedPageNovelty(
-      noveltyState,
-      predictPageIdentity(
-        firstObservation.finalUrl
-      ),
-      await extractPageContent(
-        page
-      )
-    );
-
-    markFinalUrlInspected(
-      urlState,
+      aliasA.url,
       firstObservation.finalUrl
     );
 
+    assert.equal(firstResolution.finalUrlAlreadyInspected, false);
+
+    registerInspectedPageNovelty(
+      noveltyState,
+      predictPageIdentity(firstObservation.finalUrl),
+      await extractPageContent(page)
+    );
+
+    markFinalUrlInspected(urlState, firstObservation.finalUrl);
+
     const aliasB = {
-      text:
-        'Alias B',
-      url:
-        `${origin}/alias-b`
+      text: 'Alias B',
+      url: `${origin}/alias-b`
     };
 
-    markNavigationUrlAttempted(
+    markNavigationUrlAttempted(urlState, aliasB.url);
+
+    const secondObservation = await visitApprovedLink(page, aliasB, ['127.0.0.1']);
+
+    const secondResolution = recordNavigationResolution(
       urlState,
-      aliasB.url
+      aliasB.url,
+      secondObservation.finalUrl
     );
 
-    const secondObservation =
-      await visitApprovedLink(
-        page,
-        aliasB,
-        [
-          '127.0.0.1'
-        ]
-      );
-
-    const secondResolution =
-      recordNavigationResolution(
-        urlState,
-        aliasB.url,
-        secondObservation.finalUrl
-      );
-
+    assert.equal(secondResolution.finalUrlAlreadyInspected, true);
+    assert.equal(noveltyState.areaVisitCounts.get('target'), 1);
     assert.equal(
-      secondResolution
-        .finalUrlAlreadyInspected,
-      true
-    );
-    assert.equal(
-      noveltyState
-        .areaVisitCounts
-        .get(
-          'target'
-        ),
-      1
-    );
-    assert.equal(
-      Array.from(
-        noveltyState
-          .observedTemplateVisitCounts
-          .values()
-      ).reduce(
-        (
-          total,
-          count
-        ) =>
-          total +
-          count,
+      Array.from(noveltyState.observedTemplateVisitCounts.values()).reduce(
+        (total, count) => total + count,
         0
       ),
       1
     );
 
     const newFinalAlias = {
-      text:
-        'New final alias',
-      url:
-        `${origin}/requested-area/alias`
+      text: 'New final alias',
+      url: `${origin}/requested-area/alias`
     };
 
-    markNavigationUrlAttempted(
+    markNavigationUrlAttempted(urlState, newFinalAlias.url);
+
+    const newFinalObservation = await visitApprovedLink(page, newFinalAlias, ['127.0.0.1']);
+
+    const newFinalResolution = recordNavigationResolution(
       urlState,
-      newFinalAlias.url
+      newFinalAlias.url,
+      newFinalObservation.finalUrl
     );
 
-    const newFinalObservation =
-      await visitApprovedLink(
-        page,
-        newFinalAlias,
-        [
-          '127.0.0.1'
-        ]
-      );
-
-    const newFinalResolution =
-      recordNavigationResolution(
-        urlState,
-        newFinalAlias.url,
-        newFinalObservation
-          .finalUrl
-      );
-
-    assert.equal(
-      newFinalResolution
-        .finalUrlAlreadyInspected,
-      false
-    );
+    assert.equal(newFinalResolution.finalUrlAlreadyInspected, false);
 
     registerInspectedPageNovelty(
       noveltyState,
-      predictPageIdentity(
-        newFinalObservation
-          .finalUrl
-      ),
-      await extractPageContent(
-        page
-      )
+      predictPageIdentity(newFinalObservation.finalUrl),
+      await extractPageContent(page)
     );
 
-    markFinalUrlInspected(
-      urlState,
-      newFinalObservation
-        .finalUrl
-    );
+    markFinalUrlInspected(urlState, newFinalObservation.finalUrl);
 
-    assert.equal(
-      noveltyState
-        .areaVisitCounts
-        .get(
-          'actual-area'
-        ),
-      1
-    );
-    assert.equal(
-      noveltyState
-        .areaVisitCounts
-        .has(
-          'requested-area'
-        ),
-      false
-    );
+    assert.equal(noveltyState.areaVisitCounts.get('actual-area'), 1);
+    assert.equal(noveltyState.areaVisitCounts.has('requested-area'), false);
 
-    console.log(
-      'Stage 6.1 local redirect-alias browser acceptance passed.'
-    );
+    console.log('Stage 6.1 local redirect-alias browser acceptance passed.');
     console.log(
       JSON.stringify(
         {
           origin,
-          aliases:
-            Array.from(
-              urlState
-                .requestedToFinalAliases
-                .entries()
-            ),
-          inspectedFinalUrls:
-            Array.from(
-              urlState
-                .inspectedFinalUrls
-                .values()
-            ),
-          areaVisitCounts:
-            Object.fromEntries(
-              noveltyState
-                .areaVisitCounts
-            )
+          aliases: Array.from(urlState.requestedToFinalAliases.entries()),
+          inspectedFinalUrls: Array.from(urlState.inspectedFinalUrls.values()),
+          areaVisitCounts: Object.fromEntries(noveltyState.areaVisitCounts)
         },
         null,
         2
@@ -362,39 +182,21 @@ async function main():
   } finally {
     await browser.close();
 
-    await new Promise<void>(
-      (
-        resolve,
-        reject
-      ) => {
-        server.close(
-          error => {
-            if (
-              error
-            ) {
-              reject(
-                error
-              );
-              return;
-            }
+    await new Promise<void>((resolve, reject) => {
+      server.close(error => {
+        if (error) {
+          reject(error);
+          return;
+        }
 
-            resolve();
-          }
-        );
-      }
-    );
+        resolve();
+      });
+    });
   }
 }
 
-main().catch(
-  error => {
-    console.error(
-      'Stage 6.1 local redirect-alias browser acceptance failed.'
-    );
-    console.error(
-      error
-    );
-    process.exitCode =
-      1;
-  }
-);
+main().catch(error => {
+  console.error('Stage 6.1 local redirect-alias browser acceptance failed.');
+  console.error(error);
+  process.exitCode = 1;
+});

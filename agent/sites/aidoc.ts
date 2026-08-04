@@ -1,31 +1,19 @@
-import type {
-  SiteConfig
-} from '../config/site-config';
+import type { SiteConfig } from '../config/site-config';
 
 export const aidocSite = {
-  id:
-    'aidoc',
+  id: 'aidoc',
 
-  name:
-    'Aidoc commercial website',
+  name: 'Aidoc commercial website',
 
-  startUrl:
-    'https://www.aidoc.com/',
+  startUrl: 'https://www.aidoc.com/',
 
-  allowedHosts: [
-    'aidoc.com',
-    'www.aidoc.com'
-  ],
+  allowedHosts: ['aidoc.com', 'www.aidoc.com'],
 
-  maxPages:
-    5,
+  maxPages: 5,
 
-  maxAgentSteps:
-    6,
+  maxAgentSteps: 6,
 
-  maxExploratoryStepsPerPage:
-    3,
+  maxExploratoryStepsPerPage: 3,
 
-  allowFormSubmission:
-    false
+  allowFormSubmission: false
 } satisfies SiteConfig;

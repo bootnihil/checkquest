@@ -37,12 +37,8 @@ export interface SiteConfig {
  * magic numbers. Configured sites remain free to define their own budgets.
  */
 export const runtimeSiteDefaults = {
-  maxPages:
-    3,
-  maxAgentSteps:
-    4,
-  maxExploratoryStepsPerPage:
-    3,
-  allowFormSubmission:
-    false
+  maxPages: 3,
+  maxAgentSteps: 4,
+  maxExploratoryStepsPerPage: 3,
+  allowFormSubmission: false
 } as const;

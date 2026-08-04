@@ -1,58 +1,34 @@
 import assert from 'node:assert/strict';
 import { chromium } from '@playwright/test';
 
-import type {
-  ExploratoryQaAnalysis
-} from './analysis/exploratory-qa-schema';
+import type { ExploratoryQaAnalysis } from './analysis/exploratory-qa-schema';
 
-import type {
-  PageFinding
-} from './analysis/evaluate-page';
+import type { PageFinding } from './analysis/evaluate-page';
 
-import {
-  classifyDiagnostics
-} from './analysis/classify-diagnostics';
+import { classifyDiagnostics } from './analysis/classify-diagnostics';
 
-import type {
-  PageDiagnostics
-} from './browser/collect-page-diagnostics';
+import type { PageDiagnostics } from './browser/collect-page-diagnostics';
 
-import {
-  buildSiteWideExploratoryFindings
-} from './reporting/build-site-wide-exploratory-findings';
-import {
-  reconcileFindingObservations
-} from './findings/reconcile-finding-observations';
+import { buildSiteWideExploratoryFindings } from './reporting/build-site-wide-exploratory-findings';
+import { reconcileFindingObservations } from './findings/reconcile-finding-observations';
 
-import type {
-  SiteAgentReport
-} from './reporting/report-types';
+import type { SiteAgentReport } from './reporting/report-types';
 
-import {
-  writeJsonReport
-} from './reporting/write-json-report';
+import { writeJsonReport } from './reporting/write-json-report';
 
-import {
-  writeMarkdownReport
-} from './reporting/write-markdown-report';
+import { writeMarkdownReport } from './reporting/write-markdown-report';
 
-import {
-  createEmptyPassiveSecurityReport
-} from './security/passive-security-registry';
+import { createEmptyPassiveSecurityReport } from './security/passive-security-registry';
 
 async function main(): Promise<void> {
-  const runId =
-    'screenshot-trigger-check';
+  const runId = 'screenshot-trigger-check';
 
-  const browser =
-    await chromium.launch({
-      headless:
-        true
-    });
+  const browser = await chromium.launch({
+    headless: true
+  });
 
   try {
-    const page =
-      await browser.newPage();
+    const page = await browser.newPage();
 
     await page.setContent(`
       <!doctype html>
@@ -73,68 +49,41 @@ async function main(): Promise<void> {
       </html>
     `);
 
-    const diagnostics:
-      PageDiagnostics = {
-        consoleErrors: [],
+    const diagnostics: PageDiagnostics = {
+      consoleErrors: [],
 
-        failedRequests: [
-          {
-            url:
-              'https://example.com/images/suspicious-image.jpg',
+      failedRequests: [
+        {
+          url: 'https://example.com/images/suspicious-image.jpg',
 
-            method:
-              'GET',
+          method: 'GET',
 
-            resourceType:
-              'image',
+          resourceType: 'image',
 
-            failureText:
-              'net::ERR_FAILED'
-          }
-        ]
-      };
+          failureText: 'net::ERR_FAILED'
+        }
+      ]
+    };
 
-    const classifiedDiagnostics =
-      classifyDiagnostics(
-        diagnostics
-      );
+    const classifiedDiagnostics = classifyDiagnostics(diagnostics);
 
-    const actionableRequestCount =
-      classifiedDiagnostics
-        .failedRequests
-        .filter(
-          item =>
-            item.disposition ===
-            'actionable'
-        )
-        .length;
+    const actionableRequestCount = classifiedDiagnostics.failedRequests.filter(
+      item => item.disposition === 'actionable'
+    ).length;
 
-    const needsReviewCount =
-      classifiedDiagnostics
-        .failedRequests
-        .filter(
-          item =>
-            item.disposition ===
-            'needs-review'
-        )
-        .length;
+    const needsReviewCount = classifiedDiagnostics.failedRequests.filter(
+      item => item.disposition === 'needs-review'
+    ).length;
 
-    const ignoredNoiseCount =
-      classifiedDiagnostics
-        .failedRequests
-        .filter(
-          item =>
-            item.disposition ===
-            'ignored-noise'
-        )
-        .length;
+    const ignoredNoiseCount = classifiedDiagnostics.failedRequests.filter(
+      item => item.disposition === 'ignored-noise'
+    ).length;
 
     /*
      * This check is focused specifically on diagnostic-triggered
      * screenshot capture, so no rule-based page findings are needed.
      */
-    const findings:
-      PageFinding[] = [];
+    const findings: PageFinding[] = [];
 
     /*
      * The current report format also expects exploratory QA analysis
@@ -143,25 +92,21 @@ async function main(): Promise<void> {
      * This synthetic check does not call Gemini, so we provide a valid
      * empty analysis result instead.
      */
-    const exploratoryQaAnalysis:
-      ExploratoryQaAnalysis = {
-        findings: [],
+    const exploratoryQaAnalysis: ExploratoryQaAnalysis = {
+      findings: [],
 
-        summary:
-          'No exploratory QA analysis was performed for this synthetic screenshot trigger check.'
-      };
+      summary:
+        'No exploratory QA analysis was performed for this synthetic screenshot trigger check.'
+    };
 
     /*
      * No exploratory candidates exist in this synthetic check,
      * therefore there are no finding investigation outcomes.
      */
-    const exploratoryFindingResults:
-      SiteAgentReport['inspectedPages'][number]['exploratoryFindingResults'] =
-        [];
+    const exploratoryFindingResults: SiteAgentReport['inspectedPages'][number]['exploratoryFindingResults'] =
+      [];
 
-    const screenshotPath:
-      string | null =
-        null;
+    const screenshotPath: string | null = null;
 
     assert.equal(
       screenshotPath,
@@ -176,269 +121,172 @@ async function main(): Promise<void> {
      * This synthetic check has no exploratory findings, so the
      * resulting collection should be empty.
      */
-    const canonicalFindings =
-      reconcileFindingObservations({
-        pageUrl:
-          'https://example.com/review-page',
-        pageTitle:
-          'Review-Worthy Diagnostics Test',
-        ruleFindings:
+    const canonicalFindings = reconcileFindingObservations({
+      pageUrl: 'https://example.com/review-page',
+      pageTitle: 'Review-Worthy Diagnostics Test',
+      ruleFindings: findings,
+      modelFindings: exploratoryQaAnalysis.findings,
+      screenshotReferences: screenshotPath === null ? [] : [screenshotPath]
+    }).findings;
+
+    const siteWideExploratoryFindings = buildSiteWideExploratoryFindings(canonicalFindings, [
+      'https://example.com/review-page'
+    ]);
+
+    const startedAt = new Date();
+
+    const report: SiteAgentReport = {
+      reportSchemaVersion: '3',
+
+      runId,
+
+      startedAt: startedAt.toISOString(),
+
+      finishedAt: new Date().toISOString(),
+
+      site: {
+        id: 'synthetic',
+
+        name: 'Synthetic screenshot trigger test',
+
+        startUrl: 'https://example.com/'
+      },
+
+      homepage: {
+        requestedUrl: 'https://example.com/',
+
+        finalUrl: 'https://example.com/',
+
+        title: 'Synthetic Homepage',
+
+        httpStatus: 200
+      },
+
+      outcome: {
+        type: 'completed',
+
+        summary: 'Completed controlled screenshot trigger integration test.'
+      },
+
+      inspectedPages: [
+        {
+          selection: {
+            type: 'agent-navigation',
+            link: {
+              text: 'Synthetic review page',
+
+              url: 'https://example.com/review-page'
+            },
+
+            reason: 'Controlled integration test page.'
+          },
+
+          observation: {
+            requestedUrl: 'https://example.com/review-page',
+
+            finalUrl: 'https://example.com/review-page',
+
+            title: 'Review-Worthy Diagnostics Test',
+
+            httpStatus: 200,
+
+            headings: ['Review-Worthy Diagnostics Test']
+          },
+
+          pageNovelty: {
+            predictedIdentity: {
+              areaKey: 'review-page',
+
+              routeFamilyKey: '/review-page'
+            },
+
+            observedTemplateKey: 'observed-v1:synthetic-review'
+          },
+
+          diagnostics,
+
+          classifiedDiagnostics,
+
+          screenshotPath,
+
           findings,
-        modelFindings:
-          exploratoryQaAnalysis
-            .findings,
-        screenshotReferences:
-          screenshotPath ===
-            null
-            ? []
-            : [
-                screenshotPath
-              ]
-      }).findings;
 
-    const siteWideExploratoryFindings =
-      buildSiteWideExploratoryFindings(
-        canonicalFindings,
-        [
-          'https://example.com/review-page'
-        ]
-      );
+          exploratoryQaAnalysis,
 
-    const startedAt =
-      new Date();
+          exploratoryInvestigation: null,
 
-    const report:
-      SiteAgentReport = {
-        reportSchemaVersion:
-          '3',
+          exploratoryFindingResults,
 
-        runId,
-
-        startedAt:
-          startedAt.toISOString(),
-
-        finishedAt:
-          new Date().toISOString(),
-
-        site: {
-          id:
-            'synthetic',
-
-          name:
-            'Synthetic screenshot trigger test',
-
-          startUrl:
-            'https://example.com/'
-        },
-
-        homepage: {
-          requestedUrl:
-            'https://example.com/',
-
-          finalUrl:
-            'https://example.com/',
-
-          title:
-            'Synthetic Homepage',
-
-          httpStatus:
-            200
-        },
-
-        outcome: {
-          type:
-            'completed',
-
-          summary:
-            'Completed controlled screenshot trigger integration test.'
-        },
-
-        inspectedPages: [
-          {
-            selection: {
-              type:
-                'agent-navigation',
-              link: {
-                text:
-                  'Synthetic review page',
-
-                url:
-                  'https://example.com/review-page'
-              },
-
-              reason:
-                'Controlled integration test page.'
-            },
-
-            observation: {
-              requestedUrl:
-                'https://example.com/review-page',
-
-              finalUrl:
-                'https://example.com/review-page',
-
-              title:
-                'Review-Worthy Diagnostics Test',
-
-              httpStatus:
-                200,
-
-              headings: [
-                'Review-Worthy Diagnostics Test'
-              ]
-            },
-
-            pageNovelty: {
-              predictedIdentity: {
-                areaKey:
-                  'review-page',
-
-                routeFamilyKey:
-                  '/review-page'
-              },
-
-              observedTemplateKey:
-                'observed-v1:synthetic-review'
-            },
-
-            diagnostics,
-
-            classifiedDiagnostics,
-
-            screenshotPath,
-
-            findings,
-
-            exploratoryQaAnalysis,
-
-            exploratoryInvestigation:
-              null,
-
-            exploratoryFindingResults,
-
-            knownFindingOccurrences: []
-          }
-        ],
-
-        findings:
-          canonicalFindings,
-
-        siteWideExploratoryFindings,
-
-        passiveSecurity:
-          createEmptyPassiveSecurityReport(),
-
-        summary: {
-          pagesInspected:
-            1,
-
-          logicalFindingsCount:
-            canonicalFindings.length,
-
-          findingOccurrencesCount:
-            canonicalFindings.reduce(
-              (
-                total,
-                finding
-              ) =>
-                total +
-                finding
-                  .occurrences
-                  .length,
-              0
-            ),
-
-          findingsCount:
-            findings.length,
-
-          highestSeverity:
-            'none',
-
-          exploratoryQaFindingsCount:
-            exploratoryQaAnalysis
-              .findings
-              .length,
-
-          siteWideExploratoryFindingsCount:
-            siteWideExploratoryFindings
-              .length,
-
-          knownFindingOccurrencesCount:
-            0,
-
-          knownFindingsSuppliedToAnalysisCount:
-            0,
-
-          newCandidateFindingsCount:
-            0,
-
-          redundantInvestigationsSkippedCount:
-            0,
-
-          highestExploratoryQaSeverity:
-            'none',
-
-          actionableDiagnosticsCount:
-            actionableRequestCount,
-
-          diagnosticsNeedingReviewCount:
-            needsReviewCount,
-
-          ignoredDiagnosticNoiseCount:
-            ignoredNoiseCount
+          knownFindingOccurrences: []
         }
-      };
+      ],
 
-    const jsonReport =
-      await writeJsonReport(
-        report
-      );
+      findings: canonicalFindings,
 
-    const markdownReport =
-      await writeMarkdownReport(
-        report
-      );
+      siteWideExploratoryFindings,
 
-    console.log(
-      'Integration test complete.'
-    );
+      passiveSecurity: createEmptyPassiveSecurityReport(),
 
-    console.log(
-      `Actionable diagnostics: ${actionableRequestCount}`
-    );
+      summary: {
+        pagesInspected: 1,
 
-    console.log(
-      `Diagnostics needing review: ${needsReviewCount}`
-    );
+        logicalFindingsCount: canonicalFindings.length,
 
-    console.log(
-      `Ignored diagnostic noise: ${ignoredNoiseCount}`
-    );
+        findingOccurrencesCount: canonicalFindings.reduce(
+          (total, finding) => total + finding.occurrences.length,
+          0
+        ),
 
-    console.log(
-      `Screenshot: ${screenshotPath ?? 'not captured'}`
-    );
+        findingsCount: findings.length,
 
-    console.log(
-      `JSON report: ${jsonReport.filePath}`
-    );
+        highestSeverity: 'none',
 
-    console.log(
-      `Markdown report: ${markdownReport.filePath}`
-    );
+        exploratoryQaFindingsCount: exploratoryQaAnalysis.findings.length,
+
+        siteWideExploratoryFindingsCount: siteWideExploratoryFindings.length,
+
+        knownFindingOccurrencesCount: 0,
+
+        knownFindingsSuppliedToAnalysisCount: 0,
+
+        newCandidateFindingsCount: 0,
+
+        redundantInvestigationsSkippedCount: 0,
+
+        highestExploratoryQaSeverity: 'none',
+
+        actionableDiagnosticsCount: actionableRequestCount,
+
+        diagnosticsNeedingReviewCount: needsReviewCount,
+
+        ignoredDiagnosticNoiseCount: ignoredNoiseCount
+      }
+    };
+
+    const jsonReport = await writeJsonReport(report);
+
+    const markdownReport = await writeMarkdownReport(report);
+
+    console.log('Integration test complete.');
+
+    console.log(`Actionable diagnostics: ${actionableRequestCount}`);
+
+    console.log(`Diagnostics needing review: ${needsReviewCount}`);
+
+    console.log(`Ignored diagnostic noise: ${ignoredNoiseCount}`);
+
+    console.log(`Screenshot: ${screenshotPath ?? 'not captured'}`);
+
+    console.log(`JSON report: ${jsonReport.filePath}`);
+
+    console.log(`Markdown report: ${markdownReport.filePath}`);
   } finally {
     await browser.close();
   }
 }
 
-main().catch(
-  (error: unknown) => {
-    console.error(
-      'Screenshot trigger check failed:',
-      error
-    );
+main().catch((error: unknown) => {
+  console.error('Screenshot trigger check failed:', error);
 
-    process.exitCode =
-      1;
-  }
-);
+  process.exitCode = 1;
+});

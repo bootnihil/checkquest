@@ -11,23 +11,15 @@ async function main(): Promise<void> {
 
     const diagnostics = collectPageDiagnostics(page);
 
-    const blockedAssetUrl =
-      'https://example.com/synthetic-failed-image.png';
+    const blockedAssetUrl = 'https://example.com/synthetic-failed-image.png';
 
-    await page.route(
-      blockedAssetUrl,
-      async (route) => {
-        await route.abort('failed');
-      }
-    );
+    await page.route(blockedAssetUrl, async route => {
+      await route.abort('failed');
+    });
 
-    const failedRequestPromise = page.waitForEvent(
-      'requestfailed',
-      {
-        predicate: (request) =>
-          request.url() === blockedAssetUrl
-      }
-    );
+    const failedRequestPromise = page.waitForEvent('requestfailed', {
+      predicate: request => request.url() === blockedAssetUrl
+    });
 
     await page.setContent(`
       <!doctype html>
@@ -48,37 +40,25 @@ async function main(): Promise<void> {
     await failedRequestPromise;
 
     await page.evaluate(() => {
-      console.error(
-        'Synthetic console error for diagnostics testing'
-      );
+      console.error('Synthetic console error for diagnostics testing');
     });
 
     const firstSnapshot = diagnostics.snapshot();
 
     console.log('Collected diagnostics:');
-    console.log(
-      JSON.stringify(firstSnapshot, null, 2)
-    );
+    console.log(JSON.stringify(firstSnapshot, null, 2));
 
     console.log('\nCollected counts:');
-    console.log(
-      `Console errors: ${firstSnapshot.consoleErrors.length}`
-    );
-    console.log(
-      `Failed requests: ${firstSnapshot.failedRequests.length}`
-    );
+    console.log(`Console errors: ${firstSnapshot.consoleErrors.length}`);
+    console.log(`Failed requests: ${firstSnapshot.failedRequests.length}`);
 
     diagnostics.reset();
 
     const resetSnapshot = diagnostics.snapshot();
 
     console.log('\nAfter reset:');
-    console.log(
-      `Console errors: ${resetSnapshot.consoleErrors.length}`
-    );
-    console.log(
-      `Failed requests: ${resetSnapshot.failedRequests.length}`
-    );
+    console.log(`Console errors: ${resetSnapshot.consoleErrors.length}`);
+    console.log(`Failed requests: ${resetSnapshot.failedRequests.length}`);
 
     diagnostics.dispose();
   } finally {
@@ -87,10 +67,7 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  console.error(
-    'Page diagnostics check failed:',
-    error
-  );
+  console.error('Page diagnostics check failed:', error);
 
   process.exitCode = 1;
 });

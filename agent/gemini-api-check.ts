@@ -1,12 +1,9 @@
 import { GoogleGenAI } from '@google/genai';
-import {
-  resolveGeminiApiKey
-} from './ai/resolve-gemini-api-key';
+import { resolveGeminiApiKey } from './ai/resolve-gemini-api-key';
 
 async function main(): Promise<void> {
   const ai = new GoogleGenAI({
-    apiKey:
-      resolveGeminiApiKey()
+    apiKey: resolveGeminiApiKey()
   });
 
   const interaction = await ai.interactions.create({

@@ -1,82 +1,38 @@
-import type {
-  SiteConfig
-} from '../config/site-config';
-import {
-  runtimeSiteDefaults
-} from '../config/site-config';
+import type { SiteConfig } from '../config/site-config';
+import { runtimeSiteDefaults } from '../config/site-config';
 
-import {
-  CheckQuestError
-} from '../errors/checkquest-error';
+import { CheckQuestError } from '../errors/checkquest-error';
 
-import {
-  aidocSite
-} from './aidoc';
+import { aidocSite } from './aidoc';
 
-const sites:
-  Record<
-    string,
-    SiteConfig
-  > = {
-    [aidocSite.id]:
-      aidocSite
-  };
+const sites: Record<string, SiteConfig> = {
+  [aidocSite.id]: aidocSite
+};
 
-function createSiteConfigurationError(
-  message: string,
-  cause?: unknown
-): CheckQuestError {
-  return new CheckQuestError(
-    'CONFIGURATION',
-    message,
-    {
-      phase:
-        'site-configuration-resolution',
-      cause
-    }
-  );
+function createSiteConfigurationError(message: string, cause?: unknown): CheckQuestError {
+  return new CheckQuestError('CONFIGURATION', message, {
+    phase: 'site-configuration-resolution',
+    cause
+  });
 }
 
-function isHttpUrl(
-  value: string
-): boolean {
-  return (
-    value.startsWith(
-      'https://'
-    ) ||
-    value.startsWith(
-      'http://'
-    )
-  );
+function isHttpUrl(value: string): boolean {
+  return value.startsWith('https://') || value.startsWith('http://');
 }
 
-function createRuntimeSiteConfig(
-  rawUrl: string
-): SiteConfig {
-  let parsedUrl:
-    URL;
+function createRuntimeSiteConfig(rawUrl: string): SiteConfig {
+  let parsedUrl: URL;
 
   try {
-    parsedUrl =
-      new URL(
-        rawUrl
-      );
-  } catch (
-    error:
-      unknown
-  ) {
+    parsedUrl = new URL(rawUrl);
+  } catch (error: unknown) {
     throw createSiteConfigurationError(
       'Invalid exploration URL. Supply a complete http:// or https:// URL.',
       error
     );
   }
 
-  if (
-    parsedUrl.protocol !==
-      'https:' &&
-    parsedUrl.protocol !==
-      'http:'
-  ) {
+  if (parsedUrl.protocol !== 'https:' && parsedUrl.protocol !== 'http:') {
     throw createSiteConfigurationError(
       'Unsupported exploration URL protocol. Only HTTP and HTTPS URLs may be explored.'
     );
@@ -97,65 +53,36 @@ function createRuntimeSiteConfig(
    * but does not automatically grant permission to explore unrelated
    * subdomains or external hosts.
    */
-  const allowedHosts = [
-    parsedUrl.hostname
-  ];
+  const allowedHosts = [parsedUrl.hostname];
 
   return {
-    id:
-      `runtime-${parsedUrl.hostname}`,
+    id: `runtime-${parsedUrl.hostname}`,
 
-    name:
-      `Runtime exploration: ${parsedUrl.hostname}`,
+    name: `Runtime exploration: ${parsedUrl.hostname}`,
 
-    startUrl:
-      parsedUrl.toString(),
+    startUrl: parsedUrl.toString(),
 
     allowedHosts,
 
-    maxPages:
-      runtimeSiteDefaults.maxPages,
+    maxPages: runtimeSiteDefaults.maxPages,
 
-    maxAgentSteps:
-      runtimeSiteDefaults.maxAgentSteps,
+    maxAgentSteps: runtimeSiteDefaults.maxAgentSteps,
 
-    maxExploratoryStepsPerPage:
-      runtimeSiteDefaults
-        .maxExploratoryStepsPerPage,
+    maxExploratoryStepsPerPage: runtimeSiteDefaults.maxExploratoryStepsPerPage,
 
-    allowFormSubmission:
-      runtimeSiteDefaults
-        .allowFormSubmission
+    allowFormSubmission: runtimeSiteDefaults.allowFormSubmission
   };
 }
 
-export function getSiteConfig(
-  siteIdOrUrl: string
-): SiteConfig {
-  if (
-    isHttpUrl(
-      siteIdOrUrl
-    )
-  ) {
-    return createRuntimeSiteConfig(
-      siteIdOrUrl
-    );
+export function getSiteConfig(siteIdOrUrl: string): SiteConfig {
+  if (isHttpUrl(siteIdOrUrl)) {
+    return createRuntimeSiteConfig(siteIdOrUrl);
   }
 
-  const site =
-    sites[
-      siteIdOrUrl
-    ];
+  const site = sites[siteIdOrUrl];
 
   if (!site) {
-    const availableSites =
-      Object
-        .keys(
-          sites
-        )
-        .join(
-          ', '
-        );
+    const availableSites = Object.keys(sites).join(', ');
 
     throw createSiteConfigurationError(
       `Unknown site configuration. Use a configured site (${availableSites}) or supply a complete http:// or https:// URL.`

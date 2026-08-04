@@ -120,9 +120,7 @@ export interface ExtractedPageContent {
   tabs: PageTabControl[];
 }
 
-export async function extractPageContent(
-  page: Page
-): Promise<ExtractedPageContent> {
+export async function extractPageContent(page: Page): Promise<ExtractedPageContent> {
   return page.evaluate(() => {
     /*
      * Keep browser-side logic self-contained.
@@ -133,21 +131,13 @@ export async function extractPageContent(
      * browser execution context.
      */
 
-    const title = document.title
-      .replace(/\s+/g, ' ')
-      .trim();
+    const title = document.title.replace(/\s+/g, ' ').trim();
 
-    const headings = Array.from(
-      document.querySelectorAll<HTMLElement>(
-        'h1, h2, h3'
-      )
-    )
+    const headings = Array.from(document.querySelectorAll<HTMLElement>('h1, h2, h3'))
       .filter(element => {
-        const style =
-          window.getComputedStyle(element);
+        const style = window.getComputedStyle(element);
 
-        const rectangle =
-          element.getBoundingClientRect();
+        const rectangle = element.getBoundingClientRect();
 
         return (
           style.display !== 'none' &&
@@ -156,32 +146,16 @@ export async function extractPageContent(
           rectangle.height > 0
         );
       })
-      .map(heading =>
-        heading.innerText
-          .replace(/\s+/g, ' ')
-          .trim()
-      )
+      .map(heading => heading.innerText.replace(/\s+/g, ' ').trim())
       .filter(text => text.length > 0);
 
-    const bodyText =
-      (
-        document.body?.innerText ?? ''
-      )
-        .replace(/\s+/g, ' ')
-        .trim()
-        .slice(0, 15_000);
+    const bodyText = (document.body?.innerText ?? '').replace(/\s+/g, ' ').trim().slice(0, 15_000);
 
-    const links = Array.from(
-      document.querySelectorAll<HTMLAnchorElement>(
-        'a[href]'
-      )
-    )
+    const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href]'))
       .filter(element => {
-        const style =
-          window.getComputedStyle(element);
+        const style = window.getComputedStyle(element);
 
-        const rectangle =
-          element.getBoundingClientRect();
+        const rectangle = element.getBoundingClientRect();
 
         return (
           style.display !== 'none' &&
@@ -191,33 +165,16 @@ export async function extractPageContent(
         );
       })
       .map(link => {
-        const visibleText =
-          link.innerText
-            .replace(/\s+/g, ' ')
-            .trim();
+        const visibleText = link.innerText.replace(/\s+/g, ' ').trim();
 
-        const ariaLabel =
-          (
-            link.getAttribute(
-              'aria-label'
-            ) ?? ''
-          )
-            .replace(/\s+/g, ' ')
-            .trim();
+        const ariaLabel = (link.getAttribute('aria-label') ?? '').replace(/\s+/g, ' ').trim();
 
         return {
-          text:
-            visibleText.length > 0
-              ? visibleText
-              : ariaLabel,
+          text: visibleText.length > 0 ? visibleText : ariaLabel,
           url: link.href
         };
       })
-      .filter(
-        link =>
-          link.text.length > 0 &&
-          link.url.length > 0
-      )
+      .filter(link => link.text.length > 0 && link.url.length > 0)
       .slice(0, 50);
 
     /*
@@ -228,18 +185,14 @@ export async function extractPageContent(
      * permission to click or submit them.
      */
     const buttons = Array.from(
-      document.querySelectorAll<
-        HTMLButtonElement | HTMLInputElement
-      >(
+      document.querySelectorAll<HTMLButtonElement | HTMLInputElement>(
         'button, input[type="submit"], input[type="button"], input[type="reset"]'
       )
     )
       .filter(element => {
-        const style =
-          window.getComputedStyle(element);
+        const style = window.getComputedStyle(element);
 
-        const rectangle =
-          element.getBoundingClientRect();
+        const rectangle = element.getBoundingClientRect();
 
         return (
           style.display !== 'none' &&
@@ -249,46 +202,19 @@ export async function extractPageContent(
         );
       })
       .map(element => {
-        if (
-          element instanceof
-          HTMLInputElement
-        ) {
-          const value =
-            element.value
-              .replace(/\s+/g, ' ')
-              .trim();
+        if (element instanceof HTMLInputElement) {
+          const value = element.value.replace(/\s+/g, ' ').trim();
 
-          const ariaLabel =
-            (
-              element.getAttribute(
-                'aria-label'
-              ) ?? ''
-            )
-              .replace(/\s+/g, ' ')
-              .trim();
+          const ariaLabel = (element.getAttribute('aria-label') ?? '').replace(/\s+/g, ' ').trim();
 
-          return value.length > 0
-            ? value
-            : ariaLabel;
+          return value.length > 0 ? value : ariaLabel;
         }
 
-        const visibleText =
-          element.innerText
-            .replace(/\s+/g, ' ')
-            .trim();
+        const visibleText = element.innerText.replace(/\s+/g, ' ').trim();
 
-        const ariaLabel =
-          (
-            element.getAttribute(
-              'aria-label'
-            ) ?? ''
-          )
-            .replace(/\s+/g, ' ')
-            .trim();
+        const ariaLabel = (element.getAttribute('aria-label') ?? '').replace(/\s+/g, ' ').trim();
 
-        return visibleText.length > 0
-          ? visibleText
-          : ariaLabel;
+        return visibleText.length > 0 ? visibleText : ariaLabel;
       })
       .filter(text => text.length > 0)
       .slice(0, 30);
@@ -304,16 +230,12 @@ export async function extractPageContent(
     ]);
 
     const textFields = Array.from(
-      document.querySelectorAll<
-        HTMLInputElement | HTMLTextAreaElement
-      >('input, textarea')
+      document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea')
     )
       .filter(element => {
-        const style =
-          window.getComputedStyle(element);
+        const style = window.getComputedStyle(element);
 
-        const rectangle =
-          element.getBoundingClientRect();
+        const rectangle = element.getBoundingClientRect();
 
         return (
           style.display !== 'none' &&
@@ -323,40 +245,21 @@ export async function extractPageContent(
         );
       })
       .filter(element => {
-        if (
-          element instanceof
-          HTMLTextAreaElement
-        ) {
+        if (element instanceof HTMLTextAreaElement) {
           return true;
         }
 
-        return approvedInputTypes.has(
-          element.type.toLowerCase()
-        );
+        return approvedInputTypes.has(element.type.toLowerCase());
       })
       .map(element => {
         let label: string | null = null;
 
-        if (
-          element.labels !== null &&
-          element.labels.length > 0
-        ) {
-          const labelText = Array.from(
-            element.labels
-          )
+        if (element.labels !== null && element.labels.length > 0) {
+          const labelText = Array.from(element.labels)
             .map(labelElement =>
-              (
-                labelElement.innerText ||
-                labelElement.textContent ||
-                ''
-              )
-                .replace(/\s+/g, ' ')
-                .trim()
+              (labelElement.innerText || labelElement.textContent || '').replace(/\s+/g, ' ').trim()
             )
-            .filter(
-              value =>
-                value.length > 0
-            )
+            .filter(value => value.length > 0)
             .join(' ')
             .replace(/\s+/g, ' ')
             .trim();
@@ -367,135 +270,63 @@ export async function extractPageContent(
         }
 
         if (label === null) {
-          const ariaLabel =
-            (
-              element.getAttribute(
-                'aria-label'
-              ) ?? ''
-            )
-              .replace(/\s+/g, ' ')
-              .trim();
+          const ariaLabel = (element.getAttribute('aria-label') ?? '').replace(/\s+/g, ' ').trim();
 
           if (ariaLabel.length > 0) {
             label = ariaLabel;
           }
         }
 
-        const name =
-          (
-            element.getAttribute(
-              'name'
-            ) ?? ''
-          )
-            .replace(/\s+/g, ' ')
-            .trim();
+        const name = (element.getAttribute('name') ?? '').replace(/\s+/g, ' ').trim();
 
-        const id =
-          (
-            element.getAttribute(
-              'id'
-            ) ?? ''
-          )
-            .replace(/\s+/g, ' ')
-            .trim();
+        const id = (element.getAttribute('id') ?? '').replace(/\s+/g, ' ').trim();
 
-        const placeholder =
-          (
-            element.getAttribute(
-              'placeholder'
-            ) ?? ''
-          )
-            .replace(/\s+/g, ' ')
-            .trim();
+        const placeholder = (element.getAttribute('placeholder') ?? '').replace(/\s+/g, ' ').trim();
 
-        const validationMessage =
-          element.validationMessage
-            .replace(/\s+/g, ' ')
-            .trim();
+        const validationMessage = element.validationMessage.replace(/\s+/g, ' ').trim();
 
-        const ariaInvalid =
-          (
-            element.getAttribute(
-              'aria-invalid'
-            ) ?? ''
-          )
-            .replace(/\s+/g, ' ')
-            .trim();
+        const ariaInvalid = (element.getAttribute('aria-invalid') ?? '')
+          .replace(/\s+/g, ' ')
+          .trim();
 
         const isPassword =
-          element instanceof
-            HTMLInputElement &&
-          element.type.toLowerCase() ===
-            'password';
+          element instanceof HTMLInputElement && element.type.toLowerCase() === 'password';
 
         return {
           tagName:
-            element instanceof
-            HTMLTextAreaElement
-              ? ('textarea' as const)
-              : ('input' as const),
+            element instanceof HTMLTextAreaElement ? ('textarea' as const) : ('input' as const),
 
           inputType:
-            element instanceof
-            HTMLTextAreaElement
-              ? 'textarea'
-              : element.type.toLowerCase(),
+            element instanceof HTMLTextAreaElement ? 'textarea' : element.type.toLowerCase(),
 
           label,
 
-          name:
-            name.length > 0
-              ? name
-              : null,
+          name: name.length > 0 ? name : null,
 
-          id:
-            id.length > 0
-              ? id
-              : null,
+          id: id.length > 0 ? id : null,
 
-          placeholder:
-            placeholder.length > 0
-              ? placeholder
-              : null,
+          placeholder: placeholder.length > 0 ? placeholder : null,
 
           required: element.required,
           disabled: element.disabled,
           readOnly: element.readOnly,
 
-          value: isPassword
-            ? null
-            : element.value.slice(
-                0,
-                500
-              ),
+          value: isPassword ? null : element.value.slice(0, 500),
 
-          valid:
-            element.validity.valid,
+          valid: element.validity.valid,
 
-          validationMessage:
-            validationMessage.length > 0
-              ? validationMessage
-              : null,
+          validationMessage: validationMessage.length > 0 ? validationMessage : null,
 
-          ariaInvalid:
-            ariaInvalid.length > 0
-              ? ariaInvalid
-              : null
+          ariaInvalid: ariaInvalid.length > 0 ? ariaInvalid : null
         };
       })
       .slice(0, 30);
 
-    const selects = Array.from(
-      document.querySelectorAll<HTMLSelectElement>(
-        'select'
-      )
-    )
+    const selects = Array.from(document.querySelectorAll<HTMLSelectElement>('select'))
       .filter(element => {
-        const style =
-          window.getComputedStyle(element);
+        const style = window.getComputedStyle(element);
 
-        const rectangle =
-          element.getBoundingClientRect();
+        const rectangle = element.getBoundingClientRect();
 
         return (
           style.display !== 'none' &&
@@ -507,26 +338,12 @@ export async function extractPageContent(
       .map(select => {
         let label: string | null = null;
 
-        if (
-          select.labels !== null &&
-          select.labels.length > 0
-        ) {
-          const labelText = Array.from(
-            select.labels
-          )
+        if (select.labels !== null && select.labels.length > 0) {
+          const labelText = Array.from(select.labels)
             .map(labelElement =>
-              (
-                labelElement.innerText ||
-                labelElement.textContent ||
-                ''
-              )
-                .replace(/\s+/g, ' ')
-                .trim()
+              (labelElement.innerText || labelElement.textContent || '').replace(/\s+/g, ' ').trim()
             )
-            .filter(
-              value =>
-                value.length > 0
-            )
+            .filter(value => value.length > 0)
             .join(' ')
             .replace(/\s+/g, ' ')
             .trim();
@@ -537,60 +354,24 @@ export async function extractPageContent(
         }
 
         if (label === null) {
-          const ariaLabel =
-            (
-              select.getAttribute(
-                'aria-label'
-              ) ?? ''
-            )
-              .replace(/\s+/g, ' ')
-              .trim();
+          const ariaLabel = (select.getAttribute('aria-label') ?? '').replace(/\s+/g, ' ').trim();
 
           if (ariaLabel.length > 0) {
             label = ariaLabel;
           }
         }
 
-        const name =
-          (
-            select.getAttribute(
-              'name'
-            ) ?? ''
-          )
-            .replace(/\s+/g, ' ')
-            .trim();
+        const name = (select.getAttribute('name') ?? '').replace(/\s+/g, ' ').trim();
 
-        const id =
-          (
-            select.getAttribute(
-              'id'
-            ) ?? ''
-          )
-            .replace(/\s+/g, ' ')
-            .trim();
+        const id = (select.getAttribute('id') ?? '').replace(/\s+/g, ' ').trim();
 
-        const allOptions =
-          Array.from(
-            select.options
-          )
-            .map(option => ({
-              text:
-                (
-                  option.textContent ??
-                  ''
-                )
-                  .replace(
-                    /\s+/g,
-                    ' '
-                  )
-                  .trim(),
+        const allOptions = Array.from(select.options).map(option => ({
+          text: (option.textContent ?? '').replace(/\s+/g, ' ').trim(),
 
-              value:
-                option.value,
+          value: option.value,
 
-              selected:
-                option.selected
-            }));
+          selected: option.selected
+        }));
 
         /*
          * Keep normal dropdowns complete.
@@ -603,41 +384,22 @@ export async function extractPageContent(
         const options =
           allOptions.length <= 250
             ? allOptions
-            : [
-                ...allOptions.slice(
-                  0,
-                  200
-                ),
-                ...allOptions.slice(
-                  -50
-                )
-              ];
+            : [...allOptions.slice(0, 200), ...allOptions.slice(-50)];
 
         return {
           label,
 
-          name:
-            name.length > 0
-              ? name
-              : null,
+          name: name.length > 0 ? name : null,
 
-          id:
-            id.length > 0
-              ? id
-              : null,
+          id: id.length > 0 ? id : null,
 
-          required:
-            select.required,
+          required: select.required,
 
-          disabled:
-            select.disabled,
+          disabled: select.disabled,
 
-          totalOptions:
-            allOptions.length,
+          totalOptions: allOptions.length,
 
-          optionsTruncated:
-            allOptions.length >
-            options.length,
+          optionsTruncated: allOptions.length > options.length,
 
           options
         };
@@ -645,147 +407,59 @@ export async function extractPageContent(
       .slice(0, 20);
 
     const disclosures = Array.from(
-      document.querySelectorAll<HTMLElement>(
-        '[aria-expanded][aria-controls]'
-      )
+      document.querySelectorAll<HTMLElement>('[aria-expanded][aria-controls]')
     )
       .slice(0, 30)
       .map(element => {
-        const tagName =
-          element.tagName.toLowerCase();
+        const tagName = element.tagName.toLowerCase();
 
         const role =
-          (
-            element.getAttribute('role') ??
-            ''
-          )
-            .replace(/\s+/g, ' ')
-            .trim()
-            .toLowerCase() ||
-          null;
+          (element.getAttribute('role') ?? '').replace(/\s+/g, ' ').trim().toLowerCase() || null;
 
-        const rawButtonType =
-          (
-            element.getAttribute('type') ??
-            ''
-          )
-            .trim()
-            .toLowerCase();
+        const rawButtonType = (element.getAttribute('type') ?? '').trim().toLowerCase();
 
-        const buttonType =
-          rawButtonType.length > 0
-            ? rawButtonType
-            : null;
+        const buttonType = rawButtonType.length > 0 ? rawButtonType : null;
 
-        const controlId =
-          (
-            element.getAttribute('id') ??
-            ''
-          )
-            .replace(/\s+/g, ' ')
-            .trim() ||
-          null;
+        const controlId = (element.getAttribute('id') ?? '').replace(/\s+/g, ' ').trim() || null;
 
-        const ariaLabel =
-          (
-            element.getAttribute(
-              'aria-label'
-            ) ??
-            ''
-          )
-            .replace(/\s+/g, ' ')
-            .trim();
+        const ariaLabel = (element.getAttribute('aria-label') ?? '').replace(/\s+/g, ' ').trim();
 
-        const labelledByIds =
-          (
-            element.getAttribute(
-              'aria-labelledby'
-            ) ??
-            ''
-          )
-            .split(/\s+/)
-            .filter(value => value.length > 0);
+        const labelledByIds = (element.getAttribute('aria-labelledby') ?? '')
+          .split(/\s+/)
+          .filter(value => value.length > 0);
 
-        const labelledByText =
-          labelledByIds
-            .map(id =>
-              (
-                document.getElementById(id)
-                  ?.textContent ??
-                ''
-              )
-                .replace(/\s+/g, ' ')
-                .trim()
-            )
-            .filter(value => value.length > 0)
-            .join(' ')
-            .replace(/\s+/g, ' ')
-            .trim();
+        const labelledByText = labelledByIds
+          .map(id => (document.getElementById(id)?.textContent ?? '').replace(/\s+/g, ' ').trim())
+          .filter(value => value.length > 0)
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim();
 
-        const visibleText =
-          (
-            element.innerText ||
-            element.textContent ||
-            ''
-          )
-            .replace(/\s+/g, ' ')
-            .trim();
+        const visibleText = (element.innerText || element.textContent || '')
+          .replace(/\s+/g, ' ')
+          .trim();
 
         const inputValue =
-          element instanceof
-          HTMLInputElement
-            ? element.value
-                .replace(/\s+/g, ' ')
-                .trim()
-            : '';
+          element instanceof HTMLInputElement ? element.value.replace(/\s+/g, ' ').trim() : '';
 
         const accessibleName =
           ariaLabel ||
           labelledByText ||
           visibleText ||
           inputValue ||
-          (
-            element.getAttribute(
-              'title'
-            ) ??
-            ''
-          )
-            .replace(/\s+/g, ' ')
-            .trim() ||
+          (element.getAttribute('title') ?? '').replace(/\s+/g, ' ').trim() ||
           null;
 
-        const rawExpanded =
-          (
-            element.getAttribute(
-              'aria-expanded'
-            ) ??
-            ''
-          )
-            .trim()
-            .toLowerCase();
+        const rawExpanded = (element.getAttribute('aria-expanded') ?? '').trim().toLowerCase();
 
         const ariaExpanded =
-          rawExpanded === 'true' ||
-          rawExpanded === 'false'
-            ? (
-                rawExpanded as
-                  'true' | 'false'
-              )
+          rawExpanded === 'true' || rawExpanded === 'false'
+            ? (rawExpanded as 'true' | 'false')
             : null;
 
-        const rawControls =
-          (
-            element.getAttribute(
-              'aria-controls'
-            ) ??
-            ''
-          )
-            .trim();
+        const rawControls = (element.getAttribute('aria-controls') ?? '').trim();
 
-        const controlledIds =
-          rawControls
-            .split(/\s+/)
-            .filter(value => value.length > 0);
+        const controlledIds = rawControls.split(/\s+/).filter(value => value.length > 0);
 
         const ariaControls =
           controlledIds.length === 1
@@ -795,33 +469,21 @@ export async function extractPageContent(
               : null;
 
         const controlledRegion =
-          controlledIds.length === 1
-            ? document.getElementById(
-                controlledIds[0]
-              )
-            : null;
+          controlledIds.length === 1 ? document.getElementById(controlledIds[0]) : null;
 
         const controlledRegionVisible =
           controlledRegion === null
             ? null
             : (() => {
-                const style =
-                  window.getComputedStyle(
-                    controlledRegion
-                  );
+                const style = window.getComputedStyle(controlledRegion);
 
-                const rectangle =
-                  controlledRegion
-                    .getBoundingClientRect();
+                const rectangle = controlledRegion.getBoundingClientRect();
 
                 return (
                   !controlledRegion.hidden &&
-                  controlledRegion.getAttribute(
-                    'aria-hidden'
-                  ) !== 'true' &&
+                  controlledRegion.getAttribute('aria-hidden') !== 'true' &&
                   style.display !== 'none' &&
-                  style.visibility !==
-                    'hidden' &&
+                  style.visibility !== 'hidden' &&
                   rectangle.width > 0 &&
                   rectangle.height > 0
                 );
@@ -844,180 +506,86 @@ export async function extractPageContent(
               ) !== null;
 
         const nativeDisabled =
-          (
-            element instanceof
-              HTMLButtonElement ||
-            element instanceof
-              HTMLInputElement
-          )
+          element instanceof HTMLButtonElement || element instanceof HTMLInputElement
             ? element.disabled
             : false;
 
         const ariaDisabled =
-          (
-            element.getAttribute(
-              'aria-disabled'
-            ) ??
-            ''
-          )
-            .trim()
-            .toLowerCase() ===
-          'true';
+          (element.getAttribute('aria-disabled') ?? '').trim().toLowerCase() === 'true';
 
-        const closestLink =
-          element.closest<HTMLAnchorElement>(
-            'a[href]'
-          );
+        const closestLink = element.closest<HTMLAnchorElement>('a[href]');
 
         const href =
-          (
-            element.getAttribute('href') ??
-            closestLink?.getAttribute(
-              'href'
-            ) ??
-            ''
-          )
-            .trim() ||
-          null;
+          (element.getAttribute('href') ?? closestLink?.getAttribute('href') ?? '').trim() || null;
 
         const hasLinkSemantics =
-          tagName === 'a' ||
-          role === 'link' ||
-          href !== null ||
-          closestLink !== null;
+          tagName === 'a' || role === 'link' || href !== null || closestLink !== null;
 
-        const ariaHasPopup =
-          element.hasAttribute(
-            'aria-haspopup'
-          )
-            ? (
-                element.getAttribute(
-                  'aria-haspopup'
-                ) ??
-                ''
-              )
-                .trim()
-            : null;
+        const ariaHasPopup = element.hasAttribute('aria-haspopup')
+          ? (element.getAttribute('aria-haspopup') ?? '').trim()
+          : null;
 
         const formAssociated =
-          (
-            element instanceof
-              HTMLButtonElement ||
-            element instanceof
-              HTMLInputElement
-          )
+          element instanceof HTMLButtonElement || element instanceof HTMLInputElement
             ? element.form !== null
             : false;
 
-        const formAncestor =
-          element.closest('form') !==
-          null;
+        const formAncestor = element.closest('form') !== null;
 
         const hasSubmitOrResetSemantics =
-          (
-            element instanceof
-            HTMLButtonElement
-          )
+          element instanceof HTMLButtonElement
             ? buttonType !== 'button'
-            : (
-                element instanceof
-                HTMLInputElement
-              )
-              ? ![
-                  'button'
-                ].includes(
-                  element.type
-                    .toLowerCase()
-                )
+            : element instanceof HTMLInputElement
+              ? !['button'].includes(element.type.toLowerCase())
               : false;
 
         const isApprovedControl =
-          (
-            element instanceof
-            HTMLButtonElement &&
-            buttonType === 'button'
-          ) ||
-          role === 'button';
+          (element instanceof HTMLButtonElement && buttonType === 'button') || role === 'button';
 
-        const rejectionReasons:
-          string[] = [];
+        const rejectionReasons: string[] = [];
 
         if (ariaExpanded === null) {
-          rejectionReasons.push(
-            'aria-expanded must be explicitly true or false'
-          );
+          rejectionReasons.push('aria-expanded must be explicitly true or false');
         }
 
-        if (
-          controlledIds.length !== 1 ||
-          controlledRegion === null
-        ) {
-          rejectionReasons.push(
-            'aria-controls must identify one existing same-document region'
-          );
+        if (controlledIds.length !== 1 || controlledRegion === null) {
+          rejectionReasons.push('aria-controls must identify one existing same-document region');
         }
 
         if (controlId === null) {
-          rejectionReasons.push(
-            'a stable control id is required'
-          );
+          rejectionReasons.push('a stable control id is required');
         }
 
         if (accessibleName === null) {
-          rejectionReasons.push(
-            'an accessible name is required'
-          );
+          rejectionReasons.push('an accessible name is required');
         }
 
-        if (
-          nativeDisabled ||
-          ariaDisabled
-        ) {
-          rejectionReasons.push(
-            'the disclosure control is disabled'
-          );
+        if (nativeDisabled || ariaDisabled) {
+          rejectionReasons.push('the disclosure control is disabled');
         }
 
         if (hasLinkSemantics) {
-          rejectionReasons.push(
-            'link or href semantics are not permitted'
-          );
+          rejectionReasons.push('link or href semantics are not permitted');
         }
 
         if (ariaHasPopup !== null) {
-          rejectionReasons.push(
-            'aria-haspopup disclosures are not permitted'
-          );
+          rejectionReasons.push('aria-haspopup disclosures are not permitted');
         }
 
-        if (
-          formAssociated ||
-          formAncestor
-        ) {
-          rejectionReasons.push(
-            'form-associated disclosures are not permitted'
-          );
+        if (formAssociated || formAncestor) {
+          rejectionReasons.push('form-associated disclosures are not permitted');
         }
 
         if (hasSubmitOrResetSemantics) {
-          rejectionReasons.push(
-            'submit, reset, or default-submit semantics are not permitted'
-          );
+          rejectionReasons.push('submit, reset, or default-submit semantics are not permitted');
         }
 
         if (!isApprovedControl) {
-          rejectionReasons.push(
-            'only explicit type=button or role=button controls are permitted'
-          );
+          rejectionReasons.push('only explicit type=button or role=button controls are permitted');
         }
 
-        if (
-          controlledRegionHasEditableOrSubmissionControls ===
-          true
-        ) {
-          rejectionReasons.push(
-            'the controlled region contains editable or submission controls'
-          );
+        if (controlledRegionHasEditableOrSubmissionControls === true) {
+          rejectionReasons.push('the controlled region contains editable or submission controls');
         }
 
         return {
@@ -1025,14 +593,11 @@ export async function extractPageContent(
           role,
           buttonType,
           controlId,
-          visibleText:
-            visibleText ||
-            null,
+          visibleText: visibleText || null,
           accessibleName,
           ariaExpanded,
           ariaControls,
-          disabled:
-            nativeDisabled,
+          disabled: nativeDisabled,
           ariaDisabled,
           href,
           hasLinkSemantics,
@@ -1040,566 +605,72 @@ export async function extractPageContent(
           formAssociated,
           formAncestor,
           hasSubmitOrResetSemantics,
-          controlledRegionExists:
-            controlledRegion !== null,
+          controlledRegionExists: controlledRegion !== null,
           controlledRegionVisible,
           controlledRegionHasEditableOrSubmissionControls,
-          eligibleForDisclosureAction:
-            rejectionReasons.length ===
-            0,
-          eligibilityRejectionReasons:
-            rejectionReasons
+          eligibleForDisclosureAction: rejectionReasons.length === 0,
+          eligibilityRejectionReasons: rejectionReasons
         };
       });
 
-    const allTabElements = Array.from(
-      document.querySelectorAll<HTMLElement>(
-        '[role="tab"]'
-      )
-    );
+    const allTabElements = Array.from(document.querySelectorAll<HTMLElement>('[role="tab"]'));
 
-    const tabs = allTabElements
-      .slice(0, 30)
-      .map(element => {
-        const tagName =
-          element.tagName.toLowerCase();
-        const controlId =
-          (
-            element.getAttribute('id') ??
-            ''
-          )
-            .replace(/\s+/g, ' ')
-            .trim() ||
-          null;
-        const ariaLabel =
-          (
-            element.getAttribute(
-              'aria-label'
-            ) ??
-            ''
-          )
-            .replace(/\s+/g, ' ')
-            .trim();
-        const labelledByText =
-          (
-            element.getAttribute(
-              'aria-labelledby'
-            ) ??
-            ''
-          )
-            .split(/\s+/)
-            .filter(value => value.length > 0)
-            .map(id =>
-              (
-                document.getElementById(id)
-                  ?.textContent ??
-                ''
-              )
-                .replace(/\s+/g, ' ')
-                .trim()
-            )
-            .filter(value => value.length > 0)
-            .join(' ')
-            .replace(/\s+/g, ' ')
-            .trim();
-        const visibleText =
-          (
-            element.innerText ||
-            element.textContent ||
-            ''
-          )
-            .replace(/\s+/g, ' ')
-            .trim();
-        const accessibleName =
-          ariaLabel ||
-          labelledByText ||
-          visibleText ||
-          (
-            element.getAttribute(
-              'title'
-            ) ??
-            ''
-          )
-            .replace(/\s+/g, ' ')
-            .trim() ||
-          null;
-        const rawSelected =
-          (
-            element.getAttribute(
-              'aria-selected'
-            ) ??
-            ''
-          )
-            .trim()
-            .toLowerCase();
-        const ariaSelected =
-          rawSelected === 'true' ||
-          rawSelected === 'false'
-            ? (
-                rawSelected as
-                  'true' | 'false'
-              )
-            : null;
-        const rawControls =
-          (
-            element.getAttribute(
-              'aria-controls'
-            ) ??
-            ''
-          )
-            .trim();
-        const controlledIds =
-          rawControls
-            .split(/\s+/)
-            .filter(value => value.length > 0);
-        const ariaControls =
-          controlledIds.length === 1
-            ? controlledIds[0]
-            : rawControls.length > 0
-              ? rawControls
-              : null;
-        const controlledPanel =
-          controlledIds.length === 1
-            ? document.getElementById(
-                controlledIds[0]
-              )
-            : null;
-        const controlledPanelRole =
-          controlledPanel === null
-            ? null
-            : (
-                controlledPanel.getAttribute(
-                  'role'
-                ) ??
-                ''
-              )
-                .trim()
-                .toLowerCase() ||
-              null;
-        const controlledPanelVisible =
-          controlledPanel === null
-            ? null
-            : (() => {
-                const style =
-                  window.getComputedStyle(
-                    controlledPanel
-                  );
-                const rectangle =
-                  controlledPanel
-                    .getBoundingClientRect();
+    const tabs = allTabElements.slice(0, 30).map(element => {
+      const tagName = element.tagName.toLowerCase();
+      const controlId = (element.getAttribute('id') ?? '').replace(/\s+/g, ' ').trim() || null;
+      const ariaLabel = (element.getAttribute('aria-label') ?? '').replace(/\s+/g, ' ').trim();
+      const labelledByText = (element.getAttribute('aria-labelledby') ?? '')
+        .split(/\s+/)
+        .filter(value => value.length > 0)
+        .map(id => (document.getElementById(id)?.textContent ?? '').replace(/\s+/g, ' ').trim())
+        .filter(value => value.length > 0)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const visibleText = (element.innerText || element.textContent || '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const accessibleName =
+        ariaLabel ||
+        labelledByText ||
+        visibleText ||
+        (element.getAttribute('title') ?? '').replace(/\s+/g, ' ').trim() ||
+        null;
+      const rawSelected = (element.getAttribute('aria-selected') ?? '').trim().toLowerCase();
+      const ariaSelected =
+        rawSelected === 'true' || rawSelected === 'false'
+          ? (rawSelected as 'true' | 'false')
+          : null;
+      const rawControls = (element.getAttribute('aria-controls') ?? '').trim();
+      const controlledIds = rawControls.split(/\s+/).filter(value => value.length > 0);
+      const ariaControls =
+        controlledIds.length === 1 ? controlledIds[0] : rawControls.length > 0 ? rawControls : null;
+      const controlledPanel =
+        controlledIds.length === 1 ? document.getElementById(controlledIds[0]) : null;
+      const controlledPanelRole =
+        controlledPanel === null
+          ? null
+          : (controlledPanel.getAttribute('role') ?? '').trim().toLowerCase() || null;
+      const controlledPanelVisible =
+        controlledPanel === null
+          ? null
+          : (() => {
+              const style = window.getComputedStyle(controlledPanel);
+              const rectangle = controlledPanel.getBoundingClientRect();
 
-                return (
-                  !controlledPanel.hidden &&
-                  controlledPanel.getAttribute(
-                    'aria-hidden'
-                  ) !== 'true' &&
-                  style.display !== 'none' &&
-                  style.visibility !==
-                    'hidden' &&
-                  rectangle.width > 0 &&
-                  rectangle.height > 0
-                );
-              })();
-        const controlledPanelHasEditableOrSubmissionControls =
-          controlledPanel === null
-            ? null
-            : controlledPanel.querySelector(
-                [
-                  'form',
-                  'input',
-                  'textarea',
-                  'select',
-                  'button[type="submit"]',
-                  'button[type="reset"]',
-                  'button:not([type])',
-                  '[contenteditable]:not([contenteditable="false"])'
-                ].join(', ')
-              ) !== null;
-        const tabList =
-          element.closest<HTMLElement>(
-            '[role="tablist"]'
-          );
-        const tabListId =
-          (
-            tabList?.getAttribute('id') ??
-            ''
-          )
-            .replace(/\s+/g, ' ')
-            .trim() ||
-          null;
-        const nativeDisabled =
-          (
-            element instanceof
-              HTMLButtonElement ||
-            element instanceof
-              HTMLInputElement
-          )
-            ? element.disabled
-            : false;
-        const ariaDisabled =
-          (
-            element.getAttribute(
-              'aria-disabled'
-            ) ??
-            ''
-          )
-            .trim()
-            .toLowerCase() ===
-          'true';
-        const closestLink =
-          element.closest<HTMLAnchorElement>(
-            'a[href]'
-          );
-        const href =
-          (
-            element.getAttribute('href') ??
-            closestLink?.getAttribute(
-              'href'
-            ) ??
-            ''
-          )
-            .trim() ||
-          null;
-        const hasLinkSemantics =
-          tagName === 'a' ||
-          href !== null ||
-          closestLink !== null;
-        const ariaHasPopup =
-          element.hasAttribute(
-            'aria-haspopup'
-          )
-            ? (
-                element.getAttribute(
-                  'aria-haspopup'
-                ) ??
-                ''
-              )
-                .trim()
-            : null;
-        const formAssociated =
-          (
-            element instanceof
-              HTMLButtonElement ||
-            element instanceof
-              HTMLInputElement
-          )
-            ? element.form !== null
-            : false;
-        const formAncestor =
-          element.closest('form') !==
-          null;
-        const rawType =
-          (
-            element.getAttribute('type') ??
-            ''
-          )
-            .trim()
-            .toLowerCase();
-        const hasSubmitOrResetSemantics =
-          element instanceof
-            HTMLButtonElement
-            ? rawType !== 'button'
-            : element instanceof
-                HTMLInputElement
-              ? element.type
-                  .toLowerCase() !==
-                'button'
-              : false;
-        const sameNameTabs =
-          accessibleName === null
-            ? []
-            : allTabElements.filter(
-                candidate => {
-                  const candidateAriaLabel =
-                    (
-                      candidate.getAttribute(
-                        'aria-label'
-                      ) ??
-                      ''
-                    )
-                      .replace(/\s+/g, ' ')
-                      .trim();
-                  const candidateLabelledByText =
-                    (
-                      candidate.getAttribute(
-                        'aria-labelledby'
-                      ) ??
-                      ''
-                    )
-                      .split(/\s+/)
-                      .filter(
-                        value =>
-                          value.length > 0
-                      )
-                      .map(id =>
-                        (
-                          document.getElementById(
-                            id
-                          )
-                            ?.textContent ??
-                          ''
-                        )
-                          .replace(/\s+/g, ' ')
-                          .trim()
-                      )
-                      .filter(
-                        value =>
-                          value.length > 0
-                      )
-                      .join(' ')
-                      .replace(/\s+/g, ' ')
-                      .trim();
-                  const candidateName =
-                    candidateAriaLabel ||
-                    candidateLabelledByText ||
-                    (
-                      candidate.innerText ||
-                      candidate.textContent ||
-                      ''
-                    )
-                      .replace(/\s+/g, ' ')
-                      .trim() ||
-                    (
-                      candidate.getAttribute(
-                        'title'
-                      ) ??
-                      ''
-                    )
-                      .replace(/\s+/g, ' ')
-                      .trim();
-
-                  return (
-                    candidateName ===
-                    accessibleName
-                  );
-                }
+              return (
+                !controlledPanel.hidden &&
+                controlledPanel.getAttribute('aria-hidden') !== 'true' &&
+                style.display !== 'none' &&
+                style.visibility !== 'hidden' &&
+                rectangle.width > 0 &&
+                rectangle.height > 0
               );
-        const tabListTabs =
-          tabList === null
-            ? []
-            : Array.from(
-                tabList.querySelectorAll<HTMLElement>(
-                  '[role="tab"]'
-                )
-              );
-        const selectedTabs =
-          tabListTabs.filter(
-            candidate =>
-              (
-                candidate.getAttribute(
-                  'aria-selected'
-                ) ??
-                ''
-              )
-                .trim()
-                .toLowerCase() ===
-              'true'
-          );
-        const originalSelectedTab =
-          selectedTabs[0] ??
-          null;
-        const originalSelectedId =
-          (
-            originalSelectedTab
-              ?.getAttribute('id') ??
-            ''
-          )
-            .trim();
-        const originalSelectedControls =
-          (
-            originalSelectedTab
-              ?.getAttribute(
-                'aria-controls'
-              ) ??
-            ''
-          )
-            .trim()
-            .split(/\s+/)
-            .filter(
-              value =>
-                value.length > 0
-            );
-        const originalSelectedPanel =
-          originalSelectedControls
-            .length === 1
-            ? document.getElementById(
-                originalSelectedControls[0]
-              )
-            : null;
-        const rejectionReasons:
-          string[] = [];
-
-        if (controlId === null) {
-          rejectionReasons.push(
-            'a stable control id is required'
-          );
-        } else if (
-          document.querySelectorAll(
-            `[id="${CSS.escape(
-              controlId
-            )}"]`
-          ).length !== 1
-        ) {
-          rejectionReasons.push(
-            'the control id is not unique'
-          );
-        }
-
-        if (accessibleName === null) {
-          rejectionReasons.push(
-            'an accessible name is required'
-          );
-        } else if (
-          sameNameTabs.length !== 1 ||
-          sameNameTabs[0] !== element
-        ) {
-          rejectionReasons.push(
-            'the accessible tab identity is ambiguous'
-          );
-        }
-
-        if (ariaSelected === null) {
-          rejectionReasons.push(
-            'aria-selected must be explicitly true or false'
-          );
-        }
-
-        if (
-          controlledIds.length !== 1
-        ) {
-          rejectionReasons.push(
-            'aria-controls must identify exactly one panel'
-          );
-        } else if (
-          controlledPanel === null
-        ) {
-          rejectionReasons.push(
-            'the controlled same-document panel does not exist'
-          );
-        } else if (
-          document.querySelectorAll(
-            `[id="${CSS.escape(
-              controlledIds[0]
-            )}"]`
-          ).length !== 1
-        ) {
-          rejectionReasons.push(
-            'the controlled panel id is not unique'
-          );
-        } else if (
-          controlledPanelRole !==
-          'tabpanel'
-        ) {
-          rejectionReasons.push(
-            'the controlled element must have role=tabpanel'
-          );
-        }
-
-        if (tabList === null) {
-          rejectionReasons.push(
-            'the tab must belong to a role=tablist'
-          );
-        } else if (
-          tabListId === null
-        ) {
-          rejectionReasons.push(
-            'a stable tablist id is required'
-          );
-        } else if (
-          document.querySelectorAll(
-            `[id="${CSS.escape(
-              tabListId
-            )}"]`
-          ).length !== 1
-        ) {
-          rejectionReasons.push(
-            'the tablist id is not unique'
-          );
-        }
-
-        if (
-          nativeDisabled ||
-          ariaDisabled
-        ) {
-          rejectionReasons.push(
-            'the tab control is disabled'
-          );
-        }
-
-        if (hasLinkSemantics) {
-          rejectionReasons.push(
-            'link or href semantics are not permitted'
-          );
-        }
-
-        if (ariaHasPopup !== null) {
-          rejectionReasons.push(
-            'aria-haspopup tabs are not permitted'
-          );
-        }
-
-        if (
-          formAssociated ||
-          formAncestor
-        ) {
-          rejectionReasons.push(
-            'form-associated tabs are not permitted'
-          );
-        }
-
-        if (hasSubmitOrResetSemantics) {
-          rejectionReasons.push(
-            'submit, reset, or default-submit semantics are not permitted'
-          );
-        }
-
-        if (
-          controlledPanelHasEditableOrSubmissionControls ===
-          true
-        ) {
-          rejectionReasons.push(
-            'the controlled panel contains editable or submission controls'
-          );
-        }
-
-        if (
-          selectedTabs.length !== 1
-        ) {
-          rejectionReasons.push(
-            'the tablist must have exactly one explicitly selected tab'
-          );
-        } else if (
-          originalSelectedId.length ===
-            0 ||
-          document.querySelectorAll(
-            `[id="${CSS.escape(
-              originalSelectedId
-            )}"]`
-          ).length !== 1 ||
-          originalSelectedControls
-            .length !== 1 ||
-          originalSelectedPanel ===
-            null ||
-          document.querySelectorAll(
-            `[id="${CSS.escape(
-              originalSelectedControls[0]
-            )}"]`
-          ).length !== 1 ||
-          (
-            originalSelectedPanel
-              .getAttribute('role') ??
-            ''
-          )
-            .trim()
-            .toLowerCase() !==
-            'tabpanel'
-        ) {
-          rejectionReasons.push(
-            'the originally selected tab lacks an exact rollback identity'
-          );
-        } else if (
-          originalSelectedPanel
-            .querySelector(
+            })();
+      const controlledPanelHasEditableOrSubmissionControls =
+        controlledPanel === null
+          ? null
+          : controlledPanel.querySelector(
               [
                 'form',
                 'input',
@@ -1610,45 +681,190 @@ export async function extractPageContent(
                 'button:not([type])',
                 '[contenteditable]:not([contenteditable="false"])'
               ].join(', ')
-            ) !== null
-        ) {
-          rejectionReasons.push(
-            'the originally selected panel contains editable or submission controls'
-          );
-        }
+            ) !== null;
+      const tabList = element.closest<HTMLElement>('[role="tablist"]');
+      const tabListId = (tabList?.getAttribute('id') ?? '').replace(/\s+/g, ' ').trim() || null;
+      const nativeDisabled =
+        element instanceof HTMLButtonElement || element instanceof HTMLInputElement
+          ? element.disabled
+          : false;
+      const ariaDisabled =
+        (element.getAttribute('aria-disabled') ?? '').trim().toLowerCase() === 'true';
+      const closestLink = element.closest<HTMLAnchorElement>('a[href]');
+      const href =
+        (element.getAttribute('href') ?? closestLink?.getAttribute('href') ?? '').trim() || null;
+      const hasLinkSemantics = tagName === 'a' || href !== null || closestLink !== null;
+      const ariaHasPopup = element.hasAttribute('aria-haspopup')
+        ? (element.getAttribute('aria-haspopup') ?? '').trim()
+        : null;
+      const formAssociated =
+        element instanceof HTMLButtonElement || element instanceof HTMLInputElement
+          ? element.form !== null
+          : false;
+      const formAncestor = element.closest('form') !== null;
+      const rawType = (element.getAttribute('type') ?? '').trim().toLowerCase();
+      const hasSubmitOrResetSemantics =
+        element instanceof HTMLButtonElement
+          ? rawType !== 'button'
+          : element instanceof HTMLInputElement
+            ? element.type.toLowerCase() !== 'button'
+            : false;
+      const sameNameTabs =
+        accessibleName === null
+          ? []
+          : allTabElements.filter(candidate => {
+              const candidateAriaLabel = (candidate.getAttribute('aria-label') ?? '')
+                .replace(/\s+/g, ' ')
+                .trim();
+              const candidateLabelledByText = (candidate.getAttribute('aria-labelledby') ?? '')
+                .split(/\s+/)
+                .filter(value => value.length > 0)
+                .map(id =>
+                  (document.getElementById(id)?.textContent ?? '').replace(/\s+/g, ' ').trim()
+                )
+                .filter(value => value.length > 0)
+                .join(' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+              const candidateName =
+                candidateAriaLabel ||
+                candidateLabelledByText ||
+                (candidate.innerText || candidate.textContent || '').replace(/\s+/g, ' ').trim() ||
+                (candidate.getAttribute('title') ?? '').replace(/\s+/g, ' ').trim();
 
-        return {
-          tagName,
-          role: 'tab' as const,
-          controlId,
-          visibleText:
-            visibleText ||
-            null,
-          accessibleName,
-          tabListId,
-          ariaSelected,
-          ariaControls,
-          disabled:
-            nativeDisabled,
-          ariaDisabled,
-          href,
-          hasLinkSemantics,
-          ariaHasPopup,
-          formAssociated,
-          formAncestor,
-          hasSubmitOrResetSemantics,
-          controlledPanelExists:
-            controlledPanel !== null,
-          controlledPanelRole,
-          controlledPanelVisible,
-          controlledPanelHasEditableOrSubmissionControls,
-          eligibleForTabAction:
-            rejectionReasons.length ===
-            0,
-          eligibilityRejectionReasons:
-            rejectionReasons
-        };
-      });
+              return candidateName === accessibleName;
+            });
+      const tabListTabs =
+        tabList === null ? [] : Array.from(tabList.querySelectorAll<HTMLElement>('[role="tab"]'));
+      const selectedTabs = tabListTabs.filter(
+        candidate => (candidate.getAttribute('aria-selected') ?? '').trim().toLowerCase() === 'true'
+      );
+      const originalSelectedTab = selectedTabs[0] ?? null;
+      const originalSelectedId = (originalSelectedTab?.getAttribute('id') ?? '').trim();
+      const originalSelectedControls = (originalSelectedTab?.getAttribute('aria-controls') ?? '')
+        .trim()
+        .split(/\s+/)
+        .filter(value => value.length > 0);
+      const originalSelectedPanel =
+        originalSelectedControls.length === 1
+          ? document.getElementById(originalSelectedControls[0])
+          : null;
+      const rejectionReasons: string[] = [];
+
+      if (controlId === null) {
+        rejectionReasons.push('a stable control id is required');
+      } else if (document.querySelectorAll(`[id="${CSS.escape(controlId)}"]`).length !== 1) {
+        rejectionReasons.push('the control id is not unique');
+      }
+
+      if (accessibleName === null) {
+        rejectionReasons.push('an accessible name is required');
+      } else if (sameNameTabs.length !== 1 || sameNameTabs[0] !== element) {
+        rejectionReasons.push('the accessible tab identity is ambiguous');
+      }
+
+      if (ariaSelected === null) {
+        rejectionReasons.push('aria-selected must be explicitly true or false');
+      }
+
+      if (controlledIds.length !== 1) {
+        rejectionReasons.push('aria-controls must identify exactly one panel');
+      } else if (controlledPanel === null) {
+        rejectionReasons.push('the controlled same-document panel does not exist');
+      } else if (document.querySelectorAll(`[id="${CSS.escape(controlledIds[0])}"]`).length !== 1) {
+        rejectionReasons.push('the controlled panel id is not unique');
+      } else if (controlledPanelRole !== 'tabpanel') {
+        rejectionReasons.push('the controlled element must have role=tabpanel');
+      }
+
+      if (tabList === null) {
+        rejectionReasons.push('the tab must belong to a role=tablist');
+      } else if (tabListId === null) {
+        rejectionReasons.push('a stable tablist id is required');
+      } else if (document.querySelectorAll(`[id="${CSS.escape(tabListId)}"]`).length !== 1) {
+        rejectionReasons.push('the tablist id is not unique');
+      }
+
+      if (nativeDisabled || ariaDisabled) {
+        rejectionReasons.push('the tab control is disabled');
+      }
+
+      if (hasLinkSemantics) {
+        rejectionReasons.push('link or href semantics are not permitted');
+      }
+
+      if (ariaHasPopup !== null) {
+        rejectionReasons.push('aria-haspopup tabs are not permitted');
+      }
+
+      if (formAssociated || formAncestor) {
+        rejectionReasons.push('form-associated tabs are not permitted');
+      }
+
+      if (hasSubmitOrResetSemantics) {
+        rejectionReasons.push('submit, reset, or default-submit semantics are not permitted');
+      }
+
+      if (controlledPanelHasEditableOrSubmissionControls === true) {
+        rejectionReasons.push('the controlled panel contains editable or submission controls');
+      }
+
+      if (selectedTabs.length !== 1) {
+        rejectionReasons.push('the tablist must have exactly one explicitly selected tab');
+      } else if (
+        originalSelectedId.length === 0 ||
+        document.querySelectorAll(`[id="${CSS.escape(originalSelectedId)}"]`).length !== 1 ||
+        originalSelectedControls.length !== 1 ||
+        originalSelectedPanel === null ||
+        document.querySelectorAll(`[id="${CSS.escape(originalSelectedControls[0])}"]`).length !==
+          1 ||
+        (originalSelectedPanel.getAttribute('role') ?? '').trim().toLowerCase() !== 'tabpanel'
+      ) {
+        rejectionReasons.push('the originally selected tab lacks an exact rollback identity');
+      } else if (
+        originalSelectedPanel.querySelector(
+          [
+            'form',
+            'input',
+            'textarea',
+            'select',
+            'button[type="submit"]',
+            'button[type="reset"]',
+            'button:not([type])',
+            '[contenteditable]:not([contenteditable="false"])'
+          ].join(', ')
+        ) !== null
+      ) {
+        rejectionReasons.push(
+          'the originally selected panel contains editable or submission controls'
+        );
+      }
+
+      return {
+        tagName,
+        role: 'tab' as const,
+        controlId,
+        visibleText: visibleText || null,
+        accessibleName,
+        tabListId,
+        ariaSelected,
+        ariaControls,
+        disabled: nativeDisabled,
+        ariaDisabled,
+        href,
+        hasLinkSemantics,
+        ariaHasPopup,
+        formAssociated,
+        formAncestor,
+        hasSubmitOrResetSemantics,
+        controlledPanelExists: controlledPanel !== null,
+        controlledPanelRole,
+        controlledPanelVisible,
+        controlledPanelHasEditableOrSubmissionControls,
+        eligibleForTabAction: rejectionReasons.length === 0,
+        eligibilityRejectionReasons: rejectionReasons
+      };
+    });
 
     return {
       title,

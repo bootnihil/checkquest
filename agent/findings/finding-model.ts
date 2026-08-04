@@ -1,25 +1,11 @@
-import type {
-  ExploratoryQaFinding
-} from '../analysis/exploratory-qa-schema';
-import type {
-  FindingSeverity
-} from '../analysis/evaluate-page';
+import type { ExploratoryQaFinding } from '../analysis/exploratory-qa-schema';
+import type { FindingSeverity } from '../analysis/evaluate-page';
 
-export type FindingVerificationState =
-  | 'verified'
-  | 'not-verified'
-  | 'inconclusive';
+export type FindingVerificationState = 'verified' | 'not-verified' | 'inconclusive';
 
-export type FindingEvidenceRelation =
-  | 'supports'
-  | 'contradicts'
-  | 'inconclusive';
+export type FindingEvidenceRelation = 'supports' | 'contradicts' | 'inconclusive';
 
-export type FindingEvidenceSource =
-  | 'deterministic-rule'
-  | 'model'
-  | 'browser'
-  | 'investigation';
+export type FindingEvidenceSource = 'deterministic-rule' | 'model' | 'browser' | 'investigation';
 
 export type FindingEvidenceKind =
   | 'rule-observation'
@@ -28,21 +14,15 @@ export type FindingEvidenceKind =
   | 'investigation-outcome'
   | 'screenshot';
 
-export type FindingReference =
-  | `finding-${number}`
-  | `known-${number}`;
+export type FindingReference = `finding-${number}` | `known-${number}`;
 
-export type FindingOccurrenceReference =
-  `occurrence-${number}`;
+export type FindingOccurrenceReference = `occurrence-${number}`;
 
-export type FindingEvidenceReference =
-  `evidence-${string}`;
+export type FindingEvidenceReference = `evidence-${string}`;
 
-export type FindingCategory =
-  ExploratoryQaFinding['category'];
+export type FindingCategory = ExploratoryQaFinding['category'];
 
-export type FindingTarget =
-  ExploratoryQaFinding['evidenceTarget'];
+export type FindingTarget = ExploratoryQaFinding['evidenceTarget'];
 
 export interface FindingRawReference {
   pageNumber?: number;
@@ -50,17 +30,13 @@ export interface FindingRawReference {
   investigationStep?: number;
 }
 
-export interface CandidateFindingRawReference extends
-  FindingRawReference {
+export interface CandidateFindingRawReference extends FindingRawReference {
   pageNumber: number;
   candidateReference: string;
 }
 
 export interface FindingRawSource {
-  type:
-    | 'page-finding'
-    | 'exploratory-qa-finding'
-    | 'finding-investigation-outcome';
+  type: 'page-finding' | 'exploratory-qa-finding' | 'finding-investigation-outcome';
 
   /*
    * Compatibility adapters retain the exact existing source object here.
@@ -70,17 +46,13 @@ export interface FindingRawSource {
 }
 
 export interface FindingEvidence {
-  evidenceReference:
-    FindingEvidenceReference;
+  evidenceReference: FindingEvidenceReference;
 
-  source:
-    FindingEvidenceSource;
+  source: FindingEvidenceSource;
 
-  kind:
-    FindingEvidenceKind;
+  kind: FindingEvidenceKind;
 
-  relation:
-    FindingEvidenceRelation;
+  relation: FindingEvidenceRelation;
 
   /*
    * Deterministic provenance alone is not enough.
@@ -88,54 +60,39 @@ export interface FindingEvidence {
    * This is true only when the evidence is capable of proving or
    * disproving the exact assertion made by this logical finding.
    */
-  verificationCapable:
-    boolean;
+  verificationCapable: boolean;
 
-  summary:
-    string;
+  summary: string;
 
-  rawReference?:
-    FindingRawReference;
+  rawReference?: FindingRawReference;
 
-  rawSource?:
-    FindingRawSource;
+  rawSource?: FindingRawSource;
 }
 
 export interface FindingVerification {
-  state:
-    FindingVerificationState;
+  state: FindingVerificationState;
 
-  reason:
-    string;
+  reason: string;
 
-  evidenceReferences:
-    FindingEvidenceReference[];
+  evidenceReferences: FindingEvidenceReference[];
 }
 
 export interface FindingOccurrence {
-  occurrenceReference:
-    FindingOccurrenceReference;
+  occurrenceReference: FindingOccurrenceReference;
 
-  pageUrl:
-    string;
+  pageUrl: string;
 
-  pageTitle:
-    string;
+  pageTitle: string;
 
-  target:
-    FindingTarget;
+  target: FindingTarget;
 
-  evidence:
-    FindingEvidence[];
+  evidence: FindingEvidence[];
 
-  verification:
-    FindingVerification;
+  verification: FindingVerification;
 
-  screenshotReferences:
-    string[];
+  screenshotReferences: string[];
 
-  redundantInvestigationSkipped:
-    boolean;
+  redundantInvestigationSkipped: boolean;
 }
 
 export interface UnifiedFinding {
@@ -143,35 +100,26 @@ export interface UnifiedFinding {
    * The reference identifies this logical finding inside a run.
    * The fingerprint is the stable canonical identity used to recognize it.
    */
-  findingReference:
-    FindingReference;
+  findingReference: FindingReference;
 
-  fingerprint:
-    string;
+  fingerprint: string;
 
-  category:
-    FindingCategory;
+  category: FindingCategory;
 
-  severity:
-    FindingSeverity;
+  severity: FindingSeverity;
 
-  title:
-    string;
+  title: string;
 
-  description:
-    string;
+  description: string;
 
-  suggestedCheck:
-    string | null;
+  suggestedCheck: string | null;
 
   /*
    * A logical finding must contain at least one occurrence.
    * Adapters and future registries are responsible for preserving that
    * invariant when constructing this deliberately small data model.
    */
-  occurrences:
-    FindingOccurrence[];
+  occurrences: FindingOccurrence[];
 
-  verification:
-    FindingVerification;
+  verification: FindingVerification;
 }

@@ -25,66 +25,41 @@ export default [
       parser: tseslint.parser,
       parserOptions: {
         projectService: true,
-        tsconfigRootDir:
-          import.meta.dirname
+        tsconfigRootDir: import.meta.dirname
       }
     },
     plugins: {
-      '@typescript-eslint':
-        tseslint.plugin
+      '@typescript-eslint': tseslint.plugin
     },
     rules: {
       ...eslint.configs.recommended.rules,
-      ...tseslint.configs
-        .eslintRecommended.rules,
-      'no-constant-binary-expression':
-        'error',
-      'no-debugger':
-        'error',
-      'no-useless-catch':
-        'error',
+      ...tseslint.configs.eslintRecommended.rules,
+      'no-constant-binary-expression': 'error',
+      'no-debugger': 'error',
+      'no-useless-catch': 'error',
       eqeqeq: [
         'error',
         'always',
         {
-          null:
-            'ignore'
+          null: 'ignore'
         }
       ],
-      curly: [
-        'error',
-        'all'
-      ],
-      'prefer-const':
-        'error',
-      'prefer-rest-params':
-        'off',
-      'prefer-spread':
-        'off',
-      'no-console':
-        'off',
-      'no-fallthrough':
-        'off',
-      'no-undef':
-        'off',
-      'no-unused-labels':
-        'off',
-      'no-unused-private-class-members':
-        'off',
-      'no-unused-vars':
-        'off',
-      '@typescript-eslint/no-floating-promises':
-        'error',
-      '@typescript-eslint/no-misused-promises':
-        'error',
-      '@typescript-eslint/await-thenable':
-        'error',
-      '@typescript-eslint/no-explicit-any':
-        'error',
-      '@typescript-eslint/only-throw-error':
-        'error',
-      '@typescript-eslint/consistent-type-imports':
-        'error'
+      curly: ['error', 'all'],
+      'prefer-const': 'error',
+      'prefer-rest-params': 'off',
+      'prefer-spread': 'off',
+      'no-console': 'off',
+      'no-fallthrough': 'off',
+      'no-undef': 'off',
+      'no-unused-labels': 'off',
+      'no-unused-private-class-members': 'off',
+      'no-unused-vars': 'off',
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-misused-promises': 'error',
+      '@typescript-eslint/await-thenable': 'error',
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/only-throw-error': 'error',
+      '@typescript-eslint/consistent-type-imports': 'error'
     }
   }
 ];

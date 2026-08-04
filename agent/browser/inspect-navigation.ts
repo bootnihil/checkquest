@@ -6,10 +6,7 @@ export interface NavigationLink {
 }
 
 function normalizeText(value: string): string {
-  return value
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 120);
+  return value.replace(/\s+/g, ' ').trim().slice(0, 120);
 }
 
 export async function inspectNavigation(
@@ -17,11 +14,9 @@ export async function inspectNavigation(
   allowedHosts: string[]
 ): Promise<NavigationLink[]> {
   await page
-    .waitForFunction(
-      () => document.querySelectorAll('a[href]').length > 0,
-      undefined,
-      { timeout: 10_000 }
-    )
+    .waitForFunction(() => document.querySelectorAll('a[href]').length > 0, undefined, {
+      timeout: 10_000
+    })
     .catch(() => undefined);
 
   const links = page.locator('a[href]');
@@ -44,18 +39,12 @@ export async function inspectNavigation(
       continue;
     }
 
-    const insideNavigationContainer = await link.evaluate((element) =>
-      Boolean(
-        element.closest(
-          'nav, header, [role="navigation"], [aria-label*="navigation" i]'
-        )
-      )
+    const insideNavigationContainer = await link.evaluate(element =>
+      Boolean(element.closest('nav, header, [role="navigation"], [aria-label*="navigation" i]'))
     );
 
     const nearTopOfViewport =
-      viewport !== null &&
-      box.y + box.height > 0 &&
-      box.y < Math.min(viewport.height * 0.35, 280);
+      viewport !== null && box.y + box.height > 0 && box.y < Math.min(viewport.height * 0.35, 280);
 
     if (!insideNavigationContainer && !nearTopOfViewport) {
       continue;
@@ -92,19 +81,10 @@ export async function inspectNavigation(
     }
 
     const visibleText = normalizeText(await link.innerText());
-    const ariaLabel = normalizeText(
-      (await link.getAttribute('aria-label')) ?? ''
-    );
-    const title = normalizeText(
-      (await link.getAttribute('title')) ?? ''
-    );
+    const ariaLabel = normalizeText((await link.getAttribute('aria-label')) ?? '');
+    const title = normalizeText((await link.getAttribute('title')) ?? '');
 
-    const text =
-      visibleText ||
-      ariaLabel ||
-      title ||
-      resolvedUrl.pathname ||
-      normalizedUrl;
+    const text = visibleText || ariaLabel || title || resolvedUrl.pathname || normalizedUrl;
 
     seenUrls.add(normalizedUrl);
 

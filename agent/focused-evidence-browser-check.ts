@@ -1,33 +1,22 @@
 import assert from 'node:assert/strict';
-import {
-  access
-} from 'node:fs/promises';
+import { access } from 'node:fs/promises';
 
-import {
-  chromium
-} from '@playwright/test';
+import { chromium } from '@playwright/test';
 
-import {
-  captureFindingPresentationEvidence
-} from './browser/capture-finding-presentation-evidence';
+import { captureFindingPresentationEvidence } from './browser/capture-finding-presentation-evidence';
 
 async function main(): Promise<void> {
-  const browser =
-    await chromium.launch({
-      headless:
-        true
-    });
+  const browser = await chromium.launch({
+    headless: true
+  });
 
   try {
-    const page =
-      await browser.newPage({
-        viewport: {
-          width:
-            900,
-          height:
-            400
-        }
-      });
+    const page = await browser.newPage({
+      viewport: {
+        width: 900,
+        height: 400
+      }
+    });
 
     await page.setContent(`
       <!doctype html>
@@ -137,19 +126,14 @@ async function main(): Promise<void> {
       </html>
     `);
 
-    const runId =
-      'focused-evidence-browser-check';
-    const exactHeadingText =
-      'How does monday CRM help my business performance?';
-    const trustPage =
-      await browser.newPage({
-        viewport: {
-          width:
-            900,
-          height:
-            400
-        }
-      });
+    const runId = 'focused-evidence-browser-check';
+    const exactHeadingText = 'How does monday CRM help my business performance?';
+    const trustPage = await browser.newPage({
+      viewport: {
+        width: 900,
+        height: 400
+      }
+    });
 
     await trustPage.setContent(`
       <!doctype html>
@@ -184,921 +168,544 @@ async function main(): Promise<void> {
       </html>
     `);
 
-    const exactHeadingCapture =
-      await captureFindingPresentationEvidence(
-        trustPage,
-        {
-          runId,
-          pageNumber:
-            2,
-          candidateNumber:
-            1,
-          target: {
-            kind:
-              'visible-text',
-            elementKind:
-              'heading',
-            text:
-              exactHeadingText
-          }
-        },
-        {
-          captureScreenshot:
-            async (
-              capturePage,
-              filePath,
-              clip
-            ) => {
-              await capturePage.evaluate(
-                () =>
-                  window.scrollBy(
-                    0,
-                    120
-                  )
-              );
-              await capturePage.evaluate(
-                () =>
-                  new Promise<void>(
-                    resolve =>
-                      window.requestAnimationFrame(
-                        () =>
-                          resolve()
-                      )
-                  )
-              );
-
-              const renderedTargets =
-                await capturePage.evaluate(
-                  targetText => {
-                    const browserUtilities = {
-                      normalize(
-                        value:
-                          string | null
-                      ): string {
-                        return (
-                          value ??
-                          ''
-                        )
-                          .replace(
-                            /\s+/g,
-                            ' '
-                          )
-                          .trim();
-                      }
-                    };
-
-                    return [
-                      ...document.querySelectorAll(
-                        'h1,h2,h3,h4,h5,h6,[role="heading"]'
-                      )
-                    ]
-                      .filter(
-                        element =>
-                          browserUtilities.normalize(
-                            element.textContent
-                          ) ===
-                            targetText &&
-                          element.getAttribute(
-                            'data-checkquest-presentation-evidence-highlight'
-                          ) ===
-                            'true'
-                      )
-                      .map(
-                        element => {
-                          const rectangle =
-                            element
-                              .getBoundingClientRect();
-                          const style =
-                            window.getComputedStyle(
-                              element
-                            );
-
-                          return {
-                            text:
-                              browserUtilities.normalize(
-                                element.textContent
-                              ),
-                            y:
-                              rectangle.y,
-                            outlineStyle:
-                              style.outlineStyle,
-                            outlineWidth:
-                              style.outlineWidth,
-                            outlineColor:
-                              style.outlineColor
-                          };
-                        }
-                      );
-                  },
-                  exactHeadingText
-                );
-
-              assert.equal(
-                renderedTargets.length,
-                2,
-                'Only the two visible exact heading targets may be highlighted.'
-              );
-              assert.ok(
-                renderedTargets.every(
-                  target =>
-                    target.text ===
-                      exactHeadingText &&
-                    target.outlineStyle ===
-                      'solid' &&
-                    target.outlineWidth ===
-                      '3px' &&
-                    target.outlineColor ===
-                      'rgb(225, 29, 72)'
-                ),
-                'Every rendered highlight must remain attached to an exact target after scrolling.'
-              );
-              assert.deepEqual(
-                await capturePage.locator(
-                  '[data-checkquest-presentation-evidence]'
-                ).allTextContents(),
-                [
-                  'CheckQuest evidence 1',
-                  'CheckQuest evidence 2'
-                ],
-                'Displayed evidence labels must be numbered by the targets actually shown.'
-              );
-              assert.equal(
-                await capturePage.locator(
-                  '#neighbor-heading[data-checkquest-presentation-evidence-highlight]'
-                ).count(),
-                0,
-                'The neighboring non-target heading must not be highlighted.'
-              );
-              assert.equal(
-                await capturePage.locator(
-                  '.display-hidden[data-checkquest-presentation-evidence-highlight], .opacity-hidden h2[data-checkquest-presentation-evidence-highlight]'
-                ).count(),
-                0,
-                'Hidden exact-text duplicates must not be represented as shown.'
-              );
-
-              await capturePage.screenshot({
-                path:
-                  filePath,
-                clip
-              });
-            }
+    const exactHeadingCapture = await captureFindingPresentationEvidence(
+      trustPage,
+      {
+        runId,
+        pageNumber: 2,
+        candidateNumber: 1,
+        target: {
+          kind: 'visible-text',
+          elementKind: 'heading',
+          text: exactHeadingText
         }
-      );
+      },
+      {
+        captureScreenshot: async (capturePage, filePath, clip) => {
+          await capturePage.evaluate(() => window.scrollBy(0, 120));
+          await capturePage.evaluate(
+            () => new Promise<void>(resolve => window.requestAnimationFrame(() => resolve()))
+          );
+
+          const renderedTargets = await capturePage.evaluate(targetText => {
+            const browserUtilities = {
+              normalize(value: string | null): string {
+                return (value ?? '').replace(/\s+/g, ' ').trim();
+              }
+            };
+
+            return [...document.querySelectorAll('h1,h2,h3,h4,h5,h6,[role="heading"]')]
+              .filter(
+                element =>
+                  browserUtilities.normalize(element.textContent) === targetText &&
+                  element.getAttribute('data-checkquest-presentation-evidence-highlight') === 'true'
+              )
+              .map(element => {
+                const rectangle = element.getBoundingClientRect();
+                const style = window.getComputedStyle(element);
+
+                return {
+                  text: browserUtilities.normalize(element.textContent),
+                  y: rectangle.y,
+                  outlineStyle: style.outlineStyle,
+                  outlineWidth: style.outlineWidth,
+                  outlineColor: style.outlineColor
+                };
+              });
+          }, exactHeadingText);
+
+          assert.equal(
+            renderedTargets.length,
+            2,
+            'Only the two visible exact heading targets may be highlighted.'
+          );
+          assert.ok(
+            renderedTargets.every(
+              target =>
+                target.text === exactHeadingText &&
+                target.outlineStyle === 'solid' &&
+                target.outlineWidth === '3px' &&
+                target.outlineColor === 'rgb(225, 29, 72)'
+            ),
+            'Every rendered highlight must remain attached to an exact target after scrolling.'
+          );
+          assert.deepEqual(
+            await capturePage.locator('[data-checkquest-presentation-evidence]').allTextContents(),
+            ['CheckQuest evidence 1', 'CheckQuest evidence 2'],
+            'Displayed evidence labels must be numbered by the targets actually shown.'
+          );
+          assert.equal(
+            await capturePage
+              .locator('#neighbor-heading[data-checkquest-presentation-evidence-highlight]')
+              .count(),
+            0,
+            'The neighboring non-target heading must not be highlighted.'
+          );
+          assert.equal(
+            await capturePage
+              .locator(
+                '.display-hidden[data-checkquest-presentation-evidence-highlight], .opacity-hidden h2[data-checkquest-presentation-evidence-highlight]'
+              )
+              .count(),
+            0,
+            'Hidden exact-text duplicates must not be represented as shown.'
+          );
+
+          await capturePage.screenshot({
+            path: filePath,
+            clip
+          });
+        }
+      }
+    );
 
     assert.equal(
-      exactHeadingCapture
-        .totalTargetCount,
+      exactHeadingCapture.totalTargetCount,
       2,
       'Only visible exact heading targets contribute to the total.'
     );
     assert.equal(
-      exactHeadingCapture
-        .shownTargetCount,
+      exactHeadingCapture.shownTargetCount,
       2,
       'Both visible exact heading targets were actually highlighted.'
     );
     assert.equal(
-      exactHeadingCapture
-        .screenshotPaths
-        .length,
+      exactHeadingCapture.screenshotPaths.length,
       1,
       'Nearby exact duplicates should share one focused image.'
     );
     assert.equal(
-      await trustPage.locator(
-        '[data-checkquest-presentation-evidence], [data-checkquest-presentation-evidence-target], [data-checkquest-presentation-evidence-highlight], [data-checkquest-presentation-evidence-style]'
-      ).count(),
+      await trustPage
+        .locator(
+          '[data-checkquest-presentation-evidence], [data-checkquest-presentation-evidence-target], [data-checkquest-presentation-evidence-highlight], [data-checkquest-presentation-evidence-style]'
+        )
+        .count(),
       0,
       'Exact-target markers and highlight styles must be removed after capture.'
     );
 
-    const missingExactHeading =
-      await captureFindingPresentationEvidence(
-        trustPage,
-        {
-          runId,
-          pageNumber:
-            2,
-          candidateNumber:
-            2,
-          target: {
-            kind:
-              'visible-text',
-            elementKind:
-              'heading',
-            text:
-              'Heading that does not exist'
-          }
-        }
-      );
+    const missingExactHeading = await captureFindingPresentationEvidence(trustPage, {
+      runId,
+      pageNumber: 2,
+      candidateNumber: 2,
+      target: {
+        kind: 'visible-text',
+        elementKind: 'heading',
+        text: 'Heading that does not exist'
+      }
+    });
 
     assert.deepEqual(
       {
-        totalTargetCount:
-          missingExactHeading
-            .totalTargetCount,
-        shownTargetCount:
-          missingExactHeading
-            .shownTargetCount,
-        screenshotCount:
-          missingExactHeading
-            .screenshotPaths
-            .length
+        totalTargetCount: missingExactHeading.totalTargetCount,
+        shownTargetCount: missingExactHeading.shownTargetCount,
+        screenshotCount: missingExactHeading.screenshotPaths.length
       },
       {
-        totalTargetCount:
-          0,
-        shownTargetCount:
-          0,
-        screenshotCount:
-          0
+        totalTargetCount: 0,
+        shownTargetCount: 0,
+        screenshotCount: 0
       },
       'A missing exact target must not fall back to a neighboring heading.'
     );
 
-    const similarHeading =
-      await captureFindingPresentationEvidence(
-        trustPage,
-        {
-          runId,
-          pageNumber:
-            2,
-          candidateNumber:
-            3,
-          target: {
-            kind:
-              'visible-text',
-            elementKind:
-              'heading',
-            text:
-              'How does monday CRM help my business?'
-          }
-        }
-      );
+    const similarHeading = await captureFindingPresentationEvidence(trustPage, {
+      runId,
+      pageNumber: 2,
+      candidateNumber: 3,
+      target: {
+        kind: 'visible-text',
+        elementKind: 'heading',
+        text: 'How does monday CRM help my business?'
+      }
+    });
 
     assert.equal(
-      similarHeading
-        .totalTargetCount,
+      similarHeading.totalTargetCount,
       0,
       'Similar-but-not-identical heading text must not match.'
     );
-    assert.equal(
-      similarHeading
-        .shownTargetCount,
-      0
-    );
-    assert.equal(
-      similarHeading
-        .screenshotPaths
-        .length,
-      0
-    );
+    assert.equal(similarHeading.shownTargetCount, 0);
+    assert.equal(similarHeading.screenshotPaths.length, 0);
 
     await trustPage.close();
 
-    const single =
-      await captureFindingPresentationEvidence(
-        page,
-        {
-          runId,
-          pageNumber:
-            1,
-          candidateNumber:
-            1,
-          target: {
-            kind:
-              'visible-text',
-            elementKind:
-              'heading',
-            text:
-              'Single exact target'
-          }
-        }
-      );
+    const single = await captureFindingPresentationEvidence(page, {
+      runId,
+      pageNumber: 1,
+      candidateNumber: 1,
+      target: {
+        kind: 'visible-text',
+        elementKind: 'heading',
+        text: 'Single exact target'
+      }
+    });
 
-    assert.equal(
-      single.totalTargetCount,
-      1
-    );
-    assert.equal(
-      single.screenshotPaths
-        .length,
-      1
-    );
+    assert.equal(single.totalTargetCount, 1);
+    assert.equal(single.screenshotPaths.length, 1);
 
-    const nearby =
-      await captureFindingPresentationEvidence(
-        page,
-        {
-          runId,
-          pageNumber:
-            1,
-          candidateNumber:
-            2,
-          target: {
-            kind:
-              'visible-text',
-            elementKind:
-              'button',
-            text:
-              'Repeated nearby target'
-          }
-        }
-      );
+    const nearby = await captureFindingPresentationEvidence(page, {
+      runId,
+      pageNumber: 1,
+      candidateNumber: 2,
+      target: {
+        kind: 'visible-text',
+        elementKind: 'button',
+        text: 'Repeated nearby target'
+      }
+    });
 
+    assert.equal(nearby.totalTargetCount, 2);
     assert.equal(
-      nearby.totalTargetCount,
-      2
-    );
-    assert.equal(
-      nearby.screenshotPaths
-        .length,
+      nearby.screenshotPaths.length,
       1,
       'Nearby targets should share one focused image.'
     );
 
-    const separated =
-      await captureFindingPresentationEvidence(
-        page,
-        {
-          runId,
-          pageNumber:
-            1,
-          candidateNumber:
-            3,
-          target: {
-            kind:
-              'visible-text',
-            elementKind:
-              'heading',
-            text:
-              'Separated target'
-          }
-        }
-      );
+    const separated = await captureFindingPresentationEvidence(page, {
+      runId,
+      pageNumber: 1,
+      candidateNumber: 3,
+      target: {
+        kind: 'visible-text',
+        elementKind: 'heading',
+        text: 'Separated target'
+      }
+    });
 
+    assert.equal(separated.totalTargetCount, 5);
     assert.equal(
-      separated.totalTargetCount,
-      5
-    );
-    assert.equal(
-      separated.screenshotPaths
-        .length,
+      separated.screenshotPaths.length,
       3,
       'Separated targets should be capped at three images.'
     );
-    assert.equal(
-      separated.shownTargetCount,
-      3
-    );
+    assert.equal(separated.shownTargetCount, 3);
 
-    for (
-      const filePath of
-        [
-          ...single
-            .screenshotPaths,
-          ...nearby
-            .screenshotPaths,
-          ...separated
-            .screenshotPaths
-        ]
-    ) {
-      await access(
-        filePath
-      );
+    for (const filePath of [
+      ...single.screenshotPaths,
+      ...nearby.screenshotPaths,
+      ...separated.screenshotPaths
+    ]) {
+      await access(filePath);
     }
 
     assert.equal(
-      await page.locator(
-        '[data-checkquest-presentation-evidence]'
-      ).count(),
+      await page.locator('[data-checkquest-presentation-evidence]').count(),
       0,
       'Annotations must be removed after successful capture.'
     );
 
     const selectTarget = {
-      kind:
-        'select-option' as const,
-      controlLabel:
-        'Country',
-      controlName:
-        'country',
-      controlId:
-        'country',
-      optionText:
-        'Equador'
+      kind: 'select-option' as const,
+      controlLabel: 'Country',
+      controlName: 'country',
+      controlId: 'country',
+      optionText: 'Equador'
     };
-    const withheldReplay =
-      await captureFindingPresentationEvidence(
-        page,
-        {
-          runId,
-          pageNumber:
-            1,
-          candidateNumber:
-            4,
-          target:
-            selectTarget
-        }
-      );
+    const withheldReplay = await captureFindingPresentationEvidence(page, {
+      runId,
+      pageNumber: 1,
+      candidateNumber: 4,
+      target: selectTarget
+    });
 
     assert.equal(
-      withheldReplay
-        .screenshotPaths
-        .length,
+      withheldReplay.screenshotPaths.length,
       0,
       'A transient select state is not replayed unless that exact action was already observed.'
     );
 
-    const replayed =
-      await captureFindingPresentationEvidence(
-        page,
-        {
-          runId,
-          pageNumber:
-            1,
-          candidateNumber:
-            5,
-          target:
-            selectTarget,
-          allowObservedStateReplay:
-            true
-        }
-      );
+    const replayed = await captureFindingPresentationEvidence(page, {
+      runId,
+      pageNumber: 1,
+      candidateNumber: 5,
+      target: selectTarget,
+      allowObservedStateReplay: true
+    });
 
+    assert.equal(replayed.replay?.action, 'select-option');
     assert.equal(
-      replayed.replay
-        ?.action,
-      'select-option'
-    );
-    assert.equal(
-      replayed.replay
-        ?.restored,
+      replayed.replay?.restored,
       true,
       'An allowed benign replay records that its original state was restored.'
     );
     assert.equal(
-      await page.locator(
-        '#country'
-      ).inputValue(),
+      await page.locator('#country').inputValue(),
       'ecuador',
       'Evidence replay must restore the original local selection.'
     );
 
-    await page.evaluate(
-      () => {
-        const select =
-          document.getElementById(
-            'clone-country'
-          ) as
-            HTMLSelectElement |
-            null;
+    await page.evaluate(() => {
+      const select = document.getElementById('clone-country') as HTMLSelectElement | null;
 
-        select?.addEventListener(
-          'change',
-          () => {
-            if (
-              document.querySelector(
-                '[data-restoration-clone]'
-              ) !==
-                null
-            ) {
-              return;
-            }
+      select?.addEventListener('change', () => {
+        if (document.querySelector('[data-restoration-clone]') !== null) {
+          return;
+        }
 
-            const clone =
-              select.cloneNode(
-                true
-              ) as
-                HTMLSelectElement;
+        const clone = select.cloneNode(true) as HTMLSelectElement;
 
-            clone.id =
-              'clone-country-copy';
-            clone.setAttribute(
-              'data-restoration-clone',
-              'true'
-            );
-            select.after(
-              clone
-            );
-          }
-        );
+        clone.id = 'clone-country-copy';
+        clone.setAttribute('data-restoration-clone', 'true');
+        select.after(clone);
+      });
+    });
+    const ambiguousRestoration = await captureFindingPresentationEvidence(
+      page,
+      {
+        runId,
+        pageNumber: 1,
+        candidateNumber: 13,
+        target: {
+          kind: 'select-option',
+          controlLabel: 'Clone Country',
+          controlName: 'clone-country',
+          controlId: 'clone-country',
+          optionText: 'Changed option'
+        },
+        allowObservedStateReplay: true
+      },
+      {
+        captureScreenshot: async () => undefined
       }
     );
-    const ambiguousRestoration =
-      await captureFindingPresentationEvidence(
-        page,
-        {
-          runId,
-          pageNumber:
-            1,
-          candidateNumber:
-            13,
-          target: {
-            kind:
-              'select-option',
-            controlLabel:
-              'Clone Country',
-            controlName:
-              'clone-country',
-            controlId:
-              'clone-country',
-            optionText:
-              'Changed option'
-          },
-          allowObservedStateReplay:
-            true
-        },
-        {
-          captureScreenshot:
-            async () =>
-              undefined
-        }
-      );
 
     assert.equal(
-      ambiguousRestoration
-        .replay
-        ?.restored,
+      ambiguousRestoration.replay?.restored,
       false,
       'Restoration must fail closed when a change listener creates multiple exactly annotated selects.'
     );
     assert.equal(
-      await page.locator(
-        '#clone-country'
-      ).inputValue(),
+      await page.locator('#clone-country').inputValue(),
       'changed',
       'Ambiguous restoration must not report success after restoring an arbitrary annotated select.'
     );
     assert.equal(
-      await page.locator(
-        'select[data-restoration-clone]'
-      ).count(),
+      await page.locator('select[data-restoration-clone]').count(),
       1,
       'The regression fixture must create a second annotated restoration candidate during replay.'
     );
     assert.equal(
-      await page.locator(
-        '[data-checkquest-presentation-evidence-target]'
-      ).count(),
+      await page.locator('[data-checkquest-presentation-evidence-target]').count(),
       0,
       'Replay annotations must still be cleaned up after ambiguous restoration.'
     );
 
-    const ambiguousSelect =
-      await captureFindingPresentationEvidence(
-        page,
-        {
-          runId,
-          pageNumber:
-            1,
-          candidateNumber:
-            6,
-          target: {
-            kind:
-              'select-option',
-            controlLabel:
-              null,
-            controlName:
-              'shared-control',
-            controlId:
-              null,
-            optionText:
-              'Shared option'
-          },
-          allowObservedStateReplay:
-            true
-        }
-      );
+    const ambiguousSelect = await captureFindingPresentationEvidence(page, {
+      runId,
+      pageNumber: 1,
+      candidateNumber: 6,
+      target: {
+        kind: 'select-option',
+        controlLabel: null,
+        controlName: 'shared-control',
+        controlId: null,
+        optionText: 'Shared option'
+      },
+      allowObservedStateReplay: true
+    });
 
     assert.equal(
-      ambiguousSelect
-        .screenshotPaths
-        .length,
+      ambiguousSelect.screenshotPaths.length,
       0,
       'Multiple visible controls sharing the supplied identity must not produce presentation evidence.'
     );
 
-    const conflictingDisclosure =
-      await captureFindingPresentationEvidence(
-        page,
-        {
-          runId,
-          pageNumber:
-            1,
-          candidateNumber:
-            7,
-          target: {
-            kind:
-              'disclosure-state',
-            controlId:
-              'disclosure-id-only',
-            accessibleName:
-              'Conflicting disclosure name',
-            controlledRegionId:
-              'disclosure-conflict-region',
-            desiredState:
-              'expanded'
-          }
-        }
-      );
+    const conflictingDisclosure = await captureFindingPresentationEvidence(page, {
+      runId,
+      pageNumber: 1,
+      candidateNumber: 7,
+      target: {
+        kind: 'disclosure-state',
+        controlId: 'disclosure-id-only',
+        accessibleName: 'Conflicting disclosure name',
+        controlledRegionId: 'disclosure-conflict-region',
+        desiredState: 'expanded'
+      }
+    });
 
     assert.equal(
-      conflictingDisclosure
-        .screenshotPaths
-        .length,
+      conflictingDisclosure.screenshotPaths.length,
       0,
       'A control ID match and accessible-name match on different elements must fail closed.'
     );
 
-    const conflictingAriaLabel =
-      await captureFindingPresentationEvidence(
-        page,
-        {
-          runId,
-          pageNumber:
-            1,
-          candidateNumber:
-            14,
-          target: {
-            kind:
-              'disclosure-state',
-            controlId:
-              'label-precedence-disclosure',
-            accessibleName:
-              'Conflicting aria label',
-            controlledRegionId:
-              'label-precedence-region',
-            desiredState:
-              'expanded'
-          }
-        }
-      );
+    const conflictingAriaLabel = await captureFindingPresentationEvidence(page, {
+      runId,
+      pageNumber: 1,
+      candidateNumber: 14,
+      target: {
+        kind: 'disclosure-state',
+        controlId: 'label-precedence-disclosure',
+        accessibleName: 'Conflicting aria label',
+        controlledRegionId: 'label-precedence-region',
+        desiredState: 'expanded'
+      }
+    });
 
     assert.equal(
-      conflictingAriaLabel
-        .screenshotPaths
-        .length,
+      conflictingAriaLabel.screenshotPaths.length,
       0,
       'aria-label must not override a valid aria-labelledby accessible name.'
     );
 
-    const labelledByDisclosure =
-      await captureFindingPresentationEvidence(
-        page,
-        {
-          runId,
-          pageNumber:
-            1,
-          candidateNumber:
-            15,
-          target: {
-            kind:
-              'disclosure-state',
-            controlId:
-              'label-precedence-disclosure',
-            accessibleName:
-              'Labelled disclosure name',
-            controlledRegionId:
-              'label-precedence-region',
-            desiredState:
-              'expanded'
-          }
-        },
-        {
-          captureScreenshot:
-            async () =>
-              undefined
+    const labelledByDisclosure = await captureFindingPresentationEvidence(
+      page,
+      {
+        runId,
+        pageNumber: 1,
+        candidateNumber: 15,
+        target: {
+          kind: 'disclosure-state',
+          controlId: 'label-precedence-disclosure',
+          accessibleName: 'Labelled disclosure name',
+          controlledRegionId: 'label-precedence-region',
+          desiredState: 'expanded'
         }
-      );
+      },
+      {
+        captureScreenshot: async () => undefined
+      }
+    );
 
     assert.equal(
-      labelledByDisclosure
-        .screenshotPaths
-        .length,
+      labelledByDisclosure.screenshotPaths.length,
       1,
       'A valid aria-labelledby name must take precedence and remain capturable.'
     );
 
-    const wrongDisclosureRegion =
-      await captureFindingPresentationEvidence(
-        page,
-        {
-          runId,
-          pageNumber:
-            1,
-          candidateNumber:
-            8,
-          target: {
-            kind:
-              'disclosure-state',
-            controlId:
-              'wrong-region-disclosure',
-            accessibleName:
-              'Wrong region disclosure',
-            controlledRegionId:
-              'claimed-disclosure-region',
-            desiredState:
-              'expanded'
-          }
-        }
-      );
+    const wrongDisclosureRegion = await captureFindingPresentationEvidence(page, {
+      runId,
+      pageNumber: 1,
+      candidateNumber: 8,
+      target: {
+        kind: 'disclosure-state',
+        controlId: 'wrong-region-disclosure',
+        accessibleName: 'Wrong region disclosure',
+        controlledRegionId: 'claimed-disclosure-region',
+        desiredState: 'expanded'
+      }
+    });
 
     assert.equal(
-      wrongDisclosureRegion
-        .screenshotPaths
-        .length,
+      wrongDisclosureRegion.screenshotPaths.length,
       0,
       'A disclosure matching by name and ID but not its claimed region must not produce presentation evidence.'
     );
 
-    const wrongTabPanel =
-      await captureFindingPresentationEvidence(
-        page,
-        {
-          runId,
-          pageNumber:
-            1,
-          candidateNumber:
-            9,
-          target: {
-            kind:
-              'tab-state',
-            controlId:
-              'wrong-panel-tab',
-            accessibleName:
-              'Wrong panel tab',
-            tabListId:
-              'exact-tab-list',
-            controlledPanelId:
-              'claimed-tab-panel',
-            desiredState:
-              'selected'
-          }
-        }
-      );
+    const wrongTabPanel = await captureFindingPresentationEvidence(page, {
+      runId,
+      pageNumber: 1,
+      candidateNumber: 9,
+      target: {
+        kind: 'tab-state',
+        controlId: 'wrong-panel-tab',
+        accessibleName: 'Wrong panel tab',
+        tabListId: 'exact-tab-list',
+        controlledPanelId: 'claimed-tab-panel',
+        desiredState: 'selected'
+      }
+    });
 
     assert.equal(
-      wrongTabPanel
-        .screenshotPaths
-        .length,
+      wrongTabPanel.screenshotPaths.length,
       0,
       'A tab matching by name and ID but not its claimed panel must not produce presentation evidence.'
     );
 
-    const exactDisclosure =
-      await captureFindingPresentationEvidence(
-        page,
-        {
-          runId,
-          pageNumber:
-            1,
-          candidateNumber:
-            10,
-          target: {
-            kind:
-              'disclosure-state',
-            controlId:
-              'exact-disclosure',
-            accessibleName:
-              'Exact disclosure',
-            controlledRegionId:
-              'exact-disclosure-region',
-            desiredState:
-              'expanded'
-          }
-        },
-        {
-          captureScreenshot:
-            async () =>
-              undefined
+    const exactDisclosure = await captureFindingPresentationEvidence(
+      page,
+      {
+        runId,
+        pageNumber: 1,
+        candidateNumber: 10,
+        target: {
+          kind: 'disclosure-state',
+          controlId: 'exact-disclosure',
+          accessibleName: 'Exact disclosure',
+          controlledRegionId: 'exact-disclosure-region',
+          desiredState: 'expanded'
         }
-      );
+      },
+      {
+        captureScreenshot: async () => undefined
+      }
+    );
 
     assert.equal(
-      exactDisclosure
-        .screenshotPaths
-        .length,
+      exactDisclosure.screenshotPaths.length,
       1,
       'One unique disclosure matching every supplied field and component relationship remains capturable.'
     );
 
-    const exactTab =
-      await captureFindingPresentationEvidence(
-        page,
-        {
-          runId,
-          pageNumber:
-            1,
-          candidateNumber:
-            11,
-          target: {
-            kind:
-              'tab-state',
-            controlId:
-              'exact-tab',
-            accessibleName:
-              'Exact tab',
-            tabListId:
-              'exact-tab-list',
-            controlledPanelId:
-              'exact-tab-panel',
-            desiredState:
-              'selected'
-          }
-        },
-        {
-          captureScreenshot:
-            async () =>
-              undefined
+    const exactTab = await captureFindingPresentationEvidence(
+      page,
+      {
+        runId,
+        pageNumber: 1,
+        candidateNumber: 11,
+        target: {
+          kind: 'tab-state',
+          controlId: 'exact-tab',
+          accessibleName: 'Exact tab',
+          tabListId: 'exact-tab-list',
+          controlledPanelId: 'exact-tab-panel',
+          desiredState: 'selected'
         }
-      );
+      },
+      {
+        captureScreenshot: async () => undefined
+      }
+    );
 
     assert.equal(
-      exactTab
-        .screenshotPaths
-        .length,
+      exactTab.screenshotPaths.length,
       1,
       'One unique tab matching every supplied field and component relationship remains capturable.'
     );
 
-    await page.evaluate(
-      () =>
-        window.scrollTo(
-          0,
-          240
-        )
-    );
-    const originalScrollY =
-      await page.evaluate(
-        () =>
-          window.scrollY
-      );
+    await page.evaluate(() => window.scrollTo(0, 240));
+    const originalScrollY = await page.evaluate(() => window.scrollY);
 
     await assert.rejects(
       captureFindingPresentationEvidence(
         page,
         {
           runId,
-          pageNumber:
-            1,
-          candidateNumber:
-            12,
+          pageNumber: 1,
+          candidateNumber: 12,
           target: {
-            kind:
-              'visible-text',
-            elementKind:
-              'button',
-            text:
-              'Failure target'
+            kind: 'visible-text',
+            elementKind: 'button',
+            text: 'Failure target'
           }
         },
         {
-          captureScreenshot:
-            async () => {
-              throw new Error(
-                'Forced screenshot failure.'
-              );
-            }
+          captureScreenshot: async () => {
+            throw new Error('Forced screenshot failure.');
+          }
         }
       ),
       /Forced screenshot failure/
     );
     assert.equal(
-      await page.locator(
-        '[data-checkquest-presentation-evidence]'
-      ).count(),
+      await page.locator('[data-checkquest-presentation-evidence]').count(),
       0,
       'Annotations must be removed after failed capture.'
     );
     assert.equal(
-      await page.evaluate(
-        () =>
-          window.scrollY
-      ),
+      await page.evaluate(() => window.scrollY),
       originalScrollY,
       'The original scroll position must be restored.'
     );
 
-    console.log(
-      'Focused evidence browser check passed.'
-    );
+    console.log('Focused evidence browser check passed.');
   } finally {
     await browser.close();
   }
 }
 
-void main().catch(
-  (
-    error:
-      unknown
-  ) => {
-    console.error(
-      'Focused evidence browser check failed:',
-      error
-    );
-    process.exitCode =
-      1;
-  }
-);
+void main().catch((error: unknown) => {
+  console.error('Focused evidence browser check failed:', error);
+  process.exitCode = 1;
+});

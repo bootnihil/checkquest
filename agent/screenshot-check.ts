@@ -29,29 +29,19 @@ async function main(): Promise<void> {
 
     const runId = 'screenshot-check';
 
-    const screenshot =
-      await capturePageScreenshot(
-        page,
-        runId,
-        1
-      );
+    const screenshot = await capturePageScreenshot(page, runId, 1);
 
     await access(screenshot.filePath);
 
     console.log('Screenshot captured successfully.');
-    console.log(
-      `File: ${screenshot.filePath}`
-    );
+    console.log(`File: ${screenshot.filePath}`);
   } finally {
     await browser.close();
   }
 }
 
 main().catch((error: unknown) => {
-  console.error(
-    'Screenshot check failed:',
-    error
-  );
+  console.error('Screenshot check failed:', error);
 
   process.exitCode = 1;
 });

@@ -1,34 +1,21 @@
 import type { Page } from '@playwright/test';
 
 import type { AgentAction } from '../actions/agent-action-schema';
-import type {
-  GeminiRequestEvent
-} from '../ai/run-gemini-request';
+import type { GeminiRequestEvent } from '../ai/run-gemini-request';
 import {
   executeAgentAction,
   type ExecutedAgentActionResult
 } from '../browser/execute-agent-action';
-import {
-  extractPageContent,
-  type ExtractedPageContent
-} from '../browser/extract-page-content';
-import type {
-  PlannerHistoryEntry
-} from './build-planner-prompt';
-import {
-  planNextAction
-} from './plan-next-action';
-import type {
-  PlannerDecision
-} from './planner-decision-schema';
+import { extractPageContent, type ExtractedPageContent } from '../browser/extract-page-content';
+import type { PlannerHistoryEntry } from './build-planner-prompt';
+import { planNextAction } from './plan-next-action';
+import type { PlannerDecision } from './planner-decision-schema';
 import {
   isInvestigablePageCandidate,
   type InvestigablePageCandidate,
   type PageCandidate
 } from '../investigation/page-candidates';
-import {
-  throwIfRunCancelled
-} from '../errors/run-cancellation';
+import { throwIfRunCancelled } from '../errors/run-cancellation';
 
 export interface RejectedAgentActionResult {
   kind: AgentAction['kind'];
@@ -39,18 +26,13 @@ export interface RejectedAgentActionResult {
 export interface ExploratoryLoopStep {
   step: number;
 
-  observationBefore:
-    ExtractedPageContent;
+  observationBefore: ExtractedPageContent;
 
-  decision:
-    PlannerDecision;
+  decision: PlannerDecision;
 
-  executionResult:
-    | ExecutedAgentActionResult
-    | RejectedAgentActionResult;
+  executionResult: ExecutedAgentActionResult | RejectedAgentActionResult;
 
-  observationAfter:
-    ExtractedPageContent;
+  observationAfter: ExtractedPageContent;
 }
 
 export interface ExploratoryLoopResult {
@@ -60,8 +42,7 @@ export interface ExploratoryLoopResult {
 
   plannerDecisionCount: number;
 
-  executedInvestigationActionCount:
-    number;
+  executedInvestigationActionCount: number;
 
   stopReason:
     | 'planner-stop'
@@ -72,8 +53,7 @@ export interface ExploratoryLoopResult {
 
   rejectionReason?: string;
 
-  steps:
-    ExploratoryLoopStep[];
+  steps: ExploratoryLoopStep[];
 }
 
 /**
@@ -86,111 +66,54 @@ export interface ExploratoryLoopResult {
  */
 function buildHistoryResult(
   action: AgentAction,
-  executionResult:
-    ExecutedAgentActionResult,
+  executionResult: ExecutedAgentActionResult,
   after: ExtractedPageContent
 ): string {
   if (
-    action.kind ===
-      'fill-text-field' ||
-    action.kind ===
-      'clear-field' ||
-    action.kind ===
-      'blur-field'
+    action.kind === 'fill-text-field' ||
+    action.kind === 'clear-field' ||
+    action.kind === 'blur-field'
   ) {
-    const field =
-      after.textFields.find(
-        candidate =>
-          (
-            action.target.id !== null &&
-            candidate.id ===
-              action.target.id
-          ) ||
-          (
-            action.target.name !==
-              null &&
-            candidate.name ===
-              action.target.name
-          ) ||
-          (
-            action.target.label !==
-              null &&
-            candidate.label ===
-              action.target.label
-          ) ||
-          (
-            action.target
-              .placeholder !== null &&
-            candidate.placeholder ===
-              action.target.placeholder
-          )
-      );
+    const field = after.textFields.find(
+      candidate =>
+        (action.target.id !== null && candidate.id === action.target.id) ||
+        (action.target.name !== null && candidate.name === action.target.name) ||
+        (action.target.label !== null && candidate.label === action.target.label) ||
+        (action.target.placeholder !== null && candidate.placeholder === action.target.placeholder)
+    );
 
     if (field !== undefined) {
       return [
         executionResult.detail,
 
-        `Observed value: ${JSON.stringify(
-          field.value
-        )}.`,
+        `Observed value: ${JSON.stringify(field.value)}.`,
 
         `Browser-valid: ${field.valid}.`,
 
-        `Validation message: ${JSON.stringify(
-          field.validationMessage
-        )}.`,
+        `Validation message: ${JSON.stringify(field.validationMessage)}.`,
 
-        `aria-invalid: ${JSON.stringify(
-          field.ariaInvalid
-        )}.`
+        `aria-invalid: ${JSON.stringify(field.ariaInvalid)}.`
       ].join(' ');
     }
   }
 
-  if (
-    action.kind ===
-    'select-option'
-  ) {
-    const select =
-      after.selects.find(
-        candidate =>
-          (
-            action.target.id !== null &&
-            candidate.id ===
-              action.target.id
-          ) ||
-          (
-            action.target.name !==
-              null &&
-            candidate.name ===
-              action.target.name
-          ) ||
-          (
-            action.target.label !==
-              null &&
-            candidate.label ===
-              action.target.label
-          )
-      );
+  if (action.kind === 'select-option') {
+    const select = after.selects.find(
+      candidate =>
+        (action.target.id !== null && candidate.id === action.target.id) ||
+        (action.target.name !== null && candidate.name === action.target.name) ||
+        (action.target.label !== null && candidate.label === action.target.label)
+    );
 
     if (select !== undefined) {
-      const selectedOptions =
-        select.options
-          .filter(
-            option =>
-              option.selected
-          )
-          .map(
-            option =>
-              option.text
-          );
+      const selectedOptions = select.options
+        .filter(option => option.selected)
+        .map(option => option.text);
 
       return [
         executionResult.detail,
 
-        `Selected option(s): ${JSON.stringify(
-          selectedOptions
-        )}.`
+        `Selected option(s): ${JSON.stringify(selectedOptions)}.`
       ].join(' ');
     }
   }
@@ -219,34 +142,21 @@ export async function runExploratoryLoop(
   page: Page,
   pageUrl: string,
   maxPlannerDecisions: number,
-  pageCandidates:
-    PageCandidate[],
+  pageCandidates: PageCandidate[],
   dependencies: {
     plan?: typeof planNextAction;
     execute?: typeof executeAgentAction;
-    geminiApiKey?:
-      string;
-    model?:
-      string;
-    signal?:
-      AbortSignal;
-    onModelRequestEvent?:
-      (
-        event:
-          GeminiRequestEvent
-      ) => void;
+    geminiApiKey?: string;
+    model?: string;
+    signal?: AbortSignal;
+    onModelRequestEvent?: (event: GeminiRequestEvent) => void;
   } = {}
 ): Promise<ExploratoryLoopResult> {
-  const steps:
-    ExploratoryLoopStep[] = [];
+  const steps: ExploratoryLoopStep[] = [];
 
-  const history:
-    PlannerHistoryEntry[] = [];
+  const history: PlannerHistoryEntry[] = [];
 
-  const investigableCandidates =
-    pageCandidates.filter(
-      isInvestigablePageCandidate
-    );
+  const investigableCandidates = pageCandidates.filter(isInvestigablePageCandidate);
 
   if (investigableCandidates.length === 0) {
     return {
@@ -262,65 +172,36 @@ export async function runExploratoryLoop(
   const planner = dependencies.plan ?? planNextAction;
   const executor = dependencies.execute ?? executeAgentAction;
 
-  for (
-    let stepNumber = 1;
-    stepNumber <= maxPlannerDecisions;
-    stepNumber += 1
-  ) {
-    throwIfRunCancelled(
-      dependencies.signal,
-      undefined,
-      'exploratory-investigation'
-    );
+  for (let stepNumber = 1; stepNumber <= maxPlannerDecisions; stepNumber += 1) {
+    throwIfRunCancelled(dependencies.signal, undefined, 'exploratory-investigation');
 
-    const observationBefore =
-      await extractPageContent(page);
+    const observationBefore = await extractPageContent(page);
 
-    const decision =
-      await planner(
-        {
-          pageUrl,
+    const decision = await planner(
+      {
+        pageUrl,
 
-          pageContent:
-            observationBefore,
+        pageContent: observationBefore,
 
-          history,
+        history,
 
-          currentStep:
-            stepNumber,
+        currentStep: stepNumber,
 
-          maxSteps:
-            maxPlannerDecisions,
+        maxSteps: maxPlannerDecisions,
 
-          investigableCandidates
-        },
-        {
-          geminiApiKey:
-            dependencies
-              .geminiApiKey,
-          model:
-            dependencies
-              .model,
-          signal:
-            dependencies
-              .signal,
-          onEvent:
-            dependencies
-              .onModelRequestEvent
-        }
-      );
-
-    throwIfRunCancelled(
-      dependencies.signal,
-      undefined,
-      'exploratory-investigation'
-    );
-
-    const rejectionReason =
-      validateDecisionCandidateRelevance(
-        decision,
         investigableCandidates
-      );
+      },
+      {
+        geminiApiKey: dependencies.geminiApiKey,
+        model: dependencies.model,
+        signal: dependencies.signal,
+        onEvent: dependencies.onModelRequestEvent
+      }
+    );
+
+    throwIfRunCancelled(dependencies.signal, undefined, 'exploratory-investigation');
+
+    const rejectionReason = validateDecisionCandidateRelevance(decision, investigableCandidates);
 
     if (rejectionReason !== null) {
       const executionResult: RejectedAgentActionResult = {
@@ -340,34 +221,22 @@ export async function runExploratoryLoop(
       return {
         pageUrl,
         maxPlannerDecisions,
-        plannerDecisionCount:
-          steps.length,
-        executedInvestigationActionCount:
-          countExecutedInvestigationActions(steps),
+        plannerDecisionCount: steps.length,
+        executedInvestigationActionCount: countExecutedInvestigationActions(steps),
         stopReason: 'invalid-planner-decision',
         rejectionReason,
         steps
       };
     }
 
-    const executionResult =
-      await executor(
-        page,
-        decision.action
-      );
+    const executionResult = await executor(page, decision.action);
 
-    throwIfRunCancelled(
-      dependencies.signal,
-      undefined,
-      'exploratory-investigation'
-    );
+    throwIfRunCancelled(dependencies.signal, undefined, 'exploratory-investigation');
 
-    const observationAfter =
-      await extractPageContent(page);
+    const observationAfter = await extractPageContent(page);
 
     steps.push({
-      step:
-        stepNumber,
+      step: stepNumber,
 
       observationBefore,
 
@@ -378,70 +247,44 @@ export async function runExploratoryLoop(
       observationAfter
     });
 
-    if (
-      executionResult.status ===
-      'unsafe'
-    ) {
+    if (executionResult.status === 'unsafe') {
       return {
         pageUrl,
         maxPlannerDecisions,
-        plannerDecisionCount:
-          steps.length,
-        executedInvestigationActionCount:
-          countExecutedInvestigationActions(
-            steps
-          ),
-        stopReason:
-          'unsafe-interaction-detected',
-        rejectionReason:
-          executionResult.detail,
+        plannerDecisionCount: steps.length,
+        executedInvestigationActionCount: countExecutedInvestigationActions(steps),
+        stopReason: 'unsafe-interaction-detected',
+        rejectionReason: executionResult.detail,
         steps
       };
     }
 
-    const historyResult =
-      buildHistoryResult(
-        decision.action,
-        executionResult,
-        observationAfter
-      );
+    const historyResult = buildHistoryResult(decision.action, executionResult, observationAfter);
 
-    if (
-      decision.action.kind ===
-      'stop'
-    ) {
+    if (decision.action.kind === 'stop') {
       return {
         pageUrl,
 
         maxPlannerDecisions,
 
-        plannerDecisionCount:
-          steps.length,
+        plannerDecisionCount: steps.length,
 
-        executedInvestigationActionCount:
-          countExecutedInvestigationActions(steps),
+        executedInvestigationActionCount: countExecutedInvestigationActions(steps),
 
-        stopReason:
-          'planner-stop',
+        stopReason: 'planner-stop',
 
         steps
       };
     }
 
     history.push({
-      step:
-        stepNumber,
+      step: stepNumber,
 
-      action:
-        decision.action,
+      action: decision.action,
 
-      candidateReference:
-        requireCandidateReference(
-          decision
-        ),
+      candidateReference: requireCandidateReference(decision),
 
-      result:
-        historyResult
+      result: historyResult
     });
   }
 
@@ -450,14 +293,11 @@ export async function runExploratoryLoop(
 
     maxPlannerDecisions,
 
-    plannerDecisionCount:
-      steps.length,
+    plannerDecisionCount: steps.length,
 
-    executedInvestigationActionCount:
-      countExecutedInvestigationActions(steps),
+    executedInvestigationActionCount: countExecutedInvestigationActions(steps),
 
-    stopReason:
-      'max-planner-decisions-reached',
+    stopReason: 'max-planner-decisions-reached',
 
     steps
   };
@@ -471,9 +311,7 @@ export function validateDecisionCandidateRelevance(
     return null;
   }
 
-  const candidate = candidates.find(
-    item => item.reference === decision.candidateReference
-  );
+  const candidate = candidates.find(item => item.reference === decision.candidateReference);
 
   if (candidate === undefined) {
     return `Candidate reference "${decision.candidateReference}" is not an investigable candidate on this page.`;
@@ -481,48 +319,19 @@ export function validateDecisionCandidateRelevance(
 
   const target = candidate.finding.evidenceTarget;
 
-  if (
-    target.kind ===
-      'select-option' &&
-    decision.action.kind ===
-      'select-option'
-  ) {
-    const actionTarget =
-      decision.action.target;
+  if (target.kind === 'select-option' && decision.action.kind === 'select-option') {
+    const actionTarget = decision.action.target;
     const identities = [
-      [
-        target.controlLabel,
-        actionTarget.label
-      ],
-      [
-        target.controlName,
-        actionTarget.name
-      ],
-      [
-        target.controlId,
-        actionTarget.id
-      ]
+      [target.controlLabel, actionTarget.label],
+      [target.controlName, actionTarget.name],
+      [target.controlId, actionTarget.id]
     ];
 
     if (
-      !identities.some(
-        ([expected]) =>
-          expected !== null
-      ) ||
-      !identities.every(
-        (
-          [
-            expected,
-            actual
-          ]
-        ) =>
-          expected === actual
-      ) ||
-      actionTarget.placeholder !==
-        null ||
-      decision.action
-        .optionText !==
-        target.optionText
+      !identities.some(([expected]) => expected !== null) ||
+      !identities.every(([expected, actual]) => expected === actual) ||
+      actionTarget.placeholder !== null ||
+      decision.action.optionText !== target.optionText
     ) {
       return `Select-option action does not match candidate "${candidate.reference}" evidence target.`;
     }
@@ -530,26 +339,12 @@ export function validateDecisionCandidateRelevance(
     return null;
   }
 
-  if (
-    target.kind ===
-      'disclosure-state' &&
-    decision.action.kind ===
-      'set-disclosure-state'
-  ) {
+  if (target.kind === 'disclosure-state' && decision.action.kind === 'set-disclosure-state') {
     if (
-      decision.action
-        .target.controlId !==
-        target.controlId ||
-      decision.action
-        .target.accessibleName !==
-        target.accessibleName ||
-      decision.action
-        .target
-        .controlledRegionId !==
-        target.controlledRegionId ||
-      decision.action
-        .desiredState !==
-        target.desiredState
+      decision.action.target.controlId !== target.controlId ||
+      decision.action.target.accessibleName !== target.accessibleName ||
+      decision.action.target.controlledRegionId !== target.controlledRegionId ||
+      decision.action.desiredState !== target.desiredState
     ) {
       return `Set-disclosure-state action does not match candidate "${candidate.reference}" evidence target.`;
     }
@@ -557,29 +352,13 @@ export function validateDecisionCandidateRelevance(
     return null;
   }
 
-  if (
-    target.kind ===
-      'tab-state' &&
-    decision.action.kind ===
-      'select-tab'
-  ) {
+  if (target.kind === 'tab-state' && decision.action.kind === 'select-tab') {
     if (
-      decision.action
-        .target.controlId !==
-        target.controlId ||
-      decision.action
-        .target.accessibleName !==
-        target.accessibleName ||
-      decision.action
-        .target.tabListId !==
-        target.tabListId ||
-      decision.action
-        .target
-        .controlledPanelId !==
-        target.controlledPanelId ||
-      decision.action
-        .desiredState !==
-        target.desiredState
+      decision.action.target.controlId !== target.controlId ||
+      decision.action.target.accessibleName !== target.accessibleName ||
+      decision.action.target.tabListId !== target.tabListId ||
+      decision.action.target.controlledPanelId !== target.controlledPanelId ||
+      decision.action.desiredState !== target.desiredState
     ) {
       return `Select-tab action does not match candidate "${candidate.reference}" evidence target.`;
     }
@@ -590,19 +369,13 @@ export function validateDecisionCandidateRelevance(
   return `Action "${decision.action.kind}" does not match candidate "${candidate.reference}" evidence target "${target.kind}".`;
 }
 
-function countExecutedInvestigationActions(
-  steps: ExploratoryLoopStep[]
-): number {
+function countExecutedInvestigationActions(steps: ExploratoryLoopStep[]): number {
   return steps.filter(
-    step =>
-      step.decision.action.kind !== 'stop' &&
-      step.executionResult.status === 'executed'
+    step => step.decision.action.kind !== 'stop' && step.executionResult.status === 'executed'
   ).length;
 }
 
-function requireCandidateReference(
-  decision: PlannerDecision
-): string {
+function requireCandidateReference(decision: PlannerDecision): string {
   if (decision.candidateReference == null) {
     throw new Error(
       'A validated non-stop investigation decision unexpectedly lacks a candidate reference.'

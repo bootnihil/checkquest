@@ -1,11 +1,5 @@
-import {
-  copyFile,
-  mkdir,
-  writeFile
-} from 'node:fs/promises';
-import {
-  join
-} from 'node:path';
+import { copyFile, mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
 import {
   buildHumanReportPresentation,
@@ -15,343 +9,139 @@ import {
   type HumanReportPresentation,
   type HumanTechnicalObservation
 } from './human-report-model';
-import type {
-  SiteAgentReport
-} from './report-types';
+import type { SiteAgentReport } from './report-types';
 
 export interface WrittenMarkdownReport {
-  directoryPath:
-    string;
-  filePath:
-    string;
+  directoryPath: string;
+  filePath: string;
 }
 
-function escapeMarkdownInlineText(
-  value:
-    string
-): string {
+function escapeMarkdownInlineText(value: string): string {
   return value
-    .replace(
-      /\r?\n/g,
-      ' '
-    )
-    .replace(
-      /\\/g,
-      '\\\\'
-    )
-    .replace(
-      /`/g,
-      '\\`'
-    )
-    .replace(
-      /\[/g,
-      '\\['
-    )
-    .replace(
-      /\]/g,
-      '\\]'
-    )
-    .replace(
-      /\|/g,
-      '\\|'
-    )
-    .replace(
-      /&/g,
-      '&amp;'
-    )
-    .replace(
-      /</g,
-      '&lt;'
-    )
-    .replace(
-      />/g,
-      '&gt;'
-    );
+    .replace(/\r?\n/g, ' ')
+    .replace(/\\/g, '\\\\')
+    .replace(/`/g, '\\`')
+    .replace(/\[/g, '\\[')
+    .replace(/\]/g, '\\]')
+    .replace(/\|/g, '\\|')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
-function formatMarkdownProse(
-  value:
-    string
-): string {
+function formatMarkdownProse(value: string): string {
   return value
-    .replace(
-      /\r\n?/g,
-      '\n'
-    )
-    .replace(
-      /&/g,
-      '&amp;'
-    )
-    .replace(
-      /</g,
-      '&lt;'
-    )
-    .replace(
-      />/g,
-      '&gt;'
-    )
-    .split(
-      '\n'
-    )
-    .map(
-      line =>
-        line.replace(
-          /^(\s*)(#{1,6})(?=\s|$)/,
-          '$1\\$2'
-        )
-    )
-    .join(
-      '\n'
-    );
+    .replace(/\r\n?/g, '\n')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .split('\n')
+    .map(line => line.replace(/^(\s*)(#{1,6})(?=\s|$)/, '$1\\$2'))
+    .join('\n');
 }
 
-function escapeTableCell(
-  value:
-    string
-): string {
-  return escapeMarkdownInlineText(
-    value
-  );
+function escapeTableCell(value: string): string {
+  return escapeMarkdownInlineText(value);
 }
 
-function escapeMarkdownLinkDestination(
-  value:
-    string
-): string {
-  return value
-    .replace(
-      / /g,
-      '%20'
-    )
-    .replace(
-      /\(/g,
-      '%28'
-    )
-    .replace(
-      /\)/g,
-      '%29'
-    );
+function escapeMarkdownLinkDestination(value: string): string {
+  return value.replace(/ /g, '%20').replace(/\(/g, '%28').replace(/\)/g, '%29');
 }
 
-function formatSeverity(
-  severity:
-    string
-): string {
-  return (
-    `${severity
-      .charAt(
-        0
-      )
-      .toUpperCase()}${severity.slice(
-        1
-      )}`
-  );
+function formatSeverity(severity: string): string {
+  return `${severity.charAt(0).toUpperCase()}${severity.slice(1)}`;
 }
 
-function createPageLink(
-  page:
-    HumanPageReference
-): string {
-  return (
-    `[${escapeMarkdownInlineText(
-      page.label
-    )}](${escapeMarkdownLinkDestination(
-      page.url
-    )})`
-  );
+function createPageLink(page: HumanPageReference): string {
+  return `[${escapeMarkdownInlineText(page.label)}](${escapeMarkdownLinkDestination(page.url)})`;
 }
 
-function createPagesLabel(
-  pages:
-    readonly HumanPageReference[]
-): string {
-  return pages
-    .map(
-      createPageLink
-    )
-    .join(
-      ', '
-  );
+function createPagesLabel(pages: readonly HumanPageReference[]): string {
+  return pages.map(createPageLink).join(', ');
 }
 
-function uniquePageReferences(
-  pages:
-    readonly HumanPageReference[]
-): HumanPageReference[] {
-  const pagesByUrl =
-    new Map<
-      string,
-      HumanPageReference
-    >();
+function uniquePageReferences(pages: readonly HumanPageReference[]): HumanPageReference[] {
+  const pagesByUrl = new Map<string, HumanPageReference>();
 
-  for (
-    const page of
-      pages
-  ) {
-    if (
-      !pagesByUrl.has(
-        page.url
-      )
-    ) {
-      pagesByUrl.set(
-        page.url,
-        page
-      );
+  for (const page of pages) {
+    if (!pagesByUrl.has(page.url)) {
+      pagesByUrl.set(page.url, page);
     }
   }
 
-  return [
-    ...pagesByUrl.values()
-  ];
+  return [...pagesByUrl.values()];
 }
 
-function pluralize(
-  count:
-    number,
-  singular:
-    string,
-  plural =
-    `${singular}s`
-): string {
-  return (
-    `${count} ${count === 1 ? singular : plural}`
-  );
+function pluralize(count: number, singular: string, plural = `${singular}s`): string {
+  return `${count} ${count === 1 ? singular : plural}`;
 }
 
 interface TechnicalObservationGroup<
   Item extends {
-    title:
-      string;
-    pages:
-      readonly HumanPageReference[];
+    title: string;
+    pages: readonly HumanPageReference[];
   }
 > {
-  title:
-    string;
-  items:
-    Item[];
-  pages:
-    HumanPageReference[];
+  title: string;
+  items: Item[];
+  pages: HumanPageReference[];
 }
 
 type GroupedTechnicalItem<
   Item extends {
-    title:
-      string;
-    pages:
-      readonly HumanPageReference[];
+    title: string;
+    pages: readonly HumanPageReference[];
   }
 > =
   | {
-      type:
-        'single';
-      item:
-        Item;
+      type: 'single';
+      item: Item;
     }
   | {
-      type:
-        'group';
-      group:
-        TechnicalObservationGroup<
-          Item
-        >;
+      type: 'group';
+      group: TechnicalObservationGroup<Item>;
     };
 
 function groupRepeatedTechnicalItems<
   Item extends {
-    title:
-      string;
-    pages:
-      readonly HumanPageReference[];
+    title: string;
+    pages: readonly HumanPageReference[];
   }
->(
-  items:
-    readonly Item[]
-): GroupedTechnicalItem<
-  Item
->[] {
-  const itemsByTitle =
-    new Map<
-      string,
-      Item[]
-    >();
+>(items: readonly Item[]): GroupedTechnicalItem<Item>[] {
+  const itemsByTitle = new Map<string, Item[]>();
 
-  for (
-    const item of
-      items
-  ) {
-    const matchingItems =
-      itemsByTitle.get(
-        item.title
-      ) ??
-      [];
+  for (const item of items) {
+    const matchingItems = itemsByTitle.get(item.title) ?? [];
 
-    matchingItems.push(
-      item
-    );
-    itemsByTitle.set(
-      item.title,
-      matchingItems
-    );
+    matchingItems.push(item);
+    itemsByTitle.set(item.title, matchingItems);
   }
 
-  const emittedTitles =
-    new Set<
-      string
-    >();
-  const result:
-    GroupedTechnicalItem<
-      Item
-    >[] =
-      [];
+  const emittedTitles = new Set<string>();
+  const result: GroupedTechnicalItem<Item>[] = [];
 
-  for (
-    const item of
-      items
-  ) {
-    const matchingItems =
-      itemsByTitle.get(
-        item.title
-      ) as Item[];
+  for (const item of items) {
+    const matchingItems = itemsByTitle.get(item.title) as Item[];
 
-    if (
-      matchingItems.length ===
-        1
-    ) {
+    if (matchingItems.length === 1) {
       result.push({
-        type:
-          'single',
+        type: 'single',
         item
       });
       continue;
     }
 
-    if (
-      emittedTitles.has(
-        item.title
-      )
-    ) {
+    if (emittedTitles.has(item.title)) {
       continue;
     }
 
-    emittedTitles.add(
-      item.title
-    );
+    emittedTitles.add(item.title);
     result.push({
-      type:
-        'group',
+      type: 'group',
       group: {
-        title:
-          item.title,
-        items:
-          matchingItems,
-        pages:
-          uniquePageReferences(
-            matchingItems.flatMap(
-              matchingItem =>
-                matchingItem.pages
-            )
-          )
+        title: item.title,
+        items: matchingItems,
+        pages: uniquePageReferences(matchingItems.flatMap(matchingItem => matchingItem.pages))
       }
     });
   }
@@ -359,47 +149,23 @@ function groupRepeatedTechnicalItems<
   return result;
 }
 
-function createAtAGlancePageLabel(
-  pages:
-    readonly HumanPageReference[]
-): string {
-  return pages.length ===
-    1
-    ? createPageLink(
-      pages[0] as
-        HumanPageReference
-    )
+function createAtAGlancePageLabel(pages: readonly HumanPageReference[]): string {
+  return pages.length === 1
+    ? createPageLink(pages[0] as HumanPageReference)
     : `${pages.length} pages`;
 }
 
-function createTechnicalGroupAnchor(
-  displayId:
-    string
-): string {
-  return (
-    `technical-group-item-${displayId.toLowerCase()}`
-  );
+function createTechnicalGroupAnchor(displayId: string): string {
+  return `technical-group-item-${displayId.toLowerCase()}`;
 }
 
-function createFindingCountSummary(
-  report:
-    HumanReportPresentation
-): string[] {
+function createFindingCountSummary(report: HumanReportPresentation): string[] {
   const confirmedLabel =
-    report.confirmedIssueCount ===
-      1
-      ? 'confirmed finding'
-      : 'confirmed findings';
+    report.confirmedIssueCount === 1 ? 'confirmed finding' : 'confirmed findings';
   const reviewLabel =
-    report.needsReviewCount ===
-      1
-      ? 'finding needing review'
-      : 'findings needing review';
+    report.needsReviewCount === 1 ? 'finding needing review' : 'findings needing review';
   const technicalLabel =
-    report.technicalObservationCount ===
-      1
-      ? 'technical observation'
-      : 'technical observations';
+    report.technicalObservationCount === 1 ? 'technical observation' : 'technical observations';
 
   return [
     '**CheckQuest found:**',
@@ -410,10 +176,7 @@ function createFindingCountSummary(
   ];
 }
 
-function pushReportVocabulary(
-  lines:
-    string[]
-): void {
+function pushReportVocabulary(lines: string[]): void {
   lines.push(
     '### How to read this report',
     '',
@@ -426,107 +189,41 @@ function pushReportVocabulary(
   );
 }
 
-function pushAtAGlanceTable(
-  lines:
-    string[],
-  findings:
-    readonly HumanIndexItem[]
-): void {
+function pushAtAGlanceTable(lines: string[], findings: readonly HumanIndexItem[]): void {
   lines.push(
     '| # | Finding / observation | Type | Severity | Page(s) | Status |',
     '| --- | --- | --- | --- | --- | --- |'
   );
 
-  const technicalGroups =
-    groupRepeatedTechnicalItems(
-      findings.filter(
-        finding =>
-          finding.type ===
-          'Technical'
-      )
-    );
-  const groupedTechnicalByDisplayId =
-    new Map<
-      string,
-      GroupedTechnicalItem<
-        HumanIndexItem
-      >
-    >();
+  const technicalGroups = groupRepeatedTechnicalItems(
+    findings.filter(finding => finding.type === 'Technical')
+  );
+  const groupedTechnicalByDisplayId = new Map<string, GroupedTechnicalItem<HumanIndexItem>>();
 
-  for (
-    const groupedItem of
-      technicalGroups
-  ) {
-    if (
-      groupedItem.type ===
-        'single'
-    ) {
-      groupedTechnicalByDisplayId.set(
-        groupedItem.item
-          .displayId,
-        groupedItem
-      );
+  for (const groupedItem of technicalGroups) {
+    if (groupedItem.type === 'single') {
+      groupedTechnicalByDisplayId.set(groupedItem.item.displayId, groupedItem);
       continue;
     }
 
-    groupedTechnicalByDisplayId.set(
-      groupedItem.group
-        .items[0]!
-        .displayId,
-      groupedItem
-    );
+    groupedTechnicalByDisplayId.set(groupedItem.group.items[0]!.displayId, groupedItem);
   }
 
-  for (
-    const finding of
-      findings
-  ) {
-    if (
-      finding.type ===
-        'Technical'
-    ) {
-      const groupedItem =
-        groupedTechnicalByDisplayId.get(
-          finding.displayId
-        );
+  for (const finding of findings) {
+    if (finding.type === 'Technical') {
+      const groupedItem = groupedTechnicalByDisplayId.get(finding.displayId);
 
-      if (
-        groupedItem ===
-          undefined
-      ) {
+      if (groupedItem === undefined) {
         continue;
       }
 
-      if (
-        groupedItem.type ===
-          'group'
-      ) {
-        const {
-          group
-        } =
-          groupedItem;
-        const firstItem =
-          group.items[0]!;
-        const ids =
-          group.items.map(
-            item =>
-              `[${item.displayId}](#${item.anchor})`
-          ).join(
-            ', '
-          );
-        const severities =
-          [
-            ...new Set(
-              group.items.map(
-                item =>
-                  formatSeverity(
-                    item.severity
-                  )
-              )
-            )
-          ].join(
-            ', '
-          );
+      if (groupedItem.type === 'group') {
+        const { group } = groupedItem;
+        const firstItem = group.items[0]!;
+        const ids = group.items.map(item => `[${item.displayId}](#${item.anchor})`).join(', ');
+        const severities = [
+          ...new Set(group.items.map(item => formatSeverity(item.severity)))
+        ].join(', ');
 
         lines.push(
           `| ${ids} | [${escapeTableCell(group.title)} (${group.items.length} related)](#${createTechnicalGroupAnchor(firstItem.displayId)}) | Technical | ${severities} | ${createAtAGlancePageLabel(group.pages)} | ${group.items.length} distinct observations |`
@@ -540,116 +237,45 @@ function pushAtAGlanceTable(
     );
   }
 
-  lines.push(
-    ''
-  );
+  lines.push('');
 }
 
-function pushAtAGlance(
-  lines:
-    string[],
-  findings:
-    readonly HumanIndexItem[]
-): void {
-  lines.push(
-    '## At a glance',
-    ''
-  );
+function pushAtAGlance(lines: string[], findings: readonly HumanIndexItem[]): void {
+  lines.push('## At a glance', '');
 
-  if (
-    findings.length ===
-    0
-  ) {
-    lines.push(
-      'No reportable findings or technical observations were identified.',
-      ''
-    );
+  if (findings.length === 0) {
+    lines.push('No reportable findings or technical observations were identified.', '');
     return;
   }
 
-  if (
-    findings.length <=
-      30
-  ) {
-    pushAtAGlanceTable(
-      lines,
-      findings
-    );
+  if (findings.length <= 30) {
+    pushAtAGlanceTable(lines, findings);
     return;
   }
 
-  pushAtAGlanceTable(
-    lines,
-    findings
-  );
+  pushAtAGlanceTable(lines, findings);
 }
 
-function pushObservation(
-  lines:
-    string[],
-  observation:
-    string
-): void {
-  const formatted =
-    formatMarkdownProse(
-      observation
-    );
+function pushObservation(lines: string[], observation: string): void {
+  const formatted = formatMarkdownProse(observation);
 
-  for (
-    const line of
-      formatted.split(
-        '\n'
-      )
-  ) {
-    lines.push(
-      `> ${line}`
-    );
+  for (const line of formatted.split('\n')) {
+    lines.push(`> ${line}`);
   }
 
-  lines.push(
-    ''
-  );
+  lines.push('');
 }
 
-function pushFocusedEvidence(
-  lines:
-    string[],
-  finding:
-    HumanFindingPresentation
-): void {
-  if (
-    finding.focusedEvidence
-      .length ===
-    0
-  ) {
+function pushFocusedEvidence(lines: string[], finding: HumanFindingPresentation): void {
+  if (finding.focusedEvidence.length === 0) {
     return;
   }
 
-  lines.push(
-    '**Evidence**',
-    ''
-  );
+  lines.push('**Evidence**', '');
 
-  if (
-    finding.focusedEvidence
-      .length >
-    0
-  ) {
-    for (
-      const [
-        index,
-        evidence
-      ] of finding
-        .focusedEvidence
-        .entries()
-    ) {
-      const suffix =
-        finding
-          .focusedEvidence
-          .length >
-          1
-          ? `, region ${index + 1}`
-          : '';
+  if (finding.focusedEvidence.length > 0) {
+    for (const [index, evidence] of finding.focusedEvidence.entries()) {
+      const suffix = finding.focusedEvidence.length > 1 ? `, region ${index + 1}` : '';
 
       lines.push(
         `![Focused evidence for ${escapeMarkdownInlineText(finding.title)}${suffix}](${escapeMarkdownLinkDestination(evidence.relativePath)})`,
@@ -657,10 +283,7 @@ function pushFocusedEvidence(
       );
     }
 
-    if (
-      finding.visualTargetCount >
-      finding.visuallyShownTargetCount
-    ) {
+    if (finding.visualTargetCount > finding.visuallyShownTargetCount) {
       lines.push(
         `${finding.visuallyShownTargetCount} of ${finding.visualTargetCount} observed instances are shown.`,
         ''
@@ -669,18 +292,10 @@ function pushFocusedEvidence(
 
     return;
   }
-
 }
 
-function pushFindingEvidenceStatus(
-  lines:
-    string[],
-  finding:
-    HumanFindingPresentation
-): void {
-  switch (
-    finding.confirmationCoverage
-  ) {
+function pushFindingEvidenceStatus(lines: string[], finding: HumanFindingPresentation): void {
+  switch (finding.confirmationCoverage) {
     case 'none':
       lines.push(
         '**Evidence status**',
@@ -704,16 +319,8 @@ function pushFindingEvidenceStatus(
   }
 }
 
-function pushFindingProvenance(
-  lines:
-    string[],
-  finding:
-    HumanFindingPresentation
-): void {
-  if (
-    !finding
-      .modelCandidateProvenance
-  ) {
+function pushFindingProvenance(lines: string[], finding: HumanFindingPresentation): void {
+  if (!finding.modelCandidateProvenance) {
     return;
   }
 
@@ -725,12 +332,7 @@ function pushFindingProvenance(
   );
 }
 
-function pushDetailedFinding(
-  lines:
-    string[],
-  finding:
-    HumanFindingPresentation
-): void {
+function pushDetailedFinding(lines: string[], finding: HumanFindingPresentation): void {
   lines.push(
     `<a id="${finding.anchor}"></a>`,
     `### ${finding.displayId} — ${escapeMarkdownInlineText(finding.title)}`,
@@ -741,69 +343,25 @@ function pushDetailedFinding(
     '**What I saw**',
     ''
   );
-  pushObservation(
-    lines,
-    finding.observation
-  );
-  pushFocusedEvidence(
-    lines,
-    finding
-  );
-  pushFindingEvidenceStatus(
-    lines,
-    finding
-  );
-  pushFindingProvenance(
-    lines,
-    finding
-  );
-  if (
-    finding.whyItMayMatter !==
-      null
-  ) {
-    lines.push(
-      '**Why it may matter**',
-      '',
-      formatMarkdownProse(
-        finding.whyItMayMatter
-      ),
-      ''
-    );
+  pushObservation(lines, finding.observation);
+  pushFocusedEvidence(lines, finding);
+  pushFindingEvidenceStatus(lines, finding);
+  pushFindingProvenance(lines, finding);
+  if (finding.whyItMayMatter !== null) {
+    lines.push('**Why it may matter**', '', formatMarkdownProse(finding.whyItMayMatter), '');
   }
 
-  if (
-    finding.whatToCheck !==
-      null
-  ) {
-    lines.push(
-      '**What to check**',
-      '',
-      formatMarkdownProse(
-        finding.whatToCheck
-      ),
-      ''
-    );
+  if (finding.whatToCheck !== null) {
+    lines.push('**What to check**', '', formatMarkdownProse(finding.whatToCheck), '');
   }
 
-  lines.push(
-    '---',
-    ''
-  );
+  lines.push('---', '');
 }
 
-function pushAdditionalFinding(
-  lines:
-    string[],
-  finding:
-    HumanFindingPresentation
-): void {
+function pushAdditionalFinding(lines: string[], finding: HumanFindingPresentation): void {
   const pageLabel =
-    finding.pages.length ===
-      1
-      ? createPageLink(
-        finding.pages[0] as
-          HumanPageReference
-      )
+    finding.pages.length === 1
+      ? createPageLink(finding.pages[0] as HumanPageReference)
       : `${finding.pages.length} pages`;
 
   lines.push(
@@ -813,21 +371,10 @@ function pushAdditionalFinding(
     `**${formatSeverity(finding.severity)} · ${finding.status} · ${pageLabel}**`,
     ''
   );
-  pushObservation(
-    lines,
-    finding.observation
-  );
+  pushObservation(lines, finding.observation);
 
-  if (
-    finding.focusedEvidence
-      .length >
-    0
-  ) {
-    for (
-      const evidence of
-        finding
-          .focusedEvidence
-    ) {
+  if (finding.focusedEvidence.length > 0) {
+    for (const evidence of finding.focusedEvidence) {
       lines.push(
         `![Focused evidence for ${escapeMarkdownInlineText(finding.title)}](${escapeMarkdownLinkDestination(evidence.relativePath)})`,
         ''
@@ -835,28 +382,16 @@ function pushAdditionalFinding(
     }
   }
 
-  pushFindingEvidenceStatus(
-    lines,
-    finding
-  );
-  pushFindingProvenance(
-    lines,
-    finding
-  );
+  pushFindingEvidenceStatus(lines, finding);
+  pushFindingProvenance(lines, finding);
 
-  lines.push(
-    '---',
-    ''
-  );
+  lines.push('---', '');
 }
 
 function pushTechnicalObservationDetails(
-  lines:
-    string[],
-  observation:
-    HumanTechnicalObservation,
-  heading:
-    string
+  lines: string[],
+  observation: HumanTechnicalObservation,
+  heading: string
 ): void {
   lines.push(
     `<a id="${observation.anchor}"></a>`,
@@ -868,54 +403,30 @@ function pushTechnicalObservationDetails(
     `[Structured technical evidence](${escapeMarkdownLinkDestination(observation.evidencePath)})`,
     ''
   );
-  pushObservation(
-    lines,
-    observation.observation
-  );
+  pushObservation(lines, observation.observation);
 }
 
 function pushTechnicalObservations(
-  lines:
-    string[],
-  observations:
-    readonly HumanTechnicalObservation[]
+  lines: string[],
+  observations: readonly HumanTechnicalObservation[]
 ): void {
-  const groupedObservations =
-    groupRepeatedTechnicalItems(
-      observations
-    );
+  const groupedObservations = groupRepeatedTechnicalItems(observations);
 
-  for (
-    const groupedItem of
-      groupedObservations
-  ) {
-    if (
-      groupedItem.type ===
-        'single'
-    ) {
-      const {
-        item
-      } =
-        groupedItem;
+  for (const groupedItem of groupedObservations) {
+    if (groupedItem.type === 'single') {
+      const { item } = groupedItem;
 
       pushTechnicalObservationDetails(
         lines,
         item,
         `### ${item.displayId} — ${escapeMarkdownInlineText(item.title)}`
       );
-      lines.push(
-        '---',
-        ''
-      );
+      lines.push('---', '');
       continue;
     }
 
-    const {
-      group
-    } =
-      groupedItem;
-    const firstItem =
-      group.items[0]!;
+    const { group } = groupedItem;
+    const firstItem = group.items[0]!;
 
     lines.push(
       `<a id="${createTechnicalGroupAnchor(firstItem.displayId)}"></a>`,
@@ -925,10 +436,7 @@ function pushTechnicalObservations(
       ''
     );
 
-    for (
-      const observation of
-        group.items
-    ) {
+    for (const observation of group.items) {
       pushTechnicalObservationDetails(
         lines,
         observation,
@@ -936,128 +444,54 @@ function pushTechnicalObservations(
       );
     }
 
-    lines.push(
-      '---',
-      ''
-    );
+    lines.push('---', '');
   }
 }
 
-export function renderHumanMarkdownReport(
-  report:
-    SiteAgentReport
-): string {
-  const presentation =
-    buildHumanReportPresentation(
-      report
-    );
+export function renderHumanMarkdownReport(report: SiteAgentReport): string {
+  const presentation = buildHumanReportPresentation(report);
   const lines: string[] = [
     `# CheckQuest report — ${escapeMarkdownInlineText(presentation.siteName)}`,
     '',
     `CheckQuest inspected ${pluralize(presentation.pagesInspected, 'page')} in ${presentation.duration}.`,
     '',
-    ...createFindingCountSummary(
-      presentation
-    ),
+    ...createFindingCountSummary(presentation),
     ''
   ];
 
-  pushReportVocabulary(
-    lines
-  );
+  pushReportVocabulary(lines);
 
-  if (
-    presentation.notableSummary !==
-    null
-  ) {
-    lines.push(
-      formatMarkdownProse(
-        presentation
-          .notableSummary
-      ),
-      ''
-    );
+  if (presentation.notableSummary !== null) {
+    lines.push(formatMarkdownProse(presentation.notableSummary), '');
   }
 
-  if (
-    presentation.outcomeNote !==
-      null
-  ) {
-    lines.push(
-      formatMarkdownProse(
-        presentation.outcomeNote
-      ),
-      ''
-    );
+  if (presentation.outcomeNote !== null) {
+    lines.push(formatMarkdownProse(presentation.outcomeNote), '');
   }
 
-  pushAtAGlance(
-    lines,
-    presentation.atAGlance
-  );
+  pushAtAGlance(lines, presentation.atAGlance);
 
-  lines.push(
-    '## Findings',
-    ''
-  );
+  lines.push('## Findings', '');
 
-  if (
-    presentation
-      .detailedFindings
-      .length ===
-    0
-  ) {
-    lines.push(
-      'No confirmed issues or items needing review were identified.',
-      ''
-    );
+  if (presentation.detailedFindings.length === 0) {
+    lines.push('No confirmed issues or items needing review were identified.', '');
   } else {
-    for (
-      const finding of
-        presentation
-          .detailedFindings
-    ) {
-      pushDetailedFinding(
-        lines,
-        finding
-      );
+    for (const finding of presentation.detailedFindings) {
+      pushDetailedFinding(lines, finding);
     }
   }
 
-  if (
-    presentation
-      .additionalFindings
-      .length >
-    0
-  ) {
-    lines.push(
-      '## Additional findings',
-      ''
-    );
+  if (presentation.additionalFindings.length > 0) {
+    lines.push('## Additional findings', '');
 
-    for (
-      const finding of
-        presentation
-          .additionalFindings
-    ) {
-      pushAdditionalFinding(
-        lines,
-        finding
-      );
+    for (const finding of presentation.additionalFindings) {
+      pushAdditionalFinding(lines, finding);
     }
   }
 
-  lines.push(
-    '## Technical observations',
-    ''
-  );
+  lines.push('## Technical observations', '');
 
-  if (
-    presentation
-      .technicalObservations
-      .length ===
-    0
-  ) {
+  if (presentation.technicalObservations.length === 0) {
     lines.push(
       'No lower-level technical observations were promoted into the human report.',
       '',
@@ -1065,73 +499,40 @@ export function renderHumanMarkdownReport(
       ''
     );
   } else {
-    pushTechnicalObservations(
-      lines,
-      presentation
-        .technicalObservations
-    );
+    pushTechnicalObservations(lines, presentation.technicalObservations);
 
-    lines.push(
-      'Additional browser and diagnostic details are available in `report.json`.',
-      ''
-    );
+    lines.push('Additional browser and diagnostic details are available in `report.json`.', '');
   }
 
   lines.push(
     '## Security observations',
     '',
-    formatMarkdownProse(
-      presentation
-        .securityDisclaimer
-    ),
- ''
+    formatMarkdownProse(presentation.securityDisclaimer),
+    ''
   );
 
-  if (
-    presentation
-      .securityObservations
-      .length ===
-    0
-  ) {
-    lines.push(
-      'No passive security observations were produced.',
-      ''
-    );
+  if (presentation.securityObservations.length === 0) {
+    lines.push('No passive security observations were produced.', '');
   } else {
-    lines.push(
-      '| # | Observation | Severity | Scope |',
-      '| --- | --- | --- | --- |'
-    );
+    lines.push('| # | Observation | Severity | Scope |', '| --- | --- | --- | --- |');
 
-    for (
-      const observation of
-        presentation
-          .securityObservations
-    ) {
+    for (const observation of presentation.securityObservations) {
       lines.push(
         `| [${observation.displayId}](#${observation.anchor}) | [${escapeTableCell(observation.title)}](#${observation.anchor}) | ${formatSeverity(observation.severity)} | ${escapeTableCell(observation.scope)} |`
       );
     }
 
-    lines.push(
-      ''
-    );
+    lines.push('');
 
-    for (
-      const observation of
-        presentation
-          .securityObservations
-    ) {
+    for (const observation of presentation.securityObservations) {
       lines.push(
         `<a id="${observation.anchor}"></a>`,
         `### ${observation.displayId} — ${escapeMarkdownInlineText(observation.title)}`,
         '',
         `**${formatSeverity(observation.severity)} · Security observation · ${observation.scope}**`,
         '',
-        formatMarkdownProse(
-          observation.description
-        ),
- '',
+        formatMarkdownProse(observation.description),
+        '',
         `[Security evidence file](${escapeMarkdownLinkDestination(observation.evidencePath)})`,
         '',
         '<details>',
@@ -1139,39 +540,17 @@ export function renderHumanMarkdownReport(
         ''
       );
 
-      for (
-        const evidence of
-          observation.evidence
-      ) {
-        lines.push(
-          `- ${formatMarkdownProse(evidence)}`
-        );
+      for (const evidence of observation.evidence) {
+        lines.push(`- ${formatMarkdownProse(evidence)}`);
       }
 
-      lines.push(
-        '',
-        '</details>',
-        ''
-      );
+      lines.push('', '</details>', '');
 
-      if (
-        observation.whatToCheck !==
-        null
-      ) {
-        lines.push(
-          '**What to check:**',
-          '',
-          formatMarkdownProse(
-            observation.whatToCheck
-          ),
-          ''
-        );
+      if (observation.whatToCheck !== null) {
+        lines.push('**What to check:**', '', formatMarkdownProse(observation.whatToCheck), '');
       }
 
-      lines.push(
-        '---',
-        ''
-      );
+      lines.push('---', '');
     }
   }
 
@@ -1182,28 +561,16 @@ export function renderHumanMarkdownReport(
     '| --- | --- | --- |'
   );
 
-  if (
-    presentation
-      .inspectedPages
-      .length ===
-    0
-  ) {
-    lines.push(
-      '| No pages were inspected | - | - |'
-    );
+  if (presentation.inspectedPages.length === 0) {
+    lines.push('| No pages were inspected | - | - |');
   } else {
-    for (
-      const page of
-        presentation
-          .inspectedPages
-    ) {
+    for (const page of presentation.inspectedPages) {
       lines.push(
-        `| ${createPageLink(page.page)} | ${page.reachedVia} | ${page.relatedItems.length === 0
-          ? 'None'
-          : page.relatedItems.map(
-            item =>
-              `[${item.displayId}](#${item.anchor})`
-          ).join(', ')} |`
+        `| ${createPageLink(page.page)} | ${page.reachedVia} | ${
+          page.relatedItems.length === 0
+            ? 'None'
+            : page.relatedItems.map(item => `[${item.displayId}](#${item.anchor})`).join(', ')
+        } |`
       );
     }
   }
@@ -1217,102 +584,40 @@ export function renderHumanMarkdownReport(
   return `${lines.join('\n')}\n`;
 }
 
-export async function writeMarkdownReport(
-  report:
-    SiteAgentReport
-): Promise<WrittenMarkdownReport> {
-  const directoryPath =
-    join(
-      'agent-results',
-      report.runId
-    );
-  const filePath =
-    join(
-      directoryPath,
-      'report.md'
-    );
-  const presentation =
-    buildHumanReportPresentation(
-      report
-    );
-  const evidenceDirectoryPath =
-    join(
-      directoryPath,
-      'evidence'
-    );
+export async function writeMarkdownReport(report: SiteAgentReport): Promise<WrittenMarkdownReport> {
+  const directoryPath = join('agent-results', report.runId);
+  const filePath = join(directoryPath, 'report.md');
+  const presentation = buildHumanReportPresentation(report);
+  const evidenceDirectoryPath = join(directoryPath, 'evidence');
 
-  await mkdir(
-    directoryPath,
-    {
-      recursive:
-        true
-    }
-  );
-  await mkdir(
-    evidenceDirectoryPath,
-    {
-      recursive:
-        true
-    }
-  );
+  await mkdir(directoryPath, {
+    recursive: true
+  });
+  await mkdir(evidenceDirectoryPath, {
+    recursive: true
+  });
 
-  for (
-    const finding of
-      presentation.atAGlance
-  ) {
-    const detailedFinding =
-      [
-        ...presentation
-          .detailedFindings,
-        ...presentation
-          .additionalFindings
-      ].find(
-        item =>
-          item.displayId ===
-          finding.displayId
-      );
+  for (const finding of presentation.atAGlance) {
+    const detailedFinding = [
+      ...presentation.detailedFindings,
+      ...presentation.additionalFindings
+    ].find(item => item.displayId === finding.displayId);
 
-    for (
-      const evidence of
-        detailedFinding
-          ?.focusedEvidence ??
-        []
-    ) {
-      await copyFile(
-        evidence.sourcePath,
-        join(
-          directoryPath,
-          evidence.relativePath
-        )
-      );
+    for (const evidence of detailedFinding?.focusedEvidence ?? []) {
+      await copyFile(evidence.sourcePath, join(directoryPath, evidence.relativePath));
     }
   }
 
-  for (
-    const observation of
-      presentation
-        .technicalObservations
-  ) {
+  for (const observation of presentation.technicalObservations) {
     await writeFile(
-      join(
-        directoryPath,
-        observation.evidencePath
-      ),
+      join(directoryPath, observation.evidencePath),
       `${JSON.stringify(
         {
-          id:
-            observation.displayId,
-          title:
-            observation.title,
-          severity:
-            observation.severity,
-          pages:
-            observation.pages.map(
-              page =>
-                page.url
-            ),
-          observation:
-            observation.observation
+          id: observation.displayId,
+          title: observation.title,
+          severity: observation.severity,
+          pages: observation.pages.map(page => page.url),
+          observation: observation.observation
         },
         null,
         2
@@ -1321,16 +626,9 @@ export async function writeMarkdownReport(
     );
   }
 
-  for (
-    const observation of
-      presentation
-        .securityObservations
-  ) {
+  for (const observation of presentation.securityObservations) {
     await writeFile(
-      join(
-        directoryPath,
-        observation.evidencePath
-      ),
+      join(directoryPath, observation.evidencePath),
       [
         `${observation.displayId} — ${observation.title}`,
         `Severity: ${formatSeverity(observation.severity)}`,
@@ -1339,20 +637,12 @@ export async function writeMarkdownReport(
         observation.description,
         '',
         ...observation.evidence
-      ].join(
-        '\n'
-      ),
+      ].join('\n'),
       'utf8'
     );
   }
 
-  await writeFile(
-    filePath,
-    renderHumanMarkdownReport(
-      report
-    ),
-    'utf8'
-  );
+  await writeFile(filePath, renderHumanMarkdownReport(report), 'utf8');
 
   return {
     directoryPath,

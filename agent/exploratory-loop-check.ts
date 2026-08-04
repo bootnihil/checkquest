@@ -5,9 +5,7 @@ import { assignPageCandidateReferences } from './investigation/page-candidates';
 import { runExploratoryLoop } from './planning/run-exploratory-loop';
 
 async function main(): Promise<void> {
-  console.log(
-    'Running bounded autonomous exploratory planner loop...\n'
-  );
+  console.log('Running bounded autonomous exploratory planner loop...\n');
 
   const browser = await chromium.launch({
     headless: true
@@ -93,84 +91,54 @@ async function main(): Promise<void> {
      */
     const maxSteps = 4;
 
-    const result =
-      await runExploratoryLoop(
-        page,
-        'https://example.com/request-demo',
-        maxSteps,
-        assignPageCandidateReferences([])
-      );
-
-    console.log(
-      '\nAutonomous exploratory loop completed.\n'
+    const result = await runExploratoryLoop(
+      page,
+      'https://example.com/request-demo',
+      maxSteps,
+      assignPageCandidateReferences([])
     );
 
-    console.log(
-      `Stop reason: ${result.stopReason}`
-    );
+    console.log('\nAutonomous exploratory loop completed.\n');
 
-    console.log(
-      `Planner decisions: ${result.plannerDecisionCount}/${result.maxPlannerDecisions}`
-    );
+    console.log(`Stop reason: ${result.stopReason}`);
+
+    console.log(`Planner decisions: ${result.plannerDecisionCount}/${result.maxPlannerDecisions}`);
 
     console.log(
       `Executed candidate-investigation actions: ${result.executedInvestigationActionCount}`
     );
 
-    console.log(
-      '\nAction history:'
-    );
+    console.log('\nAction history:');
 
     for (const step of result.steps) {
-      console.log(
-        `\nStep ${step.step}`
-      );
+      console.log(`\nStep ${step.step}`);
 
-      console.log(
-        `Hypothesis: ${step.decision.hypothesis}`
-      );
+      console.log(`Hypothesis: ${step.decision.hypothesis}`);
 
-      console.log(
-        `Reasoning: ${step.decision.reasoning}`
-      );
+      console.log(`Reasoning: ${step.decision.reasoning}`);
 
-      console.log(
-        `Action: ${JSON.stringify(
-          step.decision.action
-        )}`
-      );
+      console.log(`Action: ${JSON.stringify(step.decision.action)}`);
 
-      console.log(
-        `Expected observation: ${step.decision.expectedObservation}`
-      );
+      console.log(`Expected observation: ${step.decision.expectedObservation}`);
 
-      console.log(
-        `Execution status: ${step.executionResult.status}`
-      );
+      console.log(`Execution status: ${step.executionResult.status}`);
 
-      console.log(
-        `Execution detail: ${step.executionResult.detail}`
-      );
+      console.log(`Execution detail: ${step.executionResult.detail}`);
     }
 
     /*
      * Capture the final browser state after all autonomous decisions.
      */
-    const finalObservation =
-      await extractPageContent(page);
+    const finalObservation = await extractPageContent(page);
 
-    console.log(
-      '\nFinal observed form state:\n'
-    );
+    console.log('\nFinal observed form state:\n');
 
     console.log(
       JSON.stringify(
         {
-          textFields:
-            finalObservation.textFields,
+          textFields: finalObservation.textFields,
 
-          selects:
-            finalObservation.selects
+          selects: finalObservation.selects
         },
         null,
         2
@@ -184,13 +152,8 @@ async function main(): Promise<void> {
      * assertions make the autonomous-loop check explicitly verify the
      * boundaries we care about.
      */
-    if (
-      result.plannerDecisionCount >
-      maxSteps
-    ) {
-      throw new Error(
-        `Loop exceeded hard step limit of ${maxSteps}.`
-      );
+    if (result.plannerDecisionCount > maxSteps) {
+      throw new Error(`Loop exceeded hard step limit of ${maxSteps}.`);
     }
 
     if (
@@ -203,58 +166,40 @@ async function main(): Promise<void> {
       );
     }
 
-    if (
-      result.stopReason !==
-      'no-investigable-candidates'
-    ) {
+    if (result.stopReason !== 'no-investigable-candidates') {
       throw new Error(
         `Expected no-investigable-candidates stop reason, received "${result.stopReason}".`
       );
     }
 
-    const allowedActionKinds =
-      new Set([
-        'fill-text-field',
-        'clear-field',
-        'blur-field',
-        'select-option',
-        'set-disclosure-state',
-        'scroll',
-        'stop'
-      ]);
+    const allowedActionKinds = new Set([
+      'fill-text-field',
+      'clear-field',
+      'blur-field',
+      'select-option',
+      'set-disclosure-state',
+      'scroll',
+      'stop'
+    ]);
 
     for (const step of result.steps) {
-      if (
-        !allowedActionKinds.has(
-          step.decision.action.kind
-        )
-      ) {
-        throw new Error(
-          `Unexpected autonomous action: ${step.decision.action.kind}`
-        );
+      if (!allowedActionKinds.has(step.decision.action.kind)) {
+        throw new Error(`Unexpected autonomous action: ${step.decision.action.kind}`);
       }
     }
 
-    console.log(
-      '\nAll bounded autonomous exploratory loop checks passed.'
-    );
+    console.log('\nAll bounded autonomous exploratory loop checks passed.');
 
-    console.log(
-      '\nFlow proven:'
-    );
+    console.log('\nFlow proven:');
 
-    console.log(
-      'No investigable candidate → Stop before Observe/Plan/Execute'
-    );
+    console.log('No investigable candidate → Stop before Observe/Plan/Execute');
   } finally {
     await browser.close();
   }
 }
 
 main().catch(error => {
-  console.error(
-    '\nAutonomous exploratory loop check failed.'
-  );
+  console.error('\nAutonomous exploratory loop check failed.');
 
   if (error instanceof Error) {
     console.error(error.message);

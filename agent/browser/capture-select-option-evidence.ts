@@ -9,9 +9,7 @@ export interface CapturedSelectOptionEvidence {
   locatorStrategy: string;
 }
 
-function formatNumber(
-  value: number
-): string {
+function formatNumber(value: number): string {
   return String(value).padStart(2, '0');
 }
 
@@ -20,55 +18,31 @@ async function findSelectByAttribute(
   attributeName: 'id' | 'name',
   expectedValue: string
 ): Promise<Locator | null> {
-  const selects =
-    page.locator('select');
+  const selects = page.locator('select');
 
-  const matchingIndexes =
-    await selects.evaluateAll(
-      (
-        elements,
-        input
-      ) => {
-        return elements
-          .map(
-            (
-              element,
-              index
-            ) => {
-              return {
-                index,
-                value:
-                  element.getAttribute(
-                    input.attributeName
-                  )
-              };
-            }
-          )
-          .filter(
-            (item) =>
-              item.value ===
-              input.expectedValue
-          )
-          .map(
-            (item) =>
-              item.index
-          );
-      },
-      {
-        attributeName,
-        expectedValue
-      }
-    );
+  const matchingIndexes = await selects.evaluateAll(
+    (elements, input) => {
+      return elements
+        .map((element, index) => {
+          return {
+            index,
+            value: element.getAttribute(input.attributeName)
+          };
+        })
+        .filter(item => item.value === input.expectedValue)
+        .map(item => item.index);
+    },
+    {
+      attributeName,
+      expectedValue
+    }
+  );
 
-  if (
-    matchingIndexes.length !== 1
-  ) {
+  if (matchingIndexes.length !== 1) {
     return null;
   }
 
-  return selects.nth(
-    matchingIndexes[0]
-  );
+  return selects.nth(matchingIndexes[0]);
 }
 
 async function findSelect(
@@ -79,64 +53,39 @@ async function findSelect(
   strategy: string;
 }> {
   if (target.controlId) {
-    const locator =
-      await findSelectByAttribute(
-        page,
-        'id',
-        target.controlId
-      );
+    const locator = await findSelectByAttribute(page, 'id', target.controlId);
 
     if (locator) {
       return {
         locator,
-        strategy:
-          `id:${target.controlId}`
+        strategy: `id:${target.controlId}`
       };
     }
   }
 
   if (target.controlName) {
-    const locator =
-      await findSelectByAttribute(
-        page,
-        'name',
-        target.controlName
-      );
+    const locator = await findSelectByAttribute(page, 'name', target.controlName);
 
     if (locator) {
       return {
         locator,
-        strategy:
-          `name:${target.controlName}`
+        strategy: `name:${target.controlName}`
       };
     }
   }
 
   if (target.controlLabel) {
-    const locator =
-      page.getByLabel(
-        target.controlLabel,
-        {
-          exact: true
-        }
-      );
+    const locator = page.getByLabel(target.controlLabel, {
+      exact: true
+    });
 
-    if (
-      await locator.count() === 1
-    ) {
-      const tagName =
-        await locator.evaluate(
-          (element) =>
-            element.tagName.toLowerCase()
-        );
+    if ((await locator.count()) === 1) {
+      const tagName = await locator.evaluate(element => element.tagName.toLowerCase());
 
-      if (
-        tagName === 'select'
-      ) {
+      if (tagName === 'select') {
         return {
           locator,
-          strategy:
-            `label:${target.controlLabel}`
+          strategy: `label:${target.controlLabel}`
         };
       }
     }
@@ -154,31 +103,15 @@ export async function captureSelectOptionEvidence(
   findingNumber: number,
   target: SelectOptionEvidenceTarget
 ): Promise<CapturedSelectOptionEvidence> {
-  const {
-    locator: select,
-    strategy
-  } = await findSelect(
-    page,
-    target
+  const { locator: select, strategy } = await findSelect(page, target);
+
+  const optionTexts = await select.locator('option').allTextContents();
+
+  const exactMatches = optionTexts.filter(
+    text => text.replace(/\s+/g, ' ').trim() === target.optionText
   );
 
-  const optionTexts =
-    await select
-      .locator('option')
-      .allTextContents();
-
-  const exactMatches =
-    optionTexts.filter(
-      (text) =>
-        text
-          .replace(/\s+/g, ' ')
-          .trim() ===
-        target.optionText
-    );
-
-  if (
-    exactMatches.length === 0
-  ) {
+  if (exactMatches.length === 0) {
     throw new Error(
       `The targeted option "${target.optionText}" was not found in the selected control.`
     );
@@ -194,29 +127,16 @@ export async function captureSelectOptionEvidence(
 
   await select.scrollIntoViewIfNeeded();
 
-  const evidenceDirectory =
-    join(
-      'agent-results',
-      runId,
-      'evidence'
-    );
+  const evidenceDirectory = join('agent-results', runId, 'evidence');
 
-  const filePath =
-    join(
-      evidenceDirectory,
-      `page-${formatNumber(
-        pageNumber
-      )}-finding-${formatNumber(
-        findingNumber
-      )}.png`
-    );
-
-  await mkdir(
+  const filePath = join(
     evidenceDirectory,
-    {
-      recursive: true
-    }
+    `page-${formatNumber(pageNumber)}-finding-${formatNumber(findingNumber)}.png`
   );
+
+  await mkdir(evidenceDirectory, {
+    recursive: true
+  });
 
   /*
    * Capture the select after the offending option
@@ -228,9 +148,7 @@ export async function captureSelectOptionEvidence(
 
   return {
     filePath,
-    optionText:
-      target.optionText,
-    locatorStrategy:
-      strategy
+    optionText: target.optionText,
+    locatorStrategy: strategy
   };
 }

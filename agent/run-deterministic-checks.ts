@@ -1,6 +1,4 @@
-import {
-  spawnSync
-} from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 
 const deterministicChecks = [
   'agent:run-options-check',
@@ -43,54 +41,29 @@ const deterministicChecks = [
   'desktop:check'
 ] as const;
 
-function runCheck(
-  check: string,
-  index: number,
-  total: number
-): boolean {
-  console.log(
-    `\n[${index}/${total}] ${check}`
-  );
+function runCheck(check: string, index: number, total: number): boolean {
+  console.log(`\n[${index}/${total}] ${check}`);
 
-  const npmCli =
-    process.env
-      .npm_execpath;
+  const npmCli = process.env.npm_execpath;
 
   if (!npmCli) {
-    console.error(
-      'Unable to locate the npm CLI through npm_execpath.'
-    );
+    console.error('Unable to locate the npm CLI through npm_execpath.');
 
     return false;
   }
 
-  const result =
-    spawnSync(
-      process.execPath,
-      [
-        npmCli,
-        'run',
-        check
-      ],
-      {
-        stdio:
-          'inherit'
-      }
-    );
+  const result = spawnSync(process.execPath, [npmCli, 'run', check], {
+    stdio: 'inherit'
+  });
 
   if (result.error) {
-    console.error(
-      `Unable to run ${check}.`,
-      result.error
-    );
+    console.error(`Unable to run ${check}.`, result.error);
 
     return false;
   }
 
   if (result.status !== 0) {
-    console.error(
-      `${check} failed with exit code ${result.status ?? 'unknown'}.`
-    );
+    console.error(`${check} failed with exit code ${result.status ?? 'unknown'}.`);
 
     return false;
   }
@@ -99,41 +72,22 @@ function runCheck(
 }
 
 function main(): void {
-  const requestedChecks =
-    process.argv.slice(2);
+  const requestedChecks = process.argv.slice(2);
 
-  const checks:
-    readonly string[] =
-    requestedChecks.length > 0
-      ? requestedChecks
-      : deterministicChecks;
+  const checks: readonly string[] =
+    requestedChecks.length > 0 ? requestedChecks : deterministicChecks;
 
-  for (
-    let index = 0;
-    index < checks.length;
-    index += 1
-  ) {
-    const check =
-      checks[index];
+  for (let index = 0; index < checks.length; index += 1) {
+    const check = checks[index];
 
-    if (
-      check === undefined ||
-      !runCheck(
-        check,
-        index + 1,
-        checks.length
-      )
-    ) {
-      process.exitCode =
-        1;
+    if (check === undefined || !runCheck(check, index + 1, checks.length)) {
+      process.exitCode = 1;
 
       return;
     }
   }
 
-  console.log(
-    `\nAll ${checks.length} deterministic regression checks passed.`
-  );
+  console.log(`\nAll ${checks.length} deterministic regression checks passed.`);
 }
 
 main();

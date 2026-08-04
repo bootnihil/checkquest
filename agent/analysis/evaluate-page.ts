@@ -1,9 +1,6 @@
 import type { VisitedPageObservation } from '../browser/visit-approved-link';
 
-export type FindingSeverity =
-  | 'high'
-  | 'medium'
-  | 'low';
+export type FindingSeverity = 'high' | 'medium' | 'low';
 
 export interface PageFinding {
   code: string;
@@ -13,9 +10,7 @@ export interface PageFinding {
   url: string;
 }
 
-export function evaluatePageObservation(
-  observation: VisitedPageObservation
-): PageFinding[] {
+export function evaluatePageObservation(observation: VisitedPageObservation): PageFinding[] {
   const findings: PageFinding[] = [];
 
   if (observation.httpStatus === null) {
@@ -23,8 +18,7 @@ export function evaluatePageObservation(
       code: 'HTTP_STATUS_UNKNOWN',
       severity: 'low',
       title: 'HTTP response status could not be determined',
-      evidence:
-        'Playwright did not receive a main-document HTTP response status.',
+      evidence: 'Playwright did not receive a main-document HTTP response status.',
       url: observation.finalUrl
     });
   } else if (observation.httpStatus >= 500) {
@@ -32,8 +26,7 @@ export function evaluatePageObservation(
       code: 'HTTP_SERVER_ERROR',
       severity: 'high',
       title: `Page returned HTTP ${observation.httpStatus}`,
-      evidence:
-        'The main document returned a server-error response.',
+      evidence: 'The main document returned a server-error response.',
       url: observation.finalUrl
     });
   } else if (observation.httpStatus >= 400) {
@@ -41,8 +34,7 @@ export function evaluatePageObservation(
       code: 'HTTP_CLIENT_ERROR',
       severity: 'high',
       title: `Page returned HTTP ${observation.httpStatus}`,
-      evidence:
-        'The selected internal page returned a client-error response.',
+      evidence: 'The selected internal page returned a client-error response.',
       url: observation.finalUrl
     });
   }
@@ -54,8 +46,7 @@ export function evaluatePageObservation(
       code: 'EMPTY_PAGE_TITLE',
       severity: 'medium',
       title: 'Page has no browser title',
-      evidence:
-        'The document title was empty after navigation completed.',
+      evidence: 'The document title was empty after navigation completed.',
       url: observation.finalUrl
     });
   }
@@ -65,28 +56,19 @@ export function evaluatePageObservation(
       code: 'NO_PRIMARY_HEADINGS',
       severity: 'low',
       title: 'No H1 or H2 headings were found',
-      evidence:
-        'The page contained no visible text collected from H1 or H2 elements.',
+      evidence: 'The page contained no visible text collected from H1 or H2 elements.',
       url: observation.finalUrl
     });
   }
 
-  const visibleSummary = [
-    observation.title,
-    ...observation.headings
-  ]
-    .join(' ')
-    .toLowerCase();
+  const visibleSummary = [observation.title, ...observation.headings].join(' ').toLowerCase();
 
-  const obviousErrorText =
-    /\b(page not found|not found|server error|access denied)\b/;
+  const obviousErrorText = /\b(page not found|not found|server error|access denied)\b/;
 
   if (
     obviousErrorText.test(visibleSummary) &&
     !findings.some(
-      (finding) =>
-        finding.code === 'HTTP_SERVER_ERROR' ||
-        finding.code === 'HTTP_CLIENT_ERROR'
+      finding => finding.code === 'HTTP_SERVER_ERROR' || finding.code === 'HTTP_CLIENT_ERROR'
     )
   ) {
     findings.push({
