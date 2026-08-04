@@ -30,6 +30,10 @@ interface RunCollaborators {
 }
 
 const allowedHost = '127.0.0.1';
+const defaultFixtureContentSecurityPolicy =
+  "default-src 'none'; img-src data:; style-src 'unsafe-inline'";
+const diagnosticFixtureContentSecurityPolicy =
+  "default-src 'none'; img-src data:; script-src 'unsafe-inline'; style-src 'unsafe-inline'";
 
 function fixturePage(title: string, body: string): string {
   return `<!doctype html>
@@ -43,10 +47,15 @@ function fixturePage(title: string, body: string): string {
 </html>`;
 }
 
-function writePage(response: ServerResponse, title: string, body: string): void {
+function writePage(
+  response: ServerResponse,
+  title: string,
+  body: string,
+  contentSecurityPolicy = defaultFixtureContentSecurityPolicy
+): void {
   response.writeHead(200, {
     'content-type': 'text/html; charset=utf-8',
-    'content-security-policy': "default-src 'none'; img-src data:; style-src 'unsafe-inline'",
+    'content-security-policy': contentSecurityPolicy,
     'x-content-type-options': 'nosniff'
   });
   response.end(fixturePage(title, body));
@@ -91,12 +100,25 @@ function createFixtureServer(receivedRequests: ReceivedRequest[]): Server {
         writePage(
           response,
           'Successful start',
-          '<h1>Successful start</h1><a href="/success/second">Second page</a>'
+          [
+            '<h1>Successful start</h1>',
+            '<a href="/success/second">Second page</a>',
+            '<script>console.error("START_PAGE_DIAGNOSTIC")</script>'
+          ].join(''),
+          diagnosticFixtureContentSecurityPolicy
         );
         return;
 
       case '/success/second':
-        writePage(response, 'Successful second page', '<h1>Successful second page</h1>');
+        writePage(
+          response,
+          'Successful second page',
+          [
+            '<h1>Successful second page</h1>',
+            '<script>console.error("SECOND_PAGE_DIAGNOSTIC")</script>'
+          ].join(''),
+          diagnosticFixtureContentSecurityPolicy
+        );
         return;
 
       case '/redirect/start':
@@ -435,6 +457,52 @@ async function main(): Promise<void> {
 
     {
       const requestStart = receivedRequests.length;
+      const collaborators = createRunCollaborators();
+      const finishDecisionBudgets: NavigationBudgetContext[] = [];
+      const finishEvents: RunEvent[] = [];
+      const report = await runSite({
+        site: createSite(baseUrl, '/budget-one', 3, 1),
+        runId: 'phase1-finish-navigation-decision',
+        startedAt: new Date('2026-07-25T00:01:30.000Z'),
+        onEvent: event => {
+          finishEvents.push(event);
+        },
+        dependencies: {
+          ...collaborators.dependencies,
+          chooseNavigationLink: async (_site, _candidates, budget) => {
+            finishDecisionBudgets.push({
+              ...budget
+            });
+
+            return {
+              type: 'finish',
+              summary: 'Synthetic navigation finish decision.'
+            };
+          }
+        }
+      });
+
+      assertCoreReportShape(report, 1);
+      assert.deepEqual(finishDecisionBudgets, [
+        {
+          remainingPageSlots: 2,
+          remainingNavigationDecisionSlots: 1,
+          remainingPotentialInspections: 1
+        }
+      ]);
+      assert.deepEqual(report.outcome, {
+        type: 'finished',
+        summary: 'Synthetic navigation finish decision.'
+      });
+      assert.deepEqual(
+        finishEvents.map(event => event.type),
+        ['run-started', 'inspection-started', 'inspection-completed', 'run-completed']
+      );
+      assertOrdinaryLocalGets(getRunRequests(receivedRequests, requestStart), ['/budget-one']);
+    }
+
+    {
+      const requestStart = receivedRequests.length;
       const runCredential = 'BROWSER_RUN_KEY_A';
       const collaborators = createRunCollaborators();
       const successEvents: RunEvent[] = [];
@@ -471,6 +539,10 @@ async function main(): Promise<void> {
       });
       assert.equal(collaborators.analysisUrls.length, 2);
       assert.equal(collaborators.navigationCalls.length, 1);
+      assert.deepEqual(
+        report.inspectedPages.map(page => page.diagnostics.consoleErrors.map(error => error.text)),
+        [['START_PAGE_DIAGNOSTIC'], ['SECOND_PAGE_DIAGNOSTIC']]
+      );
       assert.deepEqual(collaborators.analysisGeminiApiKeys, [runCredential, runCredential]);
       assert.deepEqual(collaborators.navigationGeminiApiKeys, [runCredential]);
       assert.deepEqual(collaborators.plannerGeminiApiKeys, []);
@@ -514,6 +586,7 @@ async function main(): Promise<void> {
       const site = createSite(baseUrl, '/budget-one', 1, 0);
       site.maxExploratoryStepsPerPage = 1;
 
+      const investigationEvents: RunEvent[] = [];
       const report = await runSite({
         site,
         credentials: {
@@ -521,12 +594,25 @@ async function main(): Promise<void> {
         },
         runId: 'stage9b-planner-credential',
         startedAt: new Date('2026-07-25T00:02:30.000Z'),
+        onEvent: event => {
+          investigationEvents.push(event);
+        },
         dependencies: collaborators.dependencies
       });
 
       assert.deepEqual(collaborators.analysisGeminiApiKeys, [runCredential]);
       assert.deepEqual(collaborators.plannerGeminiApiKeys, [runCredential]);
       assert.deepEqual(collaborators.navigationGeminiApiKeys, []);
+      assert.deepEqual(
+        investigationEvents.map(event => event.type),
+        [
+          'run-started',
+          'inspection-started',
+          'investigation-completed',
+          'inspection-completed',
+          'run-completed'
+        ]
+      );
       assert.equal(JSON.stringify(report).includes(runCredential), false);
       assertOrdinaryLocalGets(getRunRequests(receivedRequests, requestStart), ['/budget-one']);
     }
