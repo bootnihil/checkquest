@@ -108,6 +108,10 @@ async function main(): Promise<void> {
     new URL('../../agent/application/start-checkquest.ts', import.meta.url),
     'utf8'
   );
+  const runSiteSource = await readFile(
+    new URL('../../agent/run/run-site.ts', import.meta.url),
+    'utf8'
+  );
 
   for (const forbiddenApplicationCoupling of [
     '/cli/',
@@ -120,6 +124,15 @@ async function main(): Promise<void> {
   assert.equal(cliSource.includes('writeJsonReport'), false);
   assert.equal(cliSource.includes('writeMarkdownReport'), false);
   assert.equal(cliSource.includes("process.once(\n    'SIGINT'"), false);
+  assert.equal(runSiteSource.includes('requireGeminiApiKey'), true);
+  for (const forbiddenRemotePreflight of [
+    'probeGeminiCredentials',
+    'probeTargetReachability',
+    'preflightDesktopGeminiCredentials',
+    'preflightDesktopTargetReachability'
+  ]) {
+    assert.equal(runSiteSource.includes(forbiddenRemotePreflight), false);
+  }
 
   const exploratoryQaAnalyzerSource = await readFile(
     new URL('../../agent/analysis/analyze-page-for-qa.ts', import.meta.url),

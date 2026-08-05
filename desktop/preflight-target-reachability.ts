@@ -2,11 +2,11 @@ import {
   probeTargetReachability,
   type ProbeTargetReachabilityInput,
   type ProbeTargetReachabilityResult
-} from '../browser/probe-target-reachability';
-import { CheckQuestError } from '../errors/checkquest-error';
-import { normalizeRunCancellation } from '../errors/run-cancellation';
+} from '../agent/browser/probe-target-reachability';
+import { CheckQuestError } from '../agent/errors/checkquest-error';
+import { normalizeRunCancellation } from '../agent/errors/run-cancellation';
 
-export type TargetReachabilityPreflightResult =
+export type DesktopTargetReachabilityPreflightResult =
   | {
       accepted: true;
       target: string;
@@ -16,12 +16,12 @@ export type TargetReachabilityPreflightResult =
       message: string;
     };
 
-export interface PreflightTargetReachabilityInput {
+export interface PreflightDesktopTargetReachabilityInput {
   target: string;
   signal?: AbortSignal;
 }
 
-export interface PreflightTargetReachabilityDependencies {
+export interface PreflightDesktopTargetReachabilityDependencies {
   probe?: (input: ProbeTargetReachabilityInput) => Promise<ProbeTargetReachabilityResult>;
 }
 
@@ -86,10 +86,10 @@ export function resolveSafeCanonicalTarget(
   return finalUrl.toString();
 }
 
-export async function preflightTargetReachability(
-  input: PreflightTargetReachabilityInput,
-  dependencies: PreflightTargetReachabilityDependencies = {}
-): Promise<TargetReachabilityPreflightResult> {
+export async function preflightDesktopTargetReachability(
+  input: PreflightDesktopTargetReachabilityInput,
+  dependencies: PreflightDesktopTargetReachabilityDependencies = {}
+): Promise<DesktopTargetReachabilityPreflightResult> {
   const probe = dependencies.probe ?? probeTargetReachability;
 
   try {

@@ -1,13 +1,13 @@
 import {
-  preflightGeminiCredentials,
-  type GeminiCredentialPreflightResult,
-  type PreflightGeminiCredentialsInput
-} from '../agent/application/preflight-gemini-credentials';
+  preflightDesktopGeminiCredentials,
+  type DesktopGeminiCredentialPreflightResult,
+  type PreflightDesktopGeminiCredentialsInput
+} from './preflight-gemini-credentials';
 import {
-  preflightTargetReachability,
-  type PreflightTargetReachabilityInput,
-  type TargetReachabilityPreflightResult
-} from '../agent/application/preflight-target-reachability';
+  preflightDesktopTargetReachability,
+  type DesktopTargetReachabilityPreflightResult,
+  type PreflightDesktopTargetReachabilityInput
+} from './preflight-target-reachability';
 import {
   startCheckQuest,
   type CheckQuestRun,
@@ -20,19 +20,19 @@ import { validateDesktopStartRunInput, type DesktopStartRunInput } from './start
 
 export type StartCheckQuestFunction = (input: StartCheckQuestInput) => CheckQuestRun;
 
-export type PreflightGeminiCredentialsFunction = (
-  input: PreflightGeminiCredentialsInput
-) => Promise<GeminiCredentialPreflightResult>;
+export type PreflightDesktopGeminiCredentialsFunction = (
+  input: PreflightDesktopGeminiCredentialsInput
+) => Promise<DesktopGeminiCredentialPreflightResult>;
 
-export type PreflightTargetReachabilityFunction = (
-  input: PreflightTargetReachabilityInput
-) => Promise<TargetReachabilityPreflightResult>;
+export type PreflightDesktopTargetReachabilityFunction = (
+  input: PreflightDesktopTargetReachabilityInput
+) => Promise<DesktopTargetReachabilityPreflightResult>;
 
 export interface DesktopRunControllerOptions {
   emitEvent: (event: DesktopRunEvent) => void;
   start?: StartCheckQuestFunction;
-  preflight?: PreflightGeminiCredentialsFunction;
-  targetPreflight?: PreflightTargetReachabilityFunction;
+  preflight?: PreflightDesktopGeminiCredentialsFunction;
+  targetPreflight?: PreflightDesktopTargetReachabilityFunction;
   sessionCredentials?: DesktopSessionCredentialStore;
 }
 
@@ -57,17 +57,18 @@ export class DesktopRunController {
 
   private readonly startCheckQuest: StartCheckQuestFunction;
 
-  private readonly preflightGeminiCredentials: PreflightGeminiCredentialsFunction;
+  private readonly preflightDesktopGeminiCredentials: PreflightDesktopGeminiCredentialsFunction;
 
-  private readonly preflightTargetReachability: PreflightTargetReachabilityFunction;
+  private readonly preflightDesktopTargetReachability: PreflightDesktopTargetReachabilityFunction;
 
   private readonly sessionCredentials: DesktopSessionCredentialStore;
 
   constructor(options: DesktopRunControllerOptions) {
     this.emitEvent = options.emitEvent;
     this.startCheckQuest = options.start ?? startCheckQuest;
-    this.preflightGeminiCredentials = options.preflight ?? preflightGeminiCredentials;
-    this.preflightTargetReachability = options.targetPreflight ?? preflightTargetReachability;
+    this.preflightDesktopGeminiCredentials = options.preflight ?? preflightDesktopGeminiCredentials;
+    this.preflightDesktopTargetReachability =
+      options.targetPreflight ?? preflightDesktopTargetReachability;
     this.sessionCredentials = options.sessionCredentials ?? new DesktopSessionCredentialStore();
   }
 
@@ -124,10 +125,10 @@ export class DesktopRunController {
 
     try {
       if (suppliedGeminiApiKey !== undefined) {
-        let preflightResult: GeminiCredentialPreflightResult;
+        let preflightResult: DesktopGeminiCredentialPreflightResult;
 
         try {
-          preflightResult = await this.preflightGeminiCredentials({
+          preflightResult = await this.preflightDesktopGeminiCredentials({
             geminiApiKey: suppliedGeminiApiKey,
             signal: preflightAbortController.signal
           });
@@ -174,10 +175,10 @@ export class DesktopRunController {
          */
       }
 
-      let targetPreflightResult: TargetReachabilityPreflightResult;
+      let targetPreflightResult: DesktopTargetReachabilityPreflightResult;
 
       try {
-        targetPreflightResult = await this.preflightTargetReachability({
+        targetPreflightResult = await this.preflightDesktopTargetReachability({
           target: input.targetUrl,
           signal: preflightAbortController.signal
         });

@@ -5,8 +5,6 @@ import type { ExtractedPageContent } from '../../agent/browser/extracted-page-co
 
 import { inspectNavigation, type NavigationLink } from '../../agent/browser/inspect-navigation';
 
-import { applyAgentRunOptions, parseAgentRunOptions } from '../../agent/config/agent-run-options';
-
 import type { SiteConfig } from '../../agent/config/site-config';
 
 import {
@@ -379,10 +377,11 @@ async function main(): Promise<void> {
     allowFormSubmission: false
   };
 
-  const boundedSite = applyAgentRunOptions(
-    baseSite,
-    parseAgentRunOptions(['bounded-check', '--pages', '2', '--navigation-steps', '1'])
-  );
+  const boundedSite: SiteConfig = {
+    ...baseSite,
+    maxPages: 2,
+    maxAgentSteps: 1
+  };
 
   assert.equal(boundedSite.maxPages, 2);
 

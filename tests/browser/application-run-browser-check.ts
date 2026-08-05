@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { startCheckQuest, type CheckQuestRun } from '../../agent/application/start-checkquest';
-import { preflightTargetReachability } from '../../agent/application/preflight-target-reachability';
+import { preflightDesktopTargetReachability } from '../../desktop/preflight-target-reachability';
 import { CheckQuestError } from '../../agent/errors/checkquest-error';
 import type { RunEvent } from '../../agent/run/run-event';
 import { listenOnBrowserSafeLoopbackPort } from '../support/listen-on-browser-safe-loopback-port';
@@ -105,7 +105,7 @@ async function main(): Promise<void> {
 
   try {
     assert.deepEqual(
-      await preflightTargetReachability({
+      await preflightDesktopTargetReachability({
         target: `${baseUrl}/success`
       }),
       {
@@ -114,7 +114,7 @@ async function main(): Promise<void> {
       }
     );
     assert.deepEqual(
-      await preflightTargetReachability({
+      await preflightDesktopTargetReachability({
         target: `${baseUrl}/preflight-redirect`
       }),
       {
@@ -123,7 +123,7 @@ async function main(): Promise<void> {
       }
     );
     assert.deepEqual(
-      await preflightTargetReachability({
+      await preflightDesktopTargetReachability({
         target: `${baseUrl}/preflight-forbidden`
       }),
       {
@@ -143,7 +143,7 @@ async function main(): Promise<void> {
     await closeServer(refusedServer);
 
     assert.deepEqual(
-      await preflightTargetReachability({
+      await preflightDesktopTargetReachability({
         target: refusedUrl
       }),
       {
@@ -153,7 +153,7 @@ async function main(): Promise<void> {
     );
 
     const targetPreflightCancellation = new AbortController();
-    const cancellableTargetPreflight = preflightTargetReachability({
+    const cancellableTargetPreflight = preflightDesktopTargetReachability({
       target: `${baseUrl}/preflight-hang`,
       signal: targetPreflightCancellation.signal
     });

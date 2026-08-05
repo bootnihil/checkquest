@@ -1,16 +1,16 @@
 import assert from 'node:assert/strict';
 
 import {
-  preflightTargetReachability,
+  preflightDesktopTargetReachability,
   resolveSafeCanonicalTarget
-} from '../../agent/application/preflight-target-reachability';
+} from '../../desktop/preflight-target-reachability';
 import { CheckQuestError } from '../../agent/errors/checkquest-error';
 
 async function main(): Promise<void> {
   const signal = new AbortController().signal;
   let receivedTarget: string | undefined;
   let receivedSignal: AbortSignal | undefined;
-  const accepted = await preflightTargetReachability(
+  const accepted = await preflightDesktopTargetReachability(
     {
       target: 'http://127.0.0.1:3000/',
       signal
@@ -50,7 +50,7 @@ async function main(): Promise<void> {
   }
 
   assert.deepEqual(
-    await preflightTargetReachability(
+    await preflightDesktopTargetReachability(
       {
         target: 'https://example.com/'
       },
@@ -67,7 +67,7 @@ async function main(): Promise<void> {
   );
 
   assert.deepEqual(
-    await preflightTargetReachability(
+    await preflightDesktopTargetReachability(
       {
         target: 'https://example.com/'
       },
@@ -84,7 +84,7 @@ async function main(): Promise<void> {
   );
 
   const providerDetail = 'net::ERR_NAME_NOT_RESOLVED private-host.invalid';
-  const rejected = await preflightTargetReachability(
+  const rejected = await preflightDesktopTargetReachability(
     {
       target: 'https://missing.example/'
     },
@@ -105,7 +105,7 @@ async function main(): Promise<void> {
   cancellation.abort();
 
   await assert.rejects(
-    preflightTargetReachability(
+    preflightDesktopTargetReachability(
       {
         target: 'https://example.com/',
         signal: cancellation.signal

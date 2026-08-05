@@ -2,13 +2,13 @@ import {
   classifyGeminiCredentialRejection,
   probeGeminiCredentials,
   type ProbeGeminiCredentialsInput
-} from '../ai/preflight-gemini-credentials';
-import { getGeminiStatusCode } from '../ai/run-gemini-request';
-import { requireGeminiApiKey } from '../ai/resolve-gemini-api-key';
-import { CheckQuestError } from '../errors/checkquest-error';
-import { normalizeRunCancellation, throwIfRunCancelled } from '../errors/run-cancellation';
+} from '../agent/ai/probe-gemini-credentials';
+import { getGeminiStatusCode } from '../agent/ai/run-gemini-request';
+import { requireGeminiApiKey } from '../agent/ai/resolve-gemini-api-key';
+import { CheckQuestError } from '../agent/errors/checkquest-error';
+import { normalizeRunCancellation, throwIfRunCancelled } from '../agent/errors/run-cancellation';
 
-export type GeminiCredentialPreflightResult =
+export type DesktopGeminiCredentialPreflightResult =
   | {
       accepted: true;
     }
@@ -18,19 +18,19 @@ export type GeminiCredentialPreflightResult =
       message: string;
     };
 
-export interface PreflightGeminiCredentialsInput {
+export interface PreflightDesktopGeminiCredentialsInput {
   geminiApiKey: string;
   signal?: AbortSignal;
 }
 
-export interface PreflightGeminiCredentialsDependencies {
+export interface PreflightDesktopGeminiCredentialsDependencies {
   probe?: (input: ProbeGeminiCredentialsInput) => Promise<void>;
 }
 
-export async function preflightGeminiCredentials(
-  input: PreflightGeminiCredentialsInput,
-  dependencies: PreflightGeminiCredentialsDependencies = {}
-): Promise<GeminiCredentialPreflightResult> {
+export async function preflightDesktopGeminiCredentials(
+  input: PreflightDesktopGeminiCredentialsInput,
+  dependencies: PreflightDesktopGeminiCredentialsDependencies = {}
+): Promise<DesktopGeminiCredentialPreflightResult> {
   const probe = dependencies.probe ?? probeGeminiCredentials;
   const geminiApiKey = requireGeminiApiKey(input.geminiApiKey);
 

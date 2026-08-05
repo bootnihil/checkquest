@@ -8,7 +8,6 @@ import { evaluatePageObservation } from '../../agent/analysis/evaluate-page';
 import type { ExploratoryQaFinding } from '../../agent/analysis/exploratory-qa-schema';
 
 import { capturePageScreenshot } from '../../agent/browser/capture-page-screenshot';
-import { captureSelectOptionEvidence } from '../../agent/browser/capture-select-option-evidence';
 import { collectPageDiagnostics } from '../../agent/browser/collect-page-diagnostics';
 import { extractPageContent } from '../../agent/browser/extract-page-content';
 import { inspectNavigation } from '../../agent/browser/inspect-navigation';
@@ -180,73 +179,7 @@ async function main(): Promise<void> {
         item => item.disposition === 'ignored-noise'
       ).length;
 
-      /*
-       * Prefer focused, machine-targeted evidence when
-       * Gemini identifies a UI element we know how to
-       * locate safely.
-       *
-       * For now, our only supported target is:
-       *   select-option
-       *
-       * This controlled integration check records one
-       * screenshot path in the report, so we capture the
-       * first usable targeted finding.
-       */
       let screenshotPath: string | null = null;
-
-      for (
-        let findingIndex = 0;
-        findingIndex < exploratoryQaAnalysis.findings.length;
-        findingIndex += 1
-      ) {
-        const exploratoryFinding = exploratoryQaAnalysis.findings[findingIndex];
-
-        const evidenceTarget = exploratoryFinding.evidenceTarget;
-
-        if (evidenceTarget === null) {
-          continue;
-        }
-
-        if (evidenceTarget.kind === 'select-option') {
-          console.log('\nAttempting targeted evidence capture:');
-
-          console.log(`Finding: ${exploratoryFinding.title}`);
-
-          console.log(`Control label: ${evidenceTarget.controlLabel ?? 'unknown'}`);
-
-          console.log(`Control name: ${evidenceTarget.controlName ?? 'unknown'}`);
-
-          console.log(`Control id: ${evidenceTarget.controlId ?? 'unknown'}`);
-
-          console.log(`Option text: ${evidenceTarget.optionText}`);
-
-          try {
-            const targetedEvidence = await captureSelectOptionEvidence(
-              page,
-              runId,
-              1,
-              findingIndex + 1,
-              evidenceTarget
-            );
-
-            screenshotPath = targetedEvidence.filePath;
-
-            console.log('\nTargeted screenshot evidence captured:');
-
-            console.log(`Screenshot: ${targetedEvidence.filePath}`);
-
-            console.log(`Selected option: ${targetedEvidence.optionText}`);
-
-            console.log(`Locator strategy: ${targetedEvidence.locatorStrategy}`);
-
-            break;
-          } catch (error: unknown) {
-            console.warn('\nTargeted evidence capture failed. Falling back if necessary.');
-
-            console.warn(error);
-          }
-        }
-      }
 
       const shouldCaptureFallbackScreenshot =
         screenshotPath === null &&

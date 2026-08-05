@@ -1,9 +1,5 @@
 import assert from 'node:assert/strict';
 
-import { applyAgentRunOptions, parseAgentRunOptions } from '../../agent/config/agent-run-options';
-
-import type { SiteConfig } from '../../agent/config/site-config';
-
 import { getSiteConfig } from '../../agent/sites';
 
 function expectError(callback: () => unknown, expectedMessagePart: string): void {
@@ -60,26 +56,6 @@ function main(): void {
    * defect, so this check records the existing public behavior.
    */
   expectError(() => getSiteConfig('ftp://example.com/'), 'Unknown site');
-
-  const zeroNavigationBudgetSite: SiteConfig = {
-    id: 'core-zero-navigation-budget',
-    name: 'Core zero navigation budget',
-    startUrl: 'https://example.com/',
-    allowedHosts: ['example.com'],
-    maxPages: 0,
-    maxAgentSteps: 0,
-    maxExploratoryStepsPerPage: 0,
-    allowFormSubmission: false
-  };
-
-  const zeroBudgetAfterOptions = applyAgentRunOptions(
-    zeroNavigationBudgetSite,
-    parseAgentRunOptions([zeroNavigationBudgetSite.id])
-  );
-
-  assert.equal(zeroBudgetAfterOptions.maxAgentSteps, 0);
-
-  assert.equal(zeroNavigationBudgetSite.maxAgentSteps, 0);
 
   console.log('Runtime site configuration and URL boundary checks passed.');
 }

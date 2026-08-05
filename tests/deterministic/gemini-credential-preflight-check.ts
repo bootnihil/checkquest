@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 
-import { classifyGeminiCredentialRejection } from '../../agent/ai/preflight-gemini-credentials';
-import { preflightGeminiCredentials } from '../../agent/application/preflight-gemini-credentials';
+import { classifyGeminiCredentialRejection } from '../../agent/ai/probe-gemini-credentials';
+import { preflightDesktopGeminiCredentials } from '../../desktop/preflight-gemini-credentials';
 import { CheckQuestError } from '../../agent/errors/checkquest-error';
 
 function providerError(status: number, body: Record<string, unknown>): Error {
@@ -12,7 +12,7 @@ function providerError(status: number, body: Record<string, unknown>): Error {
 
 async function main(): Promise<void> {
   await assert.rejects(
-    preflightGeminiCredentials(
+    preflightDesktopGeminiCredentials(
       {
         geminiApiKey: '   '
       },
@@ -88,7 +88,7 @@ async function main(): Promise<void> {
 
   const credential = 'preflight-test-secret';
   let observedCredential: string | undefined;
-  const accepted = await preflightGeminiCredentials(
+  const accepted = await preflightDesktopGeminiCredentials(
     {
       geminiApiKey: credential
     },
@@ -104,7 +104,7 @@ async function main(): Promise<void> {
   });
   assert.equal(observedCredential, credential);
 
-  const authenticationRejected = await preflightGeminiCredentials(
+  const authenticationRejected = await preflightDesktopGeminiCredentials(
     {
       geminiApiKey: credential
     },
@@ -122,7 +122,7 @@ async function main(): Promise<void> {
   });
   assert.equal(JSON.stringify(authenticationRejected).includes(credential), false);
 
-  const authorizationRejected = await preflightGeminiCredentials(
+  const authorizationRejected = await preflightDesktopGeminiCredentials(
     {
       geminiApiKey: credential
     },
@@ -140,7 +140,7 @@ async function main(): Promise<void> {
   });
 
   await assert.rejects(
-    preflightGeminiCredentials(
+    preflightDesktopGeminiCredentials(
       {
         geminiApiKey: credential
       },
@@ -164,7 +164,7 @@ async function main(): Promise<void> {
   );
 
   const abortController = new AbortController();
-  const cancelledPreflight = preflightGeminiCredentials(
+  const cancelledPreflight = preflightDesktopGeminiCredentials(
     {
       geminiApiKey: credential,
       signal: abortController.signal

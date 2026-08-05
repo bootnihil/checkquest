@@ -425,6 +425,14 @@ async function main(): Promise<void> {
 
     assert.equal(replayed.replay?.action, 'select-option');
     assert.equal(
+      replayed.screenshotPaths.length,
+      1,
+      'An eligible observed select replay produces one bounded evidence reference.'
+    );
+    assert.equal(replayed.totalTargetCount, 1);
+    assert.equal(replayed.shownTargetCount, 1);
+    await access(replayed.screenshotPaths[0]);
+    assert.equal(
       replayed.replay?.restored,
       true,
       'An allowed benign replay records that its original state was restored.'

@@ -2,7 +2,7 @@ import { GoogleGenAI } from '@google/genai';
 
 import { requireGeminiApiKey } from './resolve-gemini-api-key';
 
-const credentialPreflightTimeoutMs = 10_000;
+const credentialProbeTimeoutMs = 10_000;
 
 const authenticationReasons = new Set(['API_KEY_EXPIRED', 'API_KEY_INVALID', 'API_KEY_NOT_FOUND']);
 
@@ -109,7 +109,7 @@ export async function probeGeminiCredentials(input: ProbeGeminiCredentialsInput)
       pageSize: 1,
       abortSignal: input.signal,
       httpOptions: {
-        timeout: credentialPreflightTimeoutMs,
+        timeout: credentialProbeTimeoutMs,
         retryOptions: {
           attempts: 1
         }

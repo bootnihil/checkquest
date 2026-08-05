@@ -20,8 +20,8 @@ import {
 } from '../../desktop/run-event-contract';
 import {
   DesktopRunController,
-  type PreflightGeminiCredentialsFunction,
-  type PreflightTargetReachabilityFunction,
+  type PreflightDesktopGeminiCredentialsFunction,
+  type PreflightDesktopTargetReachabilityFunction,
   type StartCheckQuestFunction
 } from '../../desktop/run-controller';
 import { desktopRendererSecurityPreferences } from '../../desktop/security-policy';
@@ -92,7 +92,7 @@ const commonEvent = {
   message: 'Synthetic desktop event.'
 } as const;
 
-const acceptedTargetPreflight: PreflightTargetReachabilityFunction = async input => ({
+const acceptedTargetPreflight: PreflightDesktopTargetReachabilityFunction = async input => ({
   accepted: true,
   target: input.target
 });
@@ -888,7 +888,7 @@ async function runControllerChecks(): Promise<void> {
   let cancellationCount = 0;
   let startCount = 0;
   let preflightCount = 0;
-  const preflight: PreflightGeminiCredentialsFunction = async input => {
+  const preflight: PreflightDesktopGeminiCredentialsFunction = async input => {
     preflightCount += 1;
     assert.equal(input.geminiApiKey, validRequest.geminiApiKey);
 
@@ -1677,7 +1677,8 @@ async function runSourceBoundaryChecks(): Promise<void> {
   );
   assert.equal(privilegedValidationIndex >= 0, true);
   assert.equal(
-    privilegedValidationIndex < controllerStartSource.indexOf('this.preflightGeminiCredentials('),
+    privilegedValidationIndex <
+      controllerStartSource.indexOf('this.preflightDesktopGeminiCredentials('),
     true
   );
   assert.equal(privilegedValidationIndex < controllerStartSource.indexOf('this.launchRun('), true);

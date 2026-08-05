@@ -1,5 +1,3 @@
-import type { SiteConfig } from './site-config';
-
 import { CheckQuestError } from '../errors/checkquest-error';
 
 function createCliArgumentError(message: string): CheckQuestError {
@@ -161,30 +159,5 @@ export function parseAgentRunOptions(args: string[]): AgentRunOptions {
     navigationSteps,
 
     exploratoryStepsPerPage
-  };
-}
-
-export function applyAgentRunOptions(baseSite: SiteConfig, options: AgentRunOptions): SiteConfig {
-  const maxPages = options.pages ?? baseSite.maxPages;
-
-  /*
-   * When the user explicitly supplies a navigation budget,
-   * preserve it exactly.
-   *
-   * Otherwise retain the existing convenience behavior:
-   * raising the page limit also raises the navigation budget
-   * when necessary.
-   */
-  const maxAgentSteps = options.navigationSteps ?? Math.max(baseSite.maxAgentSteps, maxPages);
-
-  return {
-    ...baseSite,
-
-    maxPages,
-
-    maxAgentSteps,
-
-    maxExploratoryStepsPerPage:
-      options.exploratoryStepsPerPage ?? baseSite.maxExploratoryStepsPerPage
   };
 }

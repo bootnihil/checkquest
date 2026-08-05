@@ -1,10 +1,4 @@
-import {
-  agentRunOptionLimits,
-  applyAgentRunOptions,
-  parseAgentRunOptions
-} from '../../agent/config/agent-run-options';
-
-import type { SiteConfig } from '../../agent/config/site-config';
+import { agentRunOptionLimits, parseAgentRunOptions } from '../../agent/config/agent-run-options';
 
 function expectError(label: string, callback: () => unknown, expectedMessagePart: string): void {
   try {
@@ -28,24 +22,6 @@ function expectError(label: string, callback: () => unknown, expectedMessagePart
 }
 
 function main(): void {
-  const baseSite: SiteConfig = {
-    id: 'synthetic',
-
-    name: 'Synthetic site',
-
-    startUrl: 'https://example.com/',
-
-    allowedHosts: ['example.com'],
-
-    maxPages: 3,
-
-    maxAgentSteps: 4,
-
-    maxExploratoryStepsPerPage: 3,
-
-    allowFormSubmission: false
-  };
-
   const defaults = parseAgentRunOptions([]);
 
   if (
@@ -83,33 +59,10 @@ function main(): void {
     throw new Error('The --steps-per-page value was not parsed correctly.');
   }
 
-  const overriddenSite = applyAgentRunOptions(baseSite, parsed);
+  const pagesOnly = parseAgentRunOptions(['synthetic', '--pages', '7']);
 
-  if (overriddenSite.maxPages !== 7) {
-    throw new Error('The page override was not applied correctly.');
-  }
-
-  if (overriddenSite.maxAgentSteps !== 9) {
-    throw new Error('The explicit navigation-step override was not applied correctly.');
-  }
-
-  if (overriddenSite.maxExploratoryStepsPerPage !== 4) {
-    throw new Error('The exploratory step override was not applied correctly.');
-  }
-
-  /*
-   * Preserve the original behavior when --pages is supplied
-   * without an explicit navigation-step override.
-   */
-  const pagesOnly = applyAgentRunOptions(
-    baseSite,
-    parseAgentRunOptions(['synthetic', '--pages', '7'])
-  );
-
-  if (pagesOnly.maxPages !== 7 || pagesOnly.maxAgentSteps !== 7) {
-    throw new Error(
-      'The navigation budget was not automatically raised to support the requested page limit.'
-    );
+  if (pagesOnly.pages !== 7 || pagesOnly.navigationSteps !== null) {
+    throw new Error('A page-only CLI budget was not parsed correctly.');
   }
 
   /*
@@ -119,29 +72,15 @@ function main(): void {
    * This allows the user to intentionally stop navigation
    * before the page ceiling is reached.
    */
-  const navigationOnly = applyAgentRunOptions(
-    baseSite,
-    parseAgentRunOptions(['synthetic', '--navigation-steps', '2'])
-  );
+  const navigationOnly = parseAgentRunOptions(['synthetic', '--navigation-steps', '2']);
 
-  if (navigationOnly.maxPages !== 3 || navigationOnly.maxAgentSteps !== 2) {
-    throw new Error('The navigation-only override was not applied correctly.');
+  if (navigationOnly.pages !== null || navigationOnly.navigationSteps !== 2) {
+    throw new Error('A navigation-only CLI budget was not parsed correctly.');
   }
 
-  if (
-    baseSite.maxPages !== 3 ||
-    baseSite.maxAgentSteps !== 4 ||
-    baseSite.maxExploratoryStepsPerPage !== 3
-  ) {
-    throw new Error('The base site configuration was mutated.');
-  }
+  const analysisOnly = parseAgentRunOptions(['synthetic', '--steps-per-page', '0']);
 
-  const analysisOnly = applyAgentRunOptions(
-    baseSite,
-    parseAgentRunOptions(['synthetic', '--steps-per-page', '0'])
-  );
-
-  if (analysisOnly.maxExploratoryStepsPerPage !== 0) {
+  if (analysisOnly.exploratoryStepsPerPage !== 0) {
     throw new Error('A zero-step analysis-only run was not accepted.');
   }
 
@@ -252,7 +191,6 @@ function main(): void {
     JSON.stringify(
       {
         parsed,
-        overriddenSite,
         pagesOnly,
         navigationOnly,
         analysisOnly
