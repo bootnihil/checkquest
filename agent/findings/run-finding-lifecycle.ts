@@ -29,12 +29,16 @@ import {
 } from '../investigation/page-candidates';
 import {
   attachInvestigationOutcome,
+  createUnifiedOccurrenceKey,
   createUnifiedFindingRegistry,
   getUnifiedFindings,
   getUnifiedFindingVerificationState,
   markOccurrenceSuppressed,
   registerCompatibilityOccurrence,
   registerUnifiedPageFindings,
+  unifiedOccurrenceKeysEqual,
+  type RegisterCompatibilityOccurrenceInput,
+  type UnifiedOccurrenceKey,
   type UnifiedFindingRegistry
 } from './unified-finding-registry';
 import {
@@ -180,6 +184,209 @@ function validateInvestigationResults(
   }
 
   return resultByCandidateReference;
+}
+
+interface ValidatedInvestigationAttachment {
+  readonly candidate: PageCandidate;
+  readonly result: PageFindingInvestigationResult;
+  readonly occurrenceKey: UnifiedOccurrenceKey;
+}
+
+interface ValidatedCompatibilityOccurrence {
+  readonly registration: Readonly<RegisterCompatibilityOccurrenceInput>;
+  readonly occurrenceKey: UnifiedOccurrenceKey;
+}
+
+interface ValidatedOccurrenceSuppression {
+  readonly occurrenceKey: UnifiedOccurrenceKey;
+}
+
+interface ValidatedCommitAssociations {
+  readonly investigationAttachments: readonly ValidatedInvestigationAttachment[];
+  readonly compatibilityOccurrences: readonly ValidatedCompatibilityOccurrence[];
+  readonly suppressions: readonly ValidatedOccurrenceSuppression[];
+}
+
+function occurrenceKeyIdentity(key: UnifiedOccurrenceKey): string {
+  return JSON.stringify(key);
+}
+
+function validateCommitAssociations(
+  state: RunFindingLifecycleState,
+  input: CommitRunPageFindingsInput,
+  findingResultByCandidateReference: ReadonlyMap<
+    PageCandidateReference,
+    PageFindingInvestigationResult
+  >
+): ValidatedCommitAssociations {
+  /*
+   * Match prepared keys only. Registration remains authoritative for whether
+   * each valid key creates or merges an occurrence.
+   */
+  const preparedOccurrenceKeys = new Map<string, UnifiedOccurrenceKey>();
+  const preparedFindingFingerprints = new Set<string>();
+
+  for (const finding of input.page.reconciledFindingObservations.findings) {
+    preparedFindingFingerprints.add(finding.fingerprint);
+
+    for (const occurrence of finding.occurrences) {
+      const occurrenceKey = createUnifiedOccurrenceKey({
+        fingerprint: finding.fingerprint,
+        pageUrl: occurrence.pageUrl,
+        target: occurrence.target
+      });
+      const identity = occurrenceKeyIdentity(occurrenceKey);
+
+      if (preparedOccurrenceKeys.has(identity)) {
+        throw new Error(`Prepared canonical occurrence association is duplicated: ${identity}.`);
+      }
+
+      preparedOccurrenceKeys.set(identity, occurrenceKey);
+    }
+  }
+
+  const compatibilityOccurrenceKeys = new Set<string>();
+  const compatibilityOccurrences: ValidatedCompatibilityOccurrence[] = [];
+
+  for (const draft of input.page.reconciledPageFindings.knownOccurrenceDrafts) {
+    if (!draft.matchingBases.includes('structured-target')) {
+      continue;
+    }
+
+    const canonicalFinding = state.unifiedFindingRegistry.findingsByFingerprint.get(
+      draft.fingerprint
+    );
+    const knownFinding = state.knownFindingState.entriesByFingerprint.get(draft.fingerprint);
+
+    if (
+      canonicalFinding === undefined ||
+      knownFinding === undefined ||
+      knownFinding.knownFindingReference !== draft.knownFindingReference
+    ) {
+      throw new Error(
+        `Compatibility occurrence for "${draft.fingerprint}" has no prepared canonical target.`
+      );
+    }
+
+    const occurrenceKey = createUnifiedOccurrenceKey({
+      fingerprint: draft.fingerprint,
+      pageUrl: input.pageUrl,
+      target: draft.evidenceTarget
+    });
+    const findingOccurrenceKey = createUnifiedOccurrenceKey({
+      fingerprint: draft.fingerprint,
+      pageUrl: input.pageUrl,
+      target: draft.finding.evidenceTarget
+    });
+
+    if (
+      createExploratoryFindingFingerprint(draft.finding) !== draft.fingerprint ||
+      !unifiedOccurrenceKeysEqual(occurrenceKey, findingOccurrenceKey)
+    ) {
+      throw new Error(
+        `Compatibility occurrence for "${draft.fingerprint}" conflicts with its prepared canonical target.`
+      );
+    }
+
+    const identity = occurrenceKeyIdentity(occurrenceKey);
+
+    if (compatibilityOccurrenceKeys.has(identity)) {
+      throw new Error(`Compatibility occurrence association is duplicated: ${identity}.`);
+    }
+
+    compatibilityOccurrenceKeys.add(identity);
+    preparedOccurrenceKeys.set(identity, occurrenceKey);
+    preparedFindingFingerprints.add(draft.fingerprint);
+
+    compatibilityOccurrences.push(
+      Object.freeze({
+        registration: Object.freeze({
+          fingerprint: draft.fingerprint,
+          finding: draft.finding,
+          pageUrl: input.pageUrl,
+          pageTitle: input.pageTitle,
+          target: draft.evidenceTarget,
+          evidenceSummaries: draft.occurrenceEvidence,
+          screenshotPath: input.screenshotPath,
+          redundantInvestigationSkipped: draft.redundantInvestigationSkipped
+        }),
+        occurrenceKey
+      })
+    );
+  }
+
+  const suppressionKeys = new Set<string>();
+  const suppressions: ValidatedOccurrenceSuppression[] = [];
+
+  for (const draft of input.page.reconciledPageFindings.knownOccurrenceDrafts) {
+    if (!draft.redundantInvestigationSkipped) {
+      continue;
+    }
+
+    const occurrenceKey = createUnifiedOccurrenceKey({
+      fingerprint: draft.fingerprint,
+      pageUrl: input.pageUrl,
+      target: draft.evidenceTarget
+    });
+    const identity = occurrenceKeyIdentity(occurrenceKey);
+
+    if (!preparedOccurrenceKeys.has(identity)) {
+      throw new Error(`Suppression target has no prepared canonical occurrence: ${identity}.`);
+    }
+
+    if (suppressionKeys.has(identity)) {
+      throw new Error(`Suppression target association is duplicated: ${identity}.`);
+    }
+
+    suppressionKeys.add(identity);
+    suppressions.push(Object.freeze({ occurrenceKey }));
+  }
+
+  const investigationKeys = new Set<string>();
+  const investigationAttachments: ValidatedInvestigationAttachment[] = [];
+
+  for (const candidate of input.page.pageCandidates) {
+    const result = findingResultByCandidateReference.get(candidate.reference);
+    const unifiedFingerprint = input.page.unifiedFingerprintByCandidateReference.get(
+      candidate.reference
+    );
+
+    if (result === undefined || unifiedFingerprint === undefined) {
+      throw new Error(`Candidate "${candidate.reference}" has no validated investigation result.`);
+    }
+
+    const occurrenceKey = createUnifiedOccurrenceKey({
+      fingerprint: unifiedFingerprint,
+      pageUrl: input.pageUrl,
+      target: candidate.finding.evidenceTarget
+    });
+    const identity = occurrenceKeyIdentity(occurrenceKey);
+
+    if (!preparedFindingFingerprints.has(unifiedFingerprint)) {
+      throw new Error(
+        `Candidate "${candidate.reference}" maps to unprepared canonical finding "${unifiedFingerprint}".`
+      );
+    }
+
+    if (!preparedOccurrenceKeys.has(identity)) {
+      throw new Error(
+        `Candidate "${candidate.reference}" has no prepared canonical occurrence: ${identity}.`
+      );
+    }
+
+    if (investigationKeys.has(identity)) {
+      throw new Error(`Investigation attachment association is duplicated: ${identity}.`);
+    }
+
+    investigationKeys.add(identity);
+    investigationAttachments.push(Object.freeze({ candidate, result, occurrenceKey }));
+  }
+
+  return Object.freeze({
+    investigationAttachments: Object.freeze(investigationAttachments),
+    compatibilityOccurrences: Object.freeze(compatibilityOccurrences),
+    suppressions: Object.freeze(suppressions)
+  });
 }
 
 function createModelFindingIdentity(finding: ExploratoryQaFinding): string {
@@ -377,11 +584,15 @@ export function commitRunPageFindings(
   input: CommitRunPageFindingsInput
 ): KnownFindingOccurrence[] {
   /*
-   * Validate the complete candidate/result contract before either registry
-   * is mutated. A malformed result collection must fail closed without
-   * leaving partial canonical or compatibility state behind.
+   * Validate the complete result and association contracts before either
+   * registry is mutated. Malformed prepared input must fail without residue.
    */
   const findingResultByCandidateReference = validateInvestigationResults(input);
+  const validatedAssociations = validateCommitAssociations(
+    state,
+    input,
+    findingResultByCandidateReference
+  );
 
   registerUnifiedPageFindings(
     state.unifiedFindingRegistry,
@@ -389,51 +600,36 @@ export function commitRunPageFindings(
     input.screenshotPath
   );
 
-  for (const draft of input.page.reconciledPageFindings.knownOccurrenceDrafts) {
-    if (draft.matchingBases.includes('structured-target')) {
-      registerCompatibilityOccurrence(state.unifiedFindingRegistry, {
-        fingerprint: draft.fingerprint,
-        finding: draft.finding,
-        pageUrl: input.pageUrl,
-        pageTitle: input.pageTitle,
-        target: draft.evidenceTarget,
-        evidenceSummaries: draft.occurrenceEvidence,
-        screenshotPath: input.screenshotPath,
-        redundantInvestigationSkipped: draft.redundantInvestigationSkipped
-      });
-    }
+  for (const association of validatedAssociations.compatibilityOccurrences) {
+    registerCompatibilityOccurrence(
+      state.unifiedFindingRegistry,
+      association.registration,
+      association.occurrenceKey
+    );
+  }
 
-    if (draft.redundantInvestigationSkipped) {
-      markOccurrenceSuppressed(state.unifiedFindingRegistry, {
-        fingerprint: draft.fingerprint,
-        pageUrl: input.pageUrl,
-        target: draft.evidenceTarget
-      });
+  for (const association of validatedAssociations.suppressions) {
+    if (!markOccurrenceSuppressed(state.unifiedFindingRegistry, association.occurrenceKey)) {
+      throw new Error(
+        `Validated suppression target was not registered: ${occurrenceKeyIdentity(association.occurrenceKey)}.`
+      );
     }
   }
 
-  for (const candidate of input.page.pageCandidates) {
-    const result = findingResultByCandidateReference.get(candidate.reference)!;
-
-    const unifiedFingerprint = input.page.unifiedFingerprintByCandidateReference.get(
-      candidate.reference
+  for (const association of validatedAssociations.investigationAttachments) {
+    attachInvestigationOutcome(
+      state.unifiedFindingRegistry,
+      {
+        fingerprint: association.occurrenceKey.fingerprint,
+        pageUrl: association.occurrenceKey.pageUrl,
+        target: association.candidate.finding.evidenceTarget,
+        finding: association.candidate.finding,
+        outcome: association.result.outcome,
+        candidateReference: association.candidate.reference,
+        pageNumber: input.pageNumber
+      },
+      association.occurrenceKey
     );
-
-    if (unifiedFingerprint === undefined) {
-      throw new Error(
-        `Candidate "${candidate.reference}" is missing its unified finding identity.`
-      );
-    }
-
-    attachInvestigationOutcome(state.unifiedFindingRegistry, {
-      fingerprint: unifiedFingerprint,
-      pageUrl: input.pageUrl,
-      target: candidate.finding.evidenceTarget,
-      finding: candidate.finding,
-      outcome: result.outcome,
-      candidateReference: candidate.reference,
-      pageNumber: input.pageNumber
-    });
   }
 
   const knownFindingOccurrences = input.page.reconciledPageFindings.knownOccurrenceDrafts.map(
@@ -470,15 +666,23 @@ export function commitRunPageFindings(
   );
 
   for (const candidate of newFindingCandidates) {
-    const result = findingResultByCandidateReference.get(candidate.reference)!;
+    const association = validatedAssociations.investigationAttachments.find(
+      item => item.candidate.reference === candidate.reference
+    );
+
+    if (association === undefined) {
+      throw new Error(
+        `Validated new-finding association is missing for candidate "${candidate.reference}".`
+      );
+    }
 
     registerNewFinding(state.knownFindingState, {
       finding: candidate.finding,
-      fingerprint: input.page.unifiedFingerprintByCandidateReference.get(candidate.reference),
+      fingerprint: association.occurrenceKey.fingerprint,
       pageUrl: input.pageUrl,
       pageTitle: input.pageTitle,
       screenshotPath: input.screenshotPath,
-      verificationOutcome: result.outcome
+      verificationOutcome: association.result.outcome
     });
   }
 

@@ -30,6 +30,12 @@ export interface UnifiedFindingRegistry {
   nextEvidenceNumber: number;
 }
 
+export interface UnifiedOccurrenceKey {
+  fingerprint: string;
+  pageUrl: string;
+  targetIdentity: string;
+}
+
 export interface RegisterCompatibilityOccurrenceInput {
   fingerprint: string;
   finding: ExploratoryQaFinding;
@@ -89,6 +95,29 @@ function targetIdentity(target: FindingTarget): string {
     case 'tab-state':
       return createTabStateTargetFingerprint(target);
   }
+}
+
+export function createUnifiedOccurrenceKey(input: {
+  fingerprint: string;
+  pageUrl: string;
+  target: FindingTarget;
+}): UnifiedOccurrenceKey {
+  return {
+    fingerprint: input.fingerprint,
+    pageUrl: input.pageUrl,
+    targetIdentity: targetIdentity(input.target)
+  };
+}
+
+export function unifiedOccurrenceKeysEqual(
+  left: UnifiedOccurrenceKey,
+  right: UnifiedOccurrenceKey
+): boolean {
+  return (
+    left.fingerprint === right.fingerprint &&
+    left.pageUrl === right.pageUrl &&
+    left.targetIdentity === right.targetIdentity
+  );
 }
 
 function evidenceIdentity(evidence: FindingEvidence): string {
@@ -163,14 +192,21 @@ function addScreenshotContext(
 
 function findOccurrence(
   finding: UnifiedFinding,
-  pageUrl: string,
-  target: FindingTarget
+  key: UnifiedOccurrenceKey
 ): FindingOccurrence | undefined {
-  const identity = targetIdentity(target);
-
   return finding.occurrences.find(
-    occurrence => occurrence.pageUrl === pageUrl && targetIdentity(occurrence.target) === identity
+    occurrence =>
+      occurrence.pageUrl === key.pageUrl && targetIdentity(occurrence.target) === key.targetIdentity
   );
+}
+
+export function findUnifiedOccurrence(
+  registry: UnifiedFindingRegistry,
+  key: UnifiedOccurrenceKey
+): FindingOccurrence | undefined {
+  const finding = registry.findingsByFingerprint.get(key.fingerprint);
+
+  return finding === undefined ? undefined : findOccurrence(finding, key);
 }
 
 function mergeOccurrence(
@@ -179,7 +215,12 @@ function mergeOccurrence(
   incoming: FindingOccurrence,
   screenshotPath: string | null
 ): FindingOccurrence {
-  let occurrence = findOccurrence(finding, incoming.pageUrl, incoming.target);
+  const occurrenceKey = createUnifiedOccurrenceKey({
+    fingerprint: finding.fingerprint,
+    pageUrl: incoming.pageUrl,
+    target: incoming.target
+  });
+  let occurrence = findOccurrence(finding, occurrenceKey);
 
   if (occurrence === undefined) {
     occurrence = {
@@ -240,8 +281,17 @@ export function registerUnifiedPageFindings(
 
 export function registerCompatibilityOccurrence(
   registry: UnifiedFindingRegistry,
-  input: RegisterCompatibilityOccurrenceInput
+  input: RegisterCompatibilityOccurrenceInput,
+  validatedOccurrenceKey?: UnifiedOccurrenceKey
 ): FindingOccurrence {
+  const occurrenceKey =
+    validatedOccurrenceKey ??
+    createUnifiedOccurrenceKey({
+      fingerprint: input.fingerprint,
+      pageUrl: input.pageUrl,
+      target: input.target
+    });
+
   const evidence = input.evidenceSummaries.map(
     (summary, index): FindingEvidence => ({
       evidenceReference: `evidence-compatibility-${index + 1}`,
@@ -282,10 +332,7 @@ export function registerCompatibilityOccurrence(
     input.screenshotPath
   );
 
-  const finding = registry.findingsByFingerprint.get(input.fingerprint);
-
-  const registeredOccurrence =
-    finding === undefined ? undefined : findOccurrence(finding, input.pageUrl, input.target);
+  const registeredOccurrence = findUnifiedOccurrence(registry, occurrenceKey);
 
   if (registeredOccurrence === undefined) {
     throw new Error(`Unified occurrence registration failed for "${input.fingerprint}".`);
@@ -296,12 +343,19 @@ export function registerCompatibilityOccurrence(
 
 export function attachInvestigationOutcome(
   registry: UnifiedFindingRegistry,
-  input: AttachInvestigationOutcomeInput
+  input: AttachInvestigationOutcomeInput,
+  validatedOccurrenceKey?: UnifiedOccurrenceKey
 ): void {
-  const finding = registry.findingsByFingerprint.get(input.fingerprint);
+  const occurrenceKey =
+    validatedOccurrenceKey ??
+    createUnifiedOccurrenceKey({
+      fingerprint: input.fingerprint,
+      pageUrl: input.pageUrl,
+      target: input.target
+    });
 
-  const occurrence =
-    finding === undefined ? undefined : findOccurrence(finding, input.pageUrl, input.target);
+  const finding = registry.findingsByFingerprint.get(occurrenceKey.fingerprint);
+  const occurrence = findUnifiedOccurrence(registry, occurrenceKey);
 
   if (finding === undefined || occurrence === undefined) {
     throw new Error(
@@ -345,20 +399,17 @@ export function attachInvestigationOutcome(
 
 export function markOccurrenceSuppressed(
   registry: UnifiedFindingRegistry,
-  input: {
-    fingerprint: string;
-    pageUrl: string;
-    target: FindingTarget;
-  }
-): void {
-  const finding = registry.findingsByFingerprint.get(input.fingerprint);
-
-  const occurrence =
-    finding === undefined ? undefined : findOccurrence(finding, input.pageUrl, input.target);
+  occurrenceKey: UnifiedOccurrenceKey
+): boolean {
+  const occurrence = findUnifiedOccurrence(registry, occurrenceKey);
 
   if (occurrence !== undefined) {
     occurrence.redundantInvestigationSkipped = true;
+
+    return true;
   }
+
+  return false;
 }
 
 export function getUnifiedFindings(registry: UnifiedFindingRegistry): UnifiedFinding[] {

@@ -8,6 +8,8 @@ import type { PageFinding } from '../../agent/analysis/evaluate-page';
 import type { ExtractedPageContent } from '../../agent/browser/extract-page-content';
 import {
   attachInvestigationOutcome,
+  createUnifiedOccurrenceKey,
+  findUnifiedOccurrence,
   registerUnifiedPageFindings
 } from '../../agent/findings/unified-finding-registry';
 import {
@@ -199,18 +201,67 @@ function getRawOutcomeStatus(
   return rawOutcome?.status;
 }
 
-function assertNoCommittedState(lifecycle: RunFindingLifecycleState): void {
-  assert.equal(
-    getRunFindings(lifecycle).length,
-    0,
-    'Malformed result input mutated canonical findings.'
-  );
+function snapshotCommitState(lifecycle: RunFindingLifecycleState): object {
+  return {
+    unifiedFindingRegistry: {
+      findingsByFingerprint: structuredClone(
+        Array.from(lifecycle.unifiedFindingRegistry.findingsByFingerprint.entries())
+      ),
+      nextFindingNumber: lifecycle.unifiedFindingRegistry.nextFindingNumber,
+      nextOccurrenceNumber: lifecycle.unifiedFindingRegistry.nextOccurrenceNumber,
+      nextEvidenceNumber: lifecycle.unifiedFindingRegistry.nextEvidenceNumber
+    },
+    knownFindingState: {
+      entriesByFingerprint: structuredClone(
+        Array.from(lifecycle.knownFindingState.entriesByFingerprint.entries())
+      ),
+      entriesByReference: structuredClone(
+        Array.from(lifecycle.knownFindingState.entriesByReference.entries())
+      ),
+      nextReferenceNumber: lifecycle.knownFindingState.nextReferenceNumber,
+      nextSequence: lifecycle.knownFindingState.nextSequence
+    },
+    // Preparation may persist aliases; failed commit must preserve this immediate baseline.
+    unifiedFingerprintAliases: structuredClone(
+      Array.from(lifecycle.unifiedFingerprintAliases.entries())
+    )
+  };
+}
 
-  assert.equal(
-    lifecycle.knownFindingState.entriesByFingerprint.size,
-    0,
-    'Malformed result input mutated compatibility findings.'
+function assertCommitStateUnchanged(
+  lifecycle: RunFindingLifecycleState,
+  beforeCommit: object,
+  scenario: string
+): void {
+  assert.deepEqual(
+    snapshotCommitState(lifecycle),
+    beforeCommit,
+    `${scenario} left registry, counter, evidence, suppression, known-finding, or alias residue.`
   );
+}
+
+function assertOccurrenceReference(
+  lifecycle: RunFindingLifecycleState,
+  input: {
+    fingerprint: string;
+    pageUrl: string;
+    finding: ExploratoryQaFinding;
+    expectedReference: string;
+  }
+): string | undefined {
+  const occurrenceKey = createUnifiedOccurrenceKey({
+    fingerprint: input.fingerprint,
+    pageUrl: input.pageUrl,
+    target: input.finding.evidenceTarget
+  });
+  const occurrenceReference = findUnifiedOccurrence(
+    lifecycle.unifiedFindingRegistry,
+    occurrenceKey
+  )?.occurrenceReference;
+
+  assert.equal(occurrenceReference, input.expectedReference);
+
+  return occurrenceReference;
 }
 
 function checkMultipleNewFindings(): void {
@@ -258,6 +309,13 @@ function checkMultipleNewFindings(): void {
   assert.equal(getRawOutcomeStatus(lifecycle, equadorFingerprint, pageUrl), 'verified');
 
   assert.equal(getRawOutcomeStatus(lifecycle, pirateFingerprint, pageUrl), 'not-verified');
+
+  assertOccurrenceReference(lifecycle, {
+    fingerprint: equadorFingerprint,
+    pageUrl,
+    finding: equadorFinding,
+    expectedReference: 'occurrence-1'
+  });
 
   assert.equal(
     lifecycle.knownFindingState.entriesByFingerprint.get(equadorFingerprint)?.occurrences[0]
@@ -405,6 +463,13 @@ function checkMixedReorderedResults(): void {
     finalEquador?.occurrences.map(occurrence => occurrence.redundantInvestigationSkipped),
     [false, false]
   );
+
+  assertOccurrenceReference(lifecycle, {
+    fingerprint: equadorFingerprint,
+    pageUrl: secondUrl,
+    finding: equadorFinding,
+    expectedReference: 'occurrence-3'
+  });
 }
 
 function createMalformedInputFixture(): {
@@ -447,6 +512,7 @@ function commitMalformed(
 
 function checkMalformedResultsFailClosed(): void {
   const missing = createMalformedInputFixture();
+  const missingBeforeCommit = snapshotCommitState(missing.lifecycle);
 
   assert.throws(
     () =>
@@ -455,9 +521,10 @@ function checkMalformedResultsFailClosed(): void {
       ]),
     /Missing investigation result for candidate "candidate-2"\./
   );
-  assertNoCommittedState(missing.lifecycle);
+  assertCommitStateUnchanged(missing.lifecycle, missingBeforeCommit, 'Missing result');
 
   const duplicate = createMalformedInputFixture();
+  const duplicateBeforeCommit = snapshotCommitState(duplicate.lifecycle);
   const duplicateResult = createResult(
     duplicate.page,
     'candidate-1',
@@ -468,9 +535,10 @@ function checkMalformedResultsFailClosed(): void {
     () => commitMalformed(duplicate, [duplicateResult, duplicateResult]),
     /Duplicate investigation result for candidate "candidate-1"\./
   );
-  assertNoCommittedState(duplicate.lifecycle);
+  assertCommitStateUnchanged(duplicate.lifecycle, duplicateBeforeCommit, 'Duplicate result');
 
   const stale = createMalformedInputFixture();
+  const staleBeforeCommit = snapshotCommitState(stale.lifecycle);
 
   assert.throws(
     () =>
@@ -482,9 +550,10 @@ function checkMalformedResultsFailClosed(): void {
       ]),
     /Unexpected investigation result for candidate "candidate-999"\./
   );
-  assertNoCommittedState(stale.lifecycle);
+  assertCommitStateUnchanged(stale.lifecycle, staleBeforeCommit, 'Unexpected result');
 
   const mismatched = createMalformedInputFixture();
+  const mismatchedBeforeCommit = snapshotCommitState(mismatched.lifecycle);
 
   assert.throws(
     () =>
@@ -499,7 +568,211 @@ function checkMalformedResultsFailClosed(): void {
       ]),
     /Investigation result for candidate "candidate-1" does not match its prepared finding identity\./
   );
-  assertNoCommittedState(mismatched.lifecycle);
+  assertCommitStateUnchanged(mismatched.lifecycle, mismatchedBeforeCommit, 'Mismatched result');
+}
+
+function checkInvalidInvestigationAssociationFailsClosed(): void {
+  const fixture = createMalformedInputFixture();
+
+  fixture.page.unifiedFingerprintByCandidateReference.set(
+    'candidate-1',
+    'target|select-option|missing|identity'
+  );
+
+  const beforeCommit = snapshotCommitState(fixture.lifecycle);
+
+  assert.throws(
+    () =>
+      commitMalformed(fixture, [
+        createResult(fixture.page, 'candidate-1', createOutcome('verified', 'Invalid mapping')),
+        createResult(fixture.page, 'candidate-2', createOutcome('inconclusive', 'Valid mapping'))
+      ]),
+    /Candidate "candidate-1" maps to unprepared canonical finding "target\|select-option\|missing\|identity"\./
+  );
+
+  assertCommitStateUnchanged(fixture.lifecycle, beforeCommit, 'Invalid investigation association');
+}
+
+function checkValidUnifiedMerge(): void {
+  const lifecycle = createRunFindingLifecycle();
+  const finding = createSelectFinding(equadorSelect, 'Unified merge finding');
+  const fingerprint = createExploratoryFindingFingerprint(finding);
+  const pageUrl = 'https://example.com/unified-merge';
+  const page = reconcilePage(lifecycle, {
+    pageUrl,
+    pageTitle: 'Unified merge',
+    fixtures: [equadorSelect],
+    findings: [finding]
+  });
+
+  registerUnifiedPageFindings(
+    lifecycle.unifiedFindingRegistry,
+    page.reconciledFindingObservations.findings
+  );
+
+  assertOccurrenceReference(lifecycle, {
+    fingerprint,
+    pageUrl,
+    finding,
+    expectedReference: 'occurrence-1'
+  });
+
+  commitRunPageFindings(lifecycle, {
+    page,
+    pageUrl,
+    pageTitle: 'Unified merge',
+    pageNumber: 1,
+    screenshotPath: null,
+    exploratoryFindingResults: [
+      createResult(page, 'candidate-1', createOutcome('inconclusive', 'Unified merge'))
+    ]
+  });
+
+  assert.deepEqual(
+    getRunFindings(lifecycle)[0].occurrences.map(occurrence => occurrence.occurrenceReference),
+    ['occurrence-1'],
+    'Canonical registration introduced a duplicate instead of merging the prepared key.'
+  );
+  assert.equal(getRawOutcomeStatus(lifecycle, fingerprint, pageUrl), 'inconclusive');
+  assertOccurrenceReference(lifecycle, {
+    fingerprint,
+    pageUrl,
+    finding,
+    expectedReference: 'occurrence-1'
+  });
+}
+
+function checkValidCompatibilityMerge(): void {
+  const lifecycle = createRunFindingLifecycle();
+  const finding = createSelectFinding(equadorSelect, 'Compatibility merge finding');
+  const fingerprint = createExploratoryFindingFingerprint(finding);
+  const firstUrl = 'https://example.com/compatibility-first';
+  const firstPage = reconcilePage(lifecycle, {
+    pageUrl: firstUrl,
+    pageTitle: 'Compatibility first',
+    fixtures: [equadorSelect],
+    findings: [finding]
+  });
+
+  commitRunPageFindings(lifecycle, {
+    page: firstPage,
+    pageUrl: firstUrl,
+    pageTitle: 'Compatibility first',
+    pageNumber: 1,
+    screenshotPath: null,
+    exploratoryFindingResults: [
+      createResult(firstPage, 'candidate-1', createOutcome('inconclusive', 'First occurrence'))
+    ]
+  });
+
+  const secondUrl = 'https://example.com/compatibility-merge';
+  const secondPage = reconcilePage(lifecycle, {
+    pageUrl: secondUrl,
+    pageTitle: 'Compatibility merge',
+    fixtures: [equadorSelect],
+    findings: [finding]
+  });
+
+  assert.deepEqual(secondPage.reconciledPageFindings.knownOccurrenceDrafts[0].matchingBases, [
+    'structured-target',
+    'finding-fingerprint'
+  ]);
+
+  commitRunPageFindings(lifecycle, {
+    page: secondPage,
+    pageUrl: secondUrl,
+    pageTitle: 'Compatibility merge',
+    pageNumber: 2,
+    screenshotPath: null,
+    exploratoryFindingResults: [
+      createResult(secondPage, 'candidate-1', createOutcome('inconclusive', 'Merged occurrence'))
+    ]
+  });
+
+  const canonicalFinding = getRunFindings(lifecycle).find(item => item.fingerprint === fingerprint);
+
+  assert.deepEqual(
+    canonicalFinding?.occurrences.map(occurrence => occurrence.occurrenceReference),
+    ['occurrence-1', 'occurrence-2'],
+    'Compatibility registration introduced a duplicate occurrence.'
+  );
+  assert.equal(getRawOutcomeStatus(lifecycle, fingerprint, secondUrl), 'inconclusive');
+  const firstOccurrenceReference = assertOccurrenceReference(lifecycle, {
+    fingerprint,
+    pageUrl: firstUrl,
+    finding,
+    expectedReference: 'occurrence-1'
+  });
+  const secondOccurrenceReference = assertOccurrenceReference(lifecycle, {
+    fingerprint,
+    pageUrl: secondUrl,
+    finding,
+    expectedReference: 'occurrence-2'
+  });
+
+  assert.notEqual(firstOccurrenceReference, secondOccurrenceReference);
+}
+
+function checkInvalidCompatibilityAssociationFailsClosed(): void {
+  const lifecycle = createRunFindingLifecycle();
+  const finding = createSelectFinding(equadorSelect, 'Invalid compatibility association');
+  const firstUrl = 'https://example.com/invalid-compatibility-first';
+  const firstPage = reconcilePage(lifecycle, {
+    pageUrl: firstUrl,
+    pageTitle: 'Invalid compatibility first',
+    fixtures: [equadorSelect],
+    findings: [finding]
+  });
+
+  commitRunPageFindings(lifecycle, {
+    page: firstPage,
+    pageUrl: firstUrl,
+    pageTitle: 'Invalid compatibility first',
+    pageNumber: 1,
+    screenshotPath: null,
+    exploratoryFindingResults: [
+      createResult(firstPage, 'candidate-1', createOutcome('inconclusive', 'First occurrence'))
+    ]
+  });
+
+  const secondUrl = 'https://example.com/invalid-compatibility-second';
+  const secondPage = reconcilePage(lifecycle, {
+    pageUrl: secondUrl,
+    pageTitle: 'Invalid compatibility second',
+    fixtures: [equadorSelect],
+    findings: []
+  });
+  const draft = secondPage.reconciledPageFindings.knownOccurrenceDrafts[0];
+
+  assert.ok(draft.matchingBases.includes('structured-target'));
+  draft.fingerprint = 'target|select-option|missing|compatibility';
+
+  const beforeCommit = snapshotCommitState(lifecycle);
+
+  assert.throws(
+    () =>
+      commitRunPageFindings(lifecycle, {
+        page: secondPage,
+        pageUrl: secondUrl,
+        pageTitle: 'Invalid compatibility second',
+        pageNumber: 2,
+        screenshotPath: null,
+        exploratoryFindingResults: [
+          createResult(
+            secondPage,
+            'candidate-1',
+            createOutcome('inconclusive', 'Compatibility candidate')
+          )
+        ]
+      }),
+    /Compatibility occurrence for "target\|select-option\|missing\|compatibility" has no prepared canonical target\./
+  );
+
+  assertCommitStateUnchanged(
+    lifecycle,
+    beforeCommit,
+    'Invalid compatibility occurrence association'
+  );
 }
 
 function checkAliasIntegrity(): void {
@@ -610,18 +883,24 @@ function checkRejectedStructuredIdentityCommit(): void {
   );
 }
 
-function checkVerifiedKnownSuppression(): void {
-  const lifecycle = createRunFindingLifecycle();
-  const finding = createSelectFinding(pirateSelect, 'Pirate option is selectable');
+function seedTrustedVerifiedFinding(
+  lifecycle: RunFindingLifecycleState,
+  finding: ExploratoryQaFinding,
+  firstUrl: string
+): void {
   const fingerprint = createExploratoryFindingFingerprint(finding);
-  const firstUrl = 'https://example.com/verified-first';
   const firstPage = reconcilePage(lifecycle, {
     pageUrl: firstUrl,
     pageTitle: 'Verified first page',
-    fixtures: [pirateSelect],
+    fixtures: [
+      finding.evidenceTarget?.kind === 'select-option' &&
+      finding.evidenceTarget.optionText === pirateSelect.suspiciousOption
+        ? pirateSelect
+        : equadorSelect
+    ],
     findings: [finding]
   });
-  const rawOutcome = createOutcome('verified', 'Pirate trusted outcome');
+  const rawOutcome = createOutcome('verified', 'Trusted outcome');
 
   /*
    * The run coordinator currently supplies contextual assessments only.
@@ -651,6 +930,7 @@ function checkVerifiedKnownSuppression(): void {
 
   registerNewFinding(lifecycle.knownFindingState, {
     finding,
+    fingerprint,
     pageUrl: firstUrl,
     pageTitle: 'Verified first page',
     screenshotPath: null,
@@ -658,6 +938,62 @@ function checkVerifiedKnownSuppression(): void {
   });
 
   assert.equal(getRunFindings(lifecycle)[0].verification.state, 'verified');
+}
+
+function checkInvalidSuppressionAssociationFailsClosed(): void {
+  const lifecycle = createRunFindingLifecycle();
+  const finding = createSelectFinding(pirateSelect, 'Invalid suppression association');
+  const fingerprint = createExploratoryFindingFingerprint(finding);
+
+  seedTrustedVerifiedFinding(lifecycle, finding, 'https://example.com/invalid-suppression-first');
+
+  const pageUrl = 'https://example.com/invalid-suppression-second';
+  const page = reconcilePage(lifecycle, {
+    pageUrl,
+    pageTitle: 'Invalid suppression second',
+    fixtures: [],
+    findings: [finding]
+  });
+  const draft = page.reconciledPageFindings.knownOccurrenceDrafts[0];
+
+  assert.deepEqual(draft.matchingBases, ['finding-fingerprint']);
+  assert.equal(draft.redundantInvestigationSkipped, true);
+  assert.deepEqual(page.pageCandidates, []);
+
+  draft.evidenceTarget = {
+    kind: 'select-option',
+    controlLabel: pirateSelect.label,
+    controlName: pirateSelect.name,
+    controlId: pirateSelect.id,
+    optionText: 'Missing suppression target'
+  };
+
+  const beforeCommit = snapshotCommitState(lifecycle);
+
+  assert.throws(
+    () =>
+      commitRunPageFindings(lifecycle, {
+        page,
+        pageUrl,
+        pageTitle: 'Invalid suppression second',
+        pageNumber: 2,
+        screenshotPath: null,
+        exploratoryFindingResults: []
+      }),
+    /Suppression target has no prepared canonical occurrence:/
+  );
+
+  assertCommitStateUnchanged(lifecycle, beforeCommit, 'Invalid suppression association');
+  assert.ok(lifecycle.unifiedFindingRegistry.findingsByFingerprint.has(fingerprint));
+}
+
+function checkVerifiedKnownSuppression(): void {
+  const lifecycle = createRunFindingLifecycle();
+  const finding = createSelectFinding(pirateSelect, 'Pirate option is selectable');
+  const fingerprint = createExploratoryFindingFingerprint(finding);
+  const firstUrl = 'https://example.com/verified-first';
+
+  seedTrustedVerifiedFinding(lifecycle, finding, firstUrl);
 
   const secondUrl = 'https://example.com/verified-second';
   const secondPreparation = prepareKnownFindingAnalysis(
@@ -705,14 +1041,25 @@ function checkVerifiedKnownSuppression(): void {
       ['occurrence-2', true]
     ]
   );
+  assertOccurrenceReference(lifecycle, {
+    fingerprint,
+    pageUrl: secondUrl,
+    finding,
+    expectedReference: 'occurrence-2'
+  });
 }
 
 function main(): void {
   checkMultipleNewFindings();
   checkMixedReorderedResults();
   checkMalformedResultsFailClosed();
+  checkInvalidInvestigationAssociationFailsClosed();
+  checkValidUnifiedMerge();
+  checkValidCompatibilityMerge();
+  checkInvalidCompatibilityAssociationFailsClosed();
   checkAliasIntegrity();
   checkRejectedStructuredIdentityCommit();
+  checkInvalidSuppressionAssociationFailsClosed();
   checkVerifiedKnownSuppression();
 
   console.log('Run-level finding lifecycle reference-integrity checks passed.');
