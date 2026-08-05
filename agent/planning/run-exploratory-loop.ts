@@ -6,7 +6,8 @@ import {
   executeAgentAction,
   type ExecutedAgentActionResult
 } from '../browser/execute-agent-action';
-import { extractPageContent, type ExtractedPageContent } from '../browser/extract-page-content';
+import type { ExtractedPageContent } from '../browser/extracted-page-content';
+import { extractPageContent } from '../browser/extract-page-content';
 import type { PlannerHistoryEntry } from './build-planner-prompt';
 import { planNextAction } from './plan-next-action';
 import type { PlannerDecision } from './planner-decision-schema';

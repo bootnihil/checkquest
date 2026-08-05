@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 
 import type { ExploratoryQaFinding } from '../../agent/analysis/exploratory-qa-schema';
 
-import type { ExtractedPageContent } from '../../agent/browser/extract-page-content';
+import type { ExtractedPageContent } from '../../agent/browser/extracted-page-content';
 
 import { evaluateFindingInvestigationOutcome } from '../../agent/investigation/evaluate-finding-investigation-outcome';
 import { assignPageCandidateReferences } from '../../agent/investigation/page-candidates';

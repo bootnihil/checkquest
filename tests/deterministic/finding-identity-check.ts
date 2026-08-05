@@ -4,7 +4,7 @@ import type {
   ExploratoryQaFinding,
   FindingStructuredIdentity
 } from '../../agent/analysis/exploratory-qa-schema';
-import type { ExtractedPageContent } from '../../agent/browser/extract-page-content';
+import type { ExtractedPageContent } from '../../agent/browser/extracted-page-content';
 import { reconcileFindingObservations } from '../../agent/findings/reconcile-finding-observations';
 import {
   createUnifiedFindingRegistry,

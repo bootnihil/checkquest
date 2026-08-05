@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import type { ExtractedPageContent } from '../browser/extract-page-content';
+import type { ExtractedPageContent } from '../browser/extracted-page-content';
 
 import type { NavigationLink } from '../browser/inspect-navigation';
 

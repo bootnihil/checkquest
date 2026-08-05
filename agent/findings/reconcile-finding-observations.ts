@@ -1,6 +1,6 @@
 import type { ExploratoryQaFinding } from '../analysis/exploratory-qa-schema';
 import type { PageFinding } from '../analysis/evaluate-page';
-import type { ExtractedPageContent } from '../browser/extract-page-content';
+import type { ExtractedPageContent } from '../browser/extracted-page-content';
 import {
   createDisclosureStateTargetFingerprint,
   createExploratoryFindingFingerprint,

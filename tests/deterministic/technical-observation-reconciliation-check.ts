@@ -7,7 +7,7 @@ import {
   type ExploratoryQaAnalysis,
   type ExploratoryQaFinding
 } from '../../agent/analysis/exploratory-qa-schema';
-import type { ExtractedPageContent } from '../../agent/browser/extract-page-content';
+import type { ExtractedPageContent } from '../../agent/browser/extracted-page-content';
 import { commitRunPageFindings } from '../../agent/findings/commit-run-page-findings';
 import type { UnifiedFinding } from '../../agent/findings/finding-model';
 import {

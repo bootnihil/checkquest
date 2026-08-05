@@ -1,15 +1,12 @@
 import type { ExploratoryQaFinding } from '../analysis/exploratory-qa-schema';
 import type { SiteConfig } from '../config/site-config';
+import type { AgentRunOutcome, HomepageObservation } from '../exploration/site-exploration-result';
 import type { UnifiedFinding } from '../findings/finding-model';
+import type { InspectedPageResult } from '../inspection/inspected-page-result';
 import type { PassiveSecurityReport } from '../security/passive-security-model';
 import { buildSiteWideExploratoryFindings } from './build-site-wide-exploratory-findings';
 import { getHighestSeverity } from './report-utils';
-import type {
-  AgentRunOutcome,
-  HomepageObservation,
-  InspectedPageResult,
-  SiteAgentReport
-} from './report-types';
+import type { SiteAgentReport } from './report-types';
 
 export interface SiteRunFindingMetrics {
   knownFindingsSuppliedToAnalysisCount: number;

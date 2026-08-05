@@ -14,13 +14,9 @@ import {
   type InspectPageResult,
   type OpenPageInspectionInput
 } from '../inspection/inspect-page';
+import type { InspectedPageResult } from '../inspection/inspected-page-result';
 import type { planNextAction } from '../planning/plan-next-action';
 import type { SiteRunFindingMetrics } from '../reporting/build-site-agent-report';
-import type {
-  AgentRunOutcome,
-  HomepageObservation,
-  InspectedPageResult
-} from '../reporting/report-types';
 import type { RunEventEmitter } from '../run/run-event';
 import { captureMainDocumentSecurity } from '../security/capture-main-document-security';
 import type { PassiveSecurityReport } from '../security/passive-security-model';
@@ -32,6 +28,7 @@ import { createNavigationFrontier, type NavigationFrontier } from './navigation-
 import { createPageNoveltyState, predictPageIdentity } from './page-novelty';
 import { runPageInspectionSequence } from './run-page-inspection-sequence';
 import { selectNextPageForInspection, type ExplorationStopOutcome } from './select-next-page';
+import type { AgentRunOutcome, HomepageObservation } from './site-exploration-result';
 import {
   createNavigationUrlState,
   markNavigationUrlAttempted,

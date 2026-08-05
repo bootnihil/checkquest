@@ -20,7 +20,7 @@ import type {
   FindingOccurrence
 } from '../../agent/findings/finding-model';
 import type { FindingInvestigationOutcome } from '../../agent/investigation/evaluate-finding-investigation-outcome';
-import type { ExploratoryFindingResult } from '../../agent/reporting/report-types';
+import type { ExploratoryFindingResult } from '../../agent/inspection/inspected-page-result';
 
 function createEvidence(
   id: string,

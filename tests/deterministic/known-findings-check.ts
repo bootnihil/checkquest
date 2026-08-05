@@ -4,7 +4,7 @@ import type { Page } from '@playwright/test';
 
 import type { ExploratoryQaFinding } from '../../agent/analysis/exploratory-qa-schema';
 import { buildExploratoryQaPrompt } from '../../agent/analysis/build-exploratory-qa-prompt';
-import type { ExtractedPageContent } from '../../agent/browser/extract-page-content';
+import type { ExtractedPageContent } from '../../agent/browser/extracted-page-content';
 import {
   evaluateFindingInvestigationOutcome,
   type FindingInvestigationOutcome

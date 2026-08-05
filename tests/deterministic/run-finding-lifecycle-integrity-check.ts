@@ -6,7 +6,7 @@ import type {
   ExploratoryQaFinding
 } from '../../agent/analysis/exploratory-qa-schema';
 import type { PageFinding } from '../../agent/analysis/evaluate-page';
-import type { ExtractedPageContent } from '../../agent/browser/extract-page-content';
+import type { ExtractedPageContent } from '../../agent/browser/extracted-page-content';
 import {
   attachInvestigationOutcome,
   createUnifiedOccurrenceKey,

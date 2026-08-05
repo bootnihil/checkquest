@@ -7,10 +7,8 @@ import { listenOnBrowserSafeLoopbackPort } from '../support/listen-on-browser-sa
 
 import type { ExploratoryQaFinding } from '../../agent/analysis/exploratory-qa-schema';
 import { preparePageForGuardedInteractions } from '../../agent/browser/guarded-interaction-safety-boundary';
-import {
-  extractPageContent,
-  type PageDisclosureControl
-} from '../../agent/browser/extract-page-content';
+import type { PageDisclosureControl } from '../../agent/browser/extracted-page-content';
+import { extractPageContent } from '../../agent/browser/extract-page-content';
 import { evaluateFindingInvestigationOutcome } from '../../agent/investigation/evaluate-finding-investigation-outcome';
 import {
   assignPageCandidateReferences,

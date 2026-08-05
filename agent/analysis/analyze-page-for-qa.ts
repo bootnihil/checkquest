@@ -3,7 +3,7 @@ import { parseModelJsonResponse } from '../ai/parse-model-json-response';
 import { requireGeminiApiKey } from '../ai/resolve-gemini-api-key';
 import { runGeminiRequest } from '../ai/run-gemini-request';
 import type { GeminiOperationOptions } from '../ai/gemini-operation-options';
-import type { ExtractedPageContent } from '../browser/extract-page-content';
+import type { ExtractedPageContent } from '../browser/extracted-page-content';
 import type { VisitedPageObservation } from '../browser/visit-approved-link';
 import { aiConfig } from '../config/ai-config';
 import type { ClassifiedDiagnostics } from './classify-diagnostics';

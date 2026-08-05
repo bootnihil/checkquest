@@ -20,7 +20,8 @@ import { assignPageCandidateReferences } from '../../agent/investigation/page-ca
 
 import { buildSiteWideExploratoryFindings } from '../../agent/reporting/build-site-wide-exploratory-findings';
 
-import type { InspectedPageResult, SiteAgentReport } from '../../agent/reporting/report-types';
+import type { InspectedPageResult } from '../../agent/inspection/inspected-page-result';
+import type { SiteAgentReport } from '../../agent/reporting/report-types';
 
 import { writeJsonReport } from '../../agent/reporting/write-json-report';
 

@@ -9,7 +9,8 @@ import type {
   PassiveSecurityEvidence,
   PassiveSecurityObservation
 } from '../security/passive-security-model';
-import type { FindingPresentationEvidence, SiteAgentReport } from './report-types';
+import type { FindingPresentationEvidence } from '../inspection/inspected-page-result';
+import type { SiteAgentReport } from './report-types';
 import {
   buildReconciledRunSummaryProjection,
   hasRuntimeTechnicalGrounding,

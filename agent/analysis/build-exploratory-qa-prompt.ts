@@ -1,6 +1,6 @@
 import type { ClassifiedDiagnostics } from './classify-diagnostics';
 import type { PageFinding } from './evaluate-page';
-import type { ExtractedPageContent } from '../browser/extract-page-content';
+import type { ExtractedPageContent } from '../browser/extracted-page-content';
 import type { VisitedPageObservation } from '../browser/visit-approved-link';
 import type { KnownFindingPromptContext } from '../investigation/known-findings';
 import {

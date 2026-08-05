@@ -9,7 +9,7 @@ import type {
   PageDisclosureControl,
   PageSelectControl,
   PageTabControl
-} from '../browser/extract-page-content';
+} from '../browser/extracted-page-content';
 import type {
   FindingInvestigationOutcome,
   FindingInvestigationStatus

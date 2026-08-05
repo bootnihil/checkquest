@@ -6,7 +6,7 @@ import type {
 } from '../analysis/exploratory-qa-schema';
 import { normalizeTechnicalObservations } from '../analysis/technical-observation-reconciliation';
 import type { PageFinding } from '../analysis/evaluate-page';
-import type { ExtractedPageContent } from '../browser/extract-page-content';
+import type { ExtractedPageContent } from '../browser/extracted-page-content';
 import {
   buildKnownFindingPromptContext,
   detectStructuredKnownFindingOccurrences,

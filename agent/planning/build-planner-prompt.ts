@@ -2,7 +2,7 @@ import type { AgentAction } from '../actions/agent-action-schema';
 
 import type { InvestigablePageCandidate } from '../investigation/page-candidates';
 
-import type { ExtractedPageContent } from '../browser/extract-page-content';
+import type { ExtractedPageContent } from '../browser/extracted-page-content';
 
 export interface PlannerHistoryEntry {
   step: number;

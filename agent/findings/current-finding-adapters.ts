@@ -1,7 +1,7 @@
 import type { ExploratoryQaFinding } from '../analysis/exploratory-qa-schema';
 import type { PageFinding } from '../analysis/evaluate-page';
 import type { FindingInvestigationOutcome } from '../investigation/evaluate-finding-investigation-outcome';
-import type { ExploratoryFindingResult } from '../reporting/report-types';
+import type { ExploratoryFindingResult } from '../inspection/inspected-page-result';
 import {
   deriveLogicalFindingVerification,
   deriveOccurrenceVerification

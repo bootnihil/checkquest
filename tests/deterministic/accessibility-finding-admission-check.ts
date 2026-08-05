@@ -13,7 +13,7 @@ import type {
   PageDisclosureControl,
   PageSelectControl,
   PageTabControl
-} from '../../agent/browser/extract-page-content';
+} from '../../agent/browser/extracted-page-content';
 import { reconcileFindingObservations } from '../../agent/findings/reconcile-finding-observations';
 import { createExploratoryFindingFingerprint } from '../../agent/investigation/finding-fingerprint';
 

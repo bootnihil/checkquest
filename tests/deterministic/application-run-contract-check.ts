@@ -121,6 +121,37 @@ async function main(): Promise<void> {
   assert.equal(cliSource.includes('writeMarkdownReport'), false);
   assert.equal(cliSource.includes("process.once(\n    'SIGINT'"), false);
 
+  const exploratoryQaAnalyzerSource = await readFile(
+    new URL('../../agent/analysis/analyze-page-for-qa.ts', import.meta.url),
+    'utf8'
+  );
+  const pageContentExtractorSource = await readFile(
+    new URL('../../agent/browser/extract-page-content.ts', import.meta.url),
+    'utf8'
+  );
+  const reportTypesSource = await readFile(
+    new URL('../../agent/reporting/report-types.ts', import.meta.url),
+    'utf8'
+  );
+
+  assert.equal(exploratoryQaAnalyzerSource.includes("from './exploratory-qa-schema'"), true);
+  assert.equal(pageContentExtractorSource.includes("from './extracted-page-content'"), true);
+  assert.equal(pageContentExtractorSource.includes('export interface'), false);
+  assert.deepEqual(
+    [...reportTypesSource.matchAll(/^export (?:interface|type) (\w+)/gm)].map(match => match[1]),
+    ['SiteAgentReport']
+  );
+
+  for (const runtimeOwner of [
+    '../../agent/exploration/run-site-exploration.ts',
+    '../../agent/findings/current-finding-adapters.ts',
+    '../../agent/inspection/inspect-page.ts'
+  ]) {
+    const source = await readFile(new URL(runtimeOwner, import.meta.url), 'utf8');
+
+    assert.equal(source.includes('report-types'), false);
+  }
+
   console.log('G1 application run contract and thin CLI checks passed.');
 }
 

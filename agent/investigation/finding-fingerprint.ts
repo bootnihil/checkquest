@@ -5,7 +5,7 @@ import type {
   SelectOptionEvidenceTarget,
   TabStateEvidenceTarget
 } from '../analysis/exploratory-qa-schema';
-import type { ExtractedPageContent } from '../browser/extract-page-content';
+import type { ExtractedPageContent } from '../browser/extracted-page-content';
 import { createTechnicalObservationFingerprint } from '../analysis/technical-observation-reconciliation';
 
 type SelectControlIdentity = {

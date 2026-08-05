@@ -7,7 +7,7 @@ import type {
   ExtractedPageContent,
   PageDisclosureControl,
   PageTabControl
-} from '../browser/extract-page-content';
+} from '../browser/extracted-page-content';
 import { validateStructuredIdentity } from '../investigation/finding-fingerprint';
 
 type AccessibilityControl = PageDisclosureControl | PageTabControl;

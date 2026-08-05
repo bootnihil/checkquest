@@ -33,12 +33,12 @@ import {
 import type { RunFindingLifecycleState } from '../findings/run-finding-lifecycle';
 import { runExploratoryLoop } from '../planning/run-exploratory-loop';
 import type { planNextAction } from '../planning/plan-next-action';
-import type { FindingPresentationEvidence, InspectedPageResult } from '../reporting/report-types';
 import type { PassivePageSecuritySnapshot } from '../security/passive-security-model';
 import {
   registerPassiveSecuritySnapshot,
   type PassiveSecurityRegistry
 } from '../security/passive-security-registry';
+import type { FindingPresentationEvidence, InspectedPageResult } from './inspected-page-result';
 
 export interface OpenPageInspectionInput {
   selection: InspectedPageResult['selection'];
