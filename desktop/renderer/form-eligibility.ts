@@ -1,4 +1,4 @@
-import { validateDesktopStartRunInput, type DesktopStartRunInput } from '../contracts';
+import { validateDesktopStartRunInput, type DesktopStartRunInput } from '../start-run-contract';
 
 export function isDesktopRunLocallyEligible(
   request: DesktopStartRunInput,

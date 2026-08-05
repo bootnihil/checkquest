@@ -1,9 +1,9 @@
 import {
   validateDesktopStartRunInput,
-  type CheckQuestDesktopApi,
   type DesktopRunFieldErrors,
   type DesktopStartRunInput
-} from '../contracts';
+} from '../start-run-contract';
+import type { CheckQuestDesktopApi } from '../ipc-contract';
 import {
   createCancelledUiState,
   createCheckingCredentialsUiState,

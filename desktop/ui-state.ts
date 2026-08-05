@@ -1,4 +1,4 @@
-import type { DesktopRunEvent } from './contracts';
+import type { DesktopRunEvent } from './run-event-contract';
 
 export type DesktopUiPhase =
   | 'ready'

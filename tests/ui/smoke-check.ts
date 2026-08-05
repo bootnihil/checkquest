@@ -4,8 +4,8 @@ import { resolve } from 'node:path';
 
 import { _electron as electron } from '@playwright/test';
 
-import type { CheckQuestDesktopApi, DesktopRunEvent } from '../../desktop/contracts';
-import { desktopIpcChannels } from '../../desktop/contracts';
+import { desktopIpcChannels, type CheckQuestDesktopApi } from '../../desktop/ipc-contract';
+import type { DesktopRunEvent } from '../../desktop/run-event-contract';
 
 interface RendererGlobal {
   process?: unknown;

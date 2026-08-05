@@ -5,18 +5,19 @@ import type {
   CheckQuestRunResult,
   StartCheckQuestInput
 } from '../../agent/application/start-checkquest';
+import type { RunEvent } from '../../agent/run/run-event';
 import {
-  desktopRunBudgetLimits,
-  desktopRunDefaults,
-  normalizeDesktopTargetUrl,
-  projectDesktopCancelRunReply,
-  projectDesktopRunEvent,
-  projectDesktopSessionCredentialStatus,
-  projectDesktopStartRunReply,
-  validateDesktopStartRunInput,
-  type DesktopRunEvent,
-  type DesktopStartRunInput
-} from '../../desktop/contracts';
+  desktopIpcChannels,
+  parseDesktopCancelRunReply,
+  parseDesktopSessionCredentialStatus,
+  parseDesktopStartRunReply
+} from '../../desktop/ipc-contract';
+import {
+  desktopApplicationRunEventDecisions,
+  parseDesktopRunEvent,
+  projectApplicationRunEvent,
+  type DesktopRunEvent
+} from '../../desktop/run-event-contract';
 import {
   DesktopRunController,
   type PreflightGeminiCredentialsFunction,
@@ -24,6 +25,14 @@ import {
   type StartCheckQuestFunction
 } from '../../desktop/run-controller';
 import { desktopRendererSecurityPreferences } from '../../desktop/security-policy';
+import {
+  desktopRunBudgetLimits,
+  desktopRunDefaults,
+  desktopRunFieldNames,
+  normalizeDesktopTargetUrl,
+  validateDesktopStartRunInput,
+  type DesktopStartRunInput
+} from '../../desktop/start-run-contract';
 import {
   createCancellingUiState,
   createCheckingCredentialsUiState,
@@ -89,6 +98,7 @@ const acceptedTargetPreflight: PreflightTargetReachabilityFunction = async input
 });
 
 function runValidationChecks(): void {
+  assert.deepEqual(desktopRunFieldNames, Object.keys(validRequest));
   assert.equal(validateDesktopStartRunInput(validRequest).success, true);
 
   const invalidCases: readonly unknown[] = [
@@ -299,8 +309,123 @@ function runValidationChecks(): void {
 
 function runEventProjectionChecks(): void {
   const credential = 'desktop-event-secret';
+  const applicationEvents = {
+    'run-started': {
+      ...commonEvent,
+      type: 'run-started',
+      startUrl: 'https://example.com/private',
+      pageBudget: 3,
+      navigationBudget: 4
+    },
+    'inspection-started': {
+      ...commonEvent,
+      type: 'inspection-started',
+      pageNumber: 2,
+      url: 'https://example.com/private'
+    },
+    'inspection-completed': {
+      ...commonEvent,
+      type: 'inspection-completed',
+      pageNumber: 2,
+      url: 'https://example.com/private',
+      findingCount: 3,
+      diagnosticCount: 1
+    },
+    'navigation-started': {
+      ...commonEvent,
+      type: 'navigation-started',
+      navigationStep: 1,
+      navigationBudget: 4,
+      pageNumber: 2,
+      requestedUrl: 'https://example.com/private'
+    },
+    'navigation-completed': {
+      ...commonEvent,
+      type: 'navigation-completed',
+      navigationStep: 1,
+      navigationBudget: 4,
+      pageNumber: 2,
+      requestedUrl: 'https://example.com/private',
+      finalUrl: 'https://example.com/private-final',
+      outcome: 'ready-for-inspection'
+    },
+    'model-request-started': {
+      ...commonEvent,
+      type: 'model-request-started',
+      operation: 'page-analysis',
+      attempt: 1,
+      maxAttempts: 2
+    },
+    'model-request-retrying': {
+      ...commonEvent,
+      type: 'model-request-retrying',
+      operation: 'page-analysis',
+      attempt: 1,
+      maxAttempts: 2,
+      retryDelayMs: 1_000,
+      statusCode: 503
+    },
+    'model-request-completed': {
+      ...commonEvent,
+      type: 'model-request-completed',
+      operation: 'page-analysis',
+      attempt: 2,
+      maxAttempts: 2
+    },
+    'investigation-completed': {
+      ...commonEvent,
+      type: 'investigation-completed',
+      pageNumber: 2,
+      candidateReference: 'candidate-private-reference',
+      status: 'verified',
+      stepsUsed: 1
+    },
+    'run-completed': {
+      ...commonEvent,
+      type: 'run-completed',
+      outcome: 'completed',
+      inspectedPageCount: 2,
+      findingCount: 3,
+      confirmedFindingCount: 1,
+      reviewFindingCount: 2,
+      technicalObservationCount: 1,
+      occurrenceCount: 4
+    },
+    'run-failed': {
+      ...commonEvent,
+      type: 'run-failed',
+      code: 'MODEL',
+      phase: 'page-analysis',
+      pageNumber: 2,
+      navigationStep: 1,
+      requestedUrl: 'https://example.com/private',
+      finalUrl: 'https://example.com/private-final'
+    }
+  } satisfies {
+    [Type in RunEvent['type']]: Extract<RunEvent, { type: Type }>;
+  };
+
   assert.deepEqual(
-    projectDesktopRunEvent({
+    Object.keys(desktopApplicationRunEventDecisions).sort(),
+    Object.keys(applicationEvents).sort()
+  );
+
+  for (const event of Object.values(applicationEvents) as RunEvent[]) {
+    const projectedEvent = projectApplicationRunEvent({
+      ...event,
+      geminiApiKey: credential,
+      cause: {
+        message: credential
+      },
+      futureInternalField: credential
+    } as unknown as RunEvent);
+
+    assert.deepEqual(parseDesktopRunEvent(projectedEvent), projectedEvent);
+    assert.equal(JSON.stringify(projectedEvent).includes(credential), false);
+  }
+
+  assert.deepEqual(
+    parseDesktopRunEvent({
       ...commonEvent,
       type: 'target-preflight-started',
       rawProviderError: credential
@@ -310,7 +435,7 @@ function runEventProjectionChecks(): void {
       type: 'target-preflight-started'
     }
   );
-  const projected = projectDesktopRunEvent({
+  const projected = parseDesktopRunEvent({
     ...commonEvent,
     type: 'inspection-started',
     pageNumber: 2,
@@ -329,14 +454,32 @@ function runEventProjectionChecks(): void {
   });
   assert.equal(JSON.stringify(projected).includes(credential), false);
   assert.equal(
-    projectDesktopRunEvent({
+    JSON.stringify(projectApplicationRunEvent(applicationEvents['run-started'])).includes(
+      applicationEvents['run-started'].startUrl
+    ),
+    false
+  );
+  assert.equal(
+    JSON.stringify(
+      projectApplicationRunEvent(applicationEvents['investigation-completed'])
+    ).includes(applicationEvents['investigation-completed'].candidateReference),
+    false
+  );
+  assert.equal(
+    JSON.stringify(projectApplicationRunEvent(applicationEvents['run-failed'])).includes(
+      applicationEvents['run-failed'].requestedUrl
+    ),
+    false
+  );
+  assert.equal(
+    parseDesktopRunEvent({
       ...commonEvent,
       type: 'future-run-event'
     }),
     null
   );
   assert.equal(
-    projectDesktopRunEvent({
+    parseDesktopRunEvent({
       ...commonEvent,
       type: 'run-completed',
       inspectedPageCount: 'three',
@@ -348,7 +491,7 @@ function runEventProjectionChecks(): void {
   );
 
   assert.deepEqual(
-    projectDesktopStartRunReply({
+    parseDesktopStartRunReply({
       accepted: true,
       geminiApiKey: credential
     }),
@@ -357,7 +500,7 @@ function runEventProjectionChecks(): void {
     }
   );
   assert.deepEqual(
-    projectDesktopStartRunReply({
+    parseDesktopStartRunReply({
       accepted: false,
       reason: 'credential-rejected',
       message: 'Gemini API key could not be authenticated.',
@@ -377,7 +520,7 @@ function runEventProjectionChecks(): void {
     }
   );
   assert.deepEqual(
-    projectDesktopCancelRunReply({
+    parseDesktopCancelRunReply({
       requested: true,
       rawIpc: 'forbidden'
     }),
@@ -386,7 +529,7 @@ function runEventProjectionChecks(): void {
     }
   );
   assert.deepEqual(
-    projectDesktopSessionCredentialStatus({
+    parseDesktopSessionCredentialStatus({
       available: true,
       geminiApiKey: credential
     }),
@@ -394,6 +537,23 @@ function runEventProjectionChecks(): void {
       available: true
     }
   );
+  assert.deepEqual(parseDesktopStartRunReply({ accepted: 'yes' }), {
+    accepted: false,
+    reason: 'application-unavailable',
+    message: 'The desktop application could not start the run.'
+  });
+  assert.deepEqual(parseDesktopCancelRunReply({ requested: 'yes' }), {
+    requested: false
+  });
+  assert.deepEqual(parseDesktopSessionCredentialStatus({ available: 'yes' }), {
+    available: false
+  });
+  assert.deepEqual(desktopIpcChannels, {
+    startRun: 'checkquest:start-run',
+    cancelRun: 'checkquest:cancel-run',
+    sessionCredentialStatus: 'checkquest:session-credential-status',
+    runEvent: 'checkquest:run-event'
+  });
 }
 
 async function runSessionCredentialChecks(): Promise<void> {
@@ -1357,9 +1517,13 @@ function runUiStateChecks(): void {
 }
 
 async function runSourceBoundaryChecks(): Promise<void> {
+  const rendererAppSource = await readFile(
+    new URL('../../desktop/renderer/app.ts', import.meta.url),
+    'utf8'
+  );
   const rendererSource = (
     await Promise.all([
-      readFile(new URL('../../desktop/renderer/app.ts', import.meta.url), 'utf8'),
+      Promise.resolve(rendererAppSource),
       readFile(new URL('../../desktop/renderer/submit-run.ts', import.meta.url), 'utf8'),
       readFile(
         new URL('../../desktop/renderer/credential-presentation.ts', import.meta.url),
@@ -1376,6 +1540,22 @@ async function runSourceBoundaryChecks(): Promise<void> {
     new URL('../../desktop/run-controller.ts', import.meta.url),
     'utf8'
   );
+  const startRunContractSource = await readFile(
+    new URL('../../desktop/start-run-contract.ts', import.meta.url),
+    'utf8'
+  );
+  const runEventContractSource = await readFile(
+    new URL('../../desktop/run-event-contract.ts', import.meta.url),
+    'utf8'
+  );
+  const ipcContractSource = await readFile(
+    new URL('../../desktop/ipc-contract.ts', import.meta.url),
+    'utf8'
+  );
+  const uiStateSource = await readFile(
+    new URL('../../desktop/ui-state.ts', import.meta.url),
+    'utf8'
+  );
   const sessionCredentialSource = await readFile(
     new URL('../../desktop/session-credential.ts', import.meta.url),
     'utf8'
@@ -1389,6 +1569,138 @@ async function runSourceBoundaryChecks(): Promise<void> {
     new URL('../../desktop/renderer/styles.css', import.meta.url),
     'utf8'
   );
+
+  await assert.rejects(
+    readFile(new URL('../../desktop/contracts.ts', import.meta.url), 'utf8'),
+    (error: NodeJS.ErrnoException) => error.code === 'ENOENT'
+  );
+
+  assert.equal(startRunContractSource.includes('interface DesktopStartRunInput'), true);
+  assert.equal(startRunContractSource.includes('desktopStartRunInputSchema'), true);
+  assert.equal(startRunContractSource.includes('validateDesktopStartRunInput'), true);
+  assert.equal(startRunContractSource.includes('normalizeDesktopTargetUrl'), true);
+  for (const forbidden of ['DesktopRunEvent', 'desktopIpcChannels', 'CheckQuestDesktopApi']) {
+    assert.equal(
+      startRunContractSource.includes(forbidden),
+      false,
+      `Start-run contract must not own ${forbidden}.`
+    );
+  }
+
+  assert.equal(runEventContractSource.includes('import type { RunEvent }'), true);
+  assert.equal(runEventContractSource.includes('projectApplicationRunEvent'), true);
+  assert.equal(runEventContractSource.includes('desktopRunEventSchemas'), true);
+  assert.equal(runEventContractSource.includes('parseDesktopRunEvent'), true);
+  assert.equal(runEventContractSource.includes("satisfies Readonly<Record<RunEvent['type']"), true);
+  assert.equal(runEventContractSource.includes('default:'), false);
+  for (const forbidden of [
+    'validateDesktopStartRunInput',
+    'desktopIpcChannels',
+    'CheckQuestDesktopApi'
+  ]) {
+    assert.equal(
+      runEventContractSource.includes(forbidden),
+      false,
+      `Run-event contract must not own ${forbidden}.`
+    );
+  }
+
+  assert.equal(ipcContractSource.includes('interface CheckQuestDesktopApi'), true);
+  assert.equal(ipcContractSource.includes('desktopIpcChannels'), true);
+  assert.equal(ipcContractSource.includes('parseDesktopStartRunReply'), true);
+  assert.equal(ipcContractSource.includes('parseDesktopCancelRunReply'), true);
+  assert.equal(ipcContractSource.includes('parseDesktopSessionCredentialStatus'), true);
+  for (const forbidden of [
+    'validateDesktopStartRunInput',
+    'projectApplicationRunEvent',
+    'desktopRunEventSchemas'
+  ]) {
+    assert.equal(
+      ipcContractSource.includes(forbidden),
+      false,
+      `IPC contract must not own ${forbidden}.`
+    );
+  }
+
+  for (const forbidden of ['zod', 'Schema', 'parseDesktop', 'desktopIpcChannels']) {
+    assert.equal(
+      uiStateSource.includes(forbidden),
+      false,
+      `UI state must remain a validated-event consumer without ${forbidden}.`
+    );
+  }
+
+  for (const forbidden of ["from 'zod'", 'z.object(', 'Schema =']) {
+    assert.equal(
+      rendererSource.includes(forbidden),
+      false,
+      `Renderer-adjacent code must not become a contract owner through ${forbidden}.`
+    );
+  }
+
+  const createRunRequestSource = rendererAppSource.slice(
+    rendererAppSource.indexOf('function createRunRequest()'),
+    rendererAppSource.indexOf("vocabularyButton.addEventListener('click'")
+  );
+
+  for (const fieldName of desktopRunFieldNames) {
+    assert.equal(
+      createRunRequestSource.includes(fieldName),
+      true,
+      `Renderer submission must collect ${fieldName}.`
+    );
+  }
+
+  assert.equal(
+    preloadSource.includes('ipcRenderer.invoke(desktopIpcChannels.startRun, input)'),
+    true
+  );
+  for (const parserName of [
+    'parseDesktopStartRunReply',
+    'parseDesktopCancelRunReply',
+    'parseDesktopSessionCredentialStatus',
+    'parseDesktopRunEvent'
+  ]) {
+    assert.equal(
+      preloadSource.includes(parserName),
+      true,
+      `Preload must validate untrusted values through ${parserName}.`
+    );
+  }
+
+  const controllerStartSource = controllerSource.slice(
+    controllerSource.indexOf('async start('),
+    controllerSource.indexOf('private launchRun(')
+  );
+  const privilegedValidationIndex = controllerStartSource.indexOf(
+    'validateDesktopStartRunInput(request'
+  );
+  assert.equal(privilegedValidationIndex >= 0, true);
+  assert.equal(
+    privilegedValidationIndex < controllerStartSource.indexOf('this.preflightGeminiCredentials('),
+    true
+  );
+  assert.equal(privilegedValidationIndex < controllerStartSource.indexOf('this.launchRun('), true);
+  for (const fieldName of [
+    'targetUrl',
+    'pageBudget',
+    'navigationBudget',
+    'investigationStepsPerPage'
+  ]) {
+    assert.equal(
+      controllerSource.includes(`input.${fieldName}`),
+      true,
+      `Controller mapping must consume ${fieldName}.`
+    );
+  }
+
+  assert.equal(mainSource.includes('event.sender === window.webContents'), true);
+  assert.equal(mainSource.includes('senderFrame === window.webContents.mainFrame'), true);
+  assert.equal(preloadSource.includes("from './ipc-contract'"), true);
+  assert.equal(preloadSource.includes("from './run-event-contract'"), true);
+  assert.equal(controllerSource.includes("from './start-run-contract'"), true);
+  assert.equal(controllerSource.includes("from './run-event-contract'"), true);
+  assert.equal(controllerSource.includes("from './ipc-contract'"), true);
 
   for (const forbidden of [
     'localStorage',

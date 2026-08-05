@@ -3,11 +3,11 @@ import {
   desktopRunDefaults,
   normalizeDesktopTargetUrl,
   validateDesktopStartRunInput,
-  type CheckQuestDesktopApi,
   type DesktopRunFieldErrors,
   type DesktopRunFieldName,
   type DesktopStartRunInput
-} from '../contracts';
+} from '../start-run-contract';
+import type { CheckQuestDesktopApi } from '../ipc-contract';
 import {
   createCancellingUiState,
   createStartRejectedUiState,

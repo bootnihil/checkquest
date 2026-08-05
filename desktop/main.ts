@@ -9,7 +9,7 @@ import {
   type WebFrameMain
 } from 'electron';
 
-import { desktopIpcChannels, type DesktopStartRunReply } from './contracts';
+import { desktopIpcChannels, type DesktopStartRunReply } from './ipc-contract';
 import { DesktopRunController } from './run-controller';
 import { DesktopSessionCredentialStore } from './session-credential';
 import { desktopRendererSecurityPreferences } from './security-policy';

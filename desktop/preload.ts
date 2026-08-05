@@ -2,19 +2,19 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
 
 import {
   desktopIpcChannels,
-  projectDesktopCancelRunReply,
-  projectDesktopRunEvent,
-  projectDesktopSessionCredentialStatus,
-  projectDesktopStartRunReply,
+  parseDesktopCancelRunReply,
+  parseDesktopSessionCredentialStatus,
+  parseDesktopStartRunReply,
   type CheckQuestDesktopApi
-} from './contracts';
+} from './ipc-contract';
+import { parseDesktopRunEvent } from './run-event-contract';
 
 const desktopApi: CheckQuestDesktopApi = {
   startRun: async input => {
     try {
       const reply = await ipcRenderer.invoke(desktopIpcChannels.startRun, input);
 
-      return projectDesktopStartRunReply(reply);
+      return parseDesktopStartRunReply(reply);
     } catch {
       return {
         accepted: false,
@@ -27,7 +27,7 @@ const desktopApi: CheckQuestDesktopApi = {
     try {
       const reply = await ipcRenderer.invoke(desktopIpcChannels.cancelRun);
 
-      return projectDesktopCancelRunReply(reply);
+      return parseDesktopCancelRunReply(reply);
     } catch {
       return {
         requested: false
@@ -38,7 +38,7 @@ const desktopApi: CheckQuestDesktopApi = {
     try {
       const status = await ipcRenderer.invoke(desktopIpcChannels.sessionCredentialStatus);
 
-      return projectDesktopSessionCredentialStatus(status);
+      return parseDesktopSessionCredentialStatus(status);
     } catch {
       return {
         available: false
@@ -47,7 +47,7 @@ const desktopApi: CheckQuestDesktopApi = {
   },
   onRunEvent: listener => {
     const handleEvent = (_event: IpcRendererEvent, value: unknown): void => {
-      const desktopEvent = projectDesktopRunEvent(value);
+      const desktopEvent = parseDesktopRunEvent(value);
 
       if (desktopEvent === null) {
         return;

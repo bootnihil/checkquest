@@ -13,15 +13,10 @@ import {
   type CheckQuestRun,
   type StartCheckQuestInput
 } from '../agent/application/start-checkquest';
-import {
-  projectDesktopRunEvent,
-  validateDesktopStartRunInput,
-  type DesktopCancelRunReply,
-  type DesktopRunEvent,
-  type DesktopStartRunInput,
-  type DesktopStartRunReply
-} from './contracts';
+import { type DesktopCancelRunReply, type DesktopStartRunReply } from './ipc-contract';
+import { projectApplicationRunEvent, type DesktopRunEvent } from './run-event-contract';
 import { DesktopSessionCredentialStore } from './session-credential';
+import { validateDesktopStartRunInput, type DesktopStartRunInput } from './start-run-contract';
 
 export type StartCheckQuestFunction = (input: StartCheckQuestInput) => CheckQuestRun;
 
@@ -247,11 +242,7 @@ export class DesktopRunController {
           geminiApiKey
         },
         onEvent: event => {
-          const desktopEvent = projectDesktopRunEvent(event);
-
-          if (desktopEvent === null) {
-            return;
-          }
+          const desktopEvent = projectApplicationRunEvent(event);
 
           try {
             this.emitEvent(desktopEvent);
