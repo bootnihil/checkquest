@@ -15,12 +15,16 @@ import {
 } from '../../agent/findings/unified-finding-registry';
 import {
   commitRunPageFindings,
+  type PageFindingInvestigationResult
+} from '../../agent/findings/commit-run-page-findings';
+import {
+  prepareKnownFindingAnalysis,
+  prepareRunPageFindings,
+  type PreparedRunPageFindings
+} from '../../agent/findings/prepare-run-page-findings';
+import {
   createRunFindingLifecycle,
   getRunFindings,
-  prepareKnownFindingAnalysis,
-  reconcileRunPageFindings,
-  type PageFindingInvestigationResult,
-  type ReconciledRunPageFindings,
   type RunFindingLifecycleState
 } from '../../agent/findings/run-finding-lifecycle';
 import { createExploratoryFindingFingerprint } from '../../agent/investigation/finding-fingerprint';
@@ -150,13 +154,13 @@ function reconcilePage(
     findings: ExploratoryQaFinding[];
     ruleFindings?: PageFinding[];
   }
-): ReconciledRunPageFindings {
+): PreparedRunPageFindings {
   const knownFindingPreparation = prepareKnownFindingAnalysis(
-    lifecycle,
+    lifecycle.knownFindingState,
     createPageContent(input.pageTitle, input.fixtures)
   );
 
-  return reconcileRunPageFindings(lifecycle, {
+  return prepareRunPageFindings(lifecycle.knownFindingState, {
     pageUrl: input.pageUrl,
     pageTitle: input.pageTitle,
     ruleFindings: input.ruleFindings ?? [],
@@ -166,7 +170,7 @@ function reconcilePage(
 }
 
 function createResult(
-  page: ReconciledRunPageFindings,
+  page: PreparedRunPageFindings,
   candidateReference: PageCandidateReference,
   outcome: FindingInvestigationOutcome,
   finding?: ExploratoryQaFinding
@@ -380,9 +384,16 @@ function checkMixedReorderedResults(): void {
   );
 
   const secondUrl = 'https://example.com/mixed';
+  const beforeKnownPreparation = snapshotCommitState(lifecycle);
   const secondPreparation = prepareKnownFindingAnalysis(
-    lifecycle,
+    lifecycle.knownFindingState,
     createPageContent('Mixed page', [equadorSelect, pirateSelect])
+  );
+
+  assert.deepEqual(
+    snapshotCommitState(lifecycle),
+    beforeKnownPreparation,
+    'Known-finding context preparation must not mutate KF or UR.'
   );
 
   assert.equal(
@@ -391,13 +402,20 @@ function checkMixedReorderedResults(): void {
     'Raw VERIFIED incorrectly triggered canonical suppression.'
   );
 
-  const secondPage = reconcileRunPageFindings(lifecycle, {
+  const beforePagePreparation = snapshotCommitState(lifecycle);
+  const secondPage = prepareRunPageFindings(lifecycle.knownFindingState, {
     pageUrl: secondUrl,
     pageTitle: 'Mixed page',
     ruleFindings: [],
     rawExploratoryQaAnalysis: createAnalysis([pirateFinding]),
     knownFindingPreparation: secondPreparation
   });
+
+  assert.deepEqual(
+    snapshotCommitState(lifecycle),
+    beforePagePreparation,
+    'Page-finding preparation must not mutate populated KF or UR state.'
+  );
 
   assert.deepEqual(
     secondPage.pageCandidates.map(candidate => [
@@ -476,7 +494,7 @@ function checkMixedReorderedResults(): void {
 
 function createMalformedInputFixture(): {
   lifecycle: RunFindingLifecycleState;
-  page: ReconciledRunPageFindings;
+  page: PreparedRunPageFindings;
   pageUrl: string;
 } {
   const lifecycle = createRunFindingLifecycle();
@@ -777,9 +795,21 @@ function checkInvalidCompatibilityAssociationFailsClosed(): void {
   );
 }
 
-function checkAliasFreeLifecycleAndDirectRuleIdentity(): void {
+function checkModuleTopologyAndDirectRuleIdentity(): void {
   const lifecycleSource = readFileSync(
     new URL('../../agent/findings/run-finding-lifecycle.ts', import.meta.url),
+    'utf8'
+  );
+  const preparationSource = readFileSync(
+    new URL('../../agent/findings/prepare-run-page-findings.ts', import.meta.url),
+    'utf8'
+  );
+  const commitSource = readFileSync(
+    new URL('../../agent/findings/commit-run-page-findings.ts', import.meta.url),
+    'utf8'
+  );
+  const inspectPageSource = readFileSync(
+    new URL('../../agent/inspection/inspect-page.ts', import.meta.url),
     'utf8'
   );
 
@@ -789,9 +819,76 @@ function checkAliasFreeLifecycleAndDirectRuleIdentity(): void {
     'Run lifecycle state must not own a persistent unified-fingerprint alias map.'
   );
   assert.doesNotMatch(
-    lifecycleSource,
+    [lifecycleSource, preparationSource, commitSource].join('\n'),
     /alias/i,
-    'The obsolete alias mechanism must be absent from production lifecycle code.'
+    'The obsolete alias mechanism must be absent from production lifecycle modules.'
+  );
+  assert.deepEqual(
+    Array.from(lifecycleSource.matchAll(/export (?:interface|function) (\w+)/g), match => match[1]),
+    ['RunFindingLifecycleState', 'createRunFindingLifecycle', 'getRunFindings'],
+    'The lifecycle owner must expose only state construction and retrieval.'
+  );
+  assert.doesNotMatch(
+    lifecycleSource,
+    /prepareRunPageFindings|commitRunPageFindings|registerUnifiedPageFindings/,
+    'The lifecycle owner must not absorb preparation or commit choreography.'
+  );
+  assert.match(
+    inspectPageSource,
+    /from ['"]\.\.\/findings\/prepare-run-page-findings['"]/,
+    'Page inspection must import the dedicated preparation boundary.'
+  );
+  assert.match(
+    inspectPageSource,
+    /from ['"]\.\.\/findings\/commit-run-page-findings['"]/,
+    'Page inspection must import the dedicated commit boundary.'
+  );
+
+  const pagePreparationIndex = inspectPageSource.indexOf(
+    'const preparedPageFindings = prepareRunPageFindings'
+  );
+  const investigationIndex = inspectPageSource.indexOf(
+    'exploratoryInvestigation = await runExploratoryLoop'
+  );
+  const pageCommitIndex = inspectPageSource.indexOf(
+    'const knownFindingOccurrences = commitRunPageFindings'
+  );
+
+  assert.ok(pagePreparationIndex >= 0);
+  assert.ok(investigationIndex > pagePreparationIndex);
+  assert.ok(
+    pageCommitIndex > investigationIndex,
+    'Page inspection must visibly preserve prepare, investigate, then commit order.'
+  );
+  assert.match(preparationSource, /export function prepareKnownFindingAnalysis/);
+  assert.match(preparationSource, /export function prepareRunPageFindings/);
+  assert.doesNotMatch(
+    preparationSource,
+    /unifiedFindingRegistry|registerKnownFindingOccurrence|registerNewFinding|registerUnifiedPageFindings|attachInvestigationOutcome|markOccurrenceSuppressed/,
+    'Preparation must have no access to either authority mutation surface.'
+  );
+  assert.doesNotMatch(
+    preparationSource,
+    /^(?:const|let|var)\s+\w+[^=]*=\s*new\s+(?:Map|Set)\b/m,
+    'Preparation must not retain module-level alternate-identity collections.'
+  );
+  assert.match(commitSource, /export function commitRunPageFindings/);
+
+  const resultValidationIndex = commitSource.indexOf('validateInvestigationResults(input)');
+  const associationValidationIndex = commitSource.indexOf(
+    'validateCommitAssociations(',
+    resultValidationIndex
+  );
+  const firstMutationIndex = commitSource.indexOf(
+    'registerUnifiedPageFindings(',
+    associationValidationIndex
+  );
+
+  assert.ok(resultValidationIndex >= 0);
+  assert.ok(associationValidationIndex > resultValidationIndex);
+  assert.ok(
+    firstMutationIndex > associationValidationIndex,
+    'Complete result and association validation must precede the first UR mutation.'
   );
 
   const emptyTitleRule: PageFinding = {
@@ -1070,7 +1167,7 @@ function checkVerifiedKnownSuppression(): void {
 
   const secondUrl = 'https://example.com/verified-second';
   const secondPreparation = prepareKnownFindingAnalysis(
-    lifecycle,
+    lifecycle.knownFindingState,
     createPageContent('Verified second page', [pirateSelect])
   );
 
@@ -1083,7 +1180,7 @@ function checkVerifiedKnownSuppression(): void {
     false
   );
 
-  const secondPage = reconcileRunPageFindings(lifecycle, {
+  const secondPage = prepareRunPageFindings(lifecycle.knownFindingState, {
     pageUrl: secondUrl,
     pageTitle: 'Verified second page',
     ruleFindings: [],
@@ -1130,7 +1227,7 @@ function main(): void {
   checkValidUnifiedMerge();
   checkValidCompatibilityMerge();
   checkInvalidCompatibilityAssociationFailsClosed();
-  checkAliasFreeLifecycleAndDirectRuleIdentity();
+  checkModuleTopologyAndDirectRuleIdentity();
   checkRejectedStructuredIdentityCommit();
   checkInvalidSuppressionAssociationFailsClosed();
   checkVerifiedKnownSuppression();

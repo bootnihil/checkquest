@@ -8,17 +8,19 @@ import {
   type ExploratoryQaFinding
 } from '../../agent/analysis/exploratory-qa-schema';
 import type { ExtractedPageContent } from '../../agent/browser/extract-page-content';
+import { commitRunPageFindings } from '../../agent/findings/commit-run-page-findings';
+import type { UnifiedFinding } from '../../agent/findings/finding-model';
 import {
-  commitRunPageFindings,
+  prepareKnownFindingAnalysis,
+  prepareRunPageFindings,
+  type PreparedRunPageFindings
+} from '../../agent/findings/prepare-run-page-findings';
+import {
   createRunFindingLifecycle,
   getRunFindings,
-  prepareKnownFindingAnalysis,
-  reconcileRunPageFindings,
-  type ReconciledRunPageFindings,
   type RunFindingLifecycleState
 } from '../../agent/findings/run-finding-lifecycle';
 import type { FindingInvestigationOutcome } from '../../agent/investigation/evaluate-finding-investigation-outcome';
-import type { UnifiedFinding } from '../../agent/findings/finding-model';
 
 interface FailedRequestFixture {
   url: string;
@@ -172,11 +174,14 @@ function reconcilePage(
     diagnostics: ClassifiedDiagnostics;
     finding: ExploratoryQaFinding;
   }
-): ReconciledRunPageFindings {
+): PreparedRunPageFindings {
   const pageContent = createContent('Technical observations');
-  const knownFindingPreparation = prepareKnownFindingAnalysis(lifecycle, pageContent);
+  const knownFindingPreparation = prepareKnownFindingAnalysis(
+    lifecycle.knownFindingState,
+    pageContent
+  );
 
-  return reconcileRunPageFindings(lifecycle, {
+  return prepareRunPageFindings(lifecycle.knownFindingState, {
     pageUrl: input.pageUrl,
     pageTitle: 'Technical observations',
     pageContent,
@@ -189,7 +194,7 @@ function reconcilePage(
 
 function commitPage(
   lifecycle: RunFindingLifecycleState,
-  page: ReconciledRunPageFindings,
+  page: PreparedRunPageFindings,
   pageUrl: string
 ): void {
   const outcome: FindingInvestigationOutcome = {
@@ -592,7 +597,7 @@ function commitTechnicalFixture(
     requests: FailedRequestFixture[];
     finding?: ExploratoryQaFinding;
   }
-): ReconciledRunPageFindings {
+): PreparedRunPageFindings {
   const finding =
     input.finding ??
     createTechnicalFinding(

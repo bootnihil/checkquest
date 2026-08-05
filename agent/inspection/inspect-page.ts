@@ -25,12 +25,12 @@ import { evaluateFindingInvestigationOutcome } from '../investigation/evaluate-f
 import { normalizeRunCancellation, waitForRunDelay } from '../errors/run-cancellation';
 import { CheckQuestError } from '../errors/checkquest-error';
 import type { GeminiRequestEvent } from '../ai/run-gemini-request';
+import { commitRunPageFindings } from '../findings/commit-run-page-findings';
 import {
-  commitRunPageFindings,
   prepareKnownFindingAnalysis,
-  reconcileRunPageFindings,
-  type RunFindingLifecycleState
-} from '../findings/run-finding-lifecycle';
+  prepareRunPageFindings
+} from '../findings/prepare-run-page-findings';
+import type { RunFindingLifecycleState } from '../findings/run-finding-lifecycle';
 import { runExploratoryLoop } from '../planning/run-exploratory-loop';
 import type { planNextAction } from '../planning/plan-next-action';
 import type { FindingPresentationEvidence, InspectedPageResult } from '../reporting/report-types';
@@ -151,7 +151,10 @@ export async function inspectPage(input: InspectPageInput): Promise<InspectPageR
     field => field.inputType === 'password'
   );
 
-  const knownFindingPreparation = prepareKnownFindingAnalysis(findingLifecycle, pageContent);
+  const knownFindingPreparation = prepareKnownFindingAnalysis(
+    findingLifecycle.knownFindingState,
+    pageContent
+  );
 
   const { knownFindingContext } = knownFindingPreparation;
 
@@ -177,7 +180,7 @@ export async function inspectPage(input: InspectPageInput): Promise<InspectPageR
     }
   );
 
-  const pageFindingLifecycle = reconcileRunPageFindings(findingLifecycle, {
+  const preparedPageFindings = prepareRunPageFindings(findingLifecycle.knownFindingState, {
     pageUrl: pageObservation.finalUrl,
     pageTitle: pageObservation.title,
     pageContent,
@@ -187,7 +190,7 @@ export async function inspectPage(input: InspectPageInput): Promise<InspectPageR
     knownFindingPreparation
   });
 
-  const { exploratoryQaAnalysis, reconciledPageFindings, pageCandidates } = pageFindingLifecycle;
+  const { exploratoryQaAnalysis, reconciledPageFindings, pageCandidates } = preparedPageFindings;
 
   const newCandidateFindingsCount = reconciledPageFindings.newFindings.length;
 
@@ -323,7 +326,7 @@ export async function inspectPage(input: InspectPageInput): Promise<InspectPageR
   }
 
   const knownFindingOccurrences = commitRunPageFindings(findingLifecycle, {
-    page: pageFindingLifecycle,
+    page: preparedPageFindings,
     pageUrl: pageObservation.finalUrl,
     pageTitle: pageObservation.title,
     pageNumber,

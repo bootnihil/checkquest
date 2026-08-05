@@ -5,12 +5,14 @@ import type {
   ExploratoryQaFinding
 } from '../../agent/analysis/exploratory-qa-schema';
 import type { ExtractedPageContent } from '../../agent/browser/extract-page-content';
+import { commitRunPageFindings } from '../../agent/findings/commit-run-page-findings';
 import {
-  commitRunPageFindings,
-  createRunFindingLifecycle,
-  getRunFindings,
   prepareKnownFindingAnalysis,
-  reconcileRunPageFindings
+  prepareRunPageFindings
+} from '../../agent/findings/prepare-run-page-findings';
+import {
+  createRunFindingLifecycle,
+  getRunFindings
 } from '../../agent/findings/run-finding-lifecycle';
 
 function createEquadorFinding(controlId: string): ExploratoryQaFinding {
@@ -97,13 +99,13 @@ function main(): void {
   const firstFinding = createEquadorFinding('country-first');
 
   const firstPreparation = prepareKnownFindingAnalysis(
-    lifecycle,
+    lifecycle.knownFindingState,
     createPageContent('First page', 'country-first')
   );
 
   assert.deepEqual(firstPreparation.knownFindingContext, []);
 
-  const firstPage = reconcileRunPageFindings(lifecycle, {
+  const firstPage = prepareRunPageFindings(lifecycle.knownFindingState, {
     pageUrl: firstUrl,
     pageTitle: 'First page',
     ruleFindings: [],
@@ -153,7 +155,7 @@ function main(): void {
   const secondUrl = 'https://example.com/second';
 
   const secondPreparation = prepareKnownFindingAnalysis(
-    lifecycle,
+    lifecycle.knownFindingState,
     createPageContent('Second page', 'country-second')
   );
 
@@ -166,7 +168,7 @@ function main(): void {
     false
   );
 
-  const secondPage = reconcileRunPageFindings(lifecycle, {
+  const secondPage = prepareRunPageFindings(lifecycle.knownFindingState, {
     pageUrl: secondUrl,
     pageTitle: 'Second page',
     ruleFindings: [],

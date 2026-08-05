@@ -16,11 +16,11 @@ import {
 } from '../../agent/reporting/human-report-model';
 import { buildReconciledRunSummaryProjection } from '../../agent/reporting/run-summary-projection';
 import { createTechnicalObservationFingerprint } from '../../agent/analysis/technical-observation-reconciliation';
+import { commitRunPageFindings } from '../../agent/findings/commit-run-page-findings';
+import { prepareRunPageFindings } from '../../agent/findings/prepare-run-page-findings';
 import {
-  commitRunPageFindings,
   createRunFindingLifecycle,
-  getRunFindings,
-  reconcileRunPageFindings
+  getRunFindings
 } from '../../agent/findings/run-finding-lifecycle';
 import type { SiteAgentReport } from '../../agent/reporting/report-types';
 import { renderHumanMarkdownReport } from '../../agent/reporting/write-markdown-report';
@@ -506,7 +506,7 @@ function main(): void {
         text: fixture.pageTitle
       }
     };
-    const reconciledPage = reconcileRunPageFindings(collisionLifecycle, {
+    const reconciledPage = prepareRunPageFindings(collisionLifecycle.knownFindingState, {
       pageUrl: fixture.pageUrl,
       pageTitle: fixture.pageTitle,
       ruleFindings: [],
