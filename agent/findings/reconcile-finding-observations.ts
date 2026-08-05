@@ -198,6 +198,8 @@ function hasExactRuleAssertionIdentity(
    * relatedRuleCode is model-supplied correlation metadata, not trusted
    * identity. Current deterministic rules are targetless, so a model finding
    * with a structured target necessarily describes a different occurrence.
+   * A runtime-derived technical identity is likewise an independent stable
+   * observation, even when the model copied a deterministic rule's metadata.
    *
    * For targetless observations, require exact normalized assertion content.
    * A paraphrase remains separate until a stronger deterministic subject
@@ -205,6 +207,7 @@ function hasExactRuleAssertionIdentity(
    */
   return (
     modelFinding.evidenceTarget === null &&
+    (modelFinding.technicalIdentity === null || modelFinding.technicalIdentity === undefined) &&
     (modelFinding.structuredIdentity === null || modelFinding.structuredIdentity === undefined) &&
     normalizeFingerprintText(modelFinding.title) === normalizeFingerprintText(ruleFinding.title) &&
     normalizeFingerprintText(modelFinding.evidence) ===

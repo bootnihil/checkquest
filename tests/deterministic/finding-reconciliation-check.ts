@@ -1,6 +1,12 @@
 import assert from 'node:assert/strict';
 
-import type { ExploratoryQaFinding } from '../../agent/analysis/exploratory-qa-schema';
+import type { ClassifiedDiagnostics } from '../../agent/analysis/classify-diagnostics';
+import {
+  exploratoryQaAnalysisSchema,
+  type ExploratoryQaAnalysis,
+  type ExploratoryQaFinding
+} from '../../agent/analysis/exploratory-qa-schema';
+import { normalizeTechnicalObservations } from '../../agent/analysis/technical-observation-reconciliation';
 import type { PageFinding } from '../../agent/analysis/evaluate-page';
 import {
   createRuleFindingFingerprint,
@@ -80,6 +86,119 @@ function createDeterministicEvidence(
   };
 }
 
+function createCorsDiagnostics(): ClassifiedDiagnostics {
+  const resourceUrl = 'https://telemetry.example.net/events/';
+
+  return {
+    consoleErrors: [
+      {
+        text: `Access to XMLHttpRequest at '${resourceUrl}' from origin '${new URL(pageUrl).origin}' has been blocked by CORS policy: No 'Access-Control-Allow-Origin' header is present on the requested resource.`,
+        sourceUrl: pageUrl,
+        lineNumber: 0,
+        columnNumber: 0
+      }
+    ],
+    failedRequests: [
+      {
+        request: {
+          url: resourceUrl,
+          method: 'POST',
+          resourceType: 'xhr',
+          failureText: 'net::ERR_FAILED'
+        },
+        disposition: 'needs-review',
+        reason: 'Synthetic browser failure paired with the CORS console diagnostic.'
+      }
+    ]
+  };
+}
+
+function checkTechnicalIdentityCannotMergeWithSamePageRule(): void {
+  const noHeadingsRule = createRuleFinding('NO_PRIMARY_HEADINGS', {
+    severity: 'low',
+    title: 'No H1 or H2 headings were found',
+    evidence: 'The page contained no visible text collected from H1 or H2 elements.'
+  });
+  const rawAnalysis: ExploratoryQaAnalysis = {
+    findings: [
+      createRuleLinkedModelFinding(noHeadingsRule, {
+        category: 'technical',
+        technicalEvidenceReferences: ['technical-cors-1'],
+        technicalIdentity: null,
+        structuredIdentity: null
+      })
+    ],
+    summary: 'Synthetic contradictory technical and rule identity fixture.'
+  };
+
+  assert.equal(
+    exploratoryQaAnalysisSchema.safeParse(rawAnalysis).success,
+    true,
+    'A schema-valid provider response can carry both a rule claim and a technical evidence reference.'
+  );
+
+  const normalizedFinding = normalizeTechnicalObservations(
+    rawAnalysis,
+    createCorsDiagnostics(),
+    pageUrl
+  ).findings[0];
+
+  assert.ok(normalizedFinding, 'The referenced browser diagnostic must produce a model finding.');
+  assert.equal(normalizedFinding.technicalIdentity?.kind, 'cors');
+
+  const corsFingerprint = createExploratoryFindingFingerprint(normalizedFinding);
+  const headingFingerprint = createRuleFindingFingerprint(noHeadingsRule);
+  const result = reconcile([noHeadingsRule], [normalizedFinding]);
+  const reconciliation = result.modelReconciliations[0];
+
+  assert.notEqual(
+    reconciliation?.matchingBasis,
+    'same-page-rule',
+    'A stable CORS identity must not be swallowed by copied deterministic-rule metadata.'
+  );
+  assert.equal(reconciliation?.acceptedRelatedRuleCode, null);
+  assert.equal(reconciliation?.fingerprint, corsFingerprint);
+  assert.notEqual(reconciliation?.fingerprint, headingFingerprint);
+  assert.match(corsFingerprint, /^technical\|cors\|/);
+  assert.deepEqual(
+    result.findings.map(finding => finding.fingerprint),
+    [headingFingerprint, corsFingerprint],
+    'The deterministic heading rule and CORS observation must remain separate and ordered.'
+  );
+
+  const headingFinding = result.findings.find(
+    finding => finding.fingerprint === headingFingerprint
+  );
+  const corsFinding = result.findings.find(finding => finding.fingerprint === corsFingerprint);
+
+  assert.ok(headingFinding);
+  assert.ok(corsFinding);
+  assert.equal(headingFinding.verification.state, 'verified');
+  assert.equal(corsFinding.verification.state, 'inconclusive');
+  assert.deepEqual(
+    headingFinding.occurrences.map(occurrence => ({
+      pageUrl: occurrence.pageUrl,
+      evidenceSources: occurrence.evidence.map(evidence => evidence.source)
+    })),
+    [{ pageUrl, evidenceSources: ['deterministic-rule'] }]
+  );
+  assert.deepEqual(
+    corsFinding.occurrences.map(occurrence => ({
+      pageUrl: occurrence.pageUrl,
+      evidenceSources: occurrence.evidence.map(evidence => evidence.source)
+    })),
+    [{ pageUrl, evidenceSources: ['model'] }]
+  );
+  assert.deepEqual(
+    corsFinding.occurrences[0]?.evidence[0]?.rawSource,
+    {
+      type: 'exploratory-qa-finding',
+      value: normalizedFinding
+    },
+    'The CORS occurrence must retain the normalized technical observation as its own evidence.'
+  );
+}
+
 function runChecks(): void {
   const emptyTitleRule = createRuleFinding('EMPTY_PAGE_TITLE', {
     severity: 'medium',
@@ -91,6 +210,12 @@ function runChecks(): void {
   });
 
   const linked = reconcile([emptyTitleRule], [linkedModel]);
+
+  assert.equal(linked.modelReconciliations[0]?.matchingBasis, 'same-page-rule');
+  assert.equal(
+    linked.modelReconciliations[0]?.fingerprint,
+    createRuleFindingFingerprint(emptyTitleRule)
+  );
 
   assert.equal(
     linked.findings.length,
@@ -487,8 +612,10 @@ function runChecks(): void {
     '29. the rule group retains both materially different model observations'
   );
 
+  checkTechnicalIdentityCannotMergeWithSamePageRule();
+
   console.log(
-    'Finding reconciliation check passed (trust-boundary and reconciliation coverage, 35 assertions).'
+    'Finding reconciliation check passed (trust-boundary and reconciliation coverage, 52 assertions).'
   );
 }
 
