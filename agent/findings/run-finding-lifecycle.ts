@@ -52,8 +52,6 @@ export interface RunFindingLifecycleState {
   unifiedFindingRegistry: UnifiedFindingRegistry;
 
   knownFindingState: KnownFindingState;
-
-  unifiedFingerprintAliases: Map<string, string>;
 }
 
 export interface KnownFindingAnalysisPreparation {
@@ -436,19 +434,13 @@ function takeCandidateFingerprint(
 export function createRunFindingLifecycle(): RunFindingLifecycleState {
   const unifiedFindingRegistry = createUnifiedFindingRegistry();
 
-  const unifiedFingerprintAliases = new Map<string, string>();
-
   const knownFindingState = createKnownFindingState(fingerprint =>
-    getUnifiedFindingVerificationState(
-      unifiedFindingRegistry,
-      unifiedFingerprintAliases.get(fingerprint) ?? fingerprint
-    )
+    getUnifiedFindingVerificationState(unifiedFindingRegistry, fingerprint)
   );
 
   return {
     unifiedFindingRegistry,
-    knownFindingState,
-    unifiedFingerprintAliases
+    knownFindingState
   };
 }
 
@@ -515,20 +507,6 @@ export function reconcileRunPageFindings(
   const candidateFingerprintQueues = createCandidateFingerprintQueues(
     reconciledFindingObservations
   );
-
-  admittedExploratoryQaAnalysis.findings.forEach((finding, index) => {
-    const reconciliation = reconciledFindingObservations.modelReconciliations[index];
-
-    if (reconciliation === undefined) {
-      return;
-    }
-
-    const modelFingerprint = createExploratoryFindingFingerprint(finding);
-
-    if (!modelFingerprint.startsWith('unstructured|')) {
-      state.unifiedFingerprintAliases.set(modelFingerprint, reconciliation.fingerprint);
-    }
-  });
 
   const candidateInputs: CandidateLifecycleInput[] = [
     ...reconciledPageFindings.newFindings.map(finding => ({

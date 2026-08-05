@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 
 import type {
   ExploratoryQaAnalysis,
@@ -221,9 +222,10 @@ function snapshotCommitState(lifecycle: RunFindingLifecycleState): object {
       nextReferenceNumber: lifecycle.knownFindingState.nextReferenceNumber,
       nextSequence: lifecycle.knownFindingState.nextSequence
     },
-    // Preparation may persist aliases; failed commit must preserve this immediate baseline.
-    unifiedFingerprintAliases: structuredClone(
-      Array.from(lifecycle.unifiedFingerprintAliases.entries())
+    ownedMapEntries: Object.entries(lifecycle).flatMap(([property, value]) =>
+      value instanceof Map
+        ? [[property, structuredClone(Array.from(value.entries()))] as const]
+        : []
     )
   };
 }
@@ -236,7 +238,7 @@ function assertCommitStateUnchanged(
   assert.deepEqual(
     snapshotCommitState(lifecycle),
     beforeCommit,
-    `${scenario} left registry, counter, evidence, suppression, known-finding, or alias residue.`
+    `${scenario} left registry, counter, evidence, suppression, or known-finding residue.`
   );
 }
 
@@ -775,7 +777,23 @@ function checkInvalidCompatibilityAssociationFailsClosed(): void {
   );
 }
 
-function checkAliasIntegrity(): void {
+function checkAliasFreeLifecycleAndDirectRuleIdentity(): void {
+  const lifecycleSource = readFileSync(
+    new URL('../../agent/findings/run-finding-lifecycle.ts', import.meta.url),
+    'utf8'
+  );
+
+  assert.deepEqual(
+    Object.keys(createRunFindingLifecycle()).sort(),
+    ['knownFindingState', 'unifiedFindingRegistry'],
+    'Run lifecycle state must not own a persistent unified-fingerprint alias map.'
+  );
+  assert.doesNotMatch(
+    lifecycleSource,
+    /alias/i,
+    'The obsolete alias mechanism must be absent from production lifecycle code.'
+  );
+
   const emptyTitleRule: PageFinding = {
     code: 'EMPTY_PAGE_TITLE',
     severity: 'medium',
@@ -798,6 +816,7 @@ function checkAliasIntegrity(): void {
     [noHeadingsModel, emptyTitleModel]
   ]) {
     const lifecycle = createRunFindingLifecycle();
+    const beforeReconciliation = snapshotCommitState(lifecycle);
     const page = reconcilePage(lifecycle, {
       pageUrl: 'https://example.com/aliases',
       pageTitle: 'Aliases',
@@ -806,20 +825,68 @@ function checkAliasIntegrity(): void {
       ruleFindings: [emptyTitleRule, noHeadingsRule]
     });
 
-    assert.equal(
-      lifecycle.unifiedFingerprintAliases.has(createExploratoryFindingFingerprint(emptyTitleModel)),
-      false,
-      'Generated targetless prose is not retained as a substantive fingerprint alias.'
+    assert.deepEqual(
+      snapshotCommitState(lifecycle),
+      beforeReconciliation,
+      'Finding reconciliation must not mutate run-owned lifecycle state before commit.'
     );
     assert.deepEqual(
       new Set(page.unifiedFingerprintByCandidateReference.values()),
-      new Set(['rule|EMPTY_PAGE_TITLE', 'rule|NO_PRIMARY_HEADINGS'])
+      new Set(['rule|EMPTY_PAGE_TITLE', 'rule|NO_PRIMARY_HEADINGS']),
+      'Same-page rule reconciliation must prepare direct canonical fingerprints.'
     );
+
+    commitRunPageFindings(lifecycle, {
+      page,
+      pageUrl: 'https://example.com/aliases',
+      pageTitle: 'Aliases',
+      pageNumber: 1,
+      screenshotPath: null,
+      exploratoryFindingResults: page.pageCandidates.map(candidate =>
+        createResult(
+          page,
+          candidate.reference,
+          createOutcome('inconclusive', 'Direct canonical rule association')
+        )
+      )
+    });
+
+    for (const [rule, modelFinding] of [
+      [emptyTitleRule, emptyTitleModel],
+      [noHeadingsRule, noHeadingsModel]
+    ] as const) {
+      const fingerprint = `rule|${rule.code}`;
+      const knownEntry = lifecycle.knownFindingState.entriesByFingerprint.get(fingerprint);
+
+      assert.ok(knownEntry, `Known-finding state must use direct identity ${fingerprint}.`);
+      assert.equal(
+        lifecycle.knownFindingState.entriesByReference.get(knownEntry.knownFindingReference),
+        knownEntry,
+        'Known-finding reference lookup must resolve the same direct canonical entry.'
+      );
+      assert.equal(
+        lifecycle.knownFindingState.verificationStatusProjection?.(fingerprint),
+        'verified',
+        'KF verification lookup must resolve the canonical UR fingerprint directly.'
+      );
+      assert.equal(
+        knownEntry.effectiveVerificationStatus,
+        'verified',
+        'KF canonical verification status must use the direct UR projection.'
+      );
+      assertOccurrenceReference(lifecycle, {
+        fingerprint,
+        pageUrl: 'https://example.com/aliases',
+        finding: modelFinding,
+        expectedReference: fingerprint === 'rule|EMPTY_PAGE_TITLE' ? 'occurrence-1' : 'occurrence-2'
+      });
+    }
   }
 }
 
 function checkRejectedStructuredIdentityCommit(): void {
   const lifecycle = createRunFindingLifecycle();
+  const beforeReconciliation = snapshotCommitState(lifecycle);
   const pageUrl = 'https://monday.com/w/enterprise';
   const finding: ExploratoryQaFinding = {
     knownFindingReference: null,
@@ -851,6 +918,12 @@ function checkRejectedStructuredIdentityCommit(): void {
     fixtures: [],
     findings: [finding]
   });
+
+  assert.deepEqual(
+    snapshotCommitState(lifecycle),
+    beforeReconciliation,
+    'Rejected structured identity preparation must not persist alternate fingerprint state.'
+  );
   const fingerprint = page.unifiedFingerprintByCandidateReference.get('candidate-1');
 
   assert.ok(fingerprint);
@@ -1057,7 +1130,7 @@ function main(): void {
   checkValidUnifiedMerge();
   checkValidCompatibilityMerge();
   checkInvalidCompatibilityAssociationFailsClosed();
-  checkAliasIntegrity();
+  checkAliasFreeLifecycleAndDirectRuleIdentity();
   checkRejectedStructuredIdentityCommit();
   checkInvalidSuppressionAssociationFailsClosed();
   checkVerifiedKnownSuppression();
