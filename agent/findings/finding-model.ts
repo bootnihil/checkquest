@@ -36,7 +36,12 @@ export interface CandidateFindingRawReference extends FindingRawReference {
 }
 
 export interface FindingRawSource {
-  type: 'page-finding' | 'exploratory-qa-finding' | 'finding-investigation-outcome';
+  type:
+    | 'page-finding'
+    | 'exploratory-qa-finding'
+    | 'finding-investigation-outcome'
+    | 'console-error-observation'
+    | 'failed-request-observation';
 
   /*
    * Compatibility adapters retain the exact existing source object here.

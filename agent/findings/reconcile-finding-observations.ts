@@ -1,5 +1,7 @@
 import type { ExploratoryQaFinding } from '../analysis/exploratory-qa-schema';
 import type { PageFinding } from '../analysis/evaluate-page';
+import type { ClassifiedDiagnostics } from '../analysis/classify-diagnostics';
+import { getTechnicalObservationDiagnostics } from '../analysis/technical-observation-reconciliation';
 import type { ExtractedPageContent } from '../browser/extracted-page-content';
 import {
   createDisclosureStateTargetFingerprint,
@@ -46,6 +48,7 @@ export interface ReconcileFindingObservationsInput {
   pageContent?: ExtractedPageContent;
   screenshotReferences?: string[];
   evidenceContributions?: ExplicitFindingEvidenceContribution[];
+  classifiedDiagnostics?: ClassifiedDiagnostics;
 }
 
 export interface ReconciledPageFindingObservations {
@@ -317,19 +320,34 @@ export function reconcileFindingObservations(
             ? 'structured-identity'
             : 'fallback-fingerprint';
 
-    const adapted = adaptExploratoryQaFinding(canonicalFinding, {
-      findingReference: `finding-${input.ruleFindings.length + index + 1}`,
+    const browserDiagnostics =
+      canonicalFinding.technicalIdentity === null ||
+      canonicalFinding.technicalIdentity === undefined ||
+      input.classifiedDiagnostics === undefined
+        ? []
+        : getTechnicalObservationDiagnostics(
+            canonicalFinding.technicalIdentity,
+            input.classifiedDiagnostics,
+            input.pageUrl
+          );
 
-      fingerprint,
+    const adapted = adaptExploratoryQaFinding(
+      canonicalFinding,
+      {
+        findingReference: `finding-${input.ruleFindings.length + index + 1}`,
 
-      occurrenceReference: `occurrence-${input.ruleFindings.length + index + 1}`,
+        fingerprint,
 
-      pageUrl: input.pageUrl,
+        occurrenceReference: `occurrence-${input.ruleFindings.length + index + 1}`,
 
-      pageTitle: input.pageTitle,
+        pageUrl: input.pageUrl,
 
-      screenshotReferences
-    });
+        pageTitle: input.pageTitle,
+
+        screenshotReferences
+      },
+      browserDiagnostics
+    );
 
     const existing = groups.get(fingerprint);
 

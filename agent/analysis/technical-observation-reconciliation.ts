@@ -8,6 +8,7 @@ import type { ClassifiedDiagnostics, ClassifiedFailedRequest } from './classify-
 import type {
   ExploratoryQaAnalysis,
   ExploratoryQaFinding,
+  TechnicalConsoleErrorIdentity,
   TechnicalCorsIdentity,
   TechnicalFailedRequestIdentity,
   TechnicalObservationIdentity
@@ -41,6 +42,15 @@ export interface ReferencedTechnicalCorsDiagnostics {
   groups: ReferencedTechnicalCorsGroup[];
   referenceByConsoleError: Map<ConsoleErrorObservation, string>;
 }
+
+export interface ReferencedTechnicalConsoleGroup {
+  identity: TechnicalConsoleErrorIdentity;
+  consoleErrors: ConsoleErrorObservation[];
+}
+
+export type TechnicalObservationDiagnostic =
+  | { kind: 'console-error'; value: ConsoleErrorObservation }
+  | { kind: 'failed-request'; value: FailedRequestObservation };
 
 function createTechnicalIdentity(
   request: FailedRequestObservation,
@@ -95,6 +105,54 @@ function identityKey(identity: TechnicalObservationIdentity): string {
   return JSON.stringify(identity);
 }
 
+function normalizeDiagnosticMessage(value: string): string {
+  return value
+    .normalize('NFKC')
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201c\u201d]/g, '"')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function extractHttpStatus(value: string): number | null {
+  const statuses = Array.from(value.matchAll(/\b([1-5]\d{2})\b/g), match => Number(match[1]));
+
+  return statuses.length === 1 ? (statuses[0] ?? null) : null;
+}
+
+function extractExactCandidateUrl(value: string): string | null {
+  const matches = value.match(/https?:\/\/[^\s<>"']+/g) ?? [];
+
+  if (matches.length !== 1) {
+    return null;
+  }
+
+  const candidate = matches[0]?.replace(/[.,;:!?\]})]+$/g, '') ?? '';
+
+  return parseHttpUrl(candidate) === null ? null : candidate;
+}
+
+function extractCandidateConsoleMessage(value: string): string | null {
+  let candidate = normalizeDiagnosticMessage(value);
+
+  candidate = candidate
+    .replace(/^Error observed at lines?\s+[^:]+:\s*/i, '')
+    .replace(/^Console error:\s*/i, '')
+    .replace(/^The console reported(?: multiple errors)?:\s*/i, '')
+    .replace(/\s+observed at lines?\s+[\d,\sand]+\.?$/i, '')
+    .trim();
+
+  const quoted = /^(?:['"])(.*)(?:['"])\.?$/s.exec(candidate);
+
+  if (quoted?.[1] !== undefined) {
+    candidate = quoted[1];
+  }
+
+  candidate = normalizeDiagnosticMessage(candidate);
+
+  return candidate.length === 0 ? null : candidate;
+}
+
 function parseHttpUrl(value: string): URL | null {
   try {
     const parsed = new URL(value);
@@ -109,6 +167,119 @@ function parseHttpUrl(value: string): URL | null {
   } catch {
     return null;
   }
+}
+
+function createConsoleErrorIdentity(
+  consoleError: ConsoleErrorObservation,
+  pageUrl: string
+): TechnicalConsoleErrorIdentity | null {
+  const message = normalizeDiagnosticMessage(consoleError.text);
+  const sourceUrl = consoleError.sourceUrl === null ? null : parseHttpUrl(consoleError.sourceUrl);
+  const inspectedPageUrl = parseHttpUrl(pageUrl);
+
+  if (message.length === 0 || sourceUrl === null || inspectedPageUrl === null) {
+    return null;
+  }
+
+  if (sourceUrl.href === inspectedPageUrl.href) {
+    return {
+      kind: 'console-error',
+      message,
+      source: 'inspected-page',
+      sourceUrl: null,
+      httpStatus: extractHttpStatus(message)
+    };
+  }
+
+  return {
+    kind: 'console-error',
+    message,
+    source: 'resource',
+    sourceUrl: sourceUrl.href,
+    httpStatus: extractHttpStatus(message)
+  };
+}
+
+function createReferencedTechnicalConsoleDiagnostics(
+  diagnostics: ClassifiedDiagnostics,
+  pageUrl: string,
+  corsDiagnostics: ReferencedTechnicalCorsDiagnostics
+): ReferencedTechnicalConsoleGroup[] {
+  const corsErrors = new Set(corsDiagnostics.referenceByConsoleError.keys());
+  const groups = new Map<string, ReferencedTechnicalConsoleGroup>();
+
+  for (const consoleError of diagnostics.consoleErrors) {
+    if (corsErrors.has(consoleError)) {
+      continue;
+    }
+
+    const identity = createConsoleErrorIdentity(consoleError, pageUrl);
+
+    if (identity === null) {
+      continue;
+    }
+
+    const key = identityKey(identity);
+    const group = groups.get(key) ?? { identity, consoleErrors: [] };
+
+    group.consoleErrors.push(consoleError);
+    groups.set(key, group);
+  }
+
+  return Array.from(groups.values());
+}
+
+function hasCompatibleExistingIdentity(
+  existing: TechnicalObservationIdentity | null | undefined,
+  matched: TechnicalObservationIdentity
+): boolean {
+  return (
+    existing === null || existing === undefined || identityKey(existing) === identityKey(matched)
+  );
+}
+
+function matchUnreferencedConsoleDiagnostic(
+  finding: ExploratoryQaFinding,
+  groups: readonly ReferencedTechnicalConsoleGroup[]
+): ReferencedTechnicalConsoleGroup | null {
+  const urls = finding.evidence.match(/https?:\/\/[^\s<>"']+/g) ?? [];
+  const extractedUrl = extractExactCandidateUrl(finding.evidence);
+  const status = extractHttpStatus(finding.evidence);
+
+  if (urls.length === 1 && extractedUrl !== null && status !== null) {
+    const resourceMatches = groups.filter(
+      group =>
+        group.identity.source === 'resource' &&
+        group.identity.sourceUrl === extractedUrl &&
+        group.identity.httpStatus === status
+    );
+
+    if (
+      resourceMatches.length === 1 &&
+      hasCompatibleExistingIdentity(finding.technicalIdentity, resourceMatches[0]!.identity)
+    ) {
+      return resourceMatches[0] ?? null;
+    }
+  }
+
+  if (urls.length > 0) {
+    return null;
+  }
+
+  const message = extractCandidateConsoleMessage(finding.evidence);
+
+  if (message === null) {
+    return null;
+  }
+
+  const messageMatches = groups.filter(
+    group =>
+      group.identity.message === message &&
+      group.identity.source === 'inspected-page' &&
+      hasCompatibleExistingIdentity(finding.technicalIdentity, group.identity)
+  );
+
+  return messageMatches.length === 1 ? (messageMatches[0] ?? null) : null;
 }
 
 function createCorsIdentity(
@@ -296,6 +467,11 @@ export function normalizeTechnicalObservations(
 ): ExploratoryQaAnalysis {
   const referenced = createReferencedTechnicalRequests(diagnostics, pageUrl);
   const referencedCors = createReferencedTechnicalCorsDiagnostics(diagnostics, pageUrl);
+  const referencedConsole = createReferencedTechnicalConsoleDiagnostics(
+    diagnostics,
+    pageUrl,
+    referencedCors
+  );
   const groupByReference = new Map(
     [...referenced.groups, ...referencedCors.groups].map(group => [group.reference, group] as const)
   );
@@ -311,7 +487,22 @@ export function normalizeTechnicalObservations(
       references === null ||
       references.length === 0
     ) {
-      findings.push(finding);
+      const implicitMatch =
+        finding.category === 'technical'
+          ? matchUnreferencedConsoleDiagnostic(originalFinding, referencedConsole)
+          : null;
+
+      findings.push(
+        implicitMatch === null
+          ? finding
+          : {
+              ...finding,
+              evidenceTarget: null,
+              presentationTarget: null,
+              structuredIdentity: null,
+              technicalIdentity: implicitMatch.identity
+            }
+      );
       continue;
     }
 
@@ -360,6 +551,22 @@ export function normalizeTechnicalObservations(
 export function createTechnicalObservationFingerprint(
   identity: TechnicalObservationIdentity
 ): string {
+  if (identity.kind === 'console-error') {
+    const sourceDigest =
+      identity.sourceUrl === null
+        ? 'inspected-page'
+        : createHash('sha256').update(identity.sourceUrl).digest('hex').slice(0, 16);
+
+    return [
+      'technical',
+      identity.kind,
+      identity.source,
+      identity.httpStatus ?? 'no-status',
+      sourceDigest,
+      createHash('sha256').update(identity.message).digest('hex').slice(0, 16)
+    ].join('|');
+  }
+
   const resourceUrl = new URL(identity.resourceUrl);
   const resourceDigest = createHash('sha256')
     .update(identity.resourceUrl)
@@ -390,4 +597,38 @@ export function createTechnicalObservationFingerprint(
     resourceUrl.hostname.toLowerCase(),
     resourceDigest
   ].join('|');
+}
+
+export function getTechnicalObservationDiagnostics(
+  identity: TechnicalObservationIdentity,
+  diagnostics: ClassifiedDiagnostics,
+  pageUrl: string
+): TechnicalObservationDiagnostic[] {
+  if (identity.kind === 'failed-request') {
+    return diagnostics.failedRequests
+      .filter(item => {
+        const candidate = createTechnicalIdentity(item.request, pageUrl);
+
+        return candidate !== null && identityKey(candidate) === identityKey(identity);
+      })
+      .map(item => ({ kind: 'failed-request' as const, value: item.request }));
+  }
+
+  if (identity.kind === 'cors') {
+    const referenced = createReferencedTechnicalCorsDiagnostics(diagnostics, pageUrl);
+    const group = referenced.groups.find(
+      item => identityKey(item.identity) === identityKey(identity)
+    );
+
+    return (group?.consoleErrors ?? []).map(value => ({ kind: 'console-error' as const, value }));
+  }
+
+  const referencedCors = createReferencedTechnicalCorsDiagnostics(diagnostics, pageUrl);
+  const group = createReferencedTechnicalConsoleDiagnostics(
+    diagnostics,
+    pageUrl,
+    referencedCors
+  ).find(item => identityKey(item.identity) === identityKey(identity));
+
+  return (group?.consoleErrors ?? []).map(value => ({ kind: 'console-error' as const, value }));
 }

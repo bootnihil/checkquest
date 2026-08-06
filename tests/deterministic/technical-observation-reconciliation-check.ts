@@ -21,6 +21,8 @@ import {
   type RunFindingLifecycleState
 } from '../../agent/findings/run-finding-lifecycle';
 import type { FindingInvestigationOutcome } from '../../agent/investigation/evaluate-finding-investigation-outcome';
+import type { SiteAgentReport } from '../../agent/reporting/report-types';
+import { renderHumanMarkdownReport } from '../../agent/reporting/write-markdown-report';
 
 interface FailedRequestFixture {
   url: string;
@@ -125,6 +127,15 @@ function createCorsDiagnostics(
   };
 }
 
+function createConsoleDiagnostics(
+  consoleErrors: ClassifiedDiagnostics['consoleErrors']
+): ClassifiedDiagnostics {
+  return {
+    consoleErrors,
+    failedRequests: []
+  };
+}
+
 function createTechnicalFinding(
   references: string[] | null,
   overrides: Partial<ExploratoryQaFinding> = {}
@@ -215,6 +226,410 @@ function commitPage(
       outcome
     }))
   });
+}
+
+function createMinimalReport(
+  findings: UnifiedFinding[],
+  pages: Array<{
+    url: string;
+    diagnostics: ClassifiedDiagnostics;
+  }>
+): SiteAgentReport {
+  return {
+    reportSchemaVersion: '3',
+    runId: 'console-association-check',
+    startedAt: '2026-08-06T06:00:00.000Z',
+    finishedAt: '2026-08-06T06:01:00.000Z',
+    site: {
+      id: 'runtime',
+      name: 'Runtime exploration: example.com',
+      startUrl: pages[0]?.url ?? 'https://example.com/'
+    },
+    homepage: {
+      requestedUrl: pages[0]?.url ?? 'https://example.com/',
+      finalUrl: pages[0]?.url ?? 'https://example.com/',
+      title: 'Synthetic homepage',
+      httpStatus: 200,
+      headings: []
+    },
+    outcome: {
+      type: 'finished',
+      summary: 'Synthetic deterministic run.'
+    },
+    inspectedPages: pages.map((page, index) => ({
+      selection: {
+        type: index === 0 ? 'start-url' : 'navigation',
+        url: page.url
+      },
+      observation: {
+        requestedUrl: page.url,
+        finalUrl: page.url,
+        title: `Page ${index + 1}`,
+        httpStatus: 200,
+        headings: []
+      },
+      diagnostics: page.diagnostics,
+      presentationEvidence: []
+    })),
+    findings,
+    siteWideExploratoryFindings: [],
+    passiveSecurity: {
+      disclaimer: 'Synthetic passive-security disclaimer.',
+      observations: []
+    },
+    summary: {}
+  } as unknown as SiteAgentReport;
+}
+
+function createConsoleFinding(
+  evidence: string,
+  overrides: Partial<ExploratoryQaFinding> = {}
+): ExploratoryQaFinding {
+  return createTechnicalFinding(null, {
+    title: 'Invalid SVG attribute value',
+    evidence,
+    technicalIdentity: null,
+    ...overrides
+  });
+}
+
+function assertUnmatchedConsoleCandidate(input: {
+  pageUrl: string;
+  finding: ExploratoryQaFinding;
+  diagnostics: ClassifiedDiagnostics;
+}): PreparedRunPageFindings {
+  const lifecycle = createRunFindingLifecycle();
+  const page = reconcilePage(lifecycle, input);
+  const reconciled = page.reconciledFindingObservations.findings[0];
+
+  assert.equal(page.exploratoryQaAnalysis.findings[0]?.technicalIdentity, null);
+  assert.match(reconciled?.fingerprint ?? '', /^unstructured\|/);
+  assert.equal(
+    reconciled?.occurrences[0]?.evidence.some(evidence => evidence.source === 'browser'),
+    false
+  );
+
+  return page;
+}
+
+function checkSvgConsoleAssociation(): void {
+  const lifecycle = createRunFindingLifecycle();
+  const message = 'Error: <svg> attribute height: Expected length, "auto".';
+  const fixtures = [
+    {
+      url: 'https://monday.com/',
+      evidence: `The console reported: '${message}'.`,
+      lines: [567]
+    },
+    {
+      url: 'https://monday.com/w/enterprise',
+      evidence: `The console reported multiple errors: '${message}'.`,
+      lines: [742, 759, 1407]
+    },
+    {
+      url: 'https://monday.com/crm',
+      evidence: `${message} observed at lines 632 and 698.`,
+      lines: [632, 698]
+    },
+    {
+      url: 'https://monday.com/w/nonprofits',
+      evidence: `Console error: ${message}`,
+      lines: [814]
+    }
+  ];
+  const pages: Array<{ url: string; diagnostics: ClassifiedDiagnostics }> = [];
+
+  for (const fixture of fixtures) {
+    const diagnostics = createConsoleDiagnostics(
+      fixture.lines.map(lineNumber => ({
+        text: message,
+        sourceUrl: fixture.url,
+        lineNumber,
+        columnNumber: 0
+      }))
+    );
+    const page = reconcilePage(lifecycle, {
+      pageUrl: fixture.url,
+      diagnostics,
+      finding: createConsoleFinding(fixture.evidence)
+    });
+    const reconciled = page.reconciledFindingObservations.findings[0]!;
+    const browserEvidence = reconciled.occurrences[0]!.evidence.filter(
+      evidence => evidence.source === 'browser' && evidence.kind === 'browser-observation'
+    );
+
+    assert.equal(
+      page.reconciledFindingObservations.candidateFindings[0]?.technicalIdentity?.kind,
+      'console-error'
+    );
+    assert.match(reconciled.fingerprint, /^technical\|console-error\|inspected-page\|/);
+    assert.equal(browserEvidence.length, fixture.lines.length);
+    assert.equal(
+      browserEvidence.every(evidence => evidence.rawSource?.type === 'console-error-observation'),
+      true
+    );
+
+    commitPage(lifecycle, page, fixture.url);
+    pages.push({ url: fixture.url, diagnostics });
+  }
+
+  const findings = getRunFindings(lifecycle);
+
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0]?.occurrences.length, 4);
+  assert.deepEqual(
+    findings[0]?.occurrences.map(occurrence => occurrence.pageUrl),
+    fixtures.map(fixture => fixture.url)
+  );
+
+  const markdown = renderHumanMarkdownReport(createMinimalReport(findings, pages));
+
+  assert.match(markdown, /Technical observation/);
+  assert.match(markdown, /Console error: Error: &lt;svg&gt; attribute height: Expected length/);
+  assert.match(markdown, /\*\*Pages:\*\* [^\n]*\/w\/enterprise[^\n]*\/crm[^\n]*\/w\/nonprofits/);
+  assert.doesNotMatch(
+    markdown,
+    /CheckQuest did not match it to browser, network, console, or runtime diagnostics/
+  );
+}
+
+function checkPosterImageAssociation(): void {
+  const lifecycle = createRunFindingLifecycle();
+  const pageUrl = 'https://monday.com/w/enterprise';
+  const sourceUrl = 'https://monday.com/w/poster-image.jpg';
+  const diagnostic = {
+    text: 'Failed to load resource: the server responded with a status of 404 ()',
+    sourceUrl,
+    lineNumber: 0,
+    columnNumber: 0
+  };
+  const diagnostics = createConsoleDiagnostics([diagnostic]);
+  const page = reconcilePage(lifecycle, {
+    pageUrl,
+    diagnostics,
+    finding: createConsoleFinding(
+      `A 404 error was observed for the resource located at ${sourceUrl}.`,
+      {
+        title: 'Failed resource request for poster image'
+      }
+    )
+  });
+  const reconciled = page.reconciledFindingObservations.findings[0]!;
+  const identity = page.reconciledFindingObservations.candidateFindings[0]?.technicalIdentity;
+
+  assert.deepEqual(identity, {
+    kind: 'console-error',
+    message: diagnostic.text,
+    source: 'resource',
+    sourceUrl,
+    httpStatus: 404
+  });
+  assert.match(reconciled.fingerprint, /^technical\|console-error\|resource\|404\|/);
+  assert.deepEqual(
+    reconciled.occurrences[0]?.evidence
+      .filter(evidence => evidence.source === 'browser')
+      .map(evidence => evidence.rawSource?.value),
+    [diagnostic]
+  );
+
+  commitPage(lifecycle, page, pageUrl);
+
+  const markdown = renderHumanMarkdownReport(
+    createMinimalReport(getRunFindings(lifecycle), [{ url: pageUrl, diagnostics }])
+  );
+
+  assert.match(markdown, /Failed to load resource: the server responded with a status of 404/);
+  assert.match(markdown, /https:\/\/monday\.com\/w\/poster-image\.jpg/);
+  assert.doesNotMatch(
+    markdown,
+    /CheckQuest did not match it to browser, network, console, or runtime diagnostics/
+  );
+}
+
+function checkConsoleAssociationRejections(): void {
+  const pageA = 'https://example.com/a';
+  const pageB = 'https://example.com/b';
+  const resourceA = 'https://example.com/a.jpg';
+  const resourceB = 'https://example.com/b.jpg';
+  const message404 = 'Failed to load resource: the server responded with a status of 404 ()';
+  const svgMessage = 'Error: <svg> attribute height: Expected length, "auto".';
+  const resourceDiagnostic = (sourceUrl: string, status = 404) =>
+    createConsoleDiagnostics([
+      {
+        text: `Failed to load resource: the server responded with a status of ${status} ()`,
+        sourceUrl,
+        lineNumber: 0,
+        columnNumber: 0
+      }
+    ]);
+
+  // 1. A named resource cannot match an anonymous 404.
+  assertUnmatchedConsoleCandidate({
+    pageUrl: pageA,
+    finding: createConsoleFinding(`A 404 error was observed for ${resourceA}.`),
+    diagnostics: createConsoleDiagnostics([
+      { text: message404, sourceUrl: null, lineNumber: 0, columnNumber: 0 }
+    ])
+  });
+
+  // 2. Equal 404 prose with different sources retains distinct canonical identity.
+  const sourceLifecycle = createRunFindingLifecycle();
+  for (const [pageUrl, resourceUrl] of [
+    [pageA, resourceA],
+    [pageB, resourceB]
+  ] as const) {
+    const page = reconcilePage(sourceLifecycle, {
+      pageUrl,
+      diagnostics: resourceDiagnostic(resourceUrl),
+      finding: createConsoleFinding(`A 404 error was observed for ${resourceUrl}.`)
+    });
+    commitPage(sourceLifecycle, page, pageUrl);
+  }
+  assert.equal(getRunFindings(sourceLifecycle).length, 2);
+
+  // 3. Title equality never bridges different diagnostic messages.
+  for (const [pageUrl, candidateMessage, diagnosticMessage] of [
+    [pageA, 'Console error: First exact message.', 'Second exact message.'],
+    [pageB, 'Console error: Second exact message.', 'First exact message.']
+  ] as const) {
+    assertUnmatchedConsoleCandidate({
+      pageUrl,
+      finding: createConsoleFinding(candidateMessage, { title: 'Shared generated title' }),
+      diagnostics: createConsoleDiagnostics([
+        { text: diagnosticMessage, sourceUrl: pageUrl, lineNumber: 1, columnNumber: 1 }
+      ])
+    });
+  }
+
+  // 4. Similar but non-equal console messages do not match.
+  assertUnmatchedConsoleCandidate({
+    pageUrl: pageA,
+    finding: createConsoleFinding('Console error: Expected length, "auto".'),
+    diagnostics: createConsoleDiagnostics([
+      { text: svgMessage, sourceUrl: pageA, lineNumber: 1, columnNumber: 1 }
+    ])
+  });
+
+  // 5. Diagnostics are constrained to the inspected page supplied for preparation.
+  assertUnmatchedConsoleCandidate({
+    pageUrl: pageA,
+    finding: createConsoleFinding(`Console error: ${svgMessage}`),
+    diagnostics: createConsoleDiagnostics([])
+  });
+
+  // 6. A contradictory stable technical identity is not reassigned.
+  assertUnmatchedConsoleCandidate({
+    pageUrl: pageA,
+    finding: createConsoleFinding(`Console error: ${svgMessage}`, {
+      technicalIdentity: {
+        kind: 'failed-request',
+        failureText: 'net::ERR_ABORTED',
+        method: 'GET',
+        resourceType: 'script',
+        resourceUrl: 'https://cdn.example.net/other.js',
+        originRelation: 'cross-origin'
+      }
+    }),
+    diagnostics: createConsoleDiagnostics([
+      { text: svgMessage, sourceUrl: pageA, lineNumber: 1, columnNumber: 1 }
+    ])
+  });
+
+  // 7. A malformed candidate URL does not match.
+  assertUnmatchedConsoleCandidate({
+    pageUrl: pageA,
+    finding: createConsoleFinding('A 404 error was observed for https://[invalid.example/a.jpg.'),
+    diagnostics: resourceDiagnostic(resourceA)
+  });
+
+  // 8. Multiple candidate URLs are ambiguous.
+  assertUnmatchedConsoleCandidate({
+    pageUrl: pageA,
+    finding: createConsoleFinding(`A 404 affected ${resourceA} and ${resourceB}.`),
+    diagnostics: resourceDiagnostic(resourceA)
+  });
+
+  // 9. Candidate and captured status codes must agree.
+  assertUnmatchedConsoleCandidate({
+    pageUrl: pageA,
+    finding: createConsoleFinding(`A 500 error was observed for ${resourceA}.`),
+    diagnostics: resourceDiagnostic(resourceA)
+  });
+
+  // 10. Generic failed-resource prose lacks exact URL/status identity.
+  assertUnmatchedConsoleCandidate({
+    pageUrl: pageA,
+    finding: createConsoleFinding('Failed to load resource'),
+    diagnostics: resourceDiagnostic(resourceA)
+  });
+
+  // 11. A genuine AI-only technical candidate remains uncorroborated.
+  const aiOnlyPage = assertUnmatchedConsoleCandidate({
+    pageUrl: pageA,
+    finding: createConsoleFinding('The runtime may have reported an unknown client failure.'),
+    diagnostics: createConsoleDiagnostics([])
+  });
+
+  // 12. Existing failed-request/CORS/DNS identity kinds remain authoritative.
+  const structuredLifecycle = createRunFindingLifecycle();
+  const failedPage = reconcilePage(structuredLifecycle, {
+    pageUrl: pageA,
+    diagnostics: createDiagnostics([
+      {
+        url: 'https://cdn.example.net/app.js',
+        resourceType: 'script',
+        failureText: 'net::ERR_NAME_NOT_RESOLVED'
+      }
+    ]),
+    finding: createTechnicalFinding(['technical-request-1'])
+  });
+  const corsPage = reconcilePage(structuredLifecycle, {
+    pageUrl: pageB,
+    diagnostics: createCorsDiagnostics(pageB),
+    finding: createTechnicalFinding(['technical-cors-1'])
+  });
+  assert.equal(
+    failedPage.reconciledFindingObservations.candidateFindings[0]?.technicalIdentity?.kind,
+    'failed-request'
+  );
+  assert.equal(
+    corsPage.reconciledFindingObservations.candidateFindings[0]?.technicalIdentity?.kind,
+    'cors'
+  );
+  assert.match(
+    failedPage.reconciledFindingObservations.findings[0]?.fingerprint ?? '',
+    /^technical\|failed-request\|net::err_name_not_resolved\|/
+  );
+  assert.match(
+    corsPage.reconciledFindingObservations.findings[0]?.fingerprint ?? '',
+    /^technical\|cors\|/
+  );
+
+  // 13. Rendering does not search matching-looking diagnostics elsewhere in report input.
+  const unlinkedFinding = aiOnlyPage.reconciledFindingObservations.findings[0]!;
+  const unlinkedMarkdown = renderHumanMarkdownReport(
+    createMinimalReport(
+      [unlinkedFinding],
+      [
+        {
+          url: pageB,
+          diagnostics: createConsoleDiagnostics([
+            {
+              text: 'The runtime may have reported an unknown client failure.',
+              sourceUrl: pageB,
+              lineNumber: 1,
+              columnNumber: 1
+            }
+          ])
+        }
+      ]
+    )
+  );
+  assert.match(
+    unlinkedMarkdown,
+    /CheckQuest did not match it to browser, network, console, or runtime diagnostics/
+  );
+  assert.doesNotMatch(unlinkedMarkdown, /Structured technical evidence/);
 }
 
 function checkCrossPageReconciliation(): void {
@@ -959,6 +1374,9 @@ function checkModelCannotOverrideDnsPolicy(): void {
 }
 
 function main(): void {
+  checkSvgConsoleAssociation();
+  checkPosterImageAssociation();
+  checkConsoleAssociationRejections();
   checkCrossPageReconciliation();
   checkCorsCrossPageReconciliation();
   checkCorsIdentitySeparation();
@@ -974,7 +1392,9 @@ function main(): void {
   checkOtherFailureMechanismsUnchanged();
   checkModelCannotOverrideDnsPolicy();
 
-  console.log('Structured technical-observation reconciliation checks passed.');
+  console.log(
+    'Structured technical-observation reconciliation checks passed (29 scenarios: 14 existing, 2 positive console associations, 13 rejection/preservation cases).'
+  );
 }
 
 main();

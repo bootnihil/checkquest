@@ -471,6 +471,92 @@ function main(): void {
     })
   ];
   const modelIdentityPresentation = buildHumanReportPresentation(modelIdentityReport);
+  const placeholderReport = createReport();
+  const placeholderFinding = createFinding(42, {
+    category: 'content',
+    title: 'Placeholder content detected in link text'
+  });
+  placeholderFinding.fingerprint = 'unstructured|https monday com templates model 1';
+  placeholderFinding.description =
+    'The observed text appears to be a programmatic identifier or localization key rather than human-readable content, which is likely a content display error.';
+  placeholderFinding.suggestedCheck =
+    'Verify that the correct category title is correctly localized and rendered in the template store navigation.';
+  placeholderFinding.occurrences[0]!.pageUrl = 'https://monday.com/templates';
+  placeholderFinding.occurrences[0]!.pageTitle =
+    'Customizable templates to get your team started in minutes';
+  placeholderFinding.occurrences[0]!.evidence[0]!.summary =
+    "The link text 'template_store.categories_list.ai.title' appears in the body content.";
+  placeholderFinding.occurrences[0]!.evidence[0]!.rawReference = {
+    pageNumber: 1,
+    candidateReference: 'candidate-42'
+  };
+  placeholderFinding.occurrences[0]!.evidence[0]!.rawSource = {
+    type: 'exploratory-qa-finding',
+    value: {
+      evidence:
+        "The link text 'template_store.categories_list.ai.title' appears in the body content."
+    }
+  };
+  placeholderReport.findings = [placeholderFinding];
+  placeholderReport.inspectedPages[0]!.observation.title =
+    placeholderFinding.occurrences[0]!.pageTitle;
+  placeholderReport.inspectedPages[0]!.observation.finalUrl =
+    placeholderFinding.occurrences[0]!.pageUrl;
+  placeholderReport.inspectedPages[0]!.presentationEvidence = [
+    {
+      candidateReference: 'candidate-42',
+      pageNumber: 1,
+      pageUrl: 'https://monday.com/templates',
+      target: {
+        kind: 'visible-text',
+        elementKind: 'link',
+        text: 'template_store.categories_list.ai.title'
+      },
+      screenshotPaths: ['agent-results/placeholder-check/evidence/placeholder.png'],
+      totalTargetCount: 1,
+      shownTargetCount: 1
+    }
+  ];
+  const placeholderIdentityBefore = placeholderFinding.fingerprint;
+  const placeholderEvidenceBefore = JSON.stringify(placeholderFinding.occurrences[0]!.evidence);
+  const placeholderMarkdown = renderHumanMarkdownReport(placeholderReport);
+  const placeholderBlock = placeholderMarkdown.slice(
+    placeholderMarkdown.indexOf('<a id="item-01"></a>'),
+    placeholderMarkdown.indexOf('---', placeholderMarkdown.indexOf('<a id="item-01"></a>')) + 3
+  );
+  const expectedPlaceholderBlock = [
+    '<a id="item-01"></a>',
+    '### 01 — Placeholder content detected in link text',
+    '',
+    '**Low · Needs review**  ',
+    '**Page:** [/templates](https://monday.com/templates)',
+    '',
+    '**What I saw**',
+    '',
+    "> The link text 'template_store.categories_list.ai.title' appears in the body content.",
+    '',
+    '**Evidence**',
+    '',
+    '![Focused evidence for Placeholder content detected in link text](evidence/01-PLACEHOLDER-CONTENT-DETECTED-IN-LINK-TEXT-evidence-01.png)',
+    '',
+    '**Evidence status**',
+    '',
+    'CheckQuest did not gather enough evidence to confirm this finding.',
+    '',
+    '---'
+  ].join('\n');
+
+  assert.equal(
+    placeholderBlock,
+    expectedPlaceholderBlock,
+    'The placeholder finding full Markdown item block must remain byte-for-byte stable.'
+  );
+  assert.equal(placeholderFinding.fingerprint, placeholderIdentityBefore);
+  assert.equal(
+    JSON.stringify(placeholderFinding.occurrences[0]!.evidence),
+    placeholderEvidenceBefore
+  );
+  assert.equal(placeholderReport.reportSchemaVersion, '3');
   const collisionReport = createReport();
   const collisionLifecycle = createRunFindingLifecycle();
   const collisionFixtures = [

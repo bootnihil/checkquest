@@ -23,6 +23,10 @@ export function hasRuntimeTechnicalGrounding(finding: UnifiedFinding): boolean {
         return true;
       }
 
+      if (evidence.source === 'browser' && evidence.kind === 'browser-observation') {
+        return true;
+      }
+
       if (evidence.rawSource?.type !== 'exploratory-qa-finding') {
         continue;
       }

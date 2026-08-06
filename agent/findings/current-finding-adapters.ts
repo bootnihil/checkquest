@@ -2,6 +2,7 @@ import type { ExploratoryQaFinding } from '../analysis/exploratory-qa-schema';
 import type { PageFinding } from '../analysis/evaluate-page';
 import type { FindingInvestigationOutcome } from '../investigation/evaluate-finding-investigation-outcome';
 import type { ExploratoryFindingResult } from '../inspection/inspected-page-result';
+import type { TechnicalObservationDiagnostic } from '../analysis/technical-observation-reconciliation';
 import {
   deriveLogicalFindingVerification,
   deriveOccurrenceVerification
@@ -245,7 +246,8 @@ export function adaptPageFinding(
 
 export function adaptExploratoryQaFinding(
   finding: ExploratoryQaFinding,
-  context: FindingAdapterContext
+  context: FindingAdapterContext,
+  browserDiagnostics: readonly TechnicalObservationDiagnostic[] = []
 ): UnifiedFinding {
   const evidenceReference: FindingEvidenceReference = `evidence-${context.occurrenceReference}-model`;
 
@@ -270,6 +272,30 @@ export function adaptExploratoryQaFinding(
       }
     }
   ];
+
+  browserDiagnostics.forEach((diagnostic, index) => {
+    const summary =
+      diagnostic.kind === 'console-error'
+        ? `Console error: ${diagnostic.value.text} Source: ${diagnostic.value.sourceUrl ?? 'unknown'}; line ${diagnostic.value.lineNumber}, column ${diagnostic.value.columnNumber}.`
+        : `Browser request: ${diagnostic.value.method} ${diagnostic.value.url} failed with ${diagnostic.value.failureText} (${diagnostic.value.resourceType}).`;
+
+    evidence.push({
+      evidenceReference: `evidence-${context.occurrenceReference}-browser-${index + 1}`,
+      source: 'browser',
+      kind: 'browser-observation',
+      relation: 'inconclusive',
+      verificationCapable: false,
+      summary,
+      rawReference: context.rawReference,
+      rawSource: {
+        type:
+          diagnostic.kind === 'console-error'
+            ? 'console-error-observation'
+            : 'failed-request-observation',
+        value: diagnostic.value
+      }
+    });
+  });
 
   const occurrence = createOccurrence(context, finding.evidenceTarget, evidence);
 

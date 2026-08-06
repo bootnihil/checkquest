@@ -201,6 +201,16 @@ function uniquePages(pages: readonly HumanPageReference[]): HumanPageReference[]
 
 function getRawObservation(finding: UnifiedFinding): string {
   for (const occurrence of finding.occurrences) {
+    const browserEvidence = occurrence.evidence.find(
+      evidence => evidence.source === 'browser' && evidence.kind === 'browser-observation'
+    );
+
+    if (browserEvidence !== undefined) {
+      return browserEvidence.summary;
+    }
+  }
+
+  for (const occurrence of finding.occurrences) {
     for (const evidence of occurrence.evidence) {
       if (evidence.kind === 'screenshot' || evidence.kind === 'investigation-outcome') {
         continue;

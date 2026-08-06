@@ -118,9 +118,20 @@ export const technicalCorsIdentitySchema = z
   })
   .strict();
 
+export const technicalConsoleErrorIdentitySchema = z
+  .object({
+    kind: z.literal('console-error'),
+    message: z.string().min(1).max(2_000),
+    source: z.enum(['inspected-page', 'resource']),
+    sourceUrl: z.string().url().max(4_000).nullable(),
+    httpStatus: z.number().int().min(100).max(599).nullable()
+  })
+  .strict();
+
 export const technicalObservationIdentitySchema = z.discriminatedUnion('kind', [
   technicalFailedRequestIdentitySchema,
-  technicalCorsIdentitySchema
+  technicalCorsIdentitySchema,
+  technicalConsoleErrorIdentitySchema
 ]);
 
 export const exploratoryQaFindingSchema = z.object({
@@ -255,6 +266,8 @@ export type AccessibilityDefectBasis = z.infer<typeof accessibilityDefectBasisSc
 export type TechnicalFailedRequestIdentity = z.infer<typeof technicalFailedRequestIdentitySchema>;
 
 export type TechnicalCorsIdentity = z.infer<typeof technicalCorsIdentitySchema>;
+
+export type TechnicalConsoleErrorIdentity = z.infer<typeof technicalConsoleErrorIdentitySchema>;
 
 export type TechnicalObservationIdentity = z.infer<typeof technicalObservationIdentitySchema>;
 

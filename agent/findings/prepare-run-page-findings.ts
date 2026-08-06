@@ -149,7 +149,8 @@ export function prepareRunPageFindings(
     pageTitle: input.pageTitle,
     ruleFindings: input.ruleFindings,
     modelFindings: admittedExploratoryQaAnalysis.findings,
-    pageContent: input.pageContent
+    pageContent: input.pageContent,
+    classifiedDiagnostics: input.classifiedDiagnostics
   });
 
   const reconciledPageFindings = reconcilePageFindings(
