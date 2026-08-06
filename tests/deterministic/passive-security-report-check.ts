@@ -357,7 +357,7 @@ async function main(): Promise<void> {
 
   assert.match(markdown, /\*\*Low · Security observation · 2 pages\*\*/);
 
-  assert.match(markdown, /\*\*High · Confirmed issue\*\*/);
+  assert.match(markdown, /## Technical observations[\s\S]*\*\*High · Technical observation\*\*/);
 
   assert.equal(markdown.includes('\n## injected heading'), false);
 

@@ -6,7 +6,8 @@ import {
 } from '../../agent/browser/capture-finding-presentation-evidence';
 import {
   exploratoryQaFindingSchema,
-  type ExploratoryQaFinding
+  type ExploratoryQaFinding,
+  type TechnicalObservationIdentity
 } from '../../agent/analysis/exploratory-qa-schema';
 import type { FindingEvidence, UnifiedFinding } from '../../agent/findings/finding-model';
 import {
@@ -14,7 +15,10 @@ import {
   getHumanFindingStatus,
   humanReportDetailedFindingLimit
 } from '../../agent/reporting/human-report-model';
-import { buildReconciledRunSummaryProjection } from '../../agent/reporting/run-summary-projection';
+import {
+  buildReconciledRunSummaryProjection,
+  classifyHumanReportItem
+} from '../../agent/reporting/run-summary-projection';
 import { createTechnicalObservationFingerprint } from '../../agent/analysis/technical-observation-reconciliation';
 import { commitRunPageFindings } from '../../agent/findings/commit-run-page-findings';
 import { prepareRunPageFindings } from '../../agent/findings/prepare-run-page-findings';
@@ -34,11 +38,13 @@ function createFinding(
     title?: string;
     runtimeGroundedTechnical?: boolean;
     modelSuppliedTechnicalIdentity?: boolean;
+    technicalIdentity?: TechnicalObservationIdentity;
+    browserObservationSummary?: string;
   } = {}
 ): UnifiedFinding {
   const state = options.state ?? 'inconclusive';
   const candidateReference = `candidate-${index}`;
-  const technicalIdentity = {
+  const defaultTechnicalIdentity: TechnicalObservationIdentity = {
     kind: 'failed-request' as const,
     failureText: 'net::ERR_FAILED',
     method: 'GET',
@@ -46,6 +52,7 @@ function createFinding(
     resourceUrl: `https://telemetry.example.net/request-${index}.js`,
     originRelation: 'cross-origin' as const
   };
+  const technicalIdentity = options.technicalIdentity ?? defaultTechnicalIdentity;
   const hasTechnicalIdentity =
     options.runtimeGroundedTechnical === true || options.modelSuppliedTechnicalIdentity === true;
   const isTechnicalCandidate = options.category === 'technical';
@@ -75,11 +82,16 @@ function createFinding(
               evidenceTarget: null,
               presentationTarget: null,
               structuredIdentity: null,
-              technicalEvidenceReferences: [
-                options.runtimeGroundedTechnical === true
-                  ? 'technical-request-1'
-                  : 'technical-request-99'
-              ],
+              technicalEvidenceReferences:
+                technicalIdentity.kind === 'console-error'
+                  ? null
+                  : [
+                      options.runtimeGroundedTechnical === true
+                        ? technicalIdentity.kind === 'cors'
+                          ? 'technical-cors-1'
+                          : 'technical-request-1'
+                        : 'technical-request-99'
+                    ],
               technicalIdentity: hasTechnicalIdentity ? technicalIdentity : null
             }
           : {
@@ -89,6 +101,27 @@ function createFinding(
       }
     }
   ];
+
+  if (options.browserObservationSummary !== undefined) {
+    evidence.push({
+      evidenceReference: `evidence-${index}-browser`,
+      source: 'browser',
+      kind: 'browser-observation',
+      relation: 'inconclusive',
+      verificationCapable: false,
+      summary: options.browserObservationSummary,
+      rawSource: {
+        type: 'console-error-observation',
+        value: {
+          text: options.browserObservationSummary,
+          sourceUrl:
+            technicalIdentity.kind === 'console-error' ? technicalIdentity.sourceUrl : null,
+          lineNumber: 0,
+          columnNumber: 0
+        }
+      }
+    });
+  }
   const verificationEvidenceReferences: FindingEvidence['evidenceReference'][] = [];
 
   if (state === 'verified') {
@@ -344,13 +377,29 @@ function createTechnicalGroupingReport(): SiteAgentReport {
       category: 'technical',
       severity: 'medium',
       title: analyticsTitle,
-      runtimeGroundedTechnical: true
+      runtimeGroundedTechnical: true,
+      technicalIdentity: {
+        kind: 'failed-request',
+        failureText: 'net::ERR_ABORTED',
+        method: 'GET',
+        resourceType: 'script',
+        resourceUrl: 'https://www.googletagmanager.com/gtag/js',
+        originRelation: 'same-origin'
+      }
     }),
     createFinding(3, {
       category: 'technical',
       severity: 'medium',
       title: analyticsTitle,
-      runtimeGroundedTechnical: true
+      runtimeGroundedTechnical: true,
+      technicalIdentity: {
+        kind: 'failed-request',
+        failureText: 'net::ERR_BLOCKED_BY_ORB',
+        method: 'GET',
+        resourceType: 'script',
+        resourceUrl: 'https://cdn.example.net/splide.min.js',
+        originRelation: 'cross-origin'
+      }
     }),
     ...Array.from(
       {
@@ -380,6 +429,107 @@ function createTechnicalGroupingReport(): SiteAgentReport {
   }
 
   report.findings = findings;
+
+  return report;
+}
+
+function createClassificationReport(): SiteAgentReport {
+  const report = createReport();
+  const placeholder = createFinding(51, {
+    category: 'content',
+    severity: 'low',
+    title: 'Placeholder content detected in link text'
+  });
+  const poster = createFinding(52, {
+    category: 'technical',
+    severity: 'medium',
+    title: 'Failed resource request for poster image',
+    runtimeGroundedTechnical: true,
+    technicalIdentity: {
+      kind: 'console-error',
+      message: 'Failed to load resource: the server responded with a status of 404 ()',
+      source: 'resource',
+      sourceUrl: 'https://example.com/assets/poster.jpg',
+      httpStatus: 404
+    },
+    browserObservationSummary:
+      'Console error: Failed to load resource: the server responded with a status of 404 (). Source: https://example.com/assets/poster.jpg; line 0, column 0.'
+  });
+  const svg = createFinding(53, {
+    category: 'technical',
+    severity: 'low',
+    title: 'Invalid SVG attribute value',
+    runtimeGroundedTechnical: true,
+    technicalIdentity: {
+      kind: 'console-error',
+      message: 'Error: <svg> attribute height: Expected length, "auto".',
+      source: 'inspected-page',
+      sourceUrl: null,
+      httpStatus: null
+    },
+    browserObservationSummary:
+      'Console error: Error: <svg> attribute height: Expected length, "auto".'
+  });
+  const dns = createFinding(54, {
+    category: 'technical',
+    severity: 'low',
+    title: 'Cross-origin DNS resolution failure observed',
+    runtimeGroundedTechnical: true,
+    technicalIdentity: {
+      kind: 'failed-request',
+      failureText: 'net::ERR_NAME_NOT_RESOLVED',
+      method: 'GET',
+      resourceType: 'script',
+      resourceUrl: 'https://assets.example.net/app.js',
+      originRelation: 'cross-origin'
+    }
+  });
+  const abortedScript = createFinding(55, {
+    category: 'technical',
+    severity: 'medium',
+    title: 'Failed script request execution',
+    runtimeGroundedTechnical: true,
+    technicalIdentity: {
+      kind: 'failed-request',
+      failureText: 'net::ERR_ABORTED',
+      method: 'GET',
+      resourceType: 'script',
+      resourceUrl: 'https://example.com/analytics.js',
+      originRelation: 'same-origin'
+    }
+  });
+  const orbScript = createFinding(56, {
+    category: 'technical',
+    severity: 'medium',
+    title: 'Failed script request execution',
+    runtimeGroundedTechnical: true,
+    technicalIdentity: {
+      kind: 'failed-request',
+      failureText: 'net::ERR_BLOCKED_BY_ORB',
+      method: 'GET',
+      resourceType: 'script',
+      resourceUrl: 'https://cdn.example.net/splide.js',
+      originRelation: 'cross-origin'
+    }
+  });
+  const cors = createFinding(57, {
+    category: 'technical',
+    severity: 'low',
+    title: 'Cross-origin resource access failure',
+    runtimeGroundedTechnical: true,
+    technicalIdentity: {
+      kind: 'cors',
+      mechanism: "No 'Access-Control-Allow-Origin' header is present.",
+      method: 'POST',
+      resourceType: 'xhr',
+      resourceUrl: 'https://api.example.net/events',
+      requestingOrigin: 'https://example.com',
+      originRelation: 'cross-origin'
+    }
+  });
+
+  setFindingPages(svg, [1, 2, 3, 4]);
+  report.findings = [placeholder, poster, svg, dns, abortedScript, orbScript, cors];
 
   return report;
 }
@@ -427,6 +577,113 @@ function main(): void {
     groupingMarkdown.indexOf('## Technical observations'),
     groupingMarkdown.indexOf('## Security observations')
   );
+  const classificationReport = createClassificationReport();
+  const classificationCanonicalBefore = JSON.stringify(classificationReport.findings);
+  const classificationSecurityBefore = JSON.stringify(classificationReport.passiveSecurity);
+  const classificationPresentation = buildHumanReportPresentation(classificationReport);
+  const classificationMarkdown = renderHumanMarkdownReport(classificationReport);
+  const classificationFindingSection = classificationMarkdown.slice(
+    classificationMarkdown.indexOf('## Findings'),
+    classificationMarkdown.indexOf('## Technical observations')
+  );
+  const classificationTechnicalSection = classificationMarkdown.slice(
+    classificationMarkdown.indexOf('## Technical observations'),
+    classificationMarkdown.indexOf('## Security observations')
+  );
+  const failedImage = createFinding(61, {
+    category: 'technical',
+    runtimeGroundedTechnical: true,
+    technicalIdentity: {
+      kind: 'failed-request',
+      failureText: 'net::ERR_FAILED',
+      method: 'GET',
+      resourceType: 'image',
+      resourceUrl: 'https://example.com/hero.webp',
+      originRelation: 'same-origin'
+    }
+  });
+  const failedStylesheet = createFinding(62, {
+    category: 'technical',
+    runtimeGroundedTechnical: true,
+    technicalIdentity: {
+      kind: 'failed-request',
+      failureText: 'net::ERR_FAILED',
+      method: 'GET',
+      resourceType: 'stylesheet',
+      resourceUrl: 'https://example.com/site.css',
+      originRelation: 'same-origin'
+    }
+  });
+  const failedFont = createFinding(63, {
+    category: 'technical',
+    runtimeGroundedTechnical: true,
+    technicalIdentity: {
+      kind: 'failed-request',
+      failureText: 'net::ERR_FAILED',
+      method: 'GET',
+      resourceType: 'font',
+      resourceUrl: 'https://example.com/site.woff2',
+      originRelation: 'same-origin'
+    }
+  });
+  const analyticsScript = createFinding(64, {
+    category: 'technical',
+    runtimeGroundedTechnical: true,
+    technicalIdentity: {
+      kind: 'failed-request',
+      failureText: 'net::ERR_ABORTED',
+      method: 'GET',
+      resourceType: 'script',
+      resourceUrl: 'https://analytics.example.net/collect.js',
+      originRelation: 'cross-origin'
+    }
+  });
+  const genericConsoleIdentity: TechnicalObservationIdentity = {
+    kind: 'console-error',
+    message: 'Synthetic JavaScript console warning.',
+    source: 'inspected-page',
+    sourceUrl: null,
+    httpStatus: null
+  };
+  const genericConsole = createFinding(65, {
+    category: 'technical',
+    severity: 'high',
+    runtimeGroundedTechnical: true,
+    technicalIdentity: genericConsoleIdentity
+  });
+  const browserBackedContent = createFinding(66, {
+    category: 'content',
+    browserObservationSummary: 'Browser-observed visible localization token.'
+  });
+  const verifiedGenericConsole = createFinding(67, {
+    state: 'verified',
+    category: 'technical',
+    title: 'Verified generic console observation',
+    runtimeGroundedTechnical: true,
+    technicalIdentity: genericConsoleIdentity
+  });
+  const verifiedCors = createFinding(68, {
+    state: 'verified',
+    category: 'technical',
+    title: 'Verified CORS observation',
+    runtimeGroundedTechnical: true,
+    technicalIdentity: {
+      kind: 'cors',
+      mechanism: "No 'Access-Control-Allow-Origin' header is present.",
+      method: 'GET',
+      resourceType: 'fetch',
+      resourceUrl: 'https://api.example.net/verified',
+      requestingOrigin: 'https://example.com',
+      originRelation: 'cross-origin'
+    }
+  });
+  const typeIndependenceReport = createReport();
+  typeIndependenceReport.findings = [
+    verifiedCors,
+    verifiedGenericConsole,
+    classificationReport.findings[1]!
+  ];
+  const typeIndependencePresentation = buildHumanReportPresentation(typeIndependenceReport);
   const distinctTechnicalReport = createReport();
 
   distinctTechnicalReport.findings = [
@@ -698,45 +955,13 @@ function main(): void {
   );
   assert.equal(
     countOccurrences(groupingAtAGlance, '| Technical |'),
-    2,
-    'Seven repeated-title technical observations must render as two umbrella rows.'
-  );
-  assert.match(
-    groupingAtAGlance,
-    /\| \[02\]\(#item-02\), \[03\]\(#item-03\) \| \[Failed network requests for analytics script \(2 related\)\]\(#technical-group-item-02\) \| Technical \| Medium \| 4 pages \| 2 distinct observations \|/
-  );
-  assert.doesNotMatch(
-    groupingAtAGlance,
-    /analytics script \(2 related\)[^\n]*\| 6 pages \|/,
-    'Overlapping occurrence pages must be unioned rather than summed.'
-  );
-  assert.match(
-    groupingAtAGlance,
-    /\| \[04\]\(#item-04\), \[05\]\(#item-05\), \[06\]\(#item-06\), \[07\]\(#item-07\), \[08\]\(#item-08\) \| \[Failed network requests for tracking and analytics scripts \(5 related\)\]\(#technical-group-item-04\) \| Technical \| Medium \| 5 pages \| 5 distinct observations \|/
+    7,
+    'Every canonical technical observation must retain its own at-a-glance row.'
   );
   assert.doesNotMatch(
     groupingMarkdown,
-    /\(7 related\)/,
-    'Near-identical technical titles must remain separate exact-title groups.'
-  );
-  assert.equal(
-    countOccurrences(
-      groupingTechnicalSection,
-      '### Failed network requests for analytics script (2 related)'
-    ),
-    1
-  );
-  assert.equal(
-    countOccurrences(
-      groupingTechnicalSection,
-      '### Failed network requests for tracking and analytics scripts (5 related)'
-    ),
-    1
-  );
-  assert.equal(
-    countOccurrences(groupingTechnicalSection, '#### Observation '),
-    7,
-    'Each grouped canonical observation must retain a distinct body sub-entry.'
+    /\(\d+ related\)|distinct technical observations share this title|distinct observations/,
+    'No title-only relatedness or umbrella wording may remain.'
   );
 
   for (let displayId = 2; displayId <= 8; displayId += 1) {
@@ -744,8 +969,8 @@ function main(): void {
 
     assert.match(
       groupingTechnicalSection,
-      new RegExp(`<a id="item-${paddedId}"></a>\\n#### Observation ${paddedId}`),
-      `Technical observation ${paddedId} must keep its individual anchor and ID.`
+      new RegExp(`<a id="item-${paddedId}"></a>\\n### ${paddedId} —`),
+      `Technical observation ${paddedId} must render as its own canonical item.`
     );
     assert.match(
       groupingAtAGlance,
@@ -757,8 +982,145 @@ function main(): void {
   assert.equal(
     countOccurrences(groupingTechnicalSection, '[Structured technical evidence]'),
     7,
-    'Every grouped technical observation must retain its evidence link.'
+    'Every canonical technical observation must retain its evidence link.'
   );
+  assert.deepEqual(
+    classificationPresentation.detailedFindings.map(finding => finding.title),
+    ['Failed resource request for poster image', 'Placeholder content detected in link text'],
+    'The poster presentation asset and visible placeholder must route to Findings.'
+  );
+  assert.deepEqual(
+    classificationPresentation.technicalObservations.map(observation => observation.title),
+    [
+      'Failed script request execution',
+      'Failed script request execution',
+      'Invalid SVG attribute value',
+      'Cross-origin DNS resolution failure observed',
+      'Cross-origin resource access failure'
+    ],
+    'SVG, DNS, CORS, aborted script, and ORB-blocked script observations must route to Technical observations.'
+  );
+  assert.equal(
+    classificationPresentation.atAGlance.find(
+      item => item.title === 'Failed resource request for poster image'
+    )?.type,
+    'Finding'
+  );
+  assert.equal(
+    classificationPresentation.atAGlance.find(item => item.title === 'Invalid SVG attribute value')
+      ?.type,
+    'Technical'
+  );
+  assert.match(
+    classificationFindingSection,
+    /### 01 — Failed resource request for poster image[\s\S]*Console error: Failed to load resource: the server responded with a status of 404/
+  );
+  assert.doesNotMatch(
+    classificationFindingSection,
+    /CheckQuest did not match it to browser, network, console, or runtime diagnostics/
+  );
+  assert.equal(
+    countOccurrences(classificationTechnicalSection, '### 05 — Invalid SVG attribute value'),
+    1,
+    'One canonical SVG finding must render once.'
+  );
+  assert.match(
+    classificationTechnicalSection,
+    /### 05 — Invalid SVG attribute value[\s\S]*\*\*Pages:\*\* [^\n]+page-1[^\n]+page-2[^\n]+page-3[^\n]+page-4/
+  );
+  assert.equal(
+    countOccurrences(classificationTechnicalSection, '— Failed script request execution'),
+    2,
+    'The aborted and ORB-blocked script identities must render separately despite equal titles.'
+  );
+  assert.doesNotMatch(
+    classificationMarkdown,
+    /\(2 related\)|share this title|technical-group-item-/
+  );
+  assert.equal(classificationReport.findings[2]?.occurrences.length, 4);
+  assert.notEqual(
+    classificationReport.findings[4]?.fingerprint,
+    classificationReport.findings[5]?.fingerprint
+  );
+  assert.equal(
+    JSON.stringify(classificationReport.findings),
+    classificationCanonicalBefore,
+    'Classification and rendering must not mutate fingerprints, occurrences, evidence, or verification.'
+  );
+  assert.equal(
+    JSON.stringify(classificationReport.passiveSecurity),
+    classificationSecurityBefore,
+    'Security observations must remain unchanged.'
+  );
+  assert.equal(classificationReport.reportSchemaVersion, '3');
+  assert.equal(classifyHumanReportItem(failedImage), 'finding');
+  assert.equal(classifyHumanReportItem(failedStylesheet), 'finding');
+  assert.equal(classifyHumanReportItem(failedFont), 'finding');
+  assert.equal(classifyHumanReportItem(analyticsScript), 'technical-observation');
+  assert.equal(classifyHumanReportItem(genericConsole), 'technical-observation');
+  assert.equal(
+    classifyHumanReportItem(classificationReport.findings[3]!),
+    'technical-observation',
+    'Cross-origin DNS identity must override presentation-asset routing.'
+  );
+  assert.equal(
+    classifyHumanReportItem(browserBackedContent),
+    'finding',
+    'Browser evidence alone must not determine report section.'
+  );
+  assert.equal(
+    classifyHumanReportItem(genericConsole),
+    'technical-observation',
+    'High severity must not promote a console warning into Findings.'
+  );
+  assert.equal(
+    classifyHumanReportItem(verifiedCors),
+    'technical-observation',
+    'Verified CORS must remain a Technical observation.'
+  );
+  assert.equal(
+    classifyHumanReportItem(verifiedGenericConsole),
+    'technical-observation',
+    'A verified generic console error must remain a Technical observation.'
+  );
+  const inconclusivePoster = classificationReport.findings[1]!;
+  assert.equal(inconclusivePoster.verification.state, 'inconclusive');
+  assert.ok(
+    inconclusivePoster.occurrences.some(occurrence =>
+      occurrence.evidence.some(
+        evidence => evidence.source === 'browser' && evidence.kind === 'browser-observation'
+      )
+    ),
+    'The inconclusive poster failure case must retain browser evidence.'
+  );
+  assert.equal(
+    classifyHumanReportItem(inconclusivePoster),
+    'finding',
+    'An inconclusive presentation-asset failure with browser evidence must remain a Finding.'
+  );
+  assert.equal(
+    verifiedGenericConsole.fingerprint,
+    genericConsole.fingerprint,
+    'The comparison cases must have the same technical identity.'
+  );
+  assert.notEqual(verifiedGenericConsole.verification.state, genericConsole.verification.state);
+  assert.equal(
+    classifyHumanReportItem(verifiedGenericConsole),
+    classifyHumanReportItem(genericConsole),
+    'The same technical identity must retain its section across verification states.'
+  );
+  assert.deepEqual(
+    typeIndependencePresentation.technicalObservations.map(observation => observation.title),
+    ['Verified CORS observation', 'Verified generic console observation'],
+    'Verified technical identities must render in Technical observations.'
+  );
+  assert.deepEqual(
+    typeIndependencePresentation.detailedFindings.map(finding => finding.title),
+    ['Failed resource request for poster image'],
+    'The inconclusive poster asset failure must render in Findings.'
+  );
+  assert.match(classificationMarkdown, /## Security observations/);
+  assert.match(classificationMarkdown, /### S01 — HSTS response header was not observed/);
   assert.match(
     distinctTechnicalMarkdown,
     /\| \[01\]\(#item-01\) \| \[Distinct technical title A\]\(#item-01\) \| Technical/

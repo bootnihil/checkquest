@@ -602,7 +602,7 @@ async function main(): Promise<void> {
 
   assert.match(
     markdown,
-    /### \d+ — Page has no browser title[\s\S]*\*\*Medium · Confirmed issue\*\*/
+    /## Technical observations[\s\S]*### \d+ — Page has no browser title[\s\S]*\*\*Medium · Technical observation\*\*/
   );
 
   assert.equal(
