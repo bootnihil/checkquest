@@ -3,6 +3,7 @@ import {
   findingStructuredIdentitySchema,
   type FindingStructuredIdentity
 } from '../analysis/exploratory-qa-schema';
+import { isCrossOriginDnsFailureIdentity } from '../analysis/technical-observation-reconciliation';
 
 import type { FindingVerificationState, UnifiedFinding } from '../findings/finding-model';
 import type {
@@ -13,6 +14,7 @@ import type { FindingPresentationEvidence } from '../inspection/inspected-page-r
 import type { SiteAgentReport } from './report-types';
 import {
   buildReconciledRunSummaryProjection,
+  getRuntimeTechnicalIdentity,
   hasRuntimeTechnicalGrounding,
   isHumanTechnicalObservation,
   isPrimaryHumanFinding
@@ -235,7 +237,11 @@ function getRawObservation(finding: UnifiedFinding): string {
 }
 
 function cleanFindingTitle(title: string): string {
-  return title.replace(/^(?:verified|inconclusive|not verified)\s*[-:]\s*/i, '').trim();
+  return title
+    .trim()
+    .replace(/^(?:verified|inconclusive|not verified)\s*[-:]\s*/i, '')
+    .replace(/^model candidate:\s+/i, '')
+    .trim();
 }
 
 function getStructuredIdentity(finding: UnifiedFinding): FindingStructuredIdentity | null {
@@ -386,7 +392,7 @@ function buildHumanFinding(
     displayId,
     anchor: `item-${displayId.toLowerCase()}`,
     findingReference: finding.findingReference,
-    title: modelCandidateProvenance ? `Model candidate: ${cleanedTitle}` : cleanedTitle,
+    title: cleanedTitle,
     severity: finding.severity,
     status,
     category: finding.category,
@@ -476,21 +482,89 @@ function getPageResult(counts: { findings: number; technical: number }): string 
   return parts.length > 0 ? parts.join(', ') : 'No reportable items';
 }
 
-function createNotableSummary(findings: readonly HumanFindingPresentation[]): string | null {
-  const notable = findings.slice(0, 2);
+type HumanNotableTier = 1 | 2 | 3 | 4 | 5 | 6;
+
+function isEnvironmentSensitiveTechnicalObservation(finding: UnifiedFinding): boolean {
+  const identity = getRuntimeTechnicalIdentity(finding);
+
+  return identity !== null && isCrossOriginDnsFailureIdentity(identity);
+}
+
+function getHumanNotableTier(report: SiteAgentReport, finding: UnifiedFinding): HumanNotableTier {
+  if (isPrimaryHumanFinding(finding)) {
+    if (finding.verification.state === 'verified') {
+      return 1;
+    }
+
+    if (
+      getPresentationEvidenceForFinding(report, finding).some(
+        evidence => evidence.screenshotPaths.length > 0 && evidence.shownTargetCount > 0
+      )
+    ) {
+      return 2;
+    }
+
+    if (finding.category === 'technical' && hasRuntimeTechnicalGrounding(finding)) {
+      return 3;
+    }
+
+    return 5;
+  }
+
+  if (isEnvironmentSensitiveTechnicalObservation(finding)) {
+    return 6;
+  }
+
+  return hasRuntimeTechnicalGrounding(finding) ? 4 : 5;
+}
+
+function assessmentRank(finding: UnifiedFinding): number {
+  return finding.verification.state === 'verified' ? 0 : 1;
+}
+
+function affectedPageCount(finding: UnifiedFinding): number {
+  return new Set(finding.occurrences.map(occurrence => occurrence.pageUrl)).size;
+}
+
+export function rankHumanReportNotableItems(report: SiteAgentReport): UnifiedFinding[] {
+  return report.findings
+    .map((finding, stableIndex) => ({
+      finding,
+      stableIndex,
+      tier: getHumanNotableTier(report, finding),
+      pageCount: affectedPageCount(finding)
+    }))
+    .filter(
+      item =>
+        item.finding.verification.state !== 'not-verified' &&
+        (isPrimaryHumanFinding(item.finding) || isHumanTechnicalObservation(item.finding))
+    )
+    .sort(
+      (left, right) =>
+        left.tier - right.tier ||
+        assessmentRank(left.finding) - assessmentRank(right.finding) ||
+        right.pageCount - left.pageCount ||
+        severityRank[left.finding.severity] - severityRank[right.finding.severity] ||
+        left.stableIndex - right.stableIndex
+    )
+    .map(item => item.finding);
+}
+
+function createNotableSummary(report: SiteAgentReport): string | null {
+  const notable = rankHumanReportNotableItems(report).slice(0, 2);
 
   if (notable.length === 0) {
     return null;
   }
 
   if (notable.length === 1) {
-    const title = notable[0]?.title;
+    const title = cleanFindingTitle(notable[0]?.title ?? '');
 
     return `The most notable item was ${title?.charAt(0).toLowerCase()}${title?.slice(1)}.`;
   }
 
-  const firstTitle = notable[0]?.title;
-  const secondTitle = notable[1]?.title;
+  const firstTitle = cleanFindingTitle(notable[0]?.title ?? '');
+  const secondTitle = cleanFindingTitle(notable[1]?.title ?? '');
 
   return `The most notable items were ${firstTitle?.charAt(0).toLowerCase()}${firstTitle?.slice(1)} and ${secondTitle?.charAt(0).toLowerCase()}${secondTitle?.slice(1)}.`;
 }
@@ -633,7 +707,7 @@ export function buildHumanReportPresentation(report: SiteAgentReport): HumanRepo
     needsReviewCount: summary.reviewFindingCount,
     technicalObservationCount: summary.technicalObservationCount,
     outcomeNote: report.outcome.type === 'finished' ? report.outcome.summary : null,
-    notableSummary: createNotableSummary(primaryFindings),
+    notableSummary: createNotableSummary(report),
     atAGlance: indexItems,
     detailedFindings: primaryFindings.slice(0, humanReportDetailedFindingLimit),
     additionalFindings: primaryFindings.slice(humanReportDetailedFindingLimit),

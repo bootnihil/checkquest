@@ -13,7 +13,8 @@ import type { FindingEvidence, UnifiedFinding } from '../../agent/findings/findi
 import {
   buildHumanReportPresentation,
   getHumanFindingStatus,
-  humanReportDetailedFindingLimit
+  humanReportDetailedFindingLimit,
+  rankHumanReportNotableItems
 } from '../../agent/reporting/human-report-model';
 import {
   buildReconciledRunSummaryProjection,
@@ -494,7 +495,7 @@ function createClassificationReport(): SiteAgentReport {
       failureText: 'net::ERR_ABORTED',
       method: 'GET',
       resourceType: 'script',
-      resourceUrl: 'https://example.com/analytics.js',
+      resourceUrl: 'https://example.com/application.js',
       originRelation: 'same-origin'
     }
   });
@@ -530,6 +531,32 @@ function createClassificationReport(): SiteAgentReport {
 
   setFindingPages(svg, [1, 2, 3, 4]);
   report.findings = [placeholder, poster, svg, dns, abortedScript, orbScript, cors];
+  report.inspectedPages[0]!.presentationEvidence = [
+    {
+      candidateReference: 'candidate-51',
+      pageNumber: 1,
+      pageUrl: placeholder.occurrences[0]!.pageUrl,
+      target: {
+        kind: 'visible-text',
+        elementKind: 'link',
+        text: 'template_store.categories_list.ai.title'
+      },
+      screenshotPaths: ['agent-results/classification-check/evidence/placeholder.png'],
+      totalTargetCount: 1,
+      shownTargetCount: 1
+    }
+  ];
+
+  return report;
+}
+
+function createReportWithFindings(
+  source: SiteAgentReport,
+  findings: readonly UnifiedFinding[]
+): SiteAgentReport {
+  const report = structuredClone(source);
+
+  report.findings = findings.map(finding => structuredClone(finding));
 
   return report;
 }
@@ -684,6 +711,82 @@ function main(): void {
     classificationReport.findings[1]!
   ];
   const typeIndependencePresentation = buildHumanReportPresentation(typeIndependenceReport);
+  const classificationSummary = buildReconciledRunSummaryProjection(classificationReport);
+  const classificationRankedTitles = rankHumanReportNotableItems(classificationReport).map(
+    finding => finding.title
+  );
+  const directlyObservedVersusNoiseReport = createReportWithFindings(classificationReport, [
+    classificationReport.findings[3]!,
+    classificationReport.findings[0]!
+  ]);
+  const presentationAssetVersusSyntaxReport = createReportWithFindings(classificationReport, [
+    classificationReport.findings[2]!,
+    classificationReport.findings[1]!
+  ]);
+  const aiOnlyTechnicalCandidate = createFinding(69, {
+    category: 'technical',
+    severity: 'high',
+    title: 'AI-only technical candidate'
+  });
+  const browserTechnicalVersusAiReport = createReportWithFindings(classificationReport, [
+    classificationReport.findings[2]!,
+    aiOnlyTechnicalCandidate
+  ]);
+  const dnsVersusAiReport = createReportWithFindings(classificationReport, [
+    classificationReport.findings[3]!,
+    aiOnlyTechnicalCandidate
+  ]);
+  const corsVersusAiReport = createReportWithFindings(classificationReport, [
+    classificationReport.findings[6]!,
+    aiOnlyTechnicalCandidate
+  ]);
+  const abortedVersusAiReport = createReportWithFindings(classificationReport, [
+    classificationReport.findings[4]!,
+    aiOnlyTechnicalCandidate
+  ]);
+  const orbVersusAiReport = createReportWithFindings(classificationReport, [
+    classificationReport.findings[5]!,
+    aiOnlyTechnicalCandidate
+  ]);
+  const mediumAiOnly = createFinding(70, {
+    category: 'technical',
+    severity: 'medium',
+    title: 'AI-only Medium candidate'
+  });
+  const aiMediumVersusDirectLowReport = createReportWithFindings(classificationReport, [
+    mediumAiOnly,
+    classificationReport.findings[0]!
+  ]);
+  const manyPageDns = structuredClone(classificationReport.findings[3]!);
+  setFindingPages(manyPageDns, [1, 2, 3, 4, 5, 6, 7, 8]);
+  const breadthVersusRelevanceReport = createReportWithFindings(classificationReport, [
+    manyPageDns,
+    classificationReport.findings[0]!
+  ]);
+  const severityTieReport = createReportWithFindings(classificationReport, [
+    createFinding(71, {
+      category: 'content',
+      severity: 'low',
+      title: 'Comparable Low item'
+    }),
+    createFinding(72, {
+      category: 'content',
+      severity: 'medium',
+      title: 'Comparable Medium item'
+    })
+  ]);
+  const stableTieReport = createReportWithFindings(classificationReport, [
+    createFinding(73, {
+      category: 'content',
+      severity: 'low',
+      title: 'Canonical first tie'
+    }),
+    createFinding(74, {
+      category: 'content',
+      severity: 'low',
+      title: 'Canonical second tie'
+    })
+  ]);
   const distinctTechnicalReport = createReport();
 
   distinctTechnicalReport.findings = [
@@ -713,9 +816,10 @@ function main(): void {
   ungroundedTechnicalReport.findings = [
     createFinding(41, {
       category: 'technical',
-      title: 'Browser network request definitely failed'
+      title: ' model candidate:   Browser network request definitely failed '
     })
   ];
+  const ungroundedCanonicalTitleBefore = ungroundedTechnicalReport.findings[0]!.title;
   const ungroundedTechnicalPresentation = buildHumanReportPresentation(ungroundedTechnicalReport);
   const ungroundedTechnicalMarkdown = renderHumanMarkdownReport(ungroundedTechnicalReport);
   const modelIdentityReport = createReport();
@@ -728,6 +832,46 @@ function main(): void {
     })
   ];
   const modelIdentityPresentation = buildHumanReportPresentation(modelIdentityReport);
+  const legitimateCandidateReport = createReport();
+  legitimateCandidateReport.findings = [
+    createFinding(43, {
+      title: 'Candidate selection is broken'
+    })
+  ];
+  const legitimateCandidateMarkdown = renderHumanMarkdownReport(legitimateCandidateReport);
+  const prefixedTechnicalReport = createReport();
+  prefixedTechnicalReport.findings = [
+    createFinding(44, {
+      category: 'technical',
+      title: 'MODEL CANDIDATE:   Invalid SVG attribute value',
+      runtimeGroundedTechnical: true,
+      technicalIdentity: {
+        kind: 'console-error',
+        message: 'Error: <svg> attribute height: Expected length, "auto".',
+        source: 'inspected-page',
+        sourceUrl: null,
+        httpStatus: null
+      }
+    })
+  ];
+  const plainTechnicalReport = createReport();
+  plainTechnicalReport.findings = [
+    createFinding(44, {
+      category: 'technical',
+      title: 'Invalid SVG attribute value',
+      runtimeGroundedTechnical: true,
+      technicalIdentity: {
+        kind: 'console-error',
+        message: 'Error: <svg> attribute height: Expected length, "auto".',
+        source: 'inspected-page',
+        sourceUrl: null,
+        httpStatus: null
+      }
+    })
+  ];
+  const prefixedTechnicalPresentation = buildHumanReportPresentation(prefixedTechnicalReport);
+  const plainTechnicalPresentation = buildHumanReportPresentation(plainTechnicalReport);
+  const prefixedTechnicalMarkdown = renderHumanMarkdownReport(prefixedTechnicalReport);
   const placeholderReport = createReport();
   const placeholderFinding = createFinding(42, {
     category: 'content',
@@ -1119,6 +1263,114 @@ function main(): void {
     ['Failed resource request for poster image'],
     'The inconclusive poster asset failure must render in Findings.'
   );
+  assert.deepEqual(
+    buildReconciledRunSummaryProjection(typeIndependenceReport),
+    {
+      inspectedPageCount: 1,
+      confirmedFindingCount: 0,
+      reviewFindingCount: 1,
+      technicalObservationCount: 2,
+      securityObservationCount: 1,
+      primaryFindingCount: 1
+    },
+    'Verified technical observations must not increment the confirmed-Finding count.'
+  );
+  assert.deepEqual(
+    classificationSummary,
+    {
+      inspectedPageCount: 1,
+      confirmedFindingCount: 0,
+      reviewFindingCount: 2,
+      technicalObservationCount: 5,
+      securityObservationCount: 1,
+      primaryFindingCount: 2
+    },
+    'Saved-run-style counts must derive from Loop 2A classification and keep security separate.'
+  );
+  assert.match(classificationMarkdown, /- \*\*0\*\* confirmed findings/);
+  assert.match(classificationMarkdown, /- \*\*2\*\* findings needing review/);
+  assert.match(classificationMarkdown, /- \*\*5\*\* technical observations/);
+  assert.deepEqual(
+    classificationRankedTitles.slice(0, 3),
+    [
+      'Placeholder content detected in link text',
+      'Failed resource request for poster image',
+      'Invalid SVG attribute value'
+    ],
+    'The saved-run ranking must put the directly observed placeholder first, poster asset second, and SVG observation third.'
+  );
+  assert.equal(
+    classificationPresentation.notableSummary,
+    'The most notable items were placeholder content detected in link text and failed resource request for poster image.'
+  );
+  assert.ok(
+    !classificationRankedTitles
+      .slice(0, 2)
+      .includes('Cross-origin DNS resolution failure observed') &&
+      !classificationRankedTitles.slice(0, 2).includes('Failed script request execution'),
+    'DNS and aborted/ORB script diagnostics must not displace stronger user-facing findings.'
+  );
+  assert.equal(
+    rankHumanReportNotableItems(directlyObservedVersusNoiseReport)[0]?.title,
+    'Placeholder content detected in link text',
+    'A directly observed Low-severity Finding must outrank Medium technical noise.'
+  );
+  assert.equal(
+    rankHumanReportNotableItems(presentationAssetVersusSyntaxReport)[0]?.title,
+    'Failed resource request for poster image',
+    'A browser-backed presentation-asset Finding must outrank a browser-backed syntax warning.'
+  );
+  assert.equal(
+    rankHumanReportNotableItems(browserTechnicalVersusAiReport)[0]?.title,
+    'Invalid SVG attribute value',
+    'A browser-backed technical observation must outrank an AI-only technical candidate.'
+  );
+  assert.equal(
+    rankHumanReportNotableItems(dnsVersusAiReport)[0]?.title,
+    'AI-only technical candidate',
+    'The structured cross-origin DNS environment pattern must use the environment-sensitive tier.'
+  );
+  assert.equal(
+    rankHumanReportNotableItems(corsVersusAiReport)[0]?.title,
+    'Cross-origin resource access failure',
+    'Generic CORS must remain an ordinary browser-backed technical observation.'
+  );
+  assert.equal(
+    rankHumanReportNotableItems(abortedVersusAiReport)[0]?.title,
+    'Failed script request execution',
+    'A generic first-party ERR_ABORTED request must remain an ordinary browser-backed technical observation.'
+  );
+  assert.equal(
+    rankHumanReportNotableItems(orbVersusAiReport)[0]?.title,
+    'Failed script request execution',
+    'A generic ORB-blocked resource must remain an ordinary browser-backed technical observation.'
+  );
+  assert.equal(
+    rankHumanReportNotableItems(aiMediumVersusDirectLowReport)[0]?.title,
+    'Placeholder content detected in link text',
+    'An AI-only Medium item must not outrank a directly observed Low item.'
+  );
+  assert.equal(
+    rankHumanReportNotableItems(breadthVersusRelevanceReport)[0]?.title,
+    'Placeholder content detected in link text',
+    'Environment-sensitive breadth must not outrank one-page user-facing evidence.'
+  );
+  assert.deepEqual(
+    rankHumanReportNotableItems(severityTieReport).map(finding => finding.title),
+    ['Comparable Medium item', 'Comparable Low item'],
+    'Severity must break ties only after ranking tier, assessment, and breadth.'
+  );
+  const stableTieOrder = ['Canonical first tie', 'Canonical second tie'];
+  assert.deepEqual(
+    rankHumanReportNotableItems(stableTieReport).map(finding => finding.title),
+    stableTieOrder,
+    'Stable canonical order must be the final tie-breaker.'
+  );
+  assert.deepEqual(
+    rankHumanReportNotableItems(stableTieReport).map(finding => finding.title),
+    stableTieOrder,
+    'Repeated notable projections must be deterministic.'
+  );
   assert.match(classificationMarkdown, /## Security observations/);
   assert.match(classificationMarkdown, /### S01 — HSTS response header was not observed/);
   assert.match(
@@ -1179,9 +1431,49 @@ function main(): void {
     ungroundedTechnicalMarkdown,
     /Structured technical evidence|Concrete observation 41/
   );
+  assert.doesNotMatch(
+    ungroundedTechnicalMarkdown,
+    /Model candidate:/i,
+    'The internal model-candidate prefix must not appear in reader-facing Markdown.'
+  );
   assert.match(
     ungroundedTechnicalMarkdown,
-    /\| \[01\]\(#item-01\) \| \[Model candidate: Browser network request definitely failed\]\(#item-01\) \| Finding \| Low \| [^|]+ \| Needs review \|/
+    /\| \[01\]\(#item-01\) \| \[Browser network request definitely failed\]\(#item-01\) \| Finding \| Low \| [^|]+ \| Needs review \|/
+  );
+  assert.match(
+    ungroundedTechnicalMarkdown,
+    /The most notable item was browser network request definitely failed\./
+  );
+  assert.match(ungroundedTechnicalMarkdown, /### 01 — Browser network request definitely failed/);
+  assert.equal(
+    ungroundedTechnicalReport.findings[0]?.title,
+    ungroundedCanonicalTitleBefore,
+    'Display-title cleanup must not mutate the canonical title.'
+  );
+  assert.match(
+    legitimateCandidateMarkdown,
+    /### 01 — Candidate selection is broken/,
+    'Legitimate uses of candidate outside the exact prefix must be preserved.'
+  );
+  assert.match(
+    prefixedTechnicalMarkdown,
+    /\| \[01\]\(#item-01\) \| \[Invalid SVG attribute value\]\(#item-01\) \| Technical/
+  );
+  assert.match(
+    prefixedTechnicalMarkdown,
+    /The most notable item was invalid SVG attribute value\./
+  );
+  assert.match(prefixedTechnicalMarkdown, /### 01 — Invalid SVG attribute value/);
+  assert.doesNotMatch(prefixedTechnicalMarkdown, /Model candidate:/i);
+  assert.equal(
+    prefixedTechnicalPresentation.atAGlance[0]?.anchor,
+    plainTechnicalPresentation.atAGlance[0]?.anchor,
+    'Display-title cleanup must not change the stable display-ID anchor.'
+  );
+  assert.equal(
+    prefixedTechnicalReport.findings[0]?.title,
+    'MODEL CANDIDATE:   Invalid SVG attribute value',
+    'Technical canonical titles must remain unchanged.'
   );
   assert.doesNotMatch(
     ungroundedTechnicalMarkdown.slice(

@@ -51,7 +51,9 @@ function assertNever(value: never): never {
   throw new Error(`Unsupported technical observation identity: ${JSON.stringify(value)}`);
 }
 
-function getRuntimeTechnicalIdentity(finding: UnifiedFinding): TechnicalObservationIdentity | null {
+export function getRuntimeTechnicalIdentity(
+  finding: UnifiedFinding
+): TechnicalObservationIdentity | null {
   if (finding.category !== 'technical') {
     return null;
   }
