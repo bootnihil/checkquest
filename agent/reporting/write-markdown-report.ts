@@ -91,24 +91,28 @@ function pushReportVocabulary(lines: string[]): void {
   lines.push(
     '### How to read this report',
     '',
-    '> - **Finding:** a potential product issue worth human attention. Item type is separate from evidence status.',
-    '> - **Technical observation:** browser, network, or runtime diagnostic context; an item type, not a confidence level or automatic product defect.',
-    '> - **Security observation:** passive security or configuration information; not automatically a vulnerability.',
-    '> - **Confirmed issue / Verified:** sufficient evidence under CheckQuest’s verification rules.',
-    '> - **Needs review / Inconclusive:** relevant observation, but insufficient evidence to prove the full claim.',
+    '> - **Possible issue:** Something that may affect users.',
+    '> - **Technical note:** Browser, network, or runtime information that may help explain the run. It is not automatically a product problem.',
+    '> - **Security note:** A security-related observation that may deserve review.',
+    '> - **Observed directly:** Visible evidence such as a focused screenshot was captured.',
+    '> - **Seen in browser data:** The observation was matched to browser, console, network, or runtime data.',
+    '> - **AI analysis only:** The AI suggested the item, but no matching browser or screenshot evidence was linked.',
+    '> - **Confirmed issue:** The available evidence supports the user-facing issue.',
+    '> - **Confirmed observation:** The browser or security observation itself is supported, but this does not automatically mean users were affected.',
+    '> - **Needs human review:** The observation is relevant, but its meaning or impact still needs a person to check.',
     ''
   );
 }
 
 function pushAtAGlanceTable(lines: string[], findings: readonly HumanIndexItem[]): void {
   lines.push(
-    '| # | Finding / observation | Type | Severity | Page(s) | Status |',
-    '| --- | --- | --- | --- | --- | --- |'
+    '| # | Item | Type | Evidence | Assessment | Severity | Page(s) |',
+    '| --- | --- | --- | --- | --- | --- | --- |'
   );
 
   for (const finding of findings) {
     lines.push(
-      `| [${finding.displayId}](#${finding.anchor}) | [${escapeTableCell(finding.title)}](#${finding.anchor}) | ${finding.type} | ${formatSeverity(finding.severity)} | ${createAtAGlancePageLabel(finding.pages)} | ${finding.status} |`
+      `| [${finding.displayId}](#${finding.anchor}) | [${escapeTableCell(finding.title)}](#${finding.anchor}) | ${finding.type} | ${finding.evidenceSource} | ${finding.assessment} | ${formatSeverity(finding.severity)} | ${createAtAGlancePageLabel(finding.pages)} |`
     );
   }
 
@@ -119,7 +123,7 @@ function pushAtAGlance(lines: string[], findings: readonly HumanIndexItem[]): vo
   lines.push('## At a glance', '');
 
   if (findings.length === 0) {
-    lines.push('No reportable findings or technical observations were identified.', '');
+    lines.push('No possible issues or technical notes were identified.', '');
     return;
   }
 
@@ -131,22 +135,10 @@ function pushAtAGlance(lines: string[], findings: readonly HumanIndexItem[]): vo
   pushAtAGlanceTable(lines, findings);
 }
 
-function pushObservation(lines: string[], observation: string): void {
-  const formatted = formatMarkdownProse(observation);
-
-  for (const line of formatted.split('\n')) {
-    lines.push(`> ${line}`);
-  }
-
-  lines.push('');
-}
-
 function pushFocusedEvidence(lines: string[], finding: HumanFindingPresentation): void {
   if (finding.focusedEvidence.length === 0) {
     return;
   }
-
-  lines.push('**Evidence**', '');
 
   if (finding.focusedEvidence.length > 0) {
     for (const [index, evidence] of finding.focusedEvidence.entries()) {
@@ -169,40 +161,31 @@ function pushFocusedEvidence(lines: string[], finding: HumanFindingPresentation)
   }
 }
 
-function pushFindingEvidenceStatus(lines: string[], finding: HumanFindingPresentation): void {
-  switch (finding.confirmationCoverage) {
-    case 'none':
-      lines.push(
-        '**Evidence status**',
-        '',
-        'CheckQuest did not gather enough evidence to confirm this finding.',
-        ''
-      );
-      return;
-
-    case 'partial':
-      lines.push(
-        '**Evidence status**',
-        '',
-        'CheckQuest confirmed some occurrences of this finding, but not all.',
-        ''
-      );
-      return;
-
-    case 'all':
-      return;
+function pushItemExplanation(
+  lines: string[],
+  item: {
+    whatHappened: string;
+    whyItMayMatter: string;
+    whatStillNeedsChecking: string;
+    whereThisCameFrom: string;
   }
-}
-
-function pushFindingProvenance(lines: string[], finding: HumanFindingPresentation): void {
-  if (!finding.modelCandidateProvenance) {
-    return;
-  }
-
+): void {
   lines.push(
-    '**Evidence provenance**',
+    '**What happened**',
     '',
-    'This item originated as a model candidate and was not matched to browser, network, console, or runtime diagnostics.',
+    formatMarkdownProse(item.whatHappened),
+    '',
+    '**Why it may matter**',
+    '',
+    formatMarkdownProse(item.whyItMayMatter),
+    '',
+    '**What still needs checking**',
+    '',
+    formatMarkdownProse(item.whatStillNeedsChecking),
+    '',
+    '**Where this came from**',
+    '',
+    formatMarkdownProse(item.whereThisCameFrom),
     ''
   );
 }
@@ -212,23 +195,12 @@ function pushDetailedFinding(lines: string[], finding: HumanFindingPresentation)
     `<a id="${finding.anchor}"></a>`,
     `### ${finding.displayId} — ${escapeMarkdownInlineText(finding.title)}`,
     '',
-    `**${formatSeverity(finding.severity)} · ${finding.status}**  `,
+    `**${finding.itemType} · ${finding.evidenceSource} · ${finding.assessment} · ${formatSeverity(finding.severity)}**  `,
     `**${finding.pages.length === 1 ? 'Page' : 'Pages'}:** ${createPagesLabel(finding.pages)}`,
-    '',
-    '**What I saw**',
     ''
   );
-  pushObservation(lines, finding.observation);
+  pushItemExplanation(lines, finding);
   pushFocusedEvidence(lines, finding);
-  pushFindingEvidenceStatus(lines, finding);
-  pushFindingProvenance(lines, finding);
-  if (finding.whyItMayMatter !== null) {
-    lines.push('**Why it may matter**', '', formatMarkdownProse(finding.whyItMayMatter), '');
-  }
-
-  if (finding.whatToCheck !== null) {
-    lines.push('**What to check**', '', formatMarkdownProse(finding.whatToCheck), '');
-  }
 
   lines.push('---', '');
 }
@@ -243,10 +215,10 @@ function pushAdditionalFinding(lines: string[], finding: HumanFindingPresentatio
     `<a id="${finding.anchor}"></a>`,
     `### ${finding.displayId} — ${escapeMarkdownInlineText(finding.title)}`,
     '',
-    `**${formatSeverity(finding.severity)} · ${finding.status} · ${pageLabel}**`,
+    `**${finding.itemType} · ${finding.evidenceSource} · ${finding.assessment} · ${formatSeverity(finding.severity)} · ${pageLabel}**`,
     ''
   );
-  pushObservation(lines, finding.observation);
+  pushItemExplanation(lines, finding);
 
   if (finding.focusedEvidence.length > 0) {
     for (const evidence of finding.focusedEvidence) {
@@ -256,9 +228,6 @@ function pushAdditionalFinding(lines: string[], finding: HumanFindingPresentatio
       );
     }
   }
-
-  pushFindingEvidenceStatus(lines, finding);
-  pushFindingProvenance(lines, finding);
 
   lines.push('---', '');
 }
@@ -272,13 +241,15 @@ function pushTechnicalObservationDetails(
     `<a id="${observation.anchor}"></a>`,
     heading,
     '',
-    `**${formatSeverity(observation.severity)} · Technical observation**  `,
+    `**${observation.itemType} · ${observation.evidenceSource} · ${observation.assessment} · ${formatSeverity(observation.severity)}**  `,
     `**${observation.pages.length === 1 ? 'Page' : 'Pages'}:** ${createPagesLabel(observation.pages)}`,
-    '',
+    ''
+  );
+  pushItemExplanation(lines, observation);
+  lines.push(
     `[Structured technical evidence](${escapeMarkdownLinkDestination(observation.evidencePath)})`,
     ''
   );
-  pushObservation(lines, observation.observation);
 }
 
 function pushTechnicalObservations(
@@ -318,10 +289,10 @@ export function renderHumanMarkdownReport(report: SiteAgentReport): string {
 
   pushAtAGlance(lines, presentation.atAGlance);
 
-  lines.push('## Findings', '');
+  lines.push('## Possible issues', '');
 
   if (presentation.detailedFindings.length === 0) {
-    lines.push('No confirmed issues or items needing review were identified.', '');
+    lines.push('No possible issues were identified.', '');
   } else {
     for (const finding of presentation.detailedFindings) {
       pushDetailedFinding(lines, finding);
@@ -329,18 +300,18 @@ export function renderHumanMarkdownReport(report: SiteAgentReport): string {
   }
 
   if (presentation.additionalFindings.length > 0) {
-    lines.push('## Additional findings', '');
+    lines.push('## Additional possible issues', '');
 
     for (const finding of presentation.additionalFindings) {
       pushAdditionalFinding(lines, finding);
     }
   }
 
-  lines.push('## Technical observations', '');
+  lines.push('## Technical notes', '');
 
   if (presentation.technicalObservations.length === 0) {
     lines.push(
-      'No lower-level technical observations were promoted into the human report.',
+      'No technical notes were included in the human report.',
       '',
       'Additional browser and diagnostic details are available in `report.json`.',
       ''
@@ -351,21 +322,19 @@ export function renderHumanMarkdownReport(report: SiteAgentReport): string {
     lines.push('Additional browser and diagnostic details are available in `report.json`.', '');
   }
 
-  lines.push(
-    '## Security observations',
-    '',
-    formatMarkdownProse(presentation.securityDisclaimer),
-    ''
-  );
+  lines.push('## Security notes', '', formatMarkdownProse(presentation.securityDisclaimer), '');
 
   if (presentation.securityObservations.length === 0) {
-    lines.push('No passive security observations were produced.', '');
+    lines.push('No security notes were produced.', '');
   } else {
-    lines.push('| # | Observation | Severity | Scope |', '| --- | --- | --- | --- |');
+    lines.push(
+      '| # | Item | Type | Evidence | Assessment | Severity | Scope |',
+      '| --- | --- | --- | --- | --- | --- | --- |'
+    );
 
     for (const observation of presentation.securityObservations) {
       lines.push(
-        `| [${observation.displayId}](#${observation.anchor}) | [${escapeTableCell(observation.title)}](#${observation.anchor}) | ${formatSeverity(observation.severity)} | ${escapeTableCell(observation.scope)} |`
+        `| [${observation.displayId}](#${observation.anchor}) | [${escapeTableCell(observation.title)}](#${observation.anchor}) | ${observation.itemType} | ${observation.evidenceSource} | ${observation.assessment} | ${formatSeverity(observation.severity)} | ${escapeTableCell(observation.scope)} |`
       );
     }
 
@@ -376,10 +345,11 @@ export function renderHumanMarkdownReport(report: SiteAgentReport): string {
         `<a id="${observation.anchor}"></a>`,
         `### ${observation.displayId} — ${escapeMarkdownInlineText(observation.title)}`,
         '',
-        `**${formatSeverity(observation.severity)} · Security observation · ${observation.scope}**`,
-        '',
-        formatMarkdownProse(observation.description),
-        '',
+        `**${observation.itemType} · ${observation.evidenceSource} · ${observation.assessment} · ${formatSeverity(observation.severity)} · ${observation.scope}**`,
+        ''
+      );
+      pushItemExplanation(lines, observation);
+      lines.push(
         `[Security evidence file](${escapeMarkdownLinkDestination(observation.evidencePath)})`,
         '',
         '<details>',
@@ -392,10 +362,6 @@ export function renderHumanMarkdownReport(report: SiteAgentReport): string {
       }
 
       lines.push('', '</details>', '');
-
-      if (observation.whatToCheck !== null) {
-        lines.push('**What to check:**', '', formatMarkdownProse(observation.whatToCheck), '');
-      }
 
       lines.push('---', '');
     }
@@ -424,7 +390,7 @@ export function renderHumanMarkdownReport(report: SiteAgentReport): string {
 
   lines.push(
     '',
-    'Full machine-readable evidence, diagnostics, verification states, and execution details are available in `report.json`.',
+    'Full machine-readable evidence, diagnostics, assessments, and execution details are available in `report.json`.',
     ''
   );
 

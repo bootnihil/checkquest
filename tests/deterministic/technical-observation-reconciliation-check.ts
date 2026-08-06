@@ -384,8 +384,11 @@ function checkSvgConsoleAssociation(): void {
 
   const markdown = renderHumanMarkdownReport(createMinimalReport(findings, pages));
 
-  assert.match(markdown, /Technical observation/);
-  assert.match(markdown, /Console error: Error: &lt;svg&gt; attribute height: Expected length/);
+  assert.match(markdown, /Technical note/);
+  assert.match(
+    markdown,
+    /The browser logged: “Error: &lt;svg&gt; attribute height: Expected length/
+  );
   assert.match(markdown, /\*\*Pages:\*\* [^\n]*\/w\/enterprise[^\n]*\/crm[^\n]*\/w\/nonprofits/);
   assert.doesNotMatch(
     markdown,
@@ -438,7 +441,7 @@ function checkPosterImageAssociation(): void {
     createMinimalReport(getRunFindings(lifecycle), [{ url: pageUrl, diagnostics }])
   );
 
-  assert.match(markdown, /Failed to load resource: the server responded with a status of 404/);
+  assert.match(markdown, /The browser reported an HTTP 404 response for the page resource/);
   assert.match(markdown, /https:\/\/monday\.com\/w\/poster-image\.jpg/);
   assert.doesNotMatch(
     markdown,
@@ -626,6 +629,10 @@ function checkConsoleAssociationRejections(): void {
     )
   );
   assert.match(
+    unlinkedMarkdown,
+    /AI analysis only; no matching browser or screenshot evidence was linked/
+  );
+  assert.doesNotMatch(
     unlinkedMarkdown,
     /CheckQuest did not match it to browser, network, console, or runtime diagnostics/
   );

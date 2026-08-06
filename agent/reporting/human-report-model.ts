@@ -1,5 +1,6 @@
 import { basename } from 'node:path';
 import {
+  accessibilityDefectBasisSchema,
   findingStructuredIdentitySchema,
   type FindingStructuredIdentity
 } from '../analysis/exploratory-qa-schema';
@@ -22,7 +23,13 @@ import {
 
 export const humanReportDetailedFindingLimit = 15;
 
-export type HumanFindingStatus = 'Confirmed issue' | 'Needs review';
+export type HumanItemType = 'Possible issue' | 'Technical note' | 'Security note';
+
+export type HumanEvidenceSource = 'Observed directly' | 'Seen in browser data' | 'AI analysis only';
+
+export type HumanAssessment = 'Confirmed issue' | 'Confirmed observation' | 'Needs human review';
+
+export type HumanFindingStatus = Extract<HumanAssessment, 'Confirmed issue' | 'Needs human review'>;
 
 export type HumanFindingConfirmationCoverage = 'none' | 'partial' | 'all';
 
@@ -37,12 +44,16 @@ export interface HumanFindingPresentation {
   findingReference: string;
   title: string;
   severity: UnifiedFinding['severity'];
-  status: HumanFindingStatus;
+  itemType: Extract<HumanItemType, 'Possible issue'>;
+  evidenceSource: HumanEvidenceSource;
+  assessment: HumanFindingStatus;
   category: UnifiedFinding['category'];
   pages: HumanPageReference[];
   observation: string;
-  whyItMayMatter: string | null;
-  whatToCheck: string | null;
+  whatHappened: string;
+  whyItMayMatter: string;
+  whatStillNeedsChecking: string;
+  whereThisCameFrom: string;
   focusedEvidence: HumanFocusedEvidence[];
   confirmationCoverage: HumanFindingConfirmationCoverage;
   visualTargetCount: number;
@@ -55,9 +66,16 @@ export interface HumanTechnicalObservation {
   displayId: string;
   anchor: string;
   title: string;
+  itemType: Extract<HumanItemType, 'Technical note'>;
+  evidenceSource: HumanEvidenceSource;
+  assessment: Exclude<HumanAssessment, 'Confirmed issue'>;
   severity: UnifiedFinding['severity'];
   pages: HumanPageReference[];
   observation: string;
+  whatHappened: string;
+  whyItMayMatter: string;
+  whatStillNeedsChecking: string;
+  whereThisCameFrom: string;
   evidencePath: string;
 }
 
@@ -65,9 +83,16 @@ export interface HumanSecurityObservation {
   displayId: string;
   anchor: string;
   title: string;
+  itemType: Extract<HumanItemType, 'Security note'>;
+  evidenceSource: Extract<HumanEvidenceSource, 'Seen in browser data'>;
+  assessment: Extract<HumanAssessment, 'Confirmed observation'>;
   severity: PassiveSecurityObservation['severity'];
   scope: string;
   description: string;
+  whatHappened: string;
+  whyItMayMatter: string;
+  whatStillNeedsChecking: string;
+  whereThisCameFrom: string;
   evidence: string[];
   whatToCheck: string | null;
   pages: HumanPageReference[];
@@ -78,10 +103,11 @@ export interface HumanIndexItem {
   displayId: string;
   anchor: string;
   title: string;
-  type: 'Finding' | 'Technical';
+  type: Exclude<HumanItemType, 'Security note'>;
+  evidenceSource: HumanEvidenceSource;
   severity: UnifiedFinding['severity'];
   pages: HumanPageReference[];
-  status: string;
+  assessment: HumanAssessment;
 }
 
 export interface HumanPageReference {
@@ -131,7 +157,22 @@ export function getHumanFindingStatus(state: FindingVerificationState): HumanFin
       return 'Confirmed issue';
 
     case 'inconclusive':
-      return 'Needs review';
+      return 'Needs human review';
+
+    case 'not-verified':
+      return null;
+  }
+}
+
+function getHumanObservationAssessment(
+  state: FindingVerificationState
+): Exclude<HumanAssessment, 'Confirmed issue'> | null {
+  switch (state) {
+    case 'verified':
+      return 'Confirmed observation';
+
+    case 'inconclusive':
+      return 'Needs human review';
 
     case 'not-verified':
       return null;
@@ -331,16 +372,270 @@ function getPresentationEvidenceForFinding(
     });
 }
 
+function hasLinkedBrowserData(finding: UnifiedFinding): boolean {
+  if (getRuntimeTechnicalIdentity(finding) !== null) {
+    return true;
+  }
+
+  /*
+   * Accessibility admission validates these structured facts against the
+   * inspected page before reconciliation. The compatibility adapter retains
+   * that admitted shape in the model evidence instead of adding a second
+   * browser evidence item.
+   */
+  if (
+    finding.category === 'accessibility' &&
+    finding.occurrences.some(occurrence =>
+      occurrence.evidence.some(evidence => {
+        if (evidence.rawSource?.type !== 'exploratory-qa-finding') {
+          return false;
+        }
+
+        const rawValue = evidence.rawSource.value;
+
+        if (typeof rawValue !== 'object' || rawValue === null) {
+          return false;
+        }
+
+        return (
+          ('accessibilityDefectBasis' in rawValue &&
+            accessibilityDefectBasisSchema.safeParse(rawValue.accessibilityDefectBasis).success) ||
+          ('structuredIdentity' in rawValue &&
+            findingStructuredIdentitySchema.safeParse(rawValue.structuredIdentity).success)
+        );
+      })
+    )
+  ) {
+    return true;
+  }
+
+  return finding.occurrences.some(occurrence =>
+    occurrence.evidence.some(evidence => evidence.source !== 'model')
+  );
+}
+
+function getHumanEvidenceSource(
+  finding: UnifiedFinding,
+  presentationEvidence: readonly FindingPresentationEvidence[]
+): HumanEvidenceSource {
+  if (
+    presentationEvidence.some(
+      evidence => evidence.screenshotPaths.length > 0 && evidence.shownTargetCount > 0
+    )
+  ) {
+    return 'Observed directly';
+  }
+
+  return hasLinkedBrowserData(finding) ? 'Seen in browser data' : 'AI analysis only';
+}
+
+function getVisibleTextTarget(
+  presentationEvidence: readonly FindingPresentationEvidence[]
+): Extract<FindingPresentationEvidence['target'], { kind: 'visible-text' }> | null {
+  for (const evidence of presentationEvidence) {
+    const target = evidence.target;
+
+    if (target?.kind === 'visible-text' && evidence.shownTargetCount > 0) {
+      return target;
+    }
+  }
+
+  return null;
+}
+
+function appendPageBreadth(statement: string, pageCount: number): string {
+  return pageCount > 1
+    ? `${statement} The same observation appeared on ${pageCount} inspected pages.`
+    : statement;
+}
+
+function formatInlineCode(value: string): string {
+  const longestBacktickRun = Math.max(0, ...(value.match(/`+/g) ?? []).map(run => run.length));
+  const fence = '`'.repeat(longestBacktickRun + 1);
+  const needsPadding =
+    value.startsWith('`') || value.endsWith('`') || value.startsWith(' ') || value.endsWith(' ');
+  const content = needsPadding ? ` ${value} ` : value;
+
+  return `${fence}${content}${fence}`;
+}
+
+function getWhatHappened(
+  finding: UnifiedFinding,
+  presentationEvidence: readonly FindingPresentationEvidence[],
+  pageCount: number
+): string {
+  const visibleTextTarget = getVisibleTextTarget(presentationEvidence);
+
+  if (visibleTextTarget !== null) {
+    return `The text ${formatInlineCode(visibleTextTarget.text)} appeared visibly in a ${visibleTextTarget.elementKind}.`;
+  }
+
+  const identity = getRuntimeTechnicalIdentity(finding);
+
+  if (identity === null) {
+    return getRawObservation(finding);
+  }
+
+  switch (identity.kind) {
+    case 'console-error':
+      if (identity.source === 'resource' && identity.httpStatus !== null) {
+        const resource =
+          identity.sourceUrl === null
+            ? 'a page resource'
+            : `the page resource “${identity.sourceUrl}”`;
+
+        return appendPageBreadth(
+          `The browser reported an HTTP ${identity.httpStatus} response for ${resource}.`,
+          pageCount
+        );
+      }
+
+      return appendPageBreadth(`The browser logged: “${identity.message}”`, pageCount);
+
+    case 'failed-request':
+      if (isCrossOriginDnsFailureIdentity(identity)) {
+        return appendPageBreadth(
+          'The browser could not resolve a cross-origin resource during the run.',
+          pageCount
+        );
+      }
+
+      return appendPageBreadth(
+        `The browser reported that a ${identity.resourceType} request failed with “${identity.failureText}”.`,
+        pageCount
+      );
+
+    case 'cors':
+      return appendPageBreadth(
+        `The browser reported that a cross-origin ${identity.resourceType} request was blocked by its access policy.`,
+        pageCount
+      );
+  }
+}
+
+function getWhyItMayMatterForFinding(
+  finding: UnifiedFinding,
+  presentationEvidence: readonly FindingPresentationEvidence[]
+): string {
+  const identity = getRuntimeTechnicalIdentity(finding);
+
+  if (getVisibleTextTarget(presentationEvidence) !== null) {
+    return 'If this visible text is unintended, it may confuse people using the page.';
+  }
+
+  const structuredIdentity = getStructuredIdentity(finding);
+  const structuredImpact = getWhyItMayMatter(structuredIdentity);
+
+  if (structuredImpact !== null) {
+    return structuredImpact;
+  }
+
+  if (identity !== null && isPrimaryHumanFinding(finding)) {
+    return 'This may affect the page presentation, although no visible problem was captured.';
+  }
+
+  if (identity !== null && isCrossOriginDnsFailureIdentity(identity)) {
+    return 'An external service may not have loaded, but the DNS failure may reflect the test environment rather than the website.';
+  }
+
+  if (identity?.kind === 'failed-request' || identity?.kind === 'cors') {
+    return 'The request may support a page feature, but the current evidence does not establish user impact.';
+  }
+
+  if (identity?.kind === 'console-error') {
+    return 'The practical impact is not clear from the evidence collected.';
+  }
+
+  return 'The practical impact is not clear from the evidence collected.';
+}
+
+function getWhatStillNeedsCheckingForFinding(
+  finding: UnifiedFinding,
+  presentationEvidence: readonly FindingPresentationEvidence[],
+  itemType: Exclude<HumanItemType, 'Security note'>
+): string {
+  const visibleTextTarget = getVisibleTextTarget(presentationEvidence);
+
+  if (visibleTextTarget !== null) {
+    return 'Confirm whether this text is intended to appear for ordinary users.';
+  }
+
+  const structuredCheck = getWhatToCheck(getStructuredIdentity(finding));
+
+  if (structuredCheck !== null) {
+    return structuredCheck;
+  }
+
+  const identity = getRuntimeTechnicalIdentity(finding);
+
+  if (identity !== null && isCrossOriginDnsFailureIdentity(identity)) {
+    return 'Repeat the check from another environment before attributing the failure to the website.';
+  }
+
+  if (itemType === 'Possible issue' && identity !== null) {
+    return 'Open the affected page and confirm whether the related page resource is visibly missing or broken.';
+  }
+
+  if (identity?.kind === 'failed-request') {
+    return `A developer should determine whether the failed ${identity.resourceType} request supports a user-facing feature.`;
+  }
+
+  if (identity?.kind === 'cors') {
+    return 'A developer should determine whether the blocked request supports a user-facing feature and review the access policy.';
+  }
+
+  if (identity?.kind === 'console-error') {
+    return 'A developer should identify the source of the browser message and check whether it affects what users see or can do.';
+  }
+
+  if (finding.verification.state === 'verified' && itemType === 'Possible issue') {
+    return 'No additional confirmation is needed, but the issue should be assessed for priority and scope.';
+  }
+
+  return itemType === 'Possible issue'
+    ? 'A person should review the reported condition and confirm whether it is present and unintended.'
+    : 'A developer should review the observation and determine whether it affects a user-facing feature.';
+}
+
+function getWhereThisCameFrom(
+  evidenceSource: HumanEvidenceSource,
+  finding: UnifiedFinding,
+  pageCount: number
+): string {
+  if (evidenceSource === 'Observed directly') {
+    return pageCount === 1
+      ? 'Focused screenshot evidence captured on the inspected page.'
+      : `Focused screenshot evidence captured on ${pageCount} inspected pages.`;
+  }
+
+  if (evidenceSource === 'AI analysis only') {
+    return 'AI analysis only; no matching browser or screenshot evidence was linked.';
+  }
+
+  const identity = getRuntimeTechnicalIdentity(finding);
+  const scope = pageCount === 1 ? 'from the inspected page' : `captured on ${pageCount} pages`;
+
+  if (identity?.kind === 'console-error') {
+    return `Matched to browser console data ${scope}.`;
+  }
+
+  if (identity?.kind === 'failed-request') {
+    return `Matched to browser network data ${scope}.`;
+  }
+
+  if (identity?.kind === 'cors') {
+    return `Matched to browser console and network data ${scope}.`;
+  }
+
+  return `Matched to linked browser data ${scope}.`;
+}
+
 function buildHumanFinding(
   report: SiteAgentReport,
   finding: UnifiedFinding,
   status: HumanFindingStatus,
   displayId: string
 ): HumanFindingPresentation {
-  const modelCandidateProvenance =
-    finding.category === 'technical' &&
-    finding.verification.state === 'inconclusive' &&
-    !hasRuntimeTechnicalGrounding(finding);
   const cleanedTitle = cleanFindingTitle(finding.title);
   const presentationEvidence = getPresentationEvidenceForFinding(report, finding);
   const focusedEvidence: HumanFocusedEvidence[] = [];
@@ -377,7 +672,6 @@ function buildHumanFinding(
       });
     }
   }
-  const structuredIdentity = getStructuredIdentity(finding);
   const confirmedOccurrenceCount = finding.occurrences.filter(
     occurrence => occurrence.verification.state === 'verified'
   ).length;
@@ -387,26 +681,38 @@ function buildHumanFinding(
       : confirmedOccurrenceCount < finding.occurrences.length
         ? 'partial'
         : 'all';
+  const pages = uniquePages(
+    finding.occurrences.map(occurrence =>
+      createPageReference(occurrence.pageTitle, occurrence.pageUrl)
+    )
+  );
+  const evidenceSource = getHumanEvidenceSource(finding, presentationEvidence);
+  const itemType = 'Possible issue' as const;
+  const modelCandidateProvenance =
+    finding.category === 'technical' &&
+    finding.verification.state === 'inconclusive' &&
+    evidenceSource === 'AI analysis only';
 
   return {
     displayId,
     anchor: `item-${displayId.toLowerCase()}`,
     findingReference: finding.findingReference,
     title: cleanedTitle,
+    itemType,
+    evidenceSource,
+    assessment: status,
     severity: finding.severity,
-    status,
     category: finding.category,
-    pages: uniquePages(
-      finding.occurrences.map(occurrence =>
-        createPageReference(occurrence.pageTitle, occurrence.pageUrl)
-      )
+    pages,
+    observation: getRawObservation(finding),
+    whatHappened: getWhatHappened(finding, presentationEvidence, pages.length),
+    whyItMayMatter: getWhyItMayMatterForFinding(finding, presentationEvidence),
+    whatStillNeedsChecking: getWhatStillNeedsCheckingForFinding(
+      finding,
+      presentationEvidence,
+      itemType
     ),
-    observation: modelCandidateProvenance
-      ? `The model proposed “${cleanedTitle}” as a technical candidate. ` +
-        'CheckQuest did not match it to browser, network, console, or runtime diagnostics.'
-      : getRawObservation(finding),
-    whyItMayMatter: getWhyItMayMatter(structuredIdentity),
-    whatToCheck: getWhatToCheck(structuredIdentity),
+    whereThisCameFrom: getWhereThisCameFrom(evidenceSource, finding, pages.length),
     focusedEvidence,
     confirmationCoverage,
     visualTargetCount: presentationEvidence.reduce(
@@ -476,7 +782,7 @@ function getPageResult(counts: { findings: number; technical: number }): string 
   }
 
   if (counts.technical > 0) {
-    parts.push(`${counts.technical} technical observation${counts.technical === 1 ? '' : 's'}`);
+    parts.push(`${counts.technical} technical note${counts.technical === 1 ? '' : 's'}`);
   }
 
   return parts.length > 0 ? parts.join(', ') : 'No reportable items';
@@ -573,17 +879,33 @@ function buildTechnicalObservation(
   finding: UnifiedFinding,
   displayId: string
 ): HumanTechnicalObservation {
+  const pages = uniquePages(
+    finding.occurrences.map(occurrence =>
+      createPageReference(occurrence.pageTitle, occurrence.pageUrl)
+    )
+  );
+  const evidenceSource = getHumanEvidenceSource(finding, []);
+  const itemType = 'Technical note' as const;
+  const assessment = getHumanObservationAssessment(finding.verification.state);
+
+  if (assessment === null) {
+    throw new Error('Ineligible technical observation reached the human report projection.');
+  }
+
   return {
     displayId,
     anchor: `item-${displayId.toLowerCase()}`,
     title: cleanFindingTitle(finding.title),
+    itemType,
+    evidenceSource,
+    assessment,
     severity: finding.severity,
-    pages: uniquePages(
-      finding.occurrences.map(occurrence =>
-        createPageReference(occurrence.pageTitle, occurrence.pageUrl)
-      )
-    ),
+    pages,
     observation: getRawObservation(finding),
+    whatHappened: getWhatHappened(finding, [], pages.length),
+    whyItMayMatter: getWhyItMayMatterForFinding(finding, []),
+    whatStillNeedsChecking: getWhatStillNeedsCheckingForFinding(finding, [], itemType),
+    whereThisCameFrom: getWhereThisCameFrom(evidenceSource, finding, pages.length),
     evidencePath: `evidence/${displayId}-${slugifyEvidenceName(finding.title)}-evidence.json`
   };
 }
@@ -600,21 +922,40 @@ function buildSecurityObservation(
       evidence.add(formatPassiveEvidence(item));
     }
   }
+  const pages = uniquePages(
+    observation.occurrences.map(occurrence =>
+      createPageReference(occurrence.pageTitle, occurrence.pageUrl)
+    )
+  );
+  const whyItMayMatter =
+    observation.posture === 'informational'
+      ? 'This information may help with configuration review, but it is not a security problem by itself.'
+      : observation.posture === 'defense-in-depth-gap'
+        ? 'This may reduce a defense-in-depth protection, although the observation alone does not establish a vulnerability.'
+        : 'This configuration may deserve security review, although the observation alone does not establish exploitability.';
 
   return {
     displayId,
     anchor: `security-${displayId.toLowerCase()}`,
     title: observation.title,
+    itemType: 'Security note',
+    evidenceSource: 'Seen in browser data',
+    assessment: 'Confirmed observation',
     severity: observation.severity,
     scope: getSecurityScope(observation, totalPages),
     description: observation.description,
+    whatHappened: observation.description,
+    whyItMayMatter,
+    whatStillNeedsChecking:
+      observation.remediation ??
+      'Review the observation in the context of the site’s intended security configuration.',
+    whereThisCameFrom:
+      pages.length === 1
+        ? 'Passive browser response data captured on the inspected page.'
+        : `Passive browser response data captured on ${pages.length} inspected pages.`,
     evidence: [...evidence],
     whatToCheck: observation.remediation,
-    pages: uniquePages(
-      observation.occurrences.map(occurrence =>
-        createPageReference(occurrence.pageTitle, occurrence.pageUrl)
-      )
-    ),
+    pages,
     evidencePath: `evidence/${displayId}-${slugifyEvidenceName(observation.title)}-evidence.txt`
   };
 }
@@ -663,19 +1004,21 @@ export function buildHumanReportPresentation(report: SiteAgentReport): HumanRepo
       displayId: finding.displayId,
       anchor: finding.anchor,
       title: finding.title,
-      type: 'Finding' as const,
+      type: finding.itemType,
+      evidenceSource: finding.evidenceSource,
       severity: finding.severity,
       pages: finding.pages,
-      status: finding.status
+      assessment: finding.assessment
     })),
     ...technicalObservations.map(observation => ({
       displayId: observation.displayId,
       anchor: observation.anchor,
       title: observation.title,
-      type: 'Technical' as const,
+      type: observation.itemType,
+      evidenceSource: observation.evidenceSource,
       severity: observation.severity,
       pages: observation.pages,
-      status: 'Technical observation'
+      assessment: observation.assessment
     }))
   ].sort((left, right) => Number(left.displayId) - Number(right.displayId));
   const inspectedPages = report.inspectedPages.map(page => {

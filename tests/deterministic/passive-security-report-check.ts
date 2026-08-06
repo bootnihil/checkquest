@@ -339,13 +339,13 @@ async function main(): Promise<void> {
     2
   );
 
-  assert.match(markdown, /## Security observations/);
+  assert.match(markdown, /## Security notes/);
 
   assert.match(markdown, /did not perform penetration testing or active vulnerability probing/);
 
   assert.match(
     markdown,
-    /\| \[S01\]\(#security-s01\) \| \[HSTS response header was not observed\]\(#security-s01\) \| Low \| 2 pages \|/
+    /\| \[S01\]\(#security-s01\) \| \[HSTS response header was not observed\]\(#security-s01\) \| Security note \| Seen in browser data \| Confirmed observation \| Low \| 2 pages \|/
   );
 
   assert.match(markdown, /### S01 — HSTS response header was not observed/);
@@ -355,9 +355,15 @@ async function main(): Promise<void> {
     /\[Security evidence file\]\(evidence\/S01-HSTS-RESPONSE-HEADER-WAS-NOT-OBSERVED-evidence\.txt\)/
   );
 
-  assert.match(markdown, /\*\*Low · Security observation · 2 pages\*\*/);
+  assert.match(
+    markdown,
+    /\*\*Security note · Seen in browser data · Confirmed observation · Low · 2 pages\*\*/
+  );
 
-  assert.match(markdown, /## Technical observations[\s\S]*\*\*High · Technical observation\*\*/);
+  assert.match(
+    markdown,
+    /## Technical notes[\s\S]*\*\*Technical note · Seen in browser data · Confirmed observation · High\*\*/
+  );
 
   assert.equal(markdown.includes('\n## injected heading'), false);
 

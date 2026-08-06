@@ -446,7 +446,7 @@ async function main(): Promise<void> {
 
   if (
     !markdown.includes(
-      '| [01](#item-01) | [Misspelled country name in selection list](#item-01) | Finding | Low | 3 pages | Needs review |'
+      '| [01](#item-01) | [Misspelled country name in selection list](#item-01) | Possible issue | Seen in browser data | Needs human review | Low | 3 pages |'
     )
   ) {
     throw new Error('Markdown at-a-glance table does not contain the human finding.');
@@ -464,9 +464,9 @@ async function main(): Promise<void> {
     throw new Error('Markdown finding does not use the clean human-facing title.');
   }
 
-  if (!markdown.includes('**Low · Needs review**')) {
+  if (!markdown.includes('**Possible issue · Seen in browser data · Needs human review · Low**')) {
     throw new Error(
-      'Markdown finding does not map the internal inconclusive state to Needs review.'
+      'Markdown finding does not expose independent type, evidence, assessment, and severity labels.'
     );
   }
 
@@ -519,8 +519,8 @@ async function main(): Promise<void> {
     throw new Error('Markdown page summary exposes an internal page-identity heuristic.');
   }
 
-  if (!markdown.includes('## Technical observations')) {
-    throw new Error('Markdown report does not contain the technical-observations section.');
+  if (!markdown.includes('## Technical notes')) {
+    throw new Error('Markdown report does not contain the technical-notes section.');
   }
 
   /*

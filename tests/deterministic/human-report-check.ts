@@ -565,9 +565,19 @@ function countOccurrences(value: string, needle: string): number {
   return value.split(needle).length - 1;
 }
 
+function getMarkdownItemBlock(markdown: string, title: string): string {
+  const headingIndex = markdown.indexOf(` — ${title}\n`);
+  const endIndex = markdown.indexOf('\n---', headingIndex);
+
+  assert.notEqual(headingIndex, -1, `Missing Markdown item heading for "${title}".`);
+  assert.notEqual(endIndex, -1, `Missing Markdown item terminator for "${title}".`);
+
+  return markdown.slice(headingIndex, endIndex);
+}
+
 function main(): void {
   assert.equal(getHumanFindingStatus('verified'), 'Confirmed issue');
-  assert.equal(getHumanFindingStatus('inconclusive'), 'Needs review');
+  assert.equal(getHumanFindingStatus('inconclusive'), 'Needs human review');
   assert.equal(getHumanFindingStatus('not-verified'), null);
 
   const report = createReport();
@@ -598,24 +608,161 @@ function main(): void {
   const groupingPresentation = buildHumanReportPresentation(groupingReport);
   const groupingAtAGlance = groupingMarkdown.slice(
     groupingMarkdown.indexOf('## At a glance'),
-    groupingMarkdown.indexOf('## Findings')
+    groupingMarkdown.indexOf('## Possible issues')
   );
   const groupingTechnicalSection = groupingMarkdown.slice(
-    groupingMarkdown.indexOf('## Technical observations'),
-    groupingMarkdown.indexOf('## Security observations')
+    groupingMarkdown.indexOf('## Technical notes'),
+    groupingMarkdown.indexOf('## Security notes')
   );
   const classificationReport = createClassificationReport();
   const classificationCanonicalBefore = JSON.stringify(classificationReport.findings);
   const classificationSecurityBefore = JSON.stringify(classificationReport.passiveSecurity);
   const classificationPresentation = buildHumanReportPresentation(classificationReport);
   const classificationMarkdown = renderHumanMarkdownReport(classificationReport);
+  const classificationPosterBlock = getMarkdownItemBlock(
+    classificationMarkdown,
+    'Failed resource request for poster image'
+  );
+  const classificationSvgBlock = getMarkdownItemBlock(
+    classificationMarkdown,
+    'Invalid SVG attribute value'
+  );
+  const classificationDnsBlock = getMarkdownItemBlock(
+    classificationMarkdown,
+    'Cross-origin DNS resolution failure observed'
+  );
+  const classificationWithoutPresentation = structuredClone(classificationReport);
+  classificationWithoutPresentation.inspectedPages[0]!.presentationEvidence = [];
+  const classificationWithoutPresentationModel = buildHumanReportPresentation(
+    classificationWithoutPresentation
+  );
+  const classificationWithPosterPresentation = structuredClone(classificationReport);
+  const posterOccurrence = classificationWithPosterPresentation.findings[1]!.occurrences[0]!;
+  classificationWithPosterPresentation.inspectedPages[0]!.presentationEvidence!.push({
+    candidateReference: 'candidate-52',
+    pageNumber: 1,
+    pageUrl: posterOccurrence.pageUrl,
+    target: {
+      kind: 'visible-text',
+      elementKind: 'heading',
+      text: 'Poster presentation evidence'
+    },
+    screenshotPaths: ['agent-results/classification-check/evidence/poster.png'],
+    totalTargetCount: 1,
+    shownTargetCount: 1
+  });
+  const posterWithMultipleEvidenceSources = buildHumanReportPresentation(
+    classificationWithPosterPresentation
+  ).detailedFindings.find(finding => finding.title === 'Failed resource request for poster image')!;
+  const classificationWithHigherPlaceholderSeverity = structuredClone(classificationReport);
+  classificationWithHigherPlaceholderSeverity.findings[0]!.severity = 'high';
+  const higherPlaceholderSeverityModel = buildHumanReportPresentation(
+    classificationWithHigherPlaceholderSeverity
+  );
+  const deterministicRuleOnly = createFinding(75, {
+    category: 'content',
+    title: 'Deterministic rule only'
+  });
+  deterministicRuleOnly.occurrences[0]!.evidence = [
+    {
+      evidenceReference: 'evidence-75-rule',
+      source: 'deterministic-rule',
+      kind: 'rule-observation',
+      relation: 'inconclusive',
+      verificationCapable: false,
+      summary: 'An inspected-page rule observed this condition.',
+      rawSource: {
+        type: 'page-finding',
+        value: {
+          code: 'SYNTHETIC_RULE',
+          evidence: 'An inspected-page rule observed this condition.'
+        }
+      }
+    }
+  ];
+  const deterministicRuleWithModel = createFinding(76, {
+    category: 'content',
+    title: 'Deterministic rule plus model evidence'
+  });
+  deterministicRuleWithModel.occurrences[0]!.evidence.push({
+    evidenceReference: 'evidence-76-rule',
+    source: 'deterministic-rule',
+    kind: 'rule-observation',
+    relation: 'inconclusive',
+    verificationCapable: false,
+    summary: 'A linked deterministic observation accompanies the model evidence.'
+  });
+  const browserBackedAccessibility = createFinding(77, {
+    category: 'accessibility',
+    title: 'Accessible name conflicts with visible label'
+  });
+  browserBackedAccessibility.occurrences[0]!.evidence[0]!.rawSource = {
+    type: 'exploratory-qa-finding',
+    value: exploratoryQaFindingSchema.parse({
+      knownFindingReference: null,
+      relatedRuleCode: null,
+      category: 'accessibility',
+      severity: 'low',
+      confidence: 'high',
+      title: 'Accessible name conflicts with visible label',
+      evidence: 'The visible label is "Product", while the accessible name is "Delete account".',
+      reasoning: 'The browser-backed values conflict.',
+      suggestedCheck: 'Review the visible and accessible labels.',
+      evidenceTarget: null,
+      presentationTarget: null,
+      structuredIdentity: {
+        mechanism: 'unexpected-value',
+        observedValue: 'Delete account',
+        source: 'accessible-name',
+        subject: {
+          kind: 'semantic-control',
+          controlType: 'disclosure',
+          controlId: 'product-disclosure',
+          componentId: 'product-panel',
+          locator: null
+        }
+      },
+      accessibilityDefectBasis: {
+        expectation: 'The visible and accessible labels should identify the same control.',
+        conflict: 'The visible and accessible labels differ.',
+        supportingEvidence: [
+          {
+            controlType: 'disclosure',
+            controlId: 'product-disclosure',
+            property: 'visible-text',
+            value: 'Product'
+          },
+          {
+            controlType: 'disclosure',
+            controlId: 'product-disclosure',
+            property: 'accessible-name',
+            value: 'Delete account'
+          }
+        ]
+      },
+      technicalEvidenceReferences: null,
+      technicalIdentity: null
+    })
+  };
+  const modelEvidenceOnly = createFinding(78, {
+    category: 'content',
+    title: 'Model evidence only'
+  });
+  const evidenceSourceModel = buildHumanReportPresentation(
+    createReportWithFindings(classificationReport, [
+      deterministicRuleOnly,
+      deterministicRuleWithModel,
+      browserBackedAccessibility,
+      modelEvidenceOnly
+    ])
+  );
   const classificationFindingSection = classificationMarkdown.slice(
-    classificationMarkdown.indexOf('## Findings'),
-    classificationMarkdown.indexOf('## Technical observations')
+    classificationMarkdown.indexOf('## Possible issues'),
+    classificationMarkdown.indexOf('## Technical notes')
   );
   const classificationTechnicalSection = classificationMarkdown.slice(
-    classificationMarkdown.indexOf('## Technical observations'),
-    classificationMarkdown.indexOf('## Security observations')
+    classificationMarkdown.indexOf('## Technical notes'),
+    classificationMarkdown.indexOf('## Security notes')
   );
   const failedImage = createFinding(61, {
     category: 'technical',
@@ -929,20 +1076,26 @@ function main(): void {
     '<a id="item-01"></a>',
     '### 01 — Placeholder content detected in link text',
     '',
-    '**Low · Needs review**  ',
+    '**Possible issue · Observed directly · Needs human review · Low**  ',
     '**Page:** [/templates](https://monday.com/templates)',
     '',
-    '**What I saw**',
+    '**What happened**',
     '',
-    "> The link text 'template_store.categories_list.ai.title' appears in the body content.",
+    'The text `template_store.categories_list.ai.title` appeared visibly in a link.',
     '',
-    '**Evidence**',
+    '**Why it may matter**',
+    '',
+    'If this visible text is unintended, it may confuse people using the page.',
+    '',
+    '**What still needs checking**',
+    '',
+    'Confirm whether this text is intended to appear for ordinary users.',
+    '',
+    '**Where this came from**',
+    '',
+    'Focused screenshot evidence captured on the inspected page.',
     '',
     '![Focused evidence for Placeholder content detected in link text](evidence/01-PLACEHOLDER-CONTENT-DETECTED-IN-LINK-TEXT-evidence-01.png)',
-    '',
-    '**Evidence status**',
-    '',
-    'CheckQuest did not gather enough evidence to confirm this finding.',
     '',
     '---'
   ].join('\n');
@@ -951,6 +1104,11 @@ function main(): void {
     placeholderBlock,
     expectedPlaceholderBlock,
     'The placeholder finding full Markdown item block must remain byte-for-byte stable.'
+  );
+  assert.equal(
+    buildHumanReportPresentation(placeholderReport).detailedFindings[0]?.whatHappened,
+    'The text `template_store.categories_list.ai.title` appeared visibly in a link.',
+    'Plain-language projection must retain the exact safe observed value.'
   );
   assert.equal(placeholderFinding.fingerprint, placeholderIdentityBefore);
   assert.equal(
@@ -1098,7 +1256,7 @@ function main(): void {
     'The human summary must retain the canonical technical-observation count.'
   );
   assert.equal(
-    countOccurrences(groupingAtAGlance, '| Technical |'),
+    countOccurrences(groupingAtAGlance, '| Technical note |'),
     7,
     'Every canonical technical observation must retain its own at-a-glance row.'
   );
@@ -1148,16 +1306,16 @@ function main(): void {
     classificationPresentation.atAGlance.find(
       item => item.title === 'Failed resource request for poster image'
     )?.type,
-    'Finding'
+    'Possible issue'
   );
   assert.equal(
     classificationPresentation.atAGlance.find(item => item.title === 'Invalid SVG attribute value')
       ?.type,
-    'Technical'
+    'Technical note'
   );
   assert.match(
     classificationFindingSection,
-    /### 01 — Failed resource request for poster image[\s\S]*Console error: Failed to load resource: the server responded with a status of 404/
+    /### 01 — Failed resource request for poster image[\s\S]*The browser reported an HTTP 404 response for the page resource “https:\/\/example\.com\/assets\/poster\.jpg”\./
   );
   assert.doesNotMatch(
     classificationFindingSection,
@@ -1262,6 +1420,155 @@ function main(): void {
     typeIndependencePresentation.detailedFindings.map(finding => finding.title),
     ['Failed resource request for poster image'],
     'The inconclusive poster asset failure must render in Findings.'
+  );
+  const projectedPlaceholder = classificationPresentation.detailedFindings.find(
+    finding => finding.title === 'Placeholder content detected in link text'
+  )!;
+  const projectedPoster = classificationPresentation.detailedFindings.find(
+    finding => finding.title === 'Failed resource request for poster image'
+  )!;
+  const projectedSvg = classificationPresentation.technicalObservations.find(
+    observation => observation.title === 'Invalid SVG attribute value'
+  )!;
+  const projectedVerifiedCors = typeIndependencePresentation.technicalObservations.find(
+    observation => observation.title === 'Verified CORS observation'
+  )!;
+  const projectedInconclusiveCors = classificationPresentation.technicalObservations.find(
+    observation => observation.title === 'Cross-origin resource access failure'
+  )!;
+  assert.deepEqual(
+    {
+      type: projectedPlaceholder.itemType,
+      evidence: projectedPlaceholder.evidenceSource,
+      assessment: projectedPlaceholder.assessment
+    },
+    {
+      type: 'Possible issue',
+      evidence: 'Observed directly',
+      assessment: 'Needs human review'
+    }
+  );
+  assert.deepEqual(
+    {
+      type: projectedPoster.itemType,
+      evidence: projectedPoster.evidenceSource,
+      assessment: projectedPoster.assessment
+    },
+    {
+      type: 'Possible issue',
+      evidence: 'Seen in browser data',
+      assessment: 'Needs human review'
+    }
+  );
+  assert.deepEqual(
+    {
+      type: posterWithMultipleEvidenceSources.itemType,
+      evidence: posterWithMultipleEvidenceSources.evidenceSource,
+      assessment: posterWithMultipleEvidenceSources.assessment
+    },
+    {
+      type: 'Possible issue',
+      evidence: 'Observed directly',
+      assessment: 'Needs human review'
+    },
+    'Successfully linked focused evidence must outrank retained browser and model evidence.'
+  );
+  assert.deepEqual(
+    {
+      type: projectedVerifiedCors.itemType,
+      evidence: projectedVerifiedCors.evidenceSource,
+      assessment: projectedVerifiedCors.assessment
+    },
+    {
+      type: 'Technical note',
+      evidence: 'Seen in browser data',
+      assessment: 'Confirmed observation'
+    }
+  );
+  assert.deepEqual(
+    {
+      type: projectedSvg.itemType,
+      evidence: projectedSvg.evidenceSource,
+      assessment: projectedSvg.assessment
+    },
+    {
+      type: 'Technical note',
+      evidence: 'Seen in browser data',
+      assessment: 'Needs human review'
+    }
+  );
+  assert.deepEqual(
+    {
+      type: projectedInconclusiveCors.itemType,
+      evidence: projectedInconclusiveCors.evidenceSource
+    },
+    {
+      type: projectedVerifiedCors.itemType,
+      evidence: projectedVerifiedCors.evidenceSource
+    },
+    'Verification must change assessment without changing type or evidence source.'
+  );
+  const placeholderWithoutPresentation =
+    classificationWithoutPresentationModel.detailedFindings.find(
+      finding => finding.title === 'Placeholder content detected in link text'
+    )!;
+  assert.deepEqual(
+    {
+      type: placeholderWithoutPresentation.itemType,
+      assessment: placeholderWithoutPresentation.assessment
+    },
+    {
+      type: projectedPlaceholder.itemType,
+      assessment: projectedPlaceholder.assessment
+    },
+    'Evidence source changes must not change type or assessment.'
+  );
+  assert.equal(placeholderWithoutPresentation.evidenceSource, 'AI analysis only');
+  assert.deepEqual(
+    evidenceSourceModel.detailedFindings.map(finding => [finding.title, finding.evidenceSource]),
+    [
+      ['Deterministic rule only', 'Seen in browser data'],
+      ['Deterministic rule plus model evidence', 'Seen in browser data'],
+      ['Accessible name conflicts with visible label', 'Seen in browser data'],
+      ['Model evidence only', 'AI analysis only']
+    ],
+    'Deterministic and admitted accessibility facts must remain distinct from model-only evidence.'
+  );
+  assert.equal(
+    projectedPlaceholder.evidenceSource,
+    'Observed directly',
+    'A successfully linked focused screenshot must retain evidence-source precedence.'
+  );
+  assert.equal(
+    projectedPoster.evidenceSource,
+    'Seen in browser data',
+    'A linked browser observation without a focused screenshot must remain browser-backed.'
+  );
+  assert.equal(
+    projectedSvg.evidenceSource,
+    'Seen in browser data',
+    'A technical identity validated against browser facts must remain browser-backed.'
+  );
+  assert.equal(
+    classificationPresentation.securityObservations[0]?.evidenceSource,
+    'Seen in browser data',
+    'The existing passive-security evidence label must remain browser-backed.'
+  );
+  const higherSeverityPlaceholder = higherPlaceholderSeverityModel.detailedFindings.find(
+    finding => finding.title === 'Placeholder content detected in link text'
+  )!;
+  assert.deepEqual(
+    {
+      type: higherSeverityPlaceholder.itemType,
+      evidence: higherSeverityPlaceholder.evidenceSource,
+      assessment: higherSeverityPlaceholder.assessment
+    },
+    {
+      type: projectedPlaceholder.itemType,
+      evidence: projectedPlaceholder.evidenceSource,
+      assessment: projectedPlaceholder.assessment
+    },
+    'Severity changes must not change type, evidence source, or assessment.'
   );
   assert.deepEqual(
     buildReconciledRunSummaryProjection(typeIndependenceReport),
@@ -1371,11 +1678,62 @@ function main(): void {
     stableTieOrder,
     'Repeated notable projections must be deterministic.'
   );
-  assert.match(classificationMarkdown, /## Security observations/);
+  assert.match(classificationMarkdown, /## Security notes/);
   assert.match(classificationMarkdown, /### S01 — HSTS response header was not observed/);
   assert.match(
+    classificationPosterBlock,
+    /Possible issue · Seen in browser data · Needs human review · Medium/
+  );
+  assert.match(
+    classificationPosterBlock,
+    /\*\*What happened\*\*[\s\S]*HTTP 404 response for the page resource “https:\/\/example\.com\/assets\/poster\.jpg”/
+  );
+  assert.match(
+    classificationPosterBlock,
+    /\*\*Why it may matter\*\*[\s\S]*no visible problem was captured/
+  );
+  assert.doesNotMatch(
+    classificationPosterBlock,
+    /image (?:was|is) visibly missing|visible image (?:failure|defect)|confirmed visible/i,
+    'Poster wording must not claim that the failed image was visibly missing.'
+  );
+  assert.match(
+    classificationSvgBlock,
+    /Technical note · Seen in browser data · Needs human review · Low/
+  );
+  assert.match(
+    classificationSvgBlock,
+    /\*\*What happened\*\*[\s\S]*&lt;svg&gt;[\s\S]*same observation appeared on 4 inspected pages/i
+  );
+  assert.match(
+    classificationSvgBlock,
+    /\*\*Why it may matter\*\*[\s\S]*practical impact is not clear from the evidence collected/
+  );
+  assert.doesNotMatch(
+    classificationSvgBlock,
+    /visible (?:SVG )?(?:defect|problem)|visibly broken|confirmed rendering/i,
+    'SVG wording must not upgrade a console message into a visible defect.'
+  );
+  assert.notEqual(
+    projectedSvg.whatHappened,
+    projectedSvg.whereThisCameFrom,
+    'What happened and Where this came from must communicate different facts.'
+  );
+  assert.match(
+    classificationDnsBlock,
+    /Technical note · Seen in browser data · Needs human review · Low/
+  );
+  assert.match(
+    classificationDnsBlock,
+    /DNS failure may reflect the test environment rather than the website/
+  );
+  assert.match(
+    classificationDnsBlock,
+    /Repeat the check from another environment before attributing the failure to the website/
+  );
+  assert.match(
     distinctTechnicalMarkdown,
-    /\| \[01\]\(#item-01\) \| \[Distinct technical title A\]\(#item-01\) \| Technical/
+    /\| \[01\]\(#item-01\) \| \[Distinct technical title A\]\(#item-01\) \| Technical note/
   );
   assert.match(distinctTechnicalMarkdown, /### 01 — Distinct technical title A/);
   assert.match(distinctTechnicalMarkdown, /### 02 — Distinct technical title B/);
@@ -1409,7 +1767,7 @@ function main(): void {
       technical: 0,
       provenance: true
     },
-    'An ungrounded model-only technical candidate remains an ordinary Needs review finding with explicit provenance.'
+    'An ungrounded model-only technical candidate remains a Possible issue needing human review.'
   );
   assert.equal(
     ungroundedTechnicalReport.findings[0]?.verification.state,
@@ -1425,11 +1783,11 @@ function main(): void {
   );
   assert.match(
     ungroundedTechnicalMarkdown,
-    /Low · Needs review[\s\S]*The model proposed “Browser network request definitely failed” as a technical candidate\. CheckQuest did not match it to browser, network, console, or runtime diagnostics\.[\s\S]*\*\*Evidence provenance\*\*[\s\S]*originated as a model candidate and was not matched to browser, network, console, or runtime diagnostics\./
+    /Possible issue · AI analysis only · Needs human review · Low[\s\S]*\*\*What happened\*\*[\s\S]*Concrete observation 41\.[\s\S]*\*\*Where this came from\*\*[\s\S]*AI analysis only; no matching browser or screenshot evidence was linked\./
   );
   assert.doesNotMatch(
     ungroundedTechnicalMarkdown,
-    /Structured technical evidence|Concrete observation 41/
+    /Structured technical evidence|The model proposed|CheckQuest did not match/
   );
   assert.doesNotMatch(
     ungroundedTechnicalMarkdown,
@@ -1438,7 +1796,7 @@ function main(): void {
   );
   assert.match(
     ungroundedTechnicalMarkdown,
-    /\| \[01\]\(#item-01\) \| \[Browser network request definitely failed\]\(#item-01\) \| Finding \| Low \| [^|]+ \| Needs review \|/
+    /\| \[01\]\(#item-01\) \| \[Browser network request definitely failed\]\(#item-01\) \| Possible issue \| AI analysis only \| Needs human review \| Low \| [^|]+ \|/
   );
   assert.match(
     ungroundedTechnicalMarkdown,
@@ -1457,7 +1815,7 @@ function main(): void {
   );
   assert.match(
     prefixedTechnicalMarkdown,
-    /\| \[01\]\(#item-01\) \| \[Invalid SVG attribute value\]\(#item-01\) \| Technical/
+    /\| \[01\]\(#item-01\) \| \[Invalid SVG attribute value\]\(#item-01\) \| Technical note \| Seen in browser data \| Needs human review/
   );
   assert.match(
     prefixedTechnicalMarkdown,
@@ -1477,8 +1835,8 @@ function main(): void {
   );
   assert.doesNotMatch(
     ungroundedTechnicalMarkdown.slice(
-      ungroundedTechnicalMarkdown.indexOf('## Technical observations'),
-      ungroundedTechnicalMarkdown.indexOf('## Security observations')
+      ungroundedTechnicalMarkdown.indexOf('## Technical notes'),
+      ungroundedTechnicalMarkdown.indexOf('## Security notes')
     ),
     /Browser network request definitely failed/
   );
@@ -1571,68 +1929,59 @@ function main(): void {
     1,
     'The compact report vocabulary must render exactly once.'
   );
-  assert.match(
-    markdown,
-    /\*\*Finding:\*\* a potential product issue worth human attention\. Item type is separate from evidence status\./
-  );
-  assert.match(
-    markdown,
-    /\*\*Technical observation:\*\* browser, network, or runtime diagnostic context; an item type, not a confidence level or automatic product defect\./
-  );
-  assert.match(
-    markdown,
-    /\*\*Security observation:\*\* passive security or configuration information; not automatically a vulnerability\./
-  );
-  assert.match(
-    markdown,
-    /\*\*Confirmed issue \/ Verified:\*\* sufficient evidence under CheckQuest’s verification rules\./
-  );
-  assert.match(
-    markdown,
-    /\*\*Needs review \/ Inconclusive:\*\* relevant observation, but insufficient evidence to prove the full claim\./
+  for (const label of [
+    'Possible issue',
+    'Technical note',
+    'Security note',
+    'Observed directly',
+    'Seen in browser data',
+    'AI analysis only',
+    'Confirmed issue',
+    'Confirmed observation',
+    'Needs human review'
+  ]) {
+    assert.match(markdown, new RegExp(`\\*\\*${label}:\\*\\*`));
+  }
+  const humanItemCount =
+    humanPresentation.detailedFindings.length +
+    humanPresentation.additionalFindings.length +
+    humanPresentation.technicalObservations.length +
+    humanPresentation.securityObservations.length;
+  const possibleIssueCount =
+    humanPresentation.confirmedIssueCount + humanPresentation.needsReviewCount;
+  assert.equal(
+    humanPresentation.detailedFindings.length,
+    Math.min(humanReportDetailedFindingLimit, possibleIssueCount)
   );
   assert.equal(
-    countOccurrences(
-      markdown,
-      'CheckQuest did not gather enough evidence to confirm this finding.'
-    ),
-    19,
-    'Each unconfirmed finding must communicate that CheckQuest could not confirm the claim.'
+    humanPresentation.additionalFindings.length,
+    Math.max(0, possibleIssueCount - humanReportDetailedFindingLimit)
   );
-  assert.equal(
-    countOccurrences(
-      markdown,
-      'CheckQuest confirmed some occurrences of this finding, but not all.'
-    ),
-    1,
-    'A mixed-evidence finding must communicate partial occurrence confirmation once.'
-  );
-  assert.equal(
-    countOccurrences(markdown, '**Evidence status**'),
-    20,
-    'Evidence status must be scoped to unconfirmed or partially confirmed human-facing findings.'
-  );
+  for (const heading of [
+    '**What happened**',
+    '**Why it may matter**',
+    '**What still needs checking**',
+    '**Where this came from**'
+  ]) {
+    assert.equal(
+      countOccurrences(markdown, heading),
+      humanItemCount,
+      `Every projected human item must render ${heading}.`
+    );
+  }
+  assert.doesNotMatch(markdown, /\*\*(?:What I saw|Evidence status|Evidence provenance)\*\*/);
   assert.doesNotMatch(
     markdown,
-    /\bno evidence\b/i,
-    'The report must not collapse non-verifying observation or context into a claim that no evidence exists.'
-  );
-  assert.doesNotMatch(
-    markdown,
-    /verification-capable/i,
-    'Human Markdown must not expose internal evidence-model terminology.'
+    /verification-capable|verification state|canonical|fingerprint|projection/i,
+    'Prominent human Markdown must not expose internal report-pipeline terminology.'
   );
   assert.match(
     markdown,
-    /### 01 — Finding 1[\s\S]*\*\*What I saw\*\*[\s\S]*Concrete observation 1\.[\s\S]*\*\*Evidence\*\*[\s\S]*01-FINDING-1-evidence-01\.png[\s\S]*\*\*Evidence status\*\*[\s\S]*CheckQuest did not gather enough evidence to confirm this finding\./
-  );
-  assert.match(
-    mixedFindingSection,
-    /\*\*Evidence status\*\*[\s\S]*CheckQuest confirmed some occurrences of this finding, but not all\./
+    /### 01 — Finding 1[\s\S]*Possible issue · Observed directly · Needs human review · Medium[\s\S]*\*\*What happened\*\*[\s\S]*The text `Example` appeared visibly in a heading\.[\s\S]*01-FINDING-1-evidence-01\.png/
   );
   assert.match(
     markdown,
-    /### 02 — Finding 2[\s\S]*\*\*What I saw\*\*[\s\S]*Concrete observation 2\.[\s\S]*\*\*Evidence\*\*[\s\S]*02-FINDING-2-evidence-01\.png/
+    /### 02 — Finding 2[\s\S]*Possible issue · Observed directly · Confirmed issue · Low[\s\S]*02-FINDING-2-evidence-01\.png/
   );
   assert.match(
     mixedFindingSection,
@@ -1645,19 +1994,8 @@ function main(): void {
     'The mixed fixture must contain one confirmed and one unconfirmed occurrence.'
   );
   assert.match(fullyConfirmedFindingSection, /02-FINDING-2-evidence-01\.png/);
-  assert.doesNotMatch(
-    fullyConfirmedFindingSection,
-    /\*\*Evidence status\*\*/,
-    'A fully confirmed finding must keep its evidence without redundant status boilerplate.'
-  );
-  assert.match(markdown, /## Security observations[\s\S]*HSTS response header was not observed/);
-  assert.doesNotMatch(
-    markdown.slice(markdown.indexOf('## Technical observations')),
-    /\*\*Evidence status\*\*/,
-    'Finding-specific evidence status must not be added to technical or security observations.'
-  );
-  assert.match(markdown, /## Additional findings/);
-  assert.equal(countOccurrences(markdown, '**What I saw**'), humanReportDetailedFindingLimit);
+  assert.match(markdown, /## Security notes[\s\S]*HSTS response header was not observed/);
+  assert.match(markdown, /## Additional possible issues/);
 
   for (let index = 1; index <= 20; index += 1) {
     assert.match(markdown, new RegExp(`Finding ${index}(?:\\D|$)`));
@@ -1665,7 +2003,7 @@ function main(): void {
 
   assert.match(markdown, /4 of 7 observed instances are shown\./);
   assert.match(markdown, /\]\(evidence\/01-FINDING-1-evidence-01\.png\)/);
-  assert.match(markdown, /## Technical observations[\s\S]*Third-party telemetry request failed/);
+  assert.match(markdown, /## Technical notes[\s\S]*Third-party telemetry request failed/);
   assert.doesNotMatch(markdown, /Disproved candidate/);
   assert.doesNotMatch(markdown, /C:\\private/);
   assert.doesNotMatch(
@@ -1679,11 +2017,11 @@ function main(): void {
   assert.doesNotMatch(markdown, /Reached the configured page limit/);
   assert.match(
     markdown,
-    /\| # \| Finding \/ observation \| Type \| Severity \| Page\(s\) \| Status \|/
+    /\| # \| Item \| Type \| Evidence \| Assessment \| Severity \| Page\(s\) \|/
   );
   assert.match(
     markdown,
-    /\| \[21\]\(#item-21\) \| \[Third-party telemetry request failed\]\(#item-21\) \| Technical/
+    /\| \[21\]\(#item-21\) \| \[Third-party telemetry request failed\]\(#item-21\) \| Technical note \| Seen in browser data \| Needs human review \| Low \|/
   );
   assert.match(markdown, /### 01 — Finding 1/);
   assert.match(
@@ -1697,8 +2035,9 @@ function main(): void {
   assert.doesNotMatch(markdown, /Verification:|Derivation:|Occurrence:/);
   assert.match(
     markdown,
-    /Full machine-readable evidence, diagnostics, verification states, and execution details are available in `report\.json`\./
+    /Full machine-readable evidence, diagnostics, assessments, and execution details are available in `report\.json`\./
   );
+  assert.doesNotMatch(markdown, /could be real, could be nothing/i);
 
   const groups = groupFocusedEvidenceTargets(
     [
