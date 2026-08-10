@@ -8,6 +8,7 @@ const TECHNICAL = 'blocked-by-technical-evidence-contract';
 const SECURITY = 'blocked-by-security-evidence-contract';
 const OTHER = 'blocked-by-other-named-machine-contract';
 const SAFE = 'safe-no-current-contract-reference';
+const FOCUSED_DUPLICATE = 'focused-screenshot duplicate';
 
 function key(filePath) {
   const absolute = resolve(filePath);
@@ -120,9 +121,7 @@ export function analyze(input) {
     applicableReportJsonReferenceCount: 0,
     technicalContractReferenceCount: 0,
     securityContractReferenceCount: 0,
-    otherNamedContractReferenceCount: 0,
-    classification: 'remove',
-    deletionSafety: []
+    otherNamedContractReferenceCount: 0
   }));
   const byPath = new Map(
     artifacts.map((artifact, index) => [key(input.evidenceFiles[index].absolutePath), artifact])
@@ -171,8 +170,25 @@ export function analyze(input) {
     const artifact = byPath.get(key(target));
     if (artifact !== undefined) artifact.applicableReportJsonReferenceCount += 1;
   }
-  for (const artifact of artifacts) {
+  for (const artifact of artifacts)
     artifact.classification = artifact.renderedItemReferenceCount > 0 ? 'retain' : 'remove';
+  const retainedHashes = new Set(
+    artifacts.filter(item => item.classification === 'retain').map(item => item.sha256)
+  );
+  for (const artifact of artifacts) {
+    artifact.artifactType = /\.(?:png|jpe?g|webp)$/i.test(artifact.path) ? 'screenshot' : 'other';
+    if (artifact.technicalContractReferenceCount > 0)
+      artifact.artifactType = 'technical-evidence-json';
+    else if (artifact.securityContractReferenceCount > 0)
+      artifact.artifactType = 'security-evidence-text';
+    const focusedDuplicate =
+      artifact.classification === 'remove' &&
+      artifact.artifactType === 'screenshot' &&
+      artifact.applicableReportJsonReferenceCount > 0 &&
+      retainedHashes.has(artifact.sha256);
+    artifact.hygieneClassification = 'unrelated orphan';
+    if (artifact.classification === 'retain') artifact.hygieneClassification = 'none';
+    else if (focusedDuplicate) artifact.hygieneClassification = FOCUSED_DUPLICATE;
     const blocks = [];
     if (artifact.documentMarkdownReferenceCount > 0) blocks.push(MARKDOWN);
     if (artifact.applicableReportJsonReferenceCount > 0) blocks.push(REPORT_JSON);
@@ -183,6 +199,7 @@ export function analyze(input) {
   }
   artifacts.sort((left, right) => left.path.toLowerCase().localeCompare(right.path.toLowerCase()));
   const total = field => artifacts.reduce((sum, artifact) => sum + artifact[field], 0);
+  const count = (field, value) => artifacts.filter(artifact => artifact[field] === value).length;
   return {
     artifacts,
     errors: errors.sort(),
@@ -194,8 +211,10 @@ export function analyze(input) {
       technicalContractReferences: total('technicalContractReferenceCount'),
       securityContractReferences: total('securityContractReferenceCount'),
       otherContractReferences: total('otherNamedContractReferenceCount'),
-      retain: artifacts.filter(artifact => artifact.classification === 'retain').length,
-      removeCandidates: artifacts.filter(artifact => artifact.classification === 'remove').length
+      retain: count('classification', 'retain'),
+      removeCandidates: count('classification', 'remove'),
+      focusedScreenshotDuplicateFindings: count('hygieneClassification', FOCUSED_DUPLICATE),
+      unrelatedHygieneFindings: count('hygieneClassification', 'unrelated orphan')
     }
   };
 }
@@ -229,8 +248,13 @@ export function runPackageCheck(markdownPath, jsonPath, evidencePath) {
     repositoryRoot: process.cwd()
   });
   const serialized = `${JSON.stringify(result, null, 2)}\n`;
+  const totals = result.totals;
   console.log(`INDEPENDENT_RESULT_SHA256=${hash(serialized)}`);
   console.log(serialized.trimEnd());
-  console.log(`HYGIENE_FINDINGS=${result.totals.removeCandidates}`);
+  console.log(`HYGIENE_FINDINGS=${totals.removeCandidates}`);
+  console.log(`INTEGRITY_ERRORS=${result.errors.length}`);
+  console.log(`FOCUSED_SCREENSHOT_DUPLICATE_FINDINGS=${totals.focusedScreenshotDuplicateFindings}`);
+  console.log(`TOTAL_HYGIENE_FINDINGS=${totals.removeCandidates}`);
+  console.log(`UNRELATED_HYGIENE_FINDINGS=${totals.unrelatedHygieneFindings}`);
   if (result.errors.length > 0) process.exitCode = 1;
 }

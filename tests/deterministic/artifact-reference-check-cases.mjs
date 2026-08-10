@@ -13,11 +13,14 @@ function fixture(markdown, files, jsonPaths = []) {
   const repositoryRoot = resolve('synthetic-repository');
   const packageRoot = join(repositoryRoot, 'report-package');
   const evidenceRoot = join(packageRoot, 'evidence');
-  const evidenceFiles = files.map(relativePath => ({
-    absolutePath: join(evidenceRoot, relativePath),
-    bytes: Buffer.from(relativePath),
-    relativePath
-  }));
+  const evidenceFiles = files.map(file => {
+    const [relativePath, contents] = Array.isArray(file) ? file : [file, file];
+    return {
+      absolutePath: join(evidenceRoot, relativePath),
+      bytes: Buffer.from(contents),
+      relativePath
+    };
+  });
   const existing = new Set(evidenceFiles.map(file => resolve(file.absolutePath).toLowerCase()));
   return analyze({
     evidenceFiles,
@@ -56,7 +59,9 @@ function runSyntheticChecks() {
   value = fixture('', ['orphan.png']).artifacts[0];
   pass(
     'fully unreferenced artifact is safe',
-    value.deletionSafety.length === 1 && value.deletionSafety[0] === SAFE
+    value.deletionSafety.length === 1 &&
+      value.deletionSafety[0] === SAFE &&
+      value.hygieneClassification === 'unrelated orphan'
   );
   pass(
     'rendered missing Markdown artifact fails integrity',
@@ -111,6 +116,18 @@ function runSyntheticChecks() {
     'unrendered security contract blocks deletion',
     value.renderedItemReferenceCount === 0 && value.deletionSafety.includes(SECURITY)
   );
+  value = fixture(
+    `${item}![proof](evidence/copy.png)`,
+    [
+      ['authoritative.png', 'same screenshot'],
+      ['copy.png', 'same screenshot']
+    ],
+    ['evidence/authoritative.png']
+  ).artifacts.find(artifact => artifact.path === 'evidence/authoritative.png');
+  pass(
+    'focused screenshot duplicate is classified distinctly',
+    value.hygieneClassification === 'focused-screenshot duplicate'
+  );
   pass(
     'external URL is not a local artifact',
     fixture('[external](https://example.com/file.png)', []).errors.length === 0
@@ -123,7 +140,7 @@ function runSyntheticChecks() {
     'non-item escaping reference fails integrity',
     hasError(fixture('[escape](../outside.txt)', []), /escapes the package/)
   );
-  console.log('All 15 artifact-reference synthetic checks passed.');
+  console.log('All 16 artifact-reference synthetic checks passed.');
 }
 
 const arguments_ = process.argv.slice(2);

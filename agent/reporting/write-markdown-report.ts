@@ -1,4 +1,4 @@
-import { copyFile, mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import {
@@ -467,17 +467,6 @@ export async function writeMarkdownReport(report: SiteAgentReport): Promise<Writ
   await mkdir(evidenceDirectoryPath, {
     recursive: true
   });
-
-  for (const finding of presentation.atAGlance) {
-    const detailedFinding = [
-      ...presentation.detailedFindings,
-      ...presentation.additionalFindings
-    ].find(item => item.displayId === finding.displayId);
-
-    for (const evidence of detailedFinding?.focusedEvidence ?? []) {
-      await copyFile(evidence.sourcePath, join(directoryPath, evidence.relativePath));
-    }
-  }
 
   for (const observation of presentation.technicalObservations) {
     await writeFile(

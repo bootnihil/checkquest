@@ -1,4 +1,4 @@
-import { basename } from 'node:path';
+import { isAbsolute, relative, resolve, sep } from 'node:path';
 import {
   accessibilityDefectBasisSchema,
   findingStructuredIdentitySchema,
@@ -39,7 +39,6 @@ export type HumanFindingStatus = Extract<HumanAssessment, 'Confirmed issue' | 'N
 export type HumanFindingConfirmationCoverage = 'none' | 'partial' | 'all';
 
 export interface HumanFocusedEvidence {
-  sourcePath: string;
   relativePath: string;
 }
 
@@ -349,6 +348,23 @@ function slugifyEvidenceName(title: string): string {
   );
 }
 
+function getFocusedEvidenceRelativePath(report: SiteAgentReport, screenshotPath: string): string {
+  const reportDirectory = resolve('agent-results', report.runId);
+  const evidenceDirectory = resolve(reportDirectory, 'evidence');
+  const evidenceRelativePath = relative(evidenceDirectory, resolve(screenshotPath));
+
+  if (
+    evidenceRelativePath.length === 0 ||
+    evidenceRelativePath === '..' ||
+    evidenceRelativePath.startsWith(`..${sep}`) ||
+    isAbsolute(evidenceRelativePath)
+  ) {
+    throw new Error('Focused screenshot does not belong to the current report evidence directory.');
+  }
+
+  return `evidence/${evidenceRelativePath.split(sep).join('/')}`;
+}
+
 function getPresentationEvidenceForFinding(
   report: SiteAgentReport,
   finding: UnifiedFinding
@@ -655,15 +671,8 @@ function buildHumanFinding(
     );
 
     for (const screenshotPath of selectedPaths) {
-      const index = focusedEvidence.length;
-
       focusedEvidence.push({
-        sourcePath: screenshotPath,
-        relativePath: `evidence/${displayId}-${slugifyEvidenceName(
-          finding.title
-        )}-evidence-${String(index + 1).padStart(2, '0')}${
-          basename(screenshotPath).toLowerCase().endsWith('.jpg') ? '.jpg' : '.png'
-        }`
+        relativePath: getFocusedEvidenceRelativePath(report, screenshotPath)
       });
     }
   }

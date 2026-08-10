@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
 
 import {
   calculateFocusedEvidenceClip,
@@ -36,7 +38,11 @@ import {
   createHumanReportUrlContext,
   createHumanReportUrlPresentation
 } from '../../agent/reporting/human-report-url';
-import { renderHumanMarkdownReport } from '../../agent/reporting/write-markdown-report';
+import {
+  renderHumanMarkdownReport,
+  writeMarkdownReport
+} from '../../agent/reporting/write-markdown-report';
+import { writeJsonReport } from '../../agent/reporting/write-json-report';
 
 function createFinding(
   index: number,
@@ -450,6 +456,7 @@ function createTechnicalGroupingReport(): SiteAgentReport {
 
 function createClassificationReport(): SiteAgentReport {
   const report = createReport();
+  report.runId = 'classification-check';
   const placeholder = createFinding(51, {
     category: 'content',
     severity: 'low',
@@ -589,7 +596,7 @@ function getMarkdownItemBlock(markdown: string, title: string): string {
   return markdown.slice(headingIndex, endIndex);
 }
 
-function main(): void {
+async function main(): Promise<void> {
   assert.equal(getHumanFindingStatus('verified'), 'Confirmed issue');
   assert.equal(getHumanFindingStatus('inconclusive'), 'Needs human review');
   assert.equal(getHumanFindingStatus('not-verified'), null);
@@ -597,6 +604,14 @@ function main(): void {
   const report = createReport();
   const canonicalBefore = JSON.stringify(report);
   const markdown = renderHumanMarkdownReport(report);
+  const unownedEvidenceReport = structuredClone(report);
+  unownedEvidenceReport.inspectedPages[0]!.presentationEvidence![0]!.screenshotPaths[0] =
+    'agent-results/other-run/evidence/focused-1.png';
+  assert.throws(
+    () => renderHumanMarkdownReport(unownedEvidenceReport),
+    /Focused screenshot does not belong to the current report evidence directory/,
+    'Focused evidence must fail closed instead of copying or linking a screenshot owned by another run.'
+  );
   const mixedFindingSection = markdown.slice(
     markdown.indexOf('### 02 — Finding 2'),
     markdown.indexOf('### 03 — Finding 3')
@@ -1034,6 +1049,7 @@ function main(): void {
   const plainTechnicalPresentation = buildHumanReportPresentation(plainTechnicalReport);
   const prefixedTechnicalMarkdown = renderHumanMarkdownReport(prefixedTechnicalReport);
   const placeholderReport = createReport();
+  placeholderReport.runId = 'placeholder-check';
   const placeholderFinding = createFinding(42, {
     category: 'content',
     title: 'Placeholder content detected in link text'
@@ -1111,7 +1127,7 @@ function main(): void {
     '',
     'Focused screenshot evidence captured on the inspected page.',
     '',
-    '![Focused evidence for Placeholder content detected in link text](evidence/01-PLACEHOLDER-CONTENT-DETECTED-IN-LINK-TEXT-evidence-01.png)',
+    '![Focused evidence for Placeholder content detected in link text](evidence/placeholder.png)',
     '',
     '[Back to summary](#at-a-glance)',
     '',
@@ -1142,14 +1158,14 @@ function main(): void {
       pageUrl: 'https://example.com/#/home',
       pageTitle: 'Home route',
       findingTitle: 'Home route candidate',
-      screenshotPath: 'agent-results/exact-home.png'
+      screenshotPath: 'agent-results/human-report-check/evidence/exact-home.png'
     },
     {
       pageNumber: 2,
       pageUrl: 'https://example.com/#/settings',
       pageTitle: 'Settings route',
       findingTitle: 'Settings route candidate',
-      screenshotPath: 'agent-results/exact-settings.png'
+      screenshotPath: 'agent-results/human-report-check/evidence/exact-settings.png'
     }
   ] as const;
 
@@ -1238,7 +1254,7 @@ function main(): void {
       finding =>
         [
           finding.pages[0]!.url,
-          finding.focusedEvidence.map(evidence => evidence.sourcePath)
+          finding.focusedEvidence.map(evidence => evidence.relativePath)
         ] as const
     )
   );
@@ -2203,7 +2219,7 @@ function main(): void {
   for (const fixture of collisionFixtures) {
     assert.deepEqual(
       collisionEvidenceByUrl.get(fixture.pageUrl),
-      [fixture.screenshotPath],
+      [`evidence/${fixture.screenshotPath.split('/').at(-1)}`],
       'Each hash-route screenshot must attach only through its production page-number and page-local candidate-reference pair.'
     );
 
@@ -2317,11 +2333,11 @@ function main(): void {
   );
   assert.match(
     markdown,
-    /### 01 — Finding 1[\s\S]*Possible issue · Observed directly · Needs human review · Medium[\s\S]*\*\*What happened\*\*[\s\S]*The text `Example` appeared visibly in a heading\.[\s\S]*01-FINDING-1-evidence-01\.png/
+    /### 01 — Finding 1[\s\S]*Possible issue · Observed directly · Needs human review · Medium[\s\S]*\*\*What happened\*\*[\s\S]*The text `Example` appeared visibly in a heading\.[\s\S]*focused-1\.png/
   );
   assert.match(
     markdown,
-    /### 02 — Finding 2[\s\S]*Possible issue · Observed directly · Confirmed issue · Low[\s\S]*02-FINDING-2-evidence-01\.png/
+    /### 02 — Finding 2[\s\S]*Possible issue · Observed directly · Confirmed issue · Low[\s\S]*focused-confirmed\.png/
   );
   assert.match(
     mixedFindingSection,
@@ -2333,7 +2349,7 @@ function main(): void {
     'partial',
     'The mixed fixture must contain one confirmed and one unconfirmed occurrence.'
   );
-  assert.match(fullyConfirmedFindingSection, /02-FINDING-2-evidence-01\.png/);
+  assert.match(fullyConfirmedFindingSection, /focused-confirmed\.png/);
   assert.match(markdown, /## Security notes[\s\S]*HSTS response header was not observed/);
   assert.match(markdown, /## Additional possible issues/);
 
@@ -2342,7 +2358,7 @@ function main(): void {
   }
 
   assert.match(markdown, /4 of 7 observed instances are shown\./);
-  assert.match(markdown, /\]\(evidence\/01-FINDING-1-evidence-01\.png\)/);
+  assert.match(markdown, /\]\(evidence\/focused-1\.png\)/);
   assert.match(markdown, /## Technical notes[\s\S]*Third-party telemetry request failed/);
   assert.doesNotMatch(markdown, /Disproved candidate/);
   assert.doesNotMatch(markdown, /C:\\private/);
@@ -2431,7 +2447,55 @@ function main(): void {
     }
   );
 
+  const packageRoot = resolve('agent-results', report.runId);
+  const evidenceRoot = resolve(packageRoot, 'evidence');
+  const packageReport = structuredClone(report);
+  const screenshotPaths = report.inspectedPages.flatMap(page =>
+    (page.presentationEvidence ?? []).flatMap(evidence => evidence.screenshotPaths)
+  );
+  const genericScreenshotPath = `agent-results/${report.runId}/evidence/full-page.png`;
+
+  for (const finding of packageReport.findings) {
+    for (const occurrence of finding.occurrences) {
+      if (occurrence.screenshotReferences.length > 0) {
+        occurrence.screenshotReferences = [genericScreenshotPath];
+      }
+    }
+  }
+
+  await rm(packageRoot, { recursive: true, force: true });
+  await mkdir(evidenceRoot, { recursive: true });
+  for (const [index, screenshotPath] of screenshotPaths.entries()) {
+    await writeFile(screenshotPath, `authoritative focused screenshot ${index + 1}\n`);
+  }
+  await writeFile(genericScreenshotPath, 'unrelated generic page screenshot\n');
+  await writeJsonReport(packageReport);
+  await writeMarkdownReport(packageReport);
+
+  const freshMarkdown = await readFile(resolve(packageRoot, 'report.md'), 'utf8');
+  const freshJson = JSON.parse(
+    await readFile(resolve(packageRoot, 'report.json'), 'utf8')
+  ) as SiteAgentReport;
+  const evidenceFiles = await readdir(evidenceRoot);
+  const physicalScreenshots = evidenceFiles.filter(file => /\.(?:png|jpe?g|webp)$/i.test(file));
+
+  assert.equal(physicalScreenshots.length, screenshotPaths.length + 1);
+  assert.doesNotMatch(
+    physicalScreenshots.join('\n'),
+    /^\d{2}-.*-evidence-\d{2}\.(?:png|jpe?g)$/im,
+    'Writing the human report must not create a renamed focused screenshot copy.'
+  );
+  assert.ok(freshMarkdown.includes('](evidence/focused-1.png)'));
+  assert.equal(
+    resolve(freshJson.inspectedPages[0]!.presentationEvidence![0]!.screenshotPaths[0]!),
+    resolve(packageRoot, 'evidence/focused-1.png'),
+    'The canonical JSON path and Markdown reference must resolve to the same physical screenshot.'
+  );
+
   console.log('Human report semantics check passed.');
 }
 
-main();
+main().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});
