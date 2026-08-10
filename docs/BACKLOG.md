@@ -57,7 +57,7 @@ uses validated structured identity, preserves conservative verification,
 captures claim-appropriate evidence, derives GUI/report counts from one shared
 projection, and gives human report items stable run-scoped IDs and navigation.
 
-### Report readability and severity-policy status
+## Report readability and severity-policy status
 
 The G2 human-report trustworthiness and presentation remediation is implemented.
 Phase 5B.1, the bounded severity-policy audit/design pass, is complete. Phase
