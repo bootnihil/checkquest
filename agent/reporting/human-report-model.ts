@@ -14,6 +14,11 @@ import type {
 import type { FindingPresentationEvidence } from '../inspection/inspected-page-result';
 import type { SiteAgentReport } from './report-types';
 import {
+  createHumanReportUrlContext,
+  createHumanReportUrlPresentation,
+  type HumanReportUrlContext
+} from './human-report-url';
+import {
   buildReconciledRunSummaryProjection,
   getRuntimeTechnicalIdentity,
   hasRuntimeTechnicalGrounding,
@@ -111,9 +116,10 @@ export interface HumanIndexItem {
 }
 
 export interface HumanPageReference {
-  title: string;
+  title: string | null;
   url: string;
   label: string;
+  href: string | null;
 }
 
 export interface HumanInspectedPage {
@@ -211,21 +217,28 @@ function getSiteName(report: SiteAgentReport): string {
   }
 }
 
-function createPageReference(title: string, url: string): HumanPageReference {
-  let label = url;
+function createPageDisplayTitle(title: string): string | null {
+  const normalized = title.replace(/\s+/g, ' ').trim();
 
-  try {
-    const parsed = new URL(url);
-
-    label = `${parsed.pathname}${parsed.search}` || '/';
-  } catch {
-    // Retain the original URL when it cannot be parsed.
+  if (normalized.length === 0) {
+    return null;
   }
 
+  return normalized.length <= 96 ? normalized : `${normalized.slice(0, 95)}…`;
+}
+
+function createPageReference(
+  title: string,
+  url: string,
+  urlContext: HumanReportUrlContext
+): HumanPageReference {
+  const presentation = createHumanReportUrlPresentation(url, urlContext);
+
   return {
-    title,
+    title: createPageDisplayTitle(title),
     url,
-    label
+    label: presentation.displayText,
+    href: presentation.href
   };
 }
 
@@ -443,12 +456,6 @@ function getVisibleTextTarget(
   return null;
 }
 
-function appendPageBreadth(statement: string, pageCount: number): string {
-  return pageCount > 1
-    ? `${statement} The same observation appeared on ${pageCount} inspected pages.`
-    : statement;
-}
-
 function formatInlineCode(value: string): string {
   const longestBacktickRun = Math.max(0, ...(value.match(/`+/g) ?? []).map(run => run.length));
   const fence = '`'.repeat(longestBacktickRun + 1);
@@ -461,8 +468,7 @@ function formatInlineCode(value: string): string {
 
 function getWhatHappened(
   finding: UnifiedFinding,
-  presentationEvidence: readonly FindingPresentationEvidence[],
-  pageCount: number
+  presentationEvidence: readonly FindingPresentationEvidence[]
 ): string {
   const visibleTextTarget = getVisibleTextTarget(presentationEvidence);
 
@@ -484,32 +490,20 @@ function getWhatHappened(
             ? 'a page resource'
             : `the page resource “${identity.sourceUrl}”`;
 
-        return appendPageBreadth(
-          `The browser reported an HTTP ${identity.httpStatus} response for ${resource}.`,
-          pageCount
-        );
+        return `The browser reported an HTTP ${identity.httpStatus} response for ${resource}.`;
       }
 
-      return appendPageBreadth(`The browser logged: “${identity.message}”`, pageCount);
+      return `The browser logged: “${identity.message}”`;
 
     case 'failed-request':
       if (isCrossOriginDnsFailureIdentity(identity)) {
-        return appendPageBreadth(
-          'The browser could not resolve a cross-origin resource during the run.',
-          pageCount
-        );
+        return 'The browser could not resolve a cross-origin resource during the run.';
       }
 
-      return appendPageBreadth(
-        `The browser reported that a ${identity.resourceType} request failed with “${identity.failureText}”.`,
-        pageCount
-      );
+      return `The browser reported that a ${identity.resourceType} request failed with “${identity.failureText}”.`;
 
     case 'cors':
-      return appendPageBreadth(
-        `The browser reported that a cross-origin ${identity.resourceType} request was blocked by its access policy.`,
-        pageCount
-      );
+      return `The browser reported that a cross-origin ${identity.resourceType} request was blocked by its access policy.`;
   }
 }
 
@@ -634,7 +628,8 @@ function buildHumanFinding(
   report: SiteAgentReport,
   finding: UnifiedFinding,
   status: HumanFindingStatus,
-  displayId: string
+  displayId: string,
+  urlContext: HumanReportUrlContext
 ): HumanFindingPresentation {
   const cleanedTitle = cleanFindingTitle(finding.title);
   const presentationEvidence = getPresentationEvidenceForFinding(report, finding);
@@ -683,7 +678,7 @@ function buildHumanFinding(
         : 'all';
   const pages = uniquePages(
     finding.occurrences.map(occurrence =>
-      createPageReference(occurrence.pageTitle, occurrence.pageUrl)
+      createPageReference(occurrence.pageTitle, occurrence.pageUrl, urlContext)
     )
   );
   const evidenceSource = getHumanEvidenceSource(finding, presentationEvidence);
@@ -705,7 +700,7 @@ function buildHumanFinding(
     category: finding.category,
     pages,
     observation: getRawObservation(finding),
-    whatHappened: getWhatHappened(finding, presentationEvidence, pages.length),
+    whatHappened: getWhatHappened(finding, presentationEvidence),
     whyItMayMatter: getWhyItMayMatterForFinding(finding, presentationEvidence),
     whatStillNeedsChecking: getWhatStillNeedsCheckingForFinding(
       finding,
@@ -877,11 +872,12 @@ function createNotableSummary(report: SiteAgentReport): string | null {
 
 function buildTechnicalObservation(
   finding: UnifiedFinding,
-  displayId: string
+  displayId: string,
+  urlContext: HumanReportUrlContext
 ): HumanTechnicalObservation {
   const pages = uniquePages(
     finding.occurrences.map(occurrence =>
-      createPageReference(occurrence.pageTitle, occurrence.pageUrl)
+      createPageReference(occurrence.pageTitle, occurrence.pageUrl, urlContext)
     )
   );
   const evidenceSource = getHumanEvidenceSource(finding, []);
@@ -902,7 +898,7 @@ function buildTechnicalObservation(
     severity: finding.severity,
     pages,
     observation: getRawObservation(finding),
-    whatHappened: getWhatHappened(finding, [], pages.length),
+    whatHappened: getWhatHappened(finding, []),
     whyItMayMatter: getWhyItMayMatterForFinding(finding, []),
     whatStillNeedsChecking: getWhatStillNeedsCheckingForFinding(finding, [], itemType),
     whereThisCameFrom: getWhereThisCameFrom(evidenceSource, finding, pages.length),
@@ -913,7 +909,8 @@ function buildTechnicalObservation(
 function buildSecurityObservation(
   observation: PassiveSecurityObservation,
   totalPages: number,
-  displayId: string
+  displayId: string,
+  urlContext: HumanReportUrlContext
 ): HumanSecurityObservation {
   const evidence = new Set<string>();
 
@@ -924,7 +921,7 @@ function buildSecurityObservation(
   }
   const pages = uniquePages(
     observation.occurrences.map(occurrence =>
-      createPageReference(occurrence.pageTitle, occurrence.pageUrl)
+      createPageReference(occurrence.pageTitle, occurrence.pageUrl, urlContext)
     )
   );
   const whyItMayMatter =
@@ -961,6 +958,7 @@ function buildSecurityObservation(
 }
 
 export function buildHumanReportPresentation(report: SiteAgentReport): HumanReportPresentation {
+  const urlContext = createHumanReportUrlContext(report.homepage?.finalUrl ?? report.site.startUrl);
   const eligibleFindings = report.findings
     .map((finding, stableIndex) => ({
       finding,
@@ -985,7 +983,13 @@ export function buildHumanReportPresentation(report: SiteAgentReport): HumanRepo
   for (const item of sortedEligible.filter(candidate => isPrimaryHumanFinding(candidate.finding))) {
     displayIndex += 1;
     primaryFindings.push(
-      buildHumanFinding(report, item.finding, item.status, String(displayIndex).padStart(2, '0'))
+      buildHumanFinding(
+        report,
+        item.finding,
+        item.status,
+        String(displayIndex).padStart(2, '0'),
+        urlContext
+      )
     );
   }
 
@@ -994,7 +998,7 @@ export function buildHumanReportPresentation(report: SiteAgentReport): HumanRepo
   )) {
     displayIndex += 1;
     technicalObservations.push(
-      buildTechnicalObservation(item.finding, String(displayIndex).padStart(2, '0'))
+      buildTechnicalObservation(item.finding, String(displayIndex).padStart(2, '0'), urlContext)
     );
   }
 
@@ -1022,7 +1026,11 @@ export function buildHumanReportPresentation(report: SiteAgentReport): HumanRepo
     }))
   ].sort((left, right) => Number(left.displayId) - Number(right.displayId));
   const inspectedPages = report.inspectedPages.map(page => {
-    const pageReference = createPageReference(page.observation.title, page.observation.finalUrl);
+    const pageReference = createPageReference(
+      page.observation.title,
+      page.observation.finalUrl,
+      urlContext
+    );
     const relatedItems = indexItems
       .filter(item => item.pages.some(itemPage => itemPage.url === page.observation.finalUrl))
       .map(item => ({
@@ -1060,7 +1068,8 @@ export function buildHumanReportPresentation(report: SiteAgentReport): HumanRepo
       buildSecurityObservation(
         observation,
         report.inspectedPages.length,
-        `S${String(index + 1).padStart(2, '0')}`
+        `S${String(index + 1).padStart(2, '0')}`,
+        urlContext
       )
     ),
     inspectedPages

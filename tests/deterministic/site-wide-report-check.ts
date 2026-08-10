@@ -454,7 +454,7 @@ async function main(): Promise<void> {
 
   if (
     !markdown.includes(
-      '**Pages:** [/radiology](https://example.com/radiology), [/platform](https://example.com/platform), [/solutions](https://example.com/solutions)'
+      '**Pages:** [Radiology](https://example.com/radiology) — `/radiology`, [Platform](https://example.com/platform) — `/platform`, [Solutions](https://example.com/solutions) — `/solutions`'
     )
   ) {
     throw new Error('Markdown finding does not contain the expected affected pages.');
@@ -504,10 +504,10 @@ async function main(): Promise<void> {
 
   if (
     !markdown.includes(
-      '| [/radiology](https://example.com/radiology) | Start URL | [01](#item-01) |'
+      '| [Radiology](https://example.com/radiology) — `/radiology` | Start URL | [01](#item-01) |'
     ) ||
     !markdown.includes(
-      '| [/platform](https://example.com/platform) | Exploration | [01](#item-01) |'
+      '| [Platform](https://example.com/platform) — `/platform` | Exploration | [01](#item-01) |'
     )
   ) {
     throw new Error(

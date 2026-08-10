@@ -373,9 +373,11 @@ async function main(): Promise<void> {
 
   assert.match(markdown, /Values: fixture`server \| \[edge\]\./);
 
-  assert.match(
-    markdown,
-    /\[\/missing_\(draft\)\?functional-page-token=retained\]\(https:\/\/example\.com\/missing_%28draft%29\?functional-page-token=retained\)/
+  assert.equal(
+    markdown.includes(
+      '[Missing \\[docs\\] (draft) \\| details](https://example.com/missing_%28draft%29?functional-page-token=retained) — `/missing_(draft)?functional-page-token=retained`'
+    ),
+    true
   );
 
   assert.equal(markdown.includes('undefined'), false);

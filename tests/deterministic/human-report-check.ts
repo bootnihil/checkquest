@@ -24,10 +24,18 @@ import { createTechnicalObservationFingerprint } from '../../agent/analysis/tech
 import { commitRunPageFindings } from '../../agent/findings/commit-run-page-findings';
 import { prepareRunPageFindings } from '../../agent/findings/prepare-run-page-findings';
 import {
+  createUnifiedOccurrenceKey,
+  unifiedOccurrenceKeysEqual
+} from '../../agent/findings/unified-finding-registry';
+import {
   createRunFindingLifecycle,
   getRunFindings
 } from '../../agent/findings/run-finding-lifecycle';
 import type { SiteAgentReport } from '../../agent/reporting/report-types';
+import {
+  createHumanReportUrlContext,
+  createHumanReportUrlPresentation
+} from '../../agent/reporting/human-report-url';
 import { renderHumanMarkdownReport } from '../../agent/reporting/write-markdown-report';
 
 function createFinding(
@@ -241,6 +249,12 @@ function createReport(): SiteAgentReport {
       id: 'runtime',
       name: 'Runtime exploration: example.com',
       startUrl: 'https://example.com/'
+    },
+    homepage: {
+      requestedUrl: 'https://example.com/',
+      finalUrl: 'https://example.com/path',
+      title: 'Example page',
+      httpStatus: 200
     },
     outcome: {
       status: 'completed',
@@ -1050,6 +1064,8 @@ function main(): void {
     placeholderFinding.occurrences[0]!.pageTitle;
   placeholderReport.inspectedPages[0]!.observation.finalUrl =
     placeholderFinding.occurrences[0]!.pageUrl;
+  placeholderReport.homepage.finalUrl = placeholderFinding.occurrences[0]!.pageUrl;
+  placeholderReport.homepage.title = placeholderFinding.occurrences[0]!.pageTitle;
   placeholderReport.inspectedPages[0]!.presentationEvidence = [
     {
       candidateReference: 'candidate-42',
@@ -1077,7 +1093,7 @@ function main(): void {
     '### 01 — Placeholder content detected in link text',
     '',
     '**Possible issue · Observed directly · Needs human review · Low**  ',
-    '**Page:** [/templates](https://monday.com/templates)',
+    '**Page:** [Customizable templates to get your team started in minutes](https://monday.com/templates) — `/templates`',
     '',
     '**What happened**',
     '',
@@ -1097,13 +1113,15 @@ function main(): void {
     '',
     '![Focused evidence for Placeholder content detected in link text](evidence/01-PLACEHOLDER-CONTENT-DETECTED-IN-LINK-TEXT-evidence-01.png)',
     '',
+    '[Back to summary](#at-a-glance)',
+    '',
     '---'
   ].join('\n');
 
   assert.equal(
     placeholderBlock,
     expectedPlaceholderBlock,
-    'The placeholder finding full Markdown item block must remain byte-for-byte stable.'
+    'The placeholder finding must retain its semantics while using the Phase 4 page label and return navigation.'
   );
   assert.equal(
     buildHumanReportPresentation(placeholderReport).detailedFindings[0]?.whatHappened,
@@ -1224,6 +1242,243 @@ function main(): void {
         ] as const
     )
   );
+  const urlContext = createHumanReportUrlContext('https://example.com/redirected-start');
+  const queryA = 'https://example.com/search?category=a';
+  const queryB = 'https://example.com/search?category=b';
+  const longPath = `/a/${'very-long-segment/'.repeat(10)}terminal`;
+  const longQueryAlpha = `https://example.com${longPath}?variant=alpha`;
+  const longQueryBeta = `https://example.com${longPath}?variant=beta`;
+  const fragmentInstallation = 'https://example.com/docs#installation';
+  const fragmentConfiguration = 'https://example.com/docs#configuration';
+  const externalUrl = 'https://cdn.example.net/assets/application.js?build=20260809';
+  const longTitleUrl = 'https://example.com/long-title';
+  const longPageTitle = `Long page title ${'descriptive context '.repeat(8)}`;
+  const parenthesizedPathUrl = 'https://example.com/wiki/Foo_(bar)';
+  const parenthesizedQueryUrl = 'https://example.com/search?value=(alpha)';
+  const closingParenthesisUrl = 'https://example.com/wiki/Foo_)bar';
+  const malformedUrl = '<not a valid URL>|value';
+  const urlReport = createReport();
+  const urlFinding = createFinding(80, {
+    title: 'URL presentation coverage'
+  });
+  const urlOccurrenceTemplate = urlFinding.occurrences[0]!;
+  const urlFixtures = [
+    { pageUrl: 'https://example.com/', pageTitle: 'Home' },
+    { pageUrl: queryA, pageTitle: 'Search results' },
+    { pageUrl: queryB, pageTitle: 'Search results' },
+    { pageUrl: longQueryAlpha, pageTitle: '   ' },
+    { pageUrl: longQueryBeta, pageTitle: '\t' },
+    { pageUrl: fragmentInstallation, pageTitle: '[Docs] | `Guide` <installation>' },
+    { pageUrl: fragmentConfiguration, pageTitle: '[Docs] | `Guide` <configuration>' },
+    { pageUrl: externalUrl, pageTitle: 'External application asset' },
+    { pageUrl: longTitleUrl, pageTitle: longPageTitle },
+    { pageUrl: parenthesizedPathUrl, pageTitle: 'Parenthesized path' },
+    { pageUrl: parenthesizedQueryUrl, pageTitle: 'Parenthesized query' },
+    { pageUrl: closingParenthesisUrl, pageTitle: 'Literal closing parenthesis' },
+    { pageUrl: malformedUrl, pageTitle: 'Malformed location' }
+  ] as const;
+
+  urlFinding.occurrences = urlFixtures.map((fixture, index) => ({
+    ...structuredClone(urlOccurrenceTemplate),
+    occurrenceReference: `occurrence-${800 + index}`,
+    pageUrl: fixture.pageUrl,
+    pageTitle: fixture.pageTitle
+  }));
+  urlReport.findings = [urlFinding];
+  const urlCanonicalBefore = JSON.stringify(urlReport);
+  const urlPresentation = buildHumanReportPresentation(urlReport);
+  const urlMarkdown = renderHumanMarkdownReport(urlReport);
+  const sameOriginRoot = createHumanReportUrlPresentation('https://example.com/', urlContext);
+  const queryDisplayA = createHumanReportUrlPresentation(queryA, urlContext);
+  const queryDisplayB = createHumanReportUrlPresentation(queryB, urlContext);
+  const longDisplayAlpha = createHumanReportUrlPresentation(longQueryAlpha, urlContext);
+  const longDisplayBeta = createHumanReportUrlPresentation(longQueryBeta, urlContext);
+  const fragmentDisplayInstallation = createHumanReportUrlPresentation(
+    fragmentInstallation,
+    urlContext
+  );
+  const fragmentDisplayConfiguration = createHumanReportUrlPresentation(
+    fragmentConfiguration,
+    urlContext
+  );
+  const externalDisplay = createHumanReportUrlPresentation(externalUrl, urlContext);
+  const malformedDisplay = createHumanReportUrlPresentation(malformedUrl, urlContext);
+
+  assert.deepEqual(sameOriginRoot, {
+    displayText: '/',
+    href: 'https://example.com/'
+  });
+  assert.deepEqual(
+    [queryDisplayA.displayText, queryDisplayB.displayText],
+    ['/search?category=a', '/search?category=b'],
+    'Conservative per-URL query formatting must keep query-sensitive locations distinct.'
+  );
+  assert.notEqual(
+    longDisplayAlpha.displayText,
+    longDisplayBeta.displayText,
+    'Long path compaction must retain the distinguishing query value.'
+  );
+  assert.ok(longDisplayAlpha.displayText.includes('…'));
+  assert.ok(longDisplayAlpha.displayText.endsWith('?variant=alpha'));
+  assert.ok(longDisplayBeta.displayText.endsWith('?variant=beta'));
+  assert.deepEqual(
+    [fragmentDisplayInstallation.displayText, fragmentDisplayConfiguration.displayText],
+    ['/docs#installation', '/docs#configuration'],
+    'Occurrence-identity-bearing fragments must remain visibly distinct.'
+  );
+  assert.equal(
+    unifiedOccurrenceKeysEqual(
+      createUnifiedOccurrenceKey({
+        fingerprint: 'fingerprint-fragment',
+        pageUrl: fragmentInstallation,
+        target: null
+      }),
+      createUnifiedOccurrenceKey({
+        fingerprint: 'fingerprint-fragment',
+        pageUrl: fragmentConfiguration,
+        target: null
+      })
+    ),
+    false,
+    'Current canonical occurrence identity compares the full pageUrl, including fragments.'
+  );
+  assert.equal(externalDisplay.displayText, 'cdn.example.net/assets/application.js?build=20260809');
+  assert.equal(externalDisplay.href, externalUrl);
+  assert.deepEqual(malformedDisplay, {
+    displayText: malformedUrl,
+    href: null
+  });
+  assert.match(urlMarkdown, /\[Home\]\(https:\/\/example\.com\/\) — `\/`/);
+  assert.match(
+    urlMarkdown,
+    /\[Search results\]\(https:\/\/example\.com\/search\?category=a\) — `\/search\?category=a`/
+  );
+  assert.match(
+    urlMarkdown,
+    /\[Search results\]\(https:\/\/example\.com\/search\?category=b\) — `\/search\?category=b`/
+  );
+  assert.ok(urlMarkdown.includes(`](${longQueryAlpha})`));
+  assert.ok(urlMarkdown.includes(`](${longQueryBeta})`));
+  assert.match(urlMarkdown, /`\/docs#installation`/);
+  assert.match(urlMarkdown, /`\/docs#configuration`/);
+  assert.match(
+    urlMarkdown,
+    /\[\\\[Docs\\\] \\\| \\`Guide\\` &lt;installation&gt;\]\(https:\/\/example\.com\/docs#installation\)/,
+    'Markdown-sensitive page titles must be escaped without changing their URL target.'
+  );
+  assert.match(urlMarkdown, /`cdn\.example\.net\/assets\/application\.js\?build=20260809`/);
+  const markdownHrefCases = [
+    {
+      authoritativeUrl: parenthesizedPathUrl,
+      escapedHref: 'https://example.com/wiki/Foo_%28bar%29',
+      renderedLink:
+        '[Parenthesized path](https://example.com/wiki/Foo_%28bar%29) — `/wiki/Foo_(bar)`'
+    },
+    {
+      authoritativeUrl: parenthesizedQueryUrl,
+      escapedHref: 'https://example.com/search?value=%28alpha%29',
+      renderedLink:
+        '[Parenthesized query](https://example.com/search?value=%28alpha%29) — `/search?value=(alpha)`'
+    },
+    {
+      authoritativeUrl: closingParenthesisUrl,
+      escapedHref: 'https://example.com/wiki/Foo_%29bar',
+      renderedLink:
+        '[Literal closing parenthesis](https://example.com/wiki/Foo_%29bar) — `/wiki/Foo_)bar`'
+    }
+  ] as const;
+
+  for (const hrefCase of markdownHrefCases) {
+    assert.equal(
+      new URL(hrefCase.authoritativeUrl).href,
+      hrefCase.authoritativeUrl,
+      'The runtime URL parser must accept the authoritative href fixture without canonical mutation.'
+    );
+    assert.ok(
+      urlMarkdown.includes(hrefCase.renderedLink),
+      `The rendered Markdown link must safely contain ${hrefCase.authoritativeUrl}.`
+    );
+    assert.equal(
+      decodeURIComponent(hrefCase.escapedHref),
+      hrefCase.authoritativeUrl,
+      'Rendering-only destination escaping must resolve to the complete authoritative URL.'
+    );
+    assert.equal(
+      createHumanReportUrlPresentation(hrefCase.authoritativeUrl, urlContext).href,
+      hrefCase.authoritativeUrl,
+      'The presentation model must retain the original authoritative href before Markdown escaping.'
+    );
+    assert.equal(
+      urlReport.findings[0]?.occurrences.find(
+        occurrence => occurrence.pageUrl === hrefCase.authoritativeUrl
+      )?.pageUrl,
+      hrefCase.authoritativeUrl,
+      'Markdown escaping must not replace the canonical occurrence URL.'
+    );
+  }
+  assert.match(urlMarkdown, /Malformed location — `&lt;not a valid URL&gt;&#124;value`/);
+  assert.doesNotMatch(urlMarkdown, /\]\(<not a valid URL>/);
+  assert.equal(
+    JSON.stringify(urlReport),
+    urlCanonicalBefore,
+    'URL and title projection must not mutate authoritative occurrences or report JSON data.'
+  );
+  assert.equal(
+    urlPresentation.detailedFindings[0]?.pages[3]?.title,
+    null,
+    'Whitespace-only page titles must fall back to the display URL.'
+  );
+  const projectedLongTitle = urlPresentation.detailedFindings[0]?.pages.find(
+    page => page.url === longTitleUrl
+  )?.title;
+
+  assert.equal(projectedLongTitle?.length, 96);
+  assert.ok(projectedLongTitle?.endsWith('…'));
+  assert.equal(
+    urlReport.findings[0]?.occurrences.find(occurrence => occurrence.pageUrl === longTitleUrl)
+      ?.pageTitle,
+    longPageTitle,
+    'Title truncation must remain presentation-only.'
+  );
+  assert.equal(urlReport.findings[0]?.fingerprint, 'fingerprint-80');
+
+  const internalNavigationTargets = [...markdown.matchAll(/\]\(#([^)]+)\)/g)].map(
+    match => match[1]!
+  );
+  const explicitAnchors = [...markdown.matchAll(/<a id="([^"]+)"><\/a>/g)].map(match => match[1]!);
+  const availableNavigationTargets = new Set([
+    ...explicitAnchors,
+    'at-a-glance',
+    'possible-issues',
+    'additional-possible-issues',
+    'technical-notes',
+    'security-notes',
+    'pages-inspected'
+  ]);
+
+  assert.ok(
+    internalNavigationTargets.every(target => availableNavigationTargets.has(target)),
+    'Every generated internal navigation link must resolve to a rendered section or item target.'
+  );
+  assert.equal(
+    new Set(explicitAnchors).size,
+    explicitAnchors.length,
+    'Explicit item anchors must remain unique.'
+  );
+  assert.match(
+    markdown,
+    /\*\*Contents:\*\* \[At a glance\]\(#at-a-glance\) · \[Findings\]\(#possible-issues\)[^\n]+\[Pages inspected\]\(#pages-inspected\)/
+  );
+  assert.doesNotMatch(
+    classificationMarkdown.match(/^\*\*Contents:\*\*.*$/m)?.[0] ?? '',
+    /Additional findings/,
+    'The optional Additional findings navigation link must be absent when that section is absent.'
+  );
+  assert.equal(
+    countOccurrences(classificationMarkdown, '<a id="item-05"></a>'),
+    1,
+    'The four-page SVG observation must still have one canonical item anchor.'
+  );
 
   assert.notEqual(
     duplicateTitlePresentation.atAGlance[0]?.anchor,
@@ -1328,7 +1583,7 @@ function main(): void {
   );
   assert.match(
     classificationTechnicalSection,
-    /### 05 — Invalid SVG attribute value[\s\S]*\*\*Pages:\*\* [^\n]+page-1[^\n]+page-2[^\n]+page-3[^\n]+page-4/
+    /### 05 — Invalid SVG attribute value[\s\S]*\*\*Pages:\*\* [^\n]+`\/page-1`[^\n]+`\/page-2`[^\n]+`\/page-3`[^\n]+`\/page-4`/
   );
   assert.equal(
     countOccurrences(classificationTechnicalSection, '— Failed script request execution'),
@@ -1678,6 +1933,86 @@ function main(): void {
     stableTieOrder,
     'Repeated notable projections must be deterministic.'
   );
+  const dedupBranchFindings = [
+    classificationReport.findings[1]!,
+    classificationReport.findings[3]!,
+    classificationReport.findings[4]!,
+    classificationReport.findings[6]!
+  ].map(finding => structuredClone(finding));
+
+  for (const finding of dedupBranchFindings) {
+    setFindingPages(finding, [1, 2]);
+  }
+
+  const dedupBranchReport = createReportWithFindings(classificationReport, dedupBranchFindings);
+  const dedupBranchCanonicalBefore = JSON.stringify(dedupBranchReport.findings);
+  const dedupBranchMarkdown = renderHumanMarkdownReport(dedupBranchReport);
+  const dedupBranchExpectations = [
+    {
+      title: 'Failed resource request for poster image',
+      whatHappened:
+        /The browser reported an HTTP 404 response for the page resource “https:\/\/example\.com\/assets\/poster\.jpg”\./,
+      technicalEvidenceLinkExpected: false
+    },
+    {
+      title: 'Cross-origin DNS resolution failure observed',
+      whatHappened: /The browser could not resolve a cross-origin resource during the run\./,
+      technicalEvidenceLinkExpected: true
+    },
+    {
+      title: 'Failed script request execution',
+      whatHappened: /The browser reported that a script request failed with “net::ERR_ABORTED”\./,
+      technicalEvidenceLinkExpected: true
+    },
+    {
+      title: 'Cross-origin resource access failure',
+      whatHappened:
+        /The browser reported that a cross-origin xhr request was blocked by its access policy\./,
+      technicalEvidenceLinkExpected: true
+    }
+  ] as const;
+
+  for (const expectation of dedupBranchExpectations) {
+    const block = getMarkdownItemBlock(dedupBranchMarkdown, expectation.title);
+
+    assert.match(block, expectation.whatHappened);
+    assert.match(
+      block,
+      /\*\*Pages:\*\* [^\n]+`\/page-1`[^\n]+`\/page-2`/,
+      `${expectation.title} must retain both affected pages after breadth-prose deduplication.`
+    );
+    assert.match(
+      block,
+      /\*\*Where this came from\*\*[\s\S]*captured on 2 pages\./,
+      `${expectation.title} must retain multi-page provenance after breadth-prose deduplication.`
+    );
+    assert.doesNotMatch(
+      block,
+      /The same observation appeared on 2 inspected pages\./,
+      `${expectation.title} must not repeat affected-page breadth in What happened.`
+    );
+
+    if (expectation.technicalEvidenceLinkExpected) {
+      assert.match(block, /\[Structured technical evidence\]/);
+    }
+  }
+
+  assert.equal(
+    JSON.stringify(dedupBranchReport.findings),
+    dedupBranchCanonicalBefore,
+    'Breadth-prose deduplication must not mutate precise technical evidence or occurrences.'
+  );
+  for (const preciseEvidenceValue of [
+    'https://example.com/assets/poster.jpg',
+    'https://assets.example.net/app.js',
+    'net::ERR_ABORTED',
+    'https://api.example.net/events'
+  ]) {
+    assert.ok(
+      dedupBranchCanonicalBefore.includes(preciseEvidenceValue),
+      `Canonical evidence must retain ${preciseEvidenceValue}.`
+    );
+  }
   assert.match(classificationMarkdown, /## Security notes/);
   assert.match(classificationMarkdown, /### S01 — HSTS response header was not observed/);
   assert.match(
@@ -1703,7 +2038,12 @@ function main(): void {
   );
   assert.match(
     classificationSvgBlock,
-    /\*\*What happened\*\*[\s\S]*&lt;svg&gt;[\s\S]*same observation appeared on 4 inspected pages/i
+    /\*\*What happened\*\*[\s\S]*The browser logged: “Error: &lt;svg&gt; attribute height: Expected length, "auto"\.”/
+  );
+  assert.doesNotMatch(
+    classificationSvgBlock,
+    /same observation appeared on 4 inspected pages/i,
+    'The adjacent Pages row now owns affected-page breadth without repeating it in What happened.'
   );
   assert.match(
     classificationSvgBlock,
@@ -1985,7 +2325,7 @@ function main(): void {
   );
   assert.match(
     mixedFindingSection,
-    /\*\*Pages:\*\* \[\/path\]\(https:\/\/example\.com\/path\), \[\/other\]\(https:\/\/example\.com\/other\)/
+    /\*\*Pages:\*\* \[Example page\]\(https:\/\/example\.com\/path\) — `\/path`, \[Other example page\]\(https:\/\/example\.com\/other\) — `\/other`/
   );
   assert.equal(
     humanPresentation.detailedFindings.find(finding => finding.title === 'Finding 2')
@@ -2026,7 +2366,7 @@ function main(): void {
   assert.match(markdown, /### 01 — Finding 1/);
   assert.match(
     markdown,
-    /\| \[\/path\]\(https:\/\/example\.com\/path\) \| Start URL \| \[01\]\(#item-01\)/
+    /\| \[Example page\]\(https:\/\/example\.com\/path\) — `\/path` \| Start URL \| \[01\]\(#item-01\)/
   );
   assert.doesNotMatch(
     markdown,

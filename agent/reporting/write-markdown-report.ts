@@ -52,8 +52,40 @@ function formatSeverity(severity: string): string {
   return `${severity.charAt(0).toUpperCase()}${severity.slice(1)}`;
 }
 
+function formatMarkdownInlineCode(value: string): string {
+  const tableSafeValue = value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\|/g, '&#124;');
+  const longestBacktickRun = Math.max(
+    0,
+    ...(tableSafeValue.match(/`+/g) ?? []).map(run => run.length)
+  );
+  const fence = '`'.repeat(longestBacktickRun + 1);
+  const needsPadding =
+    tableSafeValue.startsWith('`') ||
+    tableSafeValue.endsWith('`') ||
+    tableSafeValue.startsWith(' ') ||
+    tableSafeValue.endsWith(' ');
+
+  return `${fence}${needsPadding ? ` ${tableSafeValue} ` : tableSafeValue}${fence}`;
+}
+
 function createPageLink(page: HumanPageReference): string {
-  return `[${escapeMarkdownInlineText(page.label)}](${escapeMarkdownLinkDestination(page.url)})`;
+  const displayLocation = formatMarkdownInlineCode(page.label);
+
+  if (page.href === null) {
+    return page.title === null
+      ? displayLocation
+      : `${escapeMarkdownInlineText(page.title)} — ${displayLocation}`;
+  }
+
+  const href = escapeMarkdownLinkDestination(page.href);
+
+  return page.title === null
+    ? `[${escapeMarkdownInlineText(page.label)}](${href})`
+    : `[${escapeMarkdownInlineText(page.title)}](${href}) — ${displayLocation}`;
 }
 
 function createPagesLabel(pages: readonly HumanPageReference[]): string {
@@ -135,6 +167,25 @@ function pushAtAGlance(lines: string[], findings: readonly HumanIndexItem[]): vo
   pushAtAGlanceTable(lines, findings);
 }
 
+function pushContents(lines: string[], report: HumanReportPresentation): void {
+  const links = [
+    '[At a glance](#at-a-glance)',
+    '[Findings](#possible-issues)',
+    ...(report.additionalFindings.length > 0
+      ? ['[Additional findings](#additional-possible-issues)']
+      : []),
+    '[Technical notes](#technical-notes)',
+    '[Security notes](#security-notes)',
+    '[Pages inspected](#pages-inspected)'
+  ];
+
+  lines.push(`**Contents:** ${links.join(' · ')}`, '');
+}
+
+function pushBackToSummary(lines: string[]): void {
+  lines.push('[Back to summary](#at-a-glance)', '');
+}
+
 function pushFocusedEvidence(lines: string[], finding: HumanFindingPresentation): void {
   if (finding.focusedEvidence.length === 0) {
     return;
@@ -201,6 +252,7 @@ function pushDetailedFinding(lines: string[], finding: HumanFindingPresentation)
   );
   pushItemExplanation(lines, finding);
   pushFocusedEvidence(lines, finding);
+  pushBackToSummary(lines);
 
   lines.push('---', '');
 }
@@ -229,6 +281,8 @@ function pushAdditionalFinding(lines: string[], finding: HumanFindingPresentatio
     }
   }
 
+  pushBackToSummary(lines);
+
   lines.push('---', '');
 }
 
@@ -250,6 +304,7 @@ function pushTechnicalObservationDetails(
     `[Structured technical evidence](${escapeMarkdownLinkDestination(observation.evidencePath)})`,
     ''
   );
+  pushBackToSummary(lines);
 }
 
 function pushTechnicalObservations(
@@ -277,6 +332,7 @@ export function renderHumanMarkdownReport(report: SiteAgentReport): string {
     ''
   ];
 
+  pushContents(lines, presentation);
   pushReportVocabulary(lines);
 
   if (presentation.notableSummary !== null) {
@@ -362,6 +418,8 @@ export function renderHumanMarkdownReport(report: SiteAgentReport): string {
       }
 
       lines.push('', '</details>', '');
+
+      pushBackToSummary(lines);
 
       lines.push('---', '');
     }
