@@ -38,6 +38,7 @@ const deterministicChecks = [
   'agent:passive-security-check',
   'agent:passive-security-report-check',
   'agent:human-report-check',
+  'agent:artifact-reference-check',
   'desktop:check'
 ] as const;
 
