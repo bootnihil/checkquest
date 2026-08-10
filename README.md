@@ -40,15 +40,16 @@ Today, CheckQuest can:
 - safely investigate supported form controls, disclosures, and conventional ARIA tabs;
 - collect diagnostics, screenshots, finding evidence, and passive main-document security observations;
 - reconcile repeated observations into canonical findings with page occurrences;
-- return a schema-v3 report in JSON and Markdown;
-- expose structured progress events and categorized errors for programmatic callers.
+- return a schema-v3 report in JSON and a human-readable Markdown report;
+- expose structured progress events and categorized errors for programmatic callers; and
+- provide a local Electron GUI MVP for target, budget, transient BYOK credential, Run/Cancel, and basic-status configuration through the shared application boundary.
 
 The goal is not to prove a site is defect-free. It is to spend a small inspection budget intelligently and come back with useful evidence.
 
 ## 🗺️ Roadmap status
 
 - **Roadmap v1 is complete.** The original Stage 1–10 engine roadmap has been fully accepted and is now a historical record.
-- **Roadmap v2 is current.** It tracks the productization phase: exposing the finished engine through a local GUI/product shell, packaging it for normal users, and validating the product with external usage and bounded evaluation evidence.
+- **Roadmap v2 is current.** The local Electron GUI MVP is implemented and undergoing acceptance. Packaging, external usability, and bounded product evaluation follow after the current G2 acceptance gate.
 
 If you want the current plan, start with **[Roadmap v2](docs/ROADMAP-V2.md)**. If you want the completed engineering history, see **[Roadmap v1](docs/ROADMAP.md)**.
 
@@ -313,7 +314,7 @@ CheckQuest is still experimental.
 
 ## 🗺️ What's next
 
-The original engine roadmap is complete. **[Roadmap v2 — Public Landing + Local GUI / Product Shell](docs/ROADMAP-V2.md)** tracks the current productization phase: exposing the existing CheckQuest engine through a usable local interface, packaging it for normal users, and validating the result through external usage and bounded controlled evaluation before committing to SaaS or major new engine capabilities.
+The original engine roadmap is complete. **[Roadmap v2 — Public Landing + Local GUI / Product Shell](docs/ROADMAP-V2.md)** tracks the current productization phase. The local Electron GUI MVP is already implemented; the immediate work is to finish G2 acceptance of the real GUI/report experience before moving on to live-run UX, report viewing, packaging, and external product validation.
 
 Roadmap v2 deliberately stops at a product-validation gate so real user behavior and evaluation evidence — not speculative feature ideas — determine what should be built next.
 
@@ -335,6 +336,6 @@ The long-term licensing and distribution model is intentionally undecided. Roadm
 
 ## 🔧 Built with
 
-TypeScript · Playwright · Gemini API · Zod · Node.js · GitHub Actions
+TypeScript · Electron · Playwright · Gemini API · Zod · Node.js · GitHub Actions
 
 **Status:** Experimental / active development

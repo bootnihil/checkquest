@@ -106,7 +106,7 @@ The following remain non-blocking future work rather than G1 requirements:
 
 ### G2 — Local GUI MVP
 
-**Status:** Implemented; acceptance and remediation remain in progress.
+**Status:** Implemented; acceptance remains in progress.
 
 Build the smallest useful local interface.
 
@@ -148,6 +148,12 @@ That acceptance blocker has been remediated without weakening the existing
 The report remediation is an acceptance fix discovered through G2, not a new
 roadmap stage and not an early start on G4's dedicated in-app report viewer.
 
+The report trustworthiness and human-readable presentation remediation itself is
+implemented. Remaining report work in G2 is acceptance of the real generated
+output, not another report-policy or presentation redesign. The bounded Phase
+5B severity-policy audit is closed: its implementation follow-up is deferred /
+not warranted with current signals and is not part of active G2 scope.
+
 **G2 remains open pending:**
 
 - a bounded GUI configuration-polish pass, tracked in the dedicated
@@ -157,8 +163,13 @@ roadmap stage and not an early start on G4's dedicated in-app report viewer.
   Gemini-key entry with precise storage copy, contextual run-readiness
   feedback, cleanup of irrelevant default Electron menu commands, and a final
   contrast/section-hierarchy audit;
-- a fresh real model-backed run to verify reconciliation, focused evidence,
-  report accounting/navigation, and practical report usefulness end to end; and
+- two independent representative model-backed **10/10/10 acceptance runs** to
+  verify reconciliation, focused evidence, verification-state integrity, report
+  accounting/navigation, and practical human readability end to end. A major
+  trust defect in Run 1 blocks Run 2 until fixed; otherwise Run 2 is an
+  independent confirmation. Legitimately different navigation paths or page
+  subsets do not by themselves constitute a trust defect, and a third run is
+  not required merely for reassurance; and
 - follow-up on the Electron desktop smoke-process crash observed during the
   remediation pass, despite the deterministic desktop suite, desktop build, and
   constituent browser checks otherwise passing.
@@ -168,9 +179,9 @@ than a G2 acceptance requirement. Any future presets must keep the explicit
 exploration budgets visible and editable rather than hiding their meaning.
 
 **G2 is complete when:** the MVP has understandable and safely validated run
-configuration, can complete a representative real run with trustworthy
-reconciled output and consistent final accounting, and has no known G2-blocking
-desktop runtime issue.
+configuration, completes two independent representative 10/10/10 real runs with
+trustworthy reconciled output, consistent final accounting, and acceptable
+human readability, and has no known G2-blocking desktop runtime issue.
 
 ### G3 — Live run experience
 

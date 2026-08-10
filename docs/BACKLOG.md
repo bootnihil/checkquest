@@ -6,8 +6,8 @@
 **Current roadmap document:** `ROADMAP-V2.md`
 **Current roadmap stage:** G2 - Local GUI MVP
 **Completed roadmap:** Roadmap v1 - Stages 1-10 accepted
-**Current execution focus:** G2 acceptance and bounded GUI configuration polish: improve run input handling, complete a fresh real report acceptance run, and resolve or disposition the Electron smoke failure
-**Most recently completed:** G2 report trustworthiness remediation checkpoint — structured reconciliation, focused evidence, shared accounting, and human-report navigation (2026-07-30)
+**Current execution focus:** G2 acceptance: complete the bounded GUI configuration-polish bucket, execute two independent representative 10/10/10 model-backed acceptance runs for report trustworthiness and human readability, and resolve or disposition the Electron smoke failure
+**Most recently completed:** Phase 5B.1 severity-policy audit/design cleanup; Phase 5B.2 deferred / not warranted with current signals; Phase 5B closed (2026-08-10)
 
 This is the single project-wide parking place for work that should not silently interrupt the current roadmap stage. It persists across Roadmap v1, v2, and future roadmap versions.
 
@@ -56,6 +56,16 @@ and report totals could describe the same run differently. The remediation now
 uses validated structured identity, preserves conservative verification,
 captures claim-appropriate evidence, derives GUI/report counts from one shared
 projection, and gives human report items stable run-scoped IDs and navigation.
+
+### Report readability and severity-policy status
+
+The G2 human-report trustworthiness and presentation remediation is implemented.
+Phase 5B.1, the bounded severity-policy audit/design pass, is complete. Phase
+5B.2 is **deferred / not warranted with current signals** and is not an active
+implementation phase. Reconsider severity recalibration only if a concrete
+future trigger shows that the existing structured signals are insufficient or
+produce a material user-facing severity problem; any such work requires
+explicit reauthorization before implementation.
 
 ## G2 GUI configuration polish bucket
 
@@ -116,13 +126,19 @@ The polish pass should not redesign the interface for its own sake. Preserve:
 
 ### Remaining G2 acceptance order
 
-1. Implement and verify the four `NOW` configuration-polish items above.
-2. Run a fresh real model-backed representative site pass and inspect the
-   reconciled report, focused evidence, item numbering/links, filenames, page
-   references, and GUI/report totals.
-3. Reproduce and resolve or explicitly disposition the Electron smoke-process
+1. Implement and verify the nine `NOW` configuration-polish items above.
+2. Run an independent representative model-backed **10/10/10 acceptance run**
+   and inspect reconciliation, focused evidence, verification-state integrity,
+   item numbering/links, filenames, page references, GUI/report totals, and
+   practical human readability. If a major trust defect appears, stop and fix
+   it before spending another acceptance run.
+3. If Run 1 is acceptable, perform a second independent representative
+   **10/10/10 acceptance run**. Compare logical integrity rather than exact
+   finding counts or exact pages visited when navigation legitimately differs.
+   Do not add a third run merely for reassurance.
+4. Reproduce and resolve or explicitly disposition the Electron smoke-process
    crash in the normal acceptance environment.
-4. Perform the G2 documentation/status sweep, then decide whether G2 can be
+5. Perform the G2 documentation/status sweep, then decide whether G2 can be
    accepted. Do not begin G3 merely because the implementation checklist is
    exhausted.
 
