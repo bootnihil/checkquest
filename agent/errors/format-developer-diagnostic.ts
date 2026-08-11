@@ -101,6 +101,14 @@ function pushCheckQuestContext(
       );
     }
   }
+
+  for (const [key, value] of Object.entries(error.developerContext ?? {})) {
+    const rendered =
+      typeof value === 'string' ? redactDiagnosticText(value, secrets) : String(value);
+    lines.push(
+      `  diagnostic.${key}: ${rendered.replace(/\r?\n/g, ' ').slice(0, maximumMessageLength)}`
+    );
+  }
 }
 
 function pushErrorChain(

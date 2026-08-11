@@ -92,6 +92,7 @@
     "agent:passive-security-browser-check": "tsx tests/browser/passive-security-browser-acceptance-check.ts",
     "agent:passive-security-report-check": "tsx tests/deterministic/passive-security-report-check.ts",
     "agent:human-report-check": "tsx tests/deterministic/human-report-check.ts",
+    "agent:human-report-readability-check": "tsx tests/deterministic/human-report-readability-check.ts",
     "agent:artifact-reference-check": "node tests/deterministic/artifact-reference-check-cases.mjs",
     "agent:focused-evidence-browser-check": "tsx tests/browser/focused-evidence-browser-check.ts"
   },

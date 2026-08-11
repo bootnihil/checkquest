@@ -39,7 +39,11 @@ async function main(): Promise<void> {
     }
   });
 
-  assert.equal(report.reportSchemaVersion, '3');
+  assert.equal(report.reportSchemaVersion, '4');
+  assert.deepEqual(report.humanNarratives, {
+    state: 'pending',
+    exploratory: []
+  });
 
   assert.equal(report.startedAt, '2026-07-24T00:00:00.000Z');
 

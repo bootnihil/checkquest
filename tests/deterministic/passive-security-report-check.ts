@@ -6,6 +6,7 @@ import type { UnifiedFinding } from '../../agent/findings/finding-model';
 import type { SiteAgentReport } from '../../agent/reporting/report-types';
 
 import { buildSiteAgentReport } from '../../agent/reporting/build-site-agent-report';
+import { enrichSiteAgentReportWithHumanNarratives } from '../../agent/reporting/human-narrative-generation';
 
 import { writeJsonReport } from '../../agent/reporting/write-json-report';
 
@@ -90,7 +91,14 @@ async function main(): Promise<void> {
               relation: 'supports',
               verificationCapable: true,
               summary:
-                'The main document returned HTTP 404 with `status` | [details] (synthetic).\n# Evidence continuation.'
+                'The main document returned HTTP 404 with `status` | [details] (synthetic).\n# Evidence continuation.',
+              rawSource: {
+                type: 'page-finding',
+                value: {
+                  code: 'HTTP_CLIENT_ERROR',
+                  evidence: 'The main document returned a client-error response.'
+                }
+              }
             }
           ],
           verification: {
@@ -231,7 +239,7 @@ async function main(): Promise<void> {
     }
   ];
 
-  const report = buildSiteAgentReport({
+  const pendingReport = buildSiteAgentReport({
     runId: 'passive-security-report-check',
     startedAt: new Date('2026-07-24T00:00:00.000Z'),
     finishedAt: new Date('2026-07-24T00:01:00.000Z'),
@@ -264,6 +272,12 @@ async function main(): Promise<void> {
       redundantInvestigationsSkippedCount: 0
     }
   });
+  const report = await enrichSiteAgentReportWithHumanNarratives(pendingReport, {
+    generateNarrative: async input => ({
+      plainTitle: input.supportedClaim.title ?? input.supportedClaim.condition,
+      plainCondition: input.supportedClaim.condition
+    })
+  });
 
   const jsonReport = await writeJsonReport(report);
 
@@ -275,7 +289,7 @@ async function main(): Promise<void> {
 
   const parsed = JSON.parse(jsonText) as SiteAgentReport;
 
-  assert.equal(parsed.reportSchemaVersion, '3');
+  assert.equal(parsed.reportSchemaVersion, '4');
 
   assert.deepEqual(parsed.findings, functionalFindings);
 
@@ -345,25 +359,19 @@ async function main(): Promise<void> {
 
   assert.match(
     markdown,
-    /\| \[S01\]\(#security-s01\) \| \[HSTS response header was not observed\]\(#security-s01\) \| Security note \| Seen in browser data \| Confirmed observation \| Low \| 2 pages \|/
+    /\| \[S01\]\(#security-s01\) \| \[Strict HTTPS protection was not enforced\]\(#security-s01\) \| Confirmed observation \| Low \| 2 pages \|/
   );
 
-  assert.match(markdown, /### S01 — HSTS response header was not observed/);
+  assert.match(markdown, /### S01 — Strict HTTPS protection was not enforced/);
 
   assert.match(
     markdown,
     /\[Security evidence file\]\(evidence\/S01-HSTS-RESPONSE-HEADER-WAS-NOT-OBSERVED-evidence\.txt\)/
   );
 
-  assert.match(
-    markdown,
-    /\*\*Security note · Seen in browser data · Confirmed observation · Low · 2 pages\*\*/
-  );
+  assert.match(markdown, /\*\*Low severity · Confirmed observation · 2 pages\*\*/);
 
-  assert.match(
-    markdown,
-    /## Technical notes[\s\S]*\*\*Technical note · Seen in browser data · Confirmed observation · High\*\*/
-  );
+  assert.match(markdown, /## Technical notes[\s\S]*\*\*High severity · Confirmed observation\*\*/);
 
   assert.equal(markdown.includes('\n## injected heading'), false);
 
@@ -388,13 +396,13 @@ async function main(): Promise<void> {
 
   assert.equal(/verified vulnerability/i.test(markdown), false);
 
-  for (const observation of parsed.passiveSecurity.observations) {
-    assert.match(markdown, new RegExp(observation.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  const alwaysVisibleMarkdown = markdown.replace(/<details>[\s\S]*?<\/details>/g, '');
 
+  for (const observation of parsed.passiveSecurity.observations) {
     assert.equal(
-      markdown.includes(observation.code),
+      alwaysVisibleMarkdown.includes(observation.code),
       false,
-      'Human Markdown must not expose internal security codes.'
+      'Always-visible human Markdown must not expose internal security codes.'
     );
 
     assert.equal(

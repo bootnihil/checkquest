@@ -289,7 +289,11 @@ function createRunCollaborators(includeCandidate = false): RunCollaborators {
     dependencies: {
       analyzePageForQa,
       planNextAction: injectedPlanNextAction,
-      chooseNavigationLink
+      chooseNavigationLink,
+      generateHumanNarrative: async input => ({
+        plainTitle: input.supportedClaim.title ?? input.supportedClaim.condition,
+        plainCondition: input.supportedClaim.condition
+      })
     },
     analysisUrls,
     analysisHeadings,
@@ -321,7 +325,11 @@ function assertCoreReportShape(
   report: Awaited<ReturnType<typeof runSite>>,
   expectedPages: number
 ): void {
-  assert.equal(report.reportSchemaVersion, '3');
+  assert.equal(report.reportSchemaVersion, '4');
+  assert.deepEqual(report.humanNarratives, {
+    state: 'complete',
+    exploratory: []
+  });
   assert.equal(report.inspectedPages.length, expectedPages);
   assert.equal(report.summary.pagesInspected, expectedPages);
   assert.equal(report.summary.exploratoryQaFindingsCount, 0);

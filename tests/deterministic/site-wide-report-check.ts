@@ -438,36 +438,45 @@ async function main(): Promise<void> {
   }
 
   if (
-    !markdown.includes('- **0** confirmed findings') ||
-    !markdown.includes('- **1** finding needing review')
+    markdown.includes('- **0** confirmed') ||
+    !markdown.includes('- **1** finding needs review')
   ) {
     throw new Error('Markdown summary does not contain the human finding counts.');
   }
 
   if (
     !markdown.includes(
-      '| [01](#item-01) | [Misspelled country name in selection list](#item-01) | Possible issue | Seen in browser data | Needs human review | Low | 3 pages |'
+      '| [01](#item-01) | [Visible option “Equador” may need review](#item-01) | Evidence found — needs review | Low | 3 pages |'
     )
   ) {
     throw new Error('Markdown at-a-glance table does not contain the human finding.');
   }
 
   if (
-    !markdown.includes(
-      '**Pages:** [Radiology](https://example.com/radiology) — `/radiology`, [Platform](https://example.com/platform) — `/platform`, [Solutions](https://example.com/solutions) — `/solutions`'
-    )
+    !markdown.includes('**Affected:** 3 pages') ||
+    !markdown.includes('<summary>Affected pages (3)</summary>') ||
+    !markdown.includes('- [Radiology](https://example.com/radiology) — `/radiology`') ||
+    !markdown.includes('- [Platform](https://example.com/platform) — `/platform`') ||
+    !markdown.includes('- [Solutions](https://example.com/solutions) — `/solutions`')
   ) {
     throw new Error('Markdown finding does not contain the expected affected pages.');
   }
 
-  if (!markdown.includes('### 01 — Misspelled country name in selection list')) {
+  const findingLead = markdown.slice(
+    markdown.indexOf('### 01 — Visible option “Equador” may need review'),
+    markdown.indexOf('**What’s wrong**')
+  );
+
+  if (/https:\/\//.test(findingLead)) {
+    throw new Error('Markdown finding expands page links before the condition.');
+  }
+
+  if (!markdown.includes('### 01 — Visible option “Equador” may need review')) {
     throw new Error('Markdown finding does not use the clean human-facing title.');
   }
 
-  if (!markdown.includes('**Possible issue · Seen in browser data · Needs human review · Low**')) {
-    throw new Error(
-      'Markdown finding does not expose independent type, evidence, assessment, and severity labels.'
-    );
+  if (!markdown.includes('**Low severity · Evidence found — needs review**')) {
+    throw new Error('Markdown finding does not expose the reader status and severity.');
   }
 
   if (
@@ -519,8 +528,8 @@ async function main(): Promise<void> {
     throw new Error('Markdown page summary exposes an internal page-identity heuristic.');
   }
 
-  if (!markdown.includes('## Technical notes')) {
-    throw new Error('Markdown report does not contain the technical-notes section.');
+  if (markdown.includes('## Technical notes')) {
+    throw new Error('Markdown report contains an empty technical-notes section.');
   }
 
   /*

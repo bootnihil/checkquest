@@ -78,7 +78,12 @@ export function buildSiteAgentReport(input: BuildSiteAgentReportInput): SiteAgen
   ).length;
 
   return {
-    reportSchemaVersion: '3',
+    reportSchemaVersion: '4',
+
+    humanNarratives: {
+      state: 'pending',
+      exploratory: []
+    },
 
     runId: input.runId,
 

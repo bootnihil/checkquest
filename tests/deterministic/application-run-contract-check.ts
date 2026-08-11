@@ -152,7 +152,12 @@ async function main(): Promise<void> {
   assert.equal(pageContentExtractorSource.includes('export interface'), false);
   assert.deepEqual(
     [...reportTypesSource.matchAll(/^export (?:interface|type) (\w+)/gm)].map(match => match[1]),
-    ['SiteAgentReport']
+    [
+      'PersistedExploratoryHumanNarrative',
+      'SiteAgentReportV3',
+      'SiteAgentReportV4',
+      'SiteAgentReport'
+    ]
   );
 
   for (const runtimeOwner of [

@@ -18,6 +18,10 @@ import { runSiteExploration } from '../exploration/run-site-exploration';
 import type { InspectPageDependencies } from '../inspection/inspect-page';
 import type { planNextAction } from '../planning/plan-next-action';
 import { buildSiteAgentReport } from '../reporting/build-site-agent-report';
+import {
+  enrichSiteAgentReportWithHumanNarratives,
+  type HumanNarrativeGenerator
+} from '../reporting/human-narrative-generation';
 import type { SiteAgentReport } from '../reporting/report-types';
 import { buildReconciledRunSummaryProjection } from '../reporting/run-summary-projection';
 import { validateRunSiteInput, type ValidatedRunSiteInput } from './validate-run-site-input';
@@ -48,6 +52,7 @@ export interface RunSiteDependencies {
   analyzePageForQa?: NonNullable<InspectPageDependencies['analyzePageForQa']>;
   planNextAction?: typeof planNextAction;
   chooseNavigationLink?: typeof chooseNavigationLink;
+  generateHumanNarrative?: HumanNarrativeGenerator;
 }
 
 export async function runSite(input: RunSiteInput): Promise<SiteAgentReport> {
@@ -293,7 +298,7 @@ async function executeRunSite(
       throwIfRunCancelled(input.signal, runId, 'report-construction');
 
       try {
-        return buildSiteAgentReport({
+        const finalReport = buildSiteAgentReport({
           runId,
           startedAt,
           finishedAt: new Date(),
@@ -304,6 +309,14 @@ async function executeRunSite(
           canonicalFindings: exploration.canonicalFindings,
           passiveSecurity: exploration.passiveSecurity,
           findingMetrics: exploration.findingMetrics
+        });
+
+        return await enrichSiteAgentReportWithHumanNarratives(finalReport, {
+          geminiApiKey: input.credentials?.geminiApiKey,
+          model: input.model,
+          signal: input.signal,
+          onEvent: onModelRequestEvent,
+          generateNarrative: input.dependencies?.generateHumanNarrative
         });
       } catch (error: unknown) {
         throw new CheckQuestError('REPORTING', 'Unable to construct the successful run report.', {

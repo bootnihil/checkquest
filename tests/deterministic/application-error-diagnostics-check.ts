@@ -224,7 +224,10 @@ async function main(): Promise<void> {
   const contextualError = new CheckQuestError('INTERNAL', 'Context redaction check.', {
     phase: `phase-${geminiApiKey}`,
     runId: `run-${geminiApiKey}`,
-    candidateReference: `candidate-${geminiApiKey}`
+    candidateReference: `candidate-${geminiApiKey}`,
+    developerContext: {
+      matchedForbiddenValue: `value-${geminiApiKey}`
+    }
   });
   contextualError.name = `Error-${geminiApiKey}`;
   const contextualDiagnostic = formatDeveloperErrorDiagnostic(contextualError, {
@@ -233,17 +236,22 @@ async function main(): Promise<void> {
 
   assert.equal(contextualDiagnostic.includes(geminiApiKey), false);
   assert.match(contextualDiagnostic, /phase-\[REDACTED\]/);
+  assert.match(contextualDiagnostic, /diagnostic\.matchedForbiddenValue: value-\[REDACTED\]/);
 
   const existingCause = new Error('Existing private cause.');
   const existing = new CheckQuestError('MODEL', `Safe model failure ${geminiApiKey}`, {
     phase: 'model-call',
     runId: 'existing-error',
+    developerContext: {
+      matchedForbiddenValue: 'private-validator-value'
+    },
     cause: existingCause
   });
   const copiedExisting = sanitizeApplicationError(existing, 'unused-run', geminiApiKey);
 
   assert.equal(copiedExisting.code, 'MODEL');
   assert.equal(copiedExisting.message, 'Safe model failure [REDACTED]');
+  assert.equal(copiedExisting.developerContext, undefined);
   assert.equal(
     copiedExisting.cause,
     undefined,

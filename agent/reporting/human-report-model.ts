@@ -1,18 +1,22 @@
 import { isAbsolute, relative, resolve, sep } from 'node:path';
-import {
-  accessibilityDefectBasisSchema,
-  findingStructuredIdentitySchema,
-  type FindingStructuredIdentity
-} from '../analysis/exploratory-qa-schema';
+import { exploratoryQaFindingSchema } from '../analysis/exploratory-qa-schema';
 import { isCrossOriginDnsFailureIdentity } from '../analysis/technical-observation-reconciliation';
 
-import type { FindingVerificationState, UnifiedFinding } from '../findings/finding-model';
+import type {
+  FindingTarget,
+  FindingVerificationState,
+  UnifiedFinding
+} from '../findings/finding-model';
 import type {
   PassiveSecurityEvidence,
   PassiveSecurityObservation
 } from '../security/passive-security-model';
 import type { FindingPresentationEvidence } from '../inspection/inspected-page-result';
 import type { SiteAgentReport } from './report-types';
+import {
+  getPersistedHumanNarrative,
+  getStructuredAccessibilityNarrativeFacts
+} from './human-narrative-generation';
 import {
   createHumanReportUrlContext,
   createHumanReportUrlPresentation,
@@ -34,6 +38,12 @@ export type HumanEvidenceSource = 'Observed directly' | 'Seen in browser data' |
 
 export type HumanAssessment = 'Confirmed issue' | 'Confirmed observation' | 'Needs human review';
 
+export type HumanReaderStatus =
+  | 'Confirmed issue'
+  | 'Confirmed observation'
+  | 'Evidence found — needs review'
+  | 'AI suggestion — needs review';
+
 export type HumanFindingStatus = Extract<HumanAssessment, 'Confirmed issue' | 'Needs human review'>;
 
 export type HumanFindingConfirmationCoverage = 'none' | 'partial' | 'all';
@@ -51,6 +61,7 @@ export interface HumanFindingPresentation {
   itemType: Extract<HumanItemType, 'Possible issue'>;
   evidenceSource: HumanEvidenceSource;
   assessment: HumanFindingStatus;
+  status: HumanReaderStatus;
   category: UnifiedFinding['category'];
   pages: HumanPageReference[];
   observation: string;
@@ -58,6 +69,7 @@ export interface HumanFindingPresentation {
   whyItMayMatter: string;
   whatStillNeedsChecking: string;
   whereThisCameFrom: string;
+  technicalDetails: string[];
   focusedEvidence: HumanFocusedEvidence[];
   confirmationCoverage: HumanFindingConfirmationCoverage;
   visualTargetCount: number;
@@ -69,10 +81,12 @@ export interface HumanFindingPresentation {
 export interface HumanTechnicalObservation {
   displayId: string;
   anchor: string;
+  findingReference: string;
   title: string;
   itemType: Extract<HumanItemType, 'Technical note'>;
   evidenceSource: HumanEvidenceSource;
   assessment: Exclude<HumanAssessment, 'Confirmed issue'>;
+  status: HumanReaderStatus;
   severity: UnifiedFinding['severity'];
   pages: HumanPageReference[];
   observation: string;
@@ -80,6 +94,7 @@ export interface HumanTechnicalObservation {
   whyItMayMatter: string;
   whatStillNeedsChecking: string;
   whereThisCameFrom: string;
+  technicalDetails: string[];
   evidencePath: string;
 }
 
@@ -90,6 +105,7 @@ export interface HumanSecurityObservation {
   itemType: Extract<HumanItemType, 'Security note'>;
   evidenceSource: Extract<HumanEvidenceSource, 'Seen in browser data'>;
   assessment: Extract<HumanAssessment, 'Confirmed observation'>;
+  status: HumanReaderStatus;
   severity: PassiveSecurityObservation['severity'];
   scope: string;
   description: string;
@@ -97,6 +113,7 @@ export interface HumanSecurityObservation {
   whyItMayMatter: string;
   whatStillNeedsChecking: string;
   whereThisCameFrom: string;
+  technicalDetails: string[];
   evidence: string[];
   whatToCheck: string | null;
   pages: HumanPageReference[];
@@ -112,6 +129,7 @@ export interface HumanIndexItem {
   severity: UnifiedFinding['severity'];
   pages: HumanPageReference[];
   assessment: HumanAssessment;
+  status: HumanReaderStatus;
 }
 
 export interface HumanPageReference {
@@ -139,6 +157,7 @@ export interface HumanReportPresentation {
   confirmedIssueCount: number;
   needsReviewCount: number;
   technicalObservationCount: number;
+  securityObservationCount: number;
   outcomeNote: string | null;
   notableSummary: string | null;
   atAGlance: HumanIndexItem[];
@@ -166,6 +185,36 @@ export function getHumanFindingStatus(state: FindingVerificationState): HumanFin
 
     case 'not-verified':
       return null;
+  }
+}
+
+export function getHumanReaderStatus(
+  evidenceSource: HumanEvidenceSource,
+  assessment: HumanAssessment
+): HumanReaderStatus {
+  if (assessment === 'Confirmed issue') {
+    if (evidenceSource === 'AI analysis only') {
+      throw new Error('AI-only evidence cannot produce a confirmed issue status.');
+    }
+
+    return 'Confirmed issue';
+  }
+
+  if (assessment === 'Confirmed observation') {
+    if (evidenceSource !== 'Seen in browser data') {
+      throw new Error('Confirmed observations require browser-data evidence.');
+    }
+
+    return 'Confirmed observation';
+  }
+
+  switch (evidenceSource) {
+    case 'Observed directly':
+    case 'Seen in browser data':
+      return 'Evidence found — needs review';
+
+    case 'AI analysis only':
+      return 'AI suggestion — needs review';
   }
 }
 
@@ -216,8 +265,39 @@ function getSiteName(report: SiteAgentReport): string {
   }
 }
 
+const commonHtmlCharacterReferences: Readonly<Record<string, string>> = {
+  amp: '&',
+  apos: "'",
+  gt: '>',
+  lt: '<',
+  nbsp: '\u00a0',
+  quot: '"'
+};
+
+function decodeHtmlCharacterReferences(value: string): string {
+  return value.replace(/&(#(?:x[0-9a-f]+|[0-9]+)|[a-z]+);/gi, (reference, name: string) => {
+    if (!name.startsWith('#')) {
+      return commonHtmlCharacterReferences[name.toLowerCase()] ?? reference;
+    }
+
+    const isHexadecimal = name[1]?.toLowerCase() === 'x';
+    const codePoint = Number.parseInt(name.slice(isHexadecimal ? 2 : 1), isHexadecimal ? 16 : 10);
+
+    if (
+      !Number.isInteger(codePoint) ||
+      codePoint <= 0 ||
+      codePoint > 0x10ffff ||
+      (codePoint >= 0xd800 && codePoint <= 0xdfff)
+    ) {
+      return reference;
+    }
+
+    return String.fromCodePoint(codePoint);
+  });
+}
+
 function createPageDisplayTitle(title: string): string | null {
-  const normalized = title.replace(/\s+/g, ' ').trim();
+  const normalized = decodeHtmlCharacterReferences(title).replace(/\s+/g, ' ').trim();
 
   if (normalized.length === 0) {
     return null;
@@ -255,6 +335,22 @@ function uniquePages(pages: readonly HumanPageReference[]): HumanPageReference[]
 }
 
 function getRawObservation(finding: UnifiedFinding): string {
+  for (const occurrence of finding.occurrences) {
+    for (const evidence of occurrence.evidence) {
+      const rawValue =
+        evidence.rawSource?.type === 'exploratory-qa-finding' ? evidence.rawSource.value : null;
+
+      if (
+        typeof rawValue === 'object' &&
+        rawValue !== null &&
+        'evidence' in rawValue &&
+        typeof rawValue.evidence === 'string'
+      ) {
+        return rawValue.evidence;
+      }
+    }
+  }
+
   for (const occurrence of finding.occurrences) {
     const browserEvidence = occurrence.evidence.find(
       evidence => evidence.source === 'browser' && evidence.kind === 'browser-observation'
@@ -295,46 +391,6 @@ function cleanFindingTitle(title: string): string {
     .replace(/^(?:verified|inconclusive|not verified)\s*[-:]\s*/i, '')
     .replace(/^model candidate:\s+/i, '')
     .trim();
-}
-
-function getStructuredIdentity(finding: UnifiedFinding): FindingStructuredIdentity | null {
-  for (const occurrence of finding.occurrences) {
-    for (const evidence of occurrence.evidence) {
-      const rawValue = evidence.rawSource?.value;
-
-      if (
-        typeof rawValue !== 'object' ||
-        rawValue === null ||
-        !('structuredIdentity' in rawValue)
-      ) {
-        continue;
-      }
-
-      const parsed = findingStructuredIdentitySchema.safeParse(rawValue.structuredIdentity);
-
-      if (parsed.success) {
-        return parsed.data;
-      }
-    }
-  }
-
-  return null;
-}
-
-function getWhyItMayMatter(identity: FindingStructuredIdentity | null): string | null {
-  if (identity?.source === 'accessible-name') {
-    return 'People using assistive technology may hear this value as the control name instead of a meaningful label.';
-  }
-
-  return null;
-}
-
-function getWhatToCheck(identity: FindingStructuredIdentity | null): string | null {
-  if (identity === null) {
-    return null;
-  }
-
-  return `Review the accessible-name source for the ${identity.subject.controlType} control with id "${identity.subject.controlId}" and confirm that "${identity.observedValue}" is intended.`;
 }
 
 function slugifyEvidenceName(title: string): string {
@@ -402,38 +458,9 @@ function getPresentationEvidenceForFinding(
 }
 
 function hasLinkedBrowserData(finding: UnifiedFinding): boolean {
-  if (getRuntimeTechnicalIdentity(finding) !== null) {
-    return true;
-  }
-
-  /*
-   * Accessibility admission validates these structured facts against the
-   * inspected page before reconciliation. The compatibility adapter retains
-   * that admitted shape in the model evidence instead of adding a second
-   * browser evidence item.
-   */
   if (
-    finding.category === 'accessibility' &&
-    finding.occurrences.some(occurrence =>
-      occurrence.evidence.some(evidence => {
-        if (evidence.rawSource?.type !== 'exploratory-qa-finding') {
-          return false;
-        }
-
-        const rawValue = evidence.rawSource.value;
-
-        if (typeof rawValue !== 'object' || rawValue === null) {
-          return false;
-        }
-
-        return (
-          ('accessibilityDefectBasis' in rawValue &&
-            accessibilityDefectBasisSchema.safeParse(rawValue.accessibilityDefectBasis).success) ||
-          ('structuredIdentity' in rawValue &&
-            findingStructuredIdentitySchema.safeParse(rawValue.structuredIdentity).success)
-        );
-      })
-    )
+    getRuntimeTechnicalIdentity(finding) !== null ||
+    getStructuredAccessibilityNarrativeFacts(finding) !== null
   ) {
     return true;
   }
@@ -456,155 +483,6 @@ function getHumanEvidenceSource(
   }
 
   return hasLinkedBrowserData(finding) ? 'Seen in browser data' : 'AI analysis only';
-}
-
-function getVisibleTextTarget(
-  presentationEvidence: readonly FindingPresentationEvidence[]
-): Extract<FindingPresentationEvidence['target'], { kind: 'visible-text' }> | null {
-  for (const evidence of presentationEvidence) {
-    const target = evidence.target;
-
-    if (target?.kind === 'visible-text' && evidence.shownTargetCount > 0) {
-      return target;
-    }
-  }
-
-  return null;
-}
-
-function formatInlineCode(value: string): string {
-  const longestBacktickRun = Math.max(0, ...(value.match(/`+/g) ?? []).map(run => run.length));
-  const fence = '`'.repeat(longestBacktickRun + 1);
-  const needsPadding =
-    value.startsWith('`') || value.endsWith('`') || value.startsWith(' ') || value.endsWith(' ');
-  const content = needsPadding ? ` ${value} ` : value;
-
-  return `${fence}${content}${fence}`;
-}
-
-function getWhatHappened(
-  finding: UnifiedFinding,
-  presentationEvidence: readonly FindingPresentationEvidence[]
-): string {
-  const visibleTextTarget = getVisibleTextTarget(presentationEvidence);
-
-  if (visibleTextTarget !== null) {
-    return `The text ${formatInlineCode(visibleTextTarget.text)} appeared visibly in a ${visibleTextTarget.elementKind}.`;
-  }
-
-  const identity = getRuntimeTechnicalIdentity(finding);
-
-  if (identity === null) {
-    return getRawObservation(finding);
-  }
-
-  switch (identity.kind) {
-    case 'console-error':
-      if (identity.source === 'resource' && identity.httpStatus !== null) {
-        const resource =
-          identity.sourceUrl === null
-            ? 'a page resource'
-            : `the page resource “${identity.sourceUrl}”`;
-
-        return `The browser reported an HTTP ${identity.httpStatus} response for ${resource}.`;
-      }
-
-      return `The browser logged: “${identity.message}”`;
-
-    case 'failed-request':
-      if (isCrossOriginDnsFailureIdentity(identity)) {
-        return 'The browser could not resolve a cross-origin resource during the run.';
-      }
-
-      return `The browser reported that a ${identity.resourceType} request failed with “${identity.failureText}”.`;
-
-    case 'cors':
-      return `The browser reported that a cross-origin ${identity.resourceType} request was blocked by its access policy.`;
-  }
-}
-
-function getWhyItMayMatterForFinding(
-  finding: UnifiedFinding,
-  presentationEvidence: readonly FindingPresentationEvidence[]
-): string {
-  const identity = getRuntimeTechnicalIdentity(finding);
-
-  if (getVisibleTextTarget(presentationEvidence) !== null) {
-    return 'If this visible text is unintended, it may confuse people using the page.';
-  }
-
-  const structuredIdentity = getStructuredIdentity(finding);
-  const structuredImpact = getWhyItMayMatter(structuredIdentity);
-
-  if (structuredImpact !== null) {
-    return structuredImpact;
-  }
-
-  if (identity !== null && isPrimaryHumanFinding(finding)) {
-    return 'This may affect the page presentation, although no visible problem was captured.';
-  }
-
-  if (identity !== null && isCrossOriginDnsFailureIdentity(identity)) {
-    return 'An external service may not have loaded, but the DNS failure may reflect the test environment rather than the website.';
-  }
-
-  if (identity?.kind === 'failed-request' || identity?.kind === 'cors') {
-    return 'The request may support a page feature, but the current evidence does not establish user impact.';
-  }
-
-  if (identity?.kind === 'console-error') {
-    return 'The practical impact is not clear from the evidence collected.';
-  }
-
-  return 'The practical impact is not clear from the evidence collected.';
-}
-
-function getWhatStillNeedsCheckingForFinding(
-  finding: UnifiedFinding,
-  presentationEvidence: readonly FindingPresentationEvidence[],
-  itemType: Exclude<HumanItemType, 'Security note'>
-): string {
-  const visibleTextTarget = getVisibleTextTarget(presentationEvidence);
-
-  if (visibleTextTarget !== null) {
-    return 'Confirm whether this text is intended to appear for ordinary users.';
-  }
-
-  const structuredCheck = getWhatToCheck(getStructuredIdentity(finding));
-
-  if (structuredCheck !== null) {
-    return structuredCheck;
-  }
-
-  const identity = getRuntimeTechnicalIdentity(finding);
-
-  if (identity !== null && isCrossOriginDnsFailureIdentity(identity)) {
-    return 'Repeat the check from another environment before attributing the failure to the website.';
-  }
-
-  if (itemType === 'Possible issue' && identity !== null) {
-    return 'Open the affected page and confirm whether the related page resource is visibly missing or broken.';
-  }
-
-  if (identity?.kind === 'failed-request') {
-    return `A developer should determine whether the failed ${identity.resourceType} request supports a user-facing feature.`;
-  }
-
-  if (identity?.kind === 'cors') {
-    return 'A developer should determine whether the blocked request supports a user-facing feature and review the access policy.';
-  }
-
-  if (identity?.kind === 'console-error') {
-    return 'A developer should identify the source of the browser message and check whether it affects what users see or can do.';
-  }
-
-  if (finding.verification.state === 'verified' && itemType === 'Possible issue') {
-    return 'No additional confirmation is needed, but the issue should be assessed for priority and scope.';
-  }
-
-  return itemType === 'Possible issue'
-    ? 'A person should review the reported condition and confirm whether it is present and unintended.'
-    : 'A developer should review the observation and determine whether it affects a user-facing feature.';
 }
 
 function getWhereThisCameFrom(
@@ -640,6 +518,495 @@ function getWhereThisCameFrom(
   return `Matched to linked browser data ${scope}.`;
 }
 
+interface PlainHumanNarrative {
+  title: string;
+  condition: string;
+  impact: string;
+  check: string;
+  technicalDetails: string[];
+}
+
+function getPageRuleCode(finding: UnifiedFinding): string | null {
+  for (const occurrence of finding.occurrences) {
+    for (const evidence of occurrence.evidence) {
+      const raw = evidence.rawSource?.type === 'page-finding' ? evidence.rawSource.value : null;
+
+      if (
+        typeof raw === 'object' &&
+        raw !== null &&
+        'code' in raw &&
+        typeof raw.code === 'string'
+      ) {
+        return raw.code;
+      }
+    }
+  }
+
+  return null;
+}
+
+function getTechnicalNarrative(finding: UnifiedFinding): PlainHumanNarrative | null {
+  const identity = getRuntimeTechnicalIdentity(finding);
+
+  if (identity === null) {
+    return null;
+  }
+
+  switch (identity.kind) {
+    case 'failed-request': {
+      const resource = identity.resourceType.toLowerCase();
+      const resourceName = getResourceDisplayName(resource);
+
+      if (isCrossOriginDnsFailureIdentity(identity)) {
+        return {
+          title: 'Cross-origin address lookup failed',
+          condition:
+            'The browser could not find the address of an external service requested by the page.',
+          impact:
+            'The external service may not have loaded, but the DNS failure may reflect the test environment rather than the website.',
+          check:
+            'Repeat the check from another environment before attributing the failure to the website.',
+          technicalDetails: [
+            `Request URL: ${identity.resourceUrl}`,
+            `Method: ${identity.method}`,
+            `Browser failure: ${identity.failureText}`,
+            `Origin relationship: ${identity.originRelation}`
+          ]
+        };
+      }
+
+      return {
+        title: `${formatTitleWord(resourceName)} failed to load`,
+        condition: `${getIndefiniteArticle(resourceName)} ${resourceName} requested by the page failed to load.`,
+        impact: `The ${resource} request failed, but CheckQuest did not capture a visible consequence, so we do not yet know whether visitors can actually see or experience a problem.`,
+        check: `Open the page and check whether the failed ${resourceName} affects anything visitors need to see or use.`,
+        technicalDetails: [
+          `Request URL: ${identity.resourceUrl}`,
+          `Method: ${identity.method}`,
+          `Resource type: ${identity.resourceType}`,
+          `Browser failure: ${identity.failureText}`,
+          `Origin relationship: ${identity.originRelation}`
+        ]
+      };
+    }
+
+    case 'console-error': {
+      const resourceType =
+        identity.sourceUrl === null ? 'page resource' : getResourceKind(identity.sourceUrl);
+      const resourceName = getResourceDisplayName(resourceType);
+      const statusText =
+        identity.httpStatus === null ? '' : ` returned a ${identity.httpStatus} error`;
+
+      return {
+        title:
+          identity.httpStatus !== null && resourceType !== 'page resource'
+            ? `${formatTitleWord(resourceName)} returned a ${identity.httpStatus} error`
+            : 'Browser reported a page error',
+        condition:
+          identity.httpStatus !== null && identity.source === 'resource'
+            ? `${getIndefiniteArticle(resourceName)} ${resourceName} requested by the page${statusText}.`
+            : 'The browser recorded an error while the page was open.',
+        impact:
+          identity.source === 'resource'
+            ? `The ${resourceType} request failed, but CheckQuest did not capture a visible consequence, so we do not yet know whether visitors can actually see or experience a problem.`
+            : 'CheckQuest has not established that this browser error affected what visitors see or can do.',
+        check:
+          identity.source === 'resource'
+            ? `Open the page and check whether the failed ${resourceName} affects anything visitors need to see or use.`
+            : 'Identify what produced the error and check whether it affects a visitor-facing feature.',
+        technicalDetails: [
+          `Console message: ${identity.message}`,
+          `Console source: ${identity.source}`,
+          `Resource type: ${resourceType}`,
+          ...(identity.sourceUrl === null ? [] : [`Resource URL: ${identity.sourceUrl}`]),
+          ...(identity.httpStatus === null ? [] : [`HTTP status: ${identity.httpStatus}`])
+        ]
+      };
+    }
+
+    case 'cors':
+      return {
+        title: 'Cross-origin request was blocked',
+        condition: 'The browser blocked a request to another origin while the page was open.',
+        impact:
+          'CheckQuest has not established that the blocked request affected a feature visitors use.',
+        check:
+          'Check whether the blocked request supports a visitor-facing feature and whether the access policy is intentional.',
+        technicalDetails: [
+          `Request URL: ${identity.resourceUrl}`,
+          `Requesting origin: ${identity.requestingOrigin}`,
+          `Method: ${identity.method}`,
+          `Resource type: ${identity.resourceType}`,
+          `Origin relationship: ${identity.originRelation}`,
+          `Browser mechanism: ${identity.mechanism}`
+        ]
+      };
+  }
+}
+
+function formatTitleWord(value: string): string {
+  return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
+}
+
+function getResourceKind(url: string): string {
+  try {
+    const extension = /\.([a-z0-9]+)$/i.exec(new URL(url).pathname)?.[1]?.toLowerCase();
+
+    if (extension !== undefined) {
+      if (['avif', 'gif', 'jpeg', 'jpg', 'png', 'svg', 'webp'].includes(extension)) {
+        return 'image';
+      }
+
+      if (['js', 'mjs', 'cjs'].includes(extension)) {
+        return 'script';
+      }
+
+      if (extension === 'css') {
+        return 'stylesheet';
+      }
+
+      if (['eot', 'otf', 'ttf', 'woff', 'woff2'].includes(extension)) {
+        return 'font';
+      }
+    }
+  } catch {
+    // The trusted runtime identity has already validated the URL.
+  }
+
+  return 'page resource';
+}
+
+function getResourceDisplayName(resourceType: string): string {
+  const normalized = resourceType.toLowerCase();
+
+  return ['font', 'image', 'media', 'script', 'stylesheet'].includes(normalized)
+    ? `${normalized} file`
+    : normalized;
+}
+
+function getIndefiniteArticle(value: string): 'A' | 'An' {
+  return /^[aeiou]/i.test(value) ? 'An' : 'A';
+}
+
+function getGenericFindingNarrative(finding: UnifiedFinding): PlainHumanNarrative {
+  return {
+    title: cleanFindingTitle(finding.title),
+    condition: getRawObservation(finding),
+    impact: 'CheckQuest has not established a user-visible impact yet.',
+    check: 'Check whether this behavior is intentional. If not, correct the affected part.',
+    technicalDetails: []
+  };
+}
+
+function formatStructuredFactValue(value: string | boolean | null): string {
+  return typeof value === 'string' ? `“${value}”` : String(value);
+}
+
+function getStructuredEvidenceTechnicalDetails(
+  basis: NonNullable<ReturnType<typeof getStructuredAccessibilityNarrativeFacts>>['defectBasis']
+): string[] {
+  if (basis === null) {
+    return [];
+  }
+
+  return basis.supportingEvidence.map(
+    fact =>
+      `Structured evidence: ${fact.controlType} control ${fact.controlId}, ${fact.property} = ${formatStructuredFactValue(fact.value)}`
+  );
+}
+
+function getTargetTechnicalDetails(target: FindingTarget): string[] {
+  if (target === null) {
+    return [];
+  }
+
+  switch (target.kind) {
+    case 'select-option':
+      return [
+        'Target type: select option',
+        ...(target.controlLabel === null ? [] : [`Control label: ${target.controlLabel}`]),
+        ...(target.controlName === null ? [] : [`Control name: ${target.controlName}`]),
+        ...(target.controlId === null ? [] : [`Control id: ${target.controlId}`]),
+        `Option text: ${target.optionText}`
+      ];
+
+    case 'disclosure-state':
+      return [
+        'Target type: disclosure state',
+        `Accessible name: ${target.accessibleName}`,
+        `Control id: ${target.controlId}`,
+        `Controlled region id: ${target.controlledRegionId}`,
+        `Requested state: ${target.desiredState}`
+      ];
+
+    case 'tab-state':
+      return [
+        'Target type: tab state',
+        `Accessible name: ${target.accessibleName}`,
+        `Control id: ${target.controlId}`,
+        `Tab list id: ${target.tabListId}`,
+        `Controlled panel id: ${target.controlledPanelId}`,
+        `Requested state: ${target.desiredState}`
+      ];
+  }
+}
+
+function getExploratoryFindingTechnicalDetails(finding: UnifiedFinding): string[] {
+  const details = new Set<string>();
+
+  for (const occurrence of finding.occurrences) {
+    for (const detail of getTargetTechnicalDetails(occurrence.target)) {
+      details.add(detail);
+    }
+
+    for (const evidence of occurrence.evidence) {
+      if (evidence.rawReference?.candidateReference !== undefined) {
+        details.add(`Candidate reference: ${evidence.rawReference.candidateReference}`);
+      }
+
+      if (evidence.rawSource?.type !== 'exploratory-qa-finding') {
+        continue;
+      }
+
+      const parsed = exploratoryQaFindingSchema.safeParse(evidence.rawSource.value);
+
+      if (parsed.success && parsed.data.presentationTarget !== null) {
+        const presentationTarget = parsed.data.presentationTarget;
+
+        if (presentationTarget !== undefined) {
+          details.add(
+            `Presentation evidence: ${presentationTarget.elementKind} text “${presentationTarget.text}”`
+          );
+        }
+      }
+    }
+  }
+
+  return [...details];
+}
+
+function getDeterministicFindingNarrative(finding: UnifiedFinding): PlainHumanNarrative | null {
+  const technical = getTechnicalNarrative(finding);
+
+  if (technical !== null) {
+    return {
+      ...technical,
+      title: usesResourceSpecificTitle(finding) ? technical.title : cleanFindingTitle(finding.title)
+    };
+  }
+
+  const structured = getStructuredAccessibilityNarrativeFacts(finding);
+
+  if (structured?.identity !== null && structured?.identity !== undefined) {
+    const control = structured.identity.subject.controlType;
+    const rawValue = `“${structured.identity.observedValue}”`;
+
+    return {
+      title:
+        structured.identity.mechanism === 'unresolved-token'
+          ? `${formatTitleWord(control)} label shows an unresolved token`
+          : `${formatTitleWord(control)} has an unclear label`,
+      condition:
+        structured.identity.mechanism === 'unresolved-token'
+          ? `A ${control} is exposed to screen-reader users as the raw token ${rawValue} instead of a meaningful label.`
+          : `A ${control} is exposed to screen-reader users as ${rawValue}, which does not clearly describe the control.`,
+      impact: 'People using a screen reader may not understand what this control does.',
+      check: `Check the ${control} label and replace the unclear value with wording that explains what the ${control} does.`,
+      technicalDetails: [
+        `Structured control type: ${structured.identity.subject.controlType}`,
+        `Control id: ${structured.identity.subject.controlId}`,
+        ...(structured.identity.subject.componentId === null
+          ? []
+          : [`Component id: ${structured.identity.subject.componentId}`]),
+        ...(structured.identity.subject.locator === null
+          ? []
+          : [`Locator: ${structured.identity.subject.locator}`]),
+        `Accessible-name value: ${structured.identity.observedValue}`,
+        `Identity mechanism: ${structured.identity.mechanism}`,
+        ...getStructuredEvidenceTechnicalDetails(structured.defectBasis)
+      ]
+    };
+  }
+
+  if (structured?.defectBasis !== null && structured?.defectBasis !== undefined) {
+    const controlTypes = [
+      ...new Set(structured.defectBasis.supportingEvidence.map(fact => fact.controlType))
+    ];
+    const oneControlType = controlTypes.length === 1 ? controlTypes[0]! : null;
+    const subject = oneControlType === null ? 'semantic controls' : `a ${oneControlType}`;
+
+    return {
+      title:
+        oneControlType === null
+          ? 'Accessibility information is inconsistent'
+          : `${formatTitleWord(oneControlType)} has inconsistent accessibility information`,
+      condition: `Browser-backed facts for ${subject} show missing or conflicting accessibility information.`,
+      impact:
+        'People using assistive technology may receive incomplete or inconsistent information about the control.',
+      check:
+        'Review the control’s accessibility information and confirm that it agrees with what is visible and how the control behaves.',
+      technicalDetails: [
+        'Structured mechanism: admitted accessibility defect basis',
+        ...getStructuredEvidenceTechnicalDetails(structured.defectBasis)
+      ]
+    };
+  }
+
+  const ruleCode = getPageRuleCode(finding);
+  const byRule: Record<string, Omit<PlainHumanNarrative, 'technicalDetails'>> = {
+    HTTP_STATUS_UNKNOWN: {
+      title: 'Page response status could not be checked',
+      condition: 'CheckQuest could not determine the page’s response status.',
+      impact:
+        'Without that status, CheckQuest cannot tell whether the server delivered the page normally.',
+      check: 'Reload the page and confirm that it returns a successful response.'
+    },
+    HTTP_SERVER_ERROR: {
+      title: 'Page returned a server error',
+      condition:
+        'The page returned a server-error response instead of a normal successful response.',
+      impact: 'Visitors may be unable to open or use the page.',
+      check: 'Open the page and confirm whether it loads successfully for visitors.'
+    },
+    HTTP_CLIENT_ERROR: {
+      title: 'Page returned a client error',
+      condition: 'The page returned an error response instead of a normal successful response.',
+      impact: 'Visitors following this link may reach an error page.',
+      check: 'Confirm that the page URL is correct and loads successfully.'
+    },
+    EMPTY_PAGE_TITLE: {
+      title: 'Page has no browser title',
+      condition: 'The page does not provide a title for the browser tab.',
+      impact:
+        'People may have difficulty identifying the page in browser tabs, bookmarks, and assistive tools.',
+      check: 'Add a short title that identifies the page and its purpose.'
+    },
+    NO_PRIMARY_HEADINGS: {
+      title: 'Page has no main headings',
+      condition: 'The page does not contain a visible main or section heading.',
+      impact: 'Visitors may find it harder to understand and scan the page structure.',
+      check: 'Confirm that the page uses clear headings for its main content and sections.'
+    },
+    VISIBLE_ERROR_PAGE: {
+      title: 'Page appears to show an error',
+      condition: 'The page title or main headings contain wording commonly shown on an error page.',
+      impact: 'Visitors may have reached an error instead of the content they expected.',
+      check: 'Open the page and confirm whether the intended content is available.'
+    }
+  };
+  const selected = ruleCode === null ? undefined : byRule[ruleCode];
+
+  if (selected !== undefined) {
+    return {
+      ...selected,
+      technicalDetails: [
+        `Rule code: ${ruleCode}`,
+        `Recorded evidence: ${getRawObservation(finding)}`
+      ]
+    };
+  }
+
+  if (ruleCode !== null) {
+    return {
+      title: cleanFindingTitle(finding.title),
+      condition: getRawObservation(finding),
+      impact: 'CheckQuest has not established a user-visible impact yet.',
+      check: 'Check whether this behavior is intentional. If not, correct the affected part.',
+      technicalDetails: [`Rule code: ${ruleCode}`]
+    };
+  }
+
+  return null;
+}
+
+function usesResourceSpecificTitle(finding: UnifiedFinding): boolean {
+  const identity = getRuntimeTechnicalIdentity(finding);
+
+  return (
+    identity?.kind === 'failed-request' ||
+    (identity?.kind === 'console-error' && identity.source === 'resource')
+  );
+}
+
+interface ReaderSafeNarrative {
+  title: string;
+  condition: string;
+  impact: string;
+  check: string;
+}
+
+function getSelectOptionReaderNarrative(finding: UnifiedFinding): ReaderSafeNarrative | null {
+  const optionTexts = new Set<string>();
+  const controlLabels = new Set<string>();
+
+  for (const occurrence of finding.occurrences) {
+    if (occurrence.target?.kind !== 'select-option') {
+      continue;
+    }
+
+    const optionText = occurrence.target.optionText.trim();
+    const controlLabel = occurrence.target.controlLabel?.trim();
+
+    if (optionText.length > 0) {
+      optionTexts.add(optionText);
+    }
+
+    if (controlLabel !== undefined && controlLabel.length > 0) {
+      controlLabels.add(controlLabel);
+    }
+  }
+
+  if (optionTexts.size !== 1) {
+    return null;
+  }
+
+  const optionText = [...optionTexts][0]!;
+  const controlLabel = controlLabels.size === 1 ? [...controlLabels][0]! : null;
+  const listName = controlLabel === null ? 'The list' : `The “${controlLabel}” list`;
+
+  return {
+    title: `Visible option “${optionText}” may need review`,
+    condition: `${listName} includes the visible option “${optionText}”.`,
+    impact: 'CheckQuest has not established any further user impact yet.',
+    check:
+      controlLabel === null
+        ? `Check whether “${optionText}” is intentional. If not, correct or remove it.`
+        : `Check whether “${optionText}” is intentional in “${controlLabel}”. If not, correct or remove it.`
+  };
+}
+
+function createNeedsReviewExploratoryNarrative(
+  finding: UnifiedFinding,
+  title: string,
+  condition: string
+): ReaderSafeNarrative {
+  const selectOptionNarrative = getSelectOptionReaderNarrative(finding);
+
+  if (selectOptionNarrative !== null) {
+    return selectOptionNarrative;
+  }
+
+  return {
+    title: /^possible\b/i.test(title) ? title : `Possible issue: ${title}`,
+    condition: `The available evidence suggests: ${condition}`,
+    impact: 'CheckQuest has not established any further user impact yet.',
+    check: 'Check whether this behavior is intentional. If not, correct the affected part.'
+  };
+}
+
+function createNeedsReviewStructuredCheck(finding: UnifiedFinding, fallback: string): string {
+  const structured = getStructuredAccessibilityNarrativeFacts(finding);
+
+  if (structured?.identity === null || structured?.identity === undefined) {
+    return fallback;
+  }
+
+  const control = structured.identity.subject.controlType;
+  const rawValue = `“${structured.identity.observedValue}”`;
+
+  return `Check whether the ${control} label ${rawValue} is intentional. If not, replace it with wording that explains what the ${control} does.`;
+}
+
 function buildHumanFinding(
   report: SiteAgentReport,
   finding: UnifiedFinding,
@@ -647,7 +1014,6 @@ function buildHumanFinding(
   displayId: string,
   urlContext: HumanReportUrlContext
 ): HumanFindingPresentation {
-  const cleanedTitle = cleanFindingTitle(finding.title);
   const presentationEvidence = getPresentationEvidenceForFinding(report, finding);
   const focusedEvidence: HumanFocusedEvidence[] = [];
   let visuallyShownTargetCount = 0;
@@ -692,6 +1058,52 @@ function buildHumanFinding(
   );
   const evidenceSource = getHumanEvidenceSource(finding, presentationEvidence);
   const itemType = 'Possible issue' as const;
+  const readerStatus = getHumanReaderStatus(evidenceSource, status);
+  const persistedNarrative = getPersistedHumanNarrative(report, finding.findingReference);
+  const deterministicSpecificNarrative =
+    persistedNarrative === null ? getDeterministicFindingNarrative(finding) : null;
+  const usesGenericNarrative =
+    persistedNarrative === null &&
+    deterministicSpecificNarrative === null &&
+    report.reportSchemaVersion === '3';
+  const deterministicNarrative = usesGenericNarrative
+    ? getGenericFindingNarrative(finding)
+    : deterministicSpecificNarrative;
+
+  if (
+    report.reportSchemaVersion === '4' &&
+    persistedNarrative === null &&
+    deterministicNarrative === null
+  ) {
+    throw new Error('A required exploratory human narrative is missing.');
+  }
+
+  const acceptedNarrative = persistedNarrative ?? deterministicNarrative!;
+  const plainTitle =
+    'plainTitle' in acceptedNarrative ? acceptedNarrative.plainTitle : acceptedNarrative.title;
+  const plainCondition =
+    'plainCondition' in acceptedNarrative
+      ? acceptedNarrative.plainCondition
+      : acceptedNarrative.condition;
+  const impactStatement =
+    'impactStatement' in acceptedNarrative
+      ? acceptedNarrative.impactStatement
+      : acceptedNarrative.impact;
+  const checkStatement =
+    'whatToCheck' in acceptedNarrative ? acceptedNarrative.whatToCheck : acceptedNarrative.check;
+  const isAiOnly = readerStatus === 'AI suggestion — needs review';
+  const readerSafeNarrative =
+    status === 'Needs human review' && (persistedNarrative !== null || usesGenericNarrative)
+      ? createNeedsReviewExploratoryNarrative(finding, plainTitle, plainCondition)
+      : null;
+  const readerTitle = readerSafeNarrative?.title ?? plainTitle;
+  const readerCondition = readerSafeNarrative?.condition ?? plainCondition;
+  const readerImpact = readerSafeNarrative?.impact ?? impactStatement;
+  const readerCheck =
+    readerSafeNarrative?.check ??
+    (status === 'Needs human review'
+      ? createNeedsReviewStructuredCheck(finding, checkStatement)
+      : checkStatement);
   const modelCandidateProvenance =
     finding.category === 'technical' &&
     finding.verification.state === 'inconclusive' &&
@@ -701,22 +1113,35 @@ function buildHumanFinding(
     displayId,
     anchor: `item-${displayId.toLowerCase()}`,
     findingReference: finding.findingReference,
-    title: cleanedTitle,
+    title:
+      report.reportSchemaVersion === '4' && isAiOnly
+        ? `AI suggestion: ${readerTitle}`
+        : readerTitle,
     itemType,
     evidenceSource,
     assessment: status,
+    status: readerStatus,
     severity: finding.severity,
     category: finding.category,
     pages,
     observation: getRawObservation(finding),
-    whatHappened: getWhatHappened(finding, presentationEvidence),
-    whyItMayMatter: getWhyItMayMatterForFinding(finding, presentationEvidence),
-    whatStillNeedsChecking: getWhatStillNeedsCheckingForFinding(
-      finding,
-      presentationEvidence,
-      itemType
-    ),
+    whatHappened: isAiOnly
+      ? `AI suggested this possible issue: ${readerSafeNarrative === null ? readerCondition : plainCondition}`
+      : readerCondition,
+    whyItMayMatter:
+      isAiOnly && readerSafeNarrative === null
+        ? `If the suggestion is correct: ${readerImpact}`
+        : readerImpact,
+    whatStillNeedsChecking: isAiOnly
+      ? `No matching browser or screenshot evidence confirmed it. ${readerCheck}`
+      : readerCheck,
     whereThisCameFrom: getWhereThisCameFrom(evidenceSource, finding, pages.length),
+    technicalDetails: [
+      ...(deterministicNarrative?.technicalDetails ?? []),
+      ...getExploratoryFindingTechnicalDetails(finding),
+      `Evidence source: ${evidenceSource}`,
+      `Verification state: ${finding.verification.state}`
+    ],
     focusedEvidence,
     confirmationCoverage,
     visualTargetCount: presentationEvidence.reduce(
@@ -756,7 +1181,7 @@ function getSecurityScope(observation: PassiveSecurityObservation, totalPages: n
   const pageCount = new Set(observation.occurrences.map(occurrence => occurrence.pageUrl)).size;
 
   if (totalPages > 0 && pageCount === totalPages) {
-    return `All ${totalPages} page${totalPages === 1 ? '' : 's'}`;
+    return totalPages === 1 ? '1 page' : `All ${totalPages} pages`;
   }
 
   return `${pageCount} page${pageCount === 1 ? '' : 's'}`;
@@ -860,21 +1285,58 @@ export function rankHumanReportNotableItems(report: SiteAgentReport): UnifiedFin
     .map(item => item.finding);
 }
 
-function createNotableSummary(report: SiteAgentReport): string | null {
-  const notable = rankHumanReportNotableItems(report).slice(0, 2);
+function createNotableSummary(
+  report: SiteAgentReport,
+  items: readonly (HumanFindingPresentation | HumanTechnicalObservation)[]
+): string | null {
+  const ranked = rankHumanReportNotableItems(report);
+  const titleByReference = new Map(items.map(item => [item.findingReference, item.title]));
 
-  if (notable.length === 0) {
+  if (ranked.length < 2) {
     return null;
   }
 
+  const firstRanked = ranked[0]!;
+  const firstAssessmentRank = assessmentRank(firstRanked);
+  const firstSeverityRank = severityRank[firstRanked.severity];
+  const firstIsVisiblyStrongest = !ranked.some(
+    finding =>
+      assessmentRank(finding) < firstAssessmentRank ||
+      (assessmentRank(finding) === firstAssessmentRank &&
+        severityRank[finding.severity] < firstSeverityRank)
+  );
+  const equallyNotable = ranked.filter(
+    finding =>
+      assessmentRank(finding) === firstAssessmentRank &&
+      severityRank[finding.severity] === firstSeverityRank
+  );
+
+  if (!firstIsVisiblyStrongest || equallyNotable.length === ranked.length) {
+    return null;
+  }
+
+  const notable = equallyNotable.slice(0, 2);
+
   if (notable.length === 1) {
-    const title = cleanFindingTitle(notable[0]?.title ?? '');
+    const finding = notable[0];
+    const title =
+      finding === undefined
+        ? ''
+        : (titleByReference.get(finding.findingReference) ?? cleanFindingTitle(finding.title));
 
     return `The most notable item was ${title?.charAt(0).toLowerCase()}${title?.slice(1)}.`;
   }
 
-  const firstTitle = cleanFindingTitle(notable[0]?.title ?? '');
-  const secondTitle = cleanFindingTitle(notable[1]?.title ?? '');
+  const first = notable[0];
+  const second = notable[1];
+  const firstTitle =
+    first === undefined
+      ? ''
+      : (titleByReference.get(first.findingReference) ?? cleanFindingTitle(first.title));
+  const secondTitle =
+    second === undefined
+      ? ''
+      : (titleByReference.get(second.findingReference) ?? cleanFindingTitle(second.title));
 
   return `The most notable items were ${firstTitle?.charAt(0).toLowerCase()}${firstTitle?.slice(1)} and ${secondTitle?.charAt(0).toLowerCase()}${secondTitle?.slice(1)}.`;
 }
@@ -896,23 +1358,124 @@ function buildTechnicalObservation(
   if (assessment === null) {
     throw new Error('Ineligible technical observation reached the human report projection.');
   }
+  const narrative =
+    getTechnicalNarrative(finding) ??
+    getDeterministicFindingNarrative(finding) ??
+    getGenericFindingNarrative(finding);
 
   return {
     displayId,
     anchor: `item-${displayId.toLowerCase()}`,
-    title: cleanFindingTitle(finding.title),
+    findingReference: finding.findingReference,
+    title: usesResourceSpecificTitle(finding) ? narrative.title : cleanFindingTitle(finding.title),
     itemType,
     evidenceSource,
     assessment,
+    status: getHumanReaderStatus(evidenceSource, assessment),
     severity: finding.severity,
     pages,
     observation: getRawObservation(finding),
-    whatHappened: getWhatHappened(finding, []),
-    whyItMayMatter: getWhyItMayMatterForFinding(finding, []),
-    whatStillNeedsChecking: getWhatStillNeedsCheckingForFinding(finding, [], itemType),
+    whatHappened: narrative.condition,
+    whyItMayMatter: narrative.impact,
+    whatStillNeedsChecking: narrative.check,
     whereThisCameFrom: getWhereThisCameFrom(evidenceSource, finding, pages.length),
+    technicalDetails: [
+      ...narrative.technicalDetails,
+      ...getExploratoryFindingTechnicalDetails(finding),
+      `Evidence source: ${evidenceSource}`,
+      `Verification state: ${finding.verification.state}`
+    ],
     evidencePath: `evidence/${displayId}-${slugifyEvidenceName(finding.title)}-evidence.json`
   };
+}
+
+function getSecurityNarrative(observation: PassiveSecurityObservation): PlainHumanNarrative {
+  switch (observation.code) {
+    case 'PS_CSP_RESPONSE_HEADER_NOT_OBSERVED':
+      return {
+        title: 'A browser security policy was not enforced',
+        condition: 'The site did not send an enforcing Content Security Policy (CSP).',
+        impact:
+          'CSP can restrict which resources and content the browser is allowed to load or run. Its absence does not prove the site is vulnerable.',
+        check: 'Review whether the site should send an enforcing Content Security Policy.',
+        technicalDetails: []
+      };
+
+    case 'PS_TECHNOLOGY_DISCLOSURE': {
+      const isServer = observation.title.startsWith('Server');
+
+      return {
+        title: isServer
+          ? 'Server technology information was exposed'
+          : 'Platform information was exposed',
+        condition: isServer
+          ? 'The site tells browsers some information about the server technology it uses.'
+          : 'The site exposes information about the software or platform serving the page.',
+        impact: 'This is informational and is not a problem by itself.',
+        check:
+          'Confirm whether this technology information needs to be included in public responses.',
+        technicalDetails: []
+      };
+    }
+
+    case 'PS_HTTP_DOCUMENT':
+      return {
+        title: 'Page was delivered without HTTPS',
+        condition: 'The page was delivered over an unencrypted HTTP connection.',
+        impact:
+          'Information sent between a visitor and the site may be easier for others on the network to read or alter.',
+        check:
+          'Confirm that the page redirects to HTTPS and is not intentionally available over HTTP.',
+        technicalDetails: []
+      };
+
+    case 'PS_HSTS_NOT_OBSERVED':
+    case 'PS_HSTS_NOT_ENFORCING':
+      return {
+        title: 'Strict HTTPS protection was not enforced',
+        condition: 'The site did not tell browsers to keep future visits on HTTPS.',
+        impact:
+          'This removes a browser safeguard against accidental or forced connections over unencrypted HTTP, but does not prove an attack is possible.',
+        check: 'Review whether the site should send an enforcing Strict-Transport-Security header.',
+        technicalDetails: []
+      };
+
+    case 'PS_NOSNIFF_NOT_ENFORCING':
+      return {
+        title: 'Browser content-type protection was not enforced',
+        condition: 'The site did not tell browsers to strictly follow declared file types.',
+        impact:
+          'This removes one browser safeguard against interpreting a file as the wrong content type, but does not prove the site is vulnerable.',
+        check:
+          'Review whether responses should send X-Content-Type-Options with the value nosniff.',
+        technicalDetails: []
+      };
+
+    case 'PS_FRAME_POLICY_NOT_OBSERVED':
+      return {
+        title: 'Frame-embedding restriction was not observed',
+        condition:
+          'The site did not send a policy that restricts other sites from placing its pages inside a frame.',
+        impact:
+          'Without an appropriate restriction, some pages may be easier to imitate or overlay in deceptive interfaces. This observation does not prove an attack is possible.',
+        check: 'Review whether the site should restrict which origins may embed its pages.',
+        technicalDetails: []
+      };
+
+    default:
+      return {
+        title: observation.title,
+        condition: observation.description,
+        impact:
+          observation.posture === 'informational'
+            ? 'This is informational and is not a problem by itself.'
+            : 'This may remove a browser protection, but the observation does not prove the site is vulnerable.',
+        check:
+          observation.remediation ??
+          'Review whether this response behavior matches the site’s intended security configuration.',
+        technicalDetails: []
+      };
+  }
 }
 
 function buildSecurityObservation(
@@ -933,32 +1496,32 @@ function buildSecurityObservation(
       createPageReference(occurrence.pageTitle, occurrence.pageUrl, urlContext)
     )
   );
-  const whyItMayMatter =
-    observation.posture === 'informational'
-      ? 'This information may help with configuration review, but it is not a security problem by itself.'
-      : observation.posture === 'defense-in-depth-gap'
-        ? 'This may reduce a defense-in-depth protection, although the observation alone does not establish a vulnerability.'
-        : 'This configuration may deserve security review, although the observation alone does not establish exploitability.';
+  const narrative = getSecurityNarrative(observation);
 
   return {
     displayId,
     anchor: `security-${displayId.toLowerCase()}`,
-    title: observation.title,
+    title: narrative.title,
     itemType: 'Security note',
     evidenceSource: 'Seen in browser data',
     assessment: 'Confirmed observation',
+    status: 'Confirmed observation',
     severity: observation.severity,
     scope: getSecurityScope(observation, totalPages),
     description: observation.description,
-    whatHappened: observation.description,
-    whyItMayMatter,
-    whatStillNeedsChecking:
-      observation.remediation ??
-      'Review the observation in the context of the site’s intended security configuration.',
+    whatHappened: narrative.condition,
+    whyItMayMatter: narrative.impact,
+    whatStillNeedsChecking: narrative.check,
     whereThisCameFrom:
       pages.length === 1
         ? 'Passive browser response data captured on the inspected page.'
         : `Passive browser response data captured on ${pages.length} inspected pages.`,
+    technicalDetails: [
+      `Security code: ${observation.code}`,
+      `Security category: ${observation.category}`,
+      `Security posture: ${observation.posture}`,
+      `Evidence source: Seen in browser data`
+    ],
     evidence: [...evidence],
     whatToCheck: observation.remediation,
     pages,
@@ -1021,7 +1584,8 @@ export function buildHumanReportPresentation(report: SiteAgentReport): HumanRepo
       evidenceSource: finding.evidenceSource,
       severity: finding.severity,
       pages: finding.pages,
-      assessment: finding.assessment
+      assessment: finding.assessment,
+      status: finding.status
     })),
     ...technicalObservations.map(observation => ({
       displayId: observation.displayId,
@@ -1031,7 +1595,8 @@ export function buildHumanReportPresentation(report: SiteAgentReport): HumanRepo
       evidenceSource: observation.evidenceSource,
       severity: observation.severity,
       pages: observation.pages,
-      assessment: observation.assessment
+      assessment: observation.assessment,
+      status: observation.status
     }))
   ].sort((left, right) => Number(left.displayId) - Number(right.displayId));
   const inspectedPages = report.inspectedPages.map(page => {
@@ -1066,8 +1631,9 @@ export function buildHumanReportPresentation(report: SiteAgentReport): HumanRepo
     confirmedIssueCount: summary.confirmedFindingCount,
     needsReviewCount: summary.reviewFindingCount,
     technicalObservationCount: summary.technicalObservationCount,
+    securityObservationCount: report.passiveSecurity.observations.length,
     outcomeNote: report.outcome.type === 'finished' ? report.outcome.summary : null,
-    notableSummary: createNotableSummary(report),
+    notableSummary: createNotableSummary(report, [...primaryFindings, ...technicalObservations]),
     atAGlance: indexItems,
     detailedFindings: primaryFindings.slice(0, humanReportDetailedFindingLimit),
     additionalFindings: primaryFindings.slice(humanReportDetailedFindingLimit),

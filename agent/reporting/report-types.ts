@@ -4,9 +4,15 @@ import type { InspectedPageResult } from '../inspection/inspected-page-result';
 import type { PassiveSecurityReport } from '../security/passive-security-model';
 import type { SiteWideExploratoryFinding } from './build-site-wide-exploratory-findings';
 
-export interface SiteAgentReport {
-  reportSchemaVersion: '3';
+export interface PersistedExploratoryHumanNarrative {
+  findingReference: UnifiedFinding['findingReference'];
+  plainTitle: string;
+  plainCondition: string;
+  impactStatement: string;
+  whatToCheck: string;
+}
 
+interface SiteAgentReportBase {
   runId: string;
   startedAt: string;
   finishedAt: string;
@@ -104,3 +110,22 @@ export interface SiteAgentReport {
     ignoredDiagnosticNoiseCount: number;
   };
 }
+
+/*
+ * Historical schema-v3 packages remain readable and are never migrated.
+ * Schema v4 adds only report-owned prose for exploratory findings whose
+ * wording cannot be reproduced deterministically from trusted report state.
+ */
+export interface SiteAgentReportV3 extends SiteAgentReportBase {
+  reportSchemaVersion: '3';
+}
+
+export interface SiteAgentReportV4 extends SiteAgentReportBase {
+  reportSchemaVersion: '4';
+  humanNarratives: {
+    state: 'pending' | 'complete';
+    exploratory: PersistedExploratoryHumanNarrative[];
+  };
+}
+
+export type SiteAgentReport = SiteAgentReportV3 | SiteAgentReportV4;

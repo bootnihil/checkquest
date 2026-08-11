@@ -592,17 +592,17 @@ async function main(): Promise<void> {
 
   assert.match(
     markdown,
-    /### \d+ — Conflicting disclosure state result[\s\S]*\*\*Possible issue · Seen in browser data · Needs human review · Low\*\*/
+    /### \d+ — Possible issue: Conflicting disclosure state result[\s\S]*\*\*Low severity · Evidence found — needs review\*\*/
   );
 
   assert.match(
     markdown,
-    /### \d+ — Known exact disclosure target[\s\S]*\*\*Possible issue · Seen in browser data · Confirmed issue · Low\*\*/
+    /### \d+ — Known exact disclosure target[\s\S]*\*\*Low severity · Confirmed issue\*\*/
   );
 
   assert.match(
     markdown,
-    /## Technical notes[\s\S]*### \d+ — Page has no browser title[\s\S]*\*\*Technical note · Seen in browser data · Confirmed observation · Medium\*\*/
+    /## Technical notes[\s\S]*### \d+ — Page has no browser title[\s\S]*\*\*Medium severity · Confirmed observation\*\*/
   );
 
   assert.equal(

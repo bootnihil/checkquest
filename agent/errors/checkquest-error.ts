@@ -19,6 +19,7 @@ export interface CheckQuestErrorOptions {
   finalUrl?: string;
   statusCode?: number;
   retryable?: boolean;
+  developerContext?: Readonly<Record<string, string | number | boolean | null>>;
   cause?: unknown;
   secondaryCleanupError?: CheckQuestError;
 }
@@ -44,6 +45,8 @@ export class CheckQuestError extends Error {
 
   readonly retryable: boolean | undefined;
 
+  readonly developerContext: Readonly<Record<string, string | number | boolean | null>> | undefined;
+
   secondaryCleanupError: CheckQuestError | undefined;
 
   constructor(code: CheckQuestErrorCode, message: string, options: CheckQuestErrorOptions = {}) {
@@ -62,6 +65,7 @@ export class CheckQuestError extends Error {
     this.finalUrl = options.finalUrl;
     this.statusCode = options.statusCode;
     this.retryable = options.retryable;
+    this.developerContext = options.developerContext;
     this.secondaryCleanupError = options.secondaryCleanupError;
   }
 }

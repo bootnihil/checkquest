@@ -387,9 +387,11 @@ function checkSvgConsoleAssociation(): void {
   assert.match(markdown, /Technical note/);
   assert.match(
     markdown,
-    /The browser logged: “Error: &lt;svg&gt; attribute height: Expected length/
+    /The browser recorded an error while the page was open\.[\s\S]*Console message: Error: &lt;svg&gt; attribute height: Expected length/
   );
-  assert.match(markdown, /\*\*Pages:\*\* [^\n]*\/w\/enterprise[^\n]*\/crm[^\n]*\/w\/nonprofits/);
+  assert.match(markdown, /\*\*Affected:\*\* 4 pages/);
+  assert.match(markdown, /<summary>Affected pages \(4\)<\/summary>/);
+  assert.match(markdown, /\/w\/enterprise[\s\S]*\/crm[\s\S]*\/w\/nonprofits/);
   assert.doesNotMatch(
     markdown,
     /CheckQuest did not match it to browser, network, console, or runtime diagnostics/
@@ -441,7 +443,8 @@ function checkPosterImageAssociation(): void {
     createMinimalReport(getRunFindings(lifecycle), [{ url: pageUrl, diagnostics }])
   );
 
-  assert.match(markdown, /The browser reported an HTTP 404 response for the page resource/);
+  assert.match(markdown, /An image file requested by the page returned a 404 error\./);
+  assert.match(markdown, /Resource URL: https:\/\/monday\.com\/w\/poster-image\.jpg/);
   assert.match(markdown, /https:\/\/monday\.com\/w\/poster-image\.jpg/);
   assert.doesNotMatch(
     markdown,

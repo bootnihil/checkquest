@@ -33,6 +33,7 @@ import {
   createRunFindingLifecycle,
   getRunFindings
 } from '../../agent/findings/run-finding-lifecycle';
+import { createStructuredIdentityFingerprint } from '../../agent/investigation/finding-fingerprint';
 import type { SiteAgentReport } from '../../agent/reporting/report-types';
 import {
   createHumanReportUrlContext,
@@ -637,7 +638,7 @@ async function main(): Promise<void> {
   const groupingPresentation = buildHumanReportPresentation(groupingReport);
   const groupingAtAGlance = groupingMarkdown.slice(
     groupingMarkdown.indexOf('## At a glance'),
-    groupingMarkdown.indexOf('## Possible issues')
+    groupingMarkdown.indexOf('## Findings')
   );
   const groupingTechnicalSection = groupingMarkdown.slice(
     groupingMarkdown.indexOf('## Technical notes'),
@@ -650,7 +651,7 @@ async function main(): Promise<void> {
   const classificationMarkdown = renderHumanMarkdownReport(classificationReport);
   const classificationPosterBlock = getMarkdownItemBlock(
     classificationMarkdown,
-    'Failed resource request for poster image'
+    'Image file returned a 404 error'
   );
   const classificationSvgBlock = getMarkdownItemBlock(
     classificationMarkdown,
@@ -658,7 +659,7 @@ async function main(): Promise<void> {
   );
   const classificationDnsBlock = getMarkdownItemBlock(
     classificationMarkdown,
-    'Cross-origin DNS resolution failure observed'
+    'Cross-origin address lookup failed'
   );
   const classificationWithoutPresentation = structuredClone(classificationReport);
   classificationWithoutPresentation.inspectedPages[0]!.presentationEvidence = [];
@@ -682,7 +683,7 @@ async function main(): Promise<void> {
   });
   const posterWithMultipleEvidenceSources = buildHumanReportPresentation(
     classificationWithPosterPresentation
-  ).detailedFindings.find(finding => finding.title === 'Failed resource request for poster image')!;
+  ).detailedFindings.find(finding => finding.title === 'Image file returned a 404 error')!;
   const classificationWithHigherPlaceholderSeverity = structuredClone(classificationReport);
   classificationWithHigherPlaceholderSeverity.findings[0]!.severity = 'high';
   const higherPlaceholderSeverityModel = buildHumanReportPresentation(
@@ -773,6 +774,12 @@ async function main(): Promise<void> {
       technicalIdentity: null
     })
   };
+  browserBackedAccessibility.fingerprint = createStructuredIdentityFingerprint(
+    (
+      browserBackedAccessibility.occurrences[0]!.evidence[0]!.rawSource!
+        .value as ExploratoryQaFinding
+    ).structuredIdentity!
+  );
   const modelEvidenceOnly = createFinding(78, {
     category: 'content',
     title: 'Model evidence only'
@@ -786,7 +793,7 @@ async function main(): Promise<void> {
     ])
   );
   const classificationFindingSection = classificationMarkdown.slice(
-    classificationMarkdown.indexOf('## Possible issues'),
+    classificationMarkdown.indexOf('## Findings'),
     classificationMarkdown.indexOf('## Technical notes')
   );
   const classificationTechnicalSection = classificationMarkdown.slice(
@@ -1106,28 +1113,36 @@ async function main(): Promise<void> {
   );
   const expectedPlaceholderBlock = [
     '<a id="item-01"></a>',
-    '### 01 — Placeholder content detected in link text',
+    '### 01 — Possible issue: Placeholder content detected in link text',
     '',
-    '**Possible issue · Observed directly · Needs human review · Low**  ',
+    '**Low severity · Evidence found — needs review**',
+    '',
     '**Page:** [Customizable templates to get your team started in minutes](https://monday.com/templates) — `/templates`',
     '',
-    '**What happened**',
+    '**What’s wrong**',
     '',
-    'The text `template_store.categories_list.ai.title` appeared visibly in a link.',
+    "The available evidence suggests: The link text 'template_store.categories_list.ai.title' appears in the body content.",
     '',
-    '**Why it may matter**',
+    '**Why it matters**',
     '',
-    'If this visible text is unintended, it may confuse people using the page.',
+    'CheckQuest has not established any further user impact yet.',
     '',
-    '**What still needs checking**',
+    '**What to check**',
     '',
-    'Confirm whether this text is intended to appear for ordinary users.',
+    'Check whether this behavior is intentional. If not, correct the affected part.',
     '',
-    '**Where this came from**',
+    '<details>',
+    '<summary>Technical details</summary>',
     '',
     'Focused screenshot evidence captured on the inspected page.',
     '',
-    '![Focused evidence for Placeholder content detected in link text](evidence/placeholder.png)',
+    '- Candidate reference: candidate-42',
+    '- Evidence source: Observed directly',
+    '- Verification state: inconclusive',
+    '',
+    '</details>',
+    '',
+    '![Focused evidence for Possible issue: Placeholder content detected in link text](evidence/placeholder.png)',
     '',
     '[Back to summary](#at-a-glance)',
     '',
@@ -1141,8 +1156,8 @@ async function main(): Promise<void> {
   );
   assert.equal(
     buildHumanReportPresentation(placeholderReport).detailedFindings[0]?.whatHappened,
-    'The text `template_store.categories_list.ai.title` appeared visibly in a link.',
-    'Plain-language projection must retain the exact safe observed value.'
+    "The available evidence suggests: The link text 'template_store.categories_list.ai.title' appears in the body content.",
+    'Plain-language projection must retain the exact safe observed value while scoping uncertainty.'
   );
   assert.equal(placeholderFinding.fingerprint, placeholderIdentityBefore);
   assert.equal(
@@ -1465,8 +1480,8 @@ async function main(): Promise<void> {
   const availableNavigationTargets = new Set([
     ...explicitAnchors,
     'at-a-glance',
-    'possible-issues',
-    'additional-possible-issues',
+    'findings',
+    'additional-findings',
     'technical-notes',
     'security-notes',
     'pages-inspected'
@@ -1483,7 +1498,7 @@ async function main(): Promise<void> {
   );
   assert.match(
     markdown,
-    /\*\*Contents:\*\* \[At a glance\]\(#at-a-glance\) · \[Findings\]\(#possible-issues\)[^\n]+\[Pages inspected\]\(#pages-inspected\)/
+    /\*\*Contents:\*\* \[At a glance\]\(#at-a-glance\) · \[Findings\]\(#findings\)[^\n]+\[Pages inspected\]\(#pages-inspected\)/
   );
   assert.doesNotMatch(
     classificationMarkdown.match(/^\*\*Contents:\*\*.*$/m)?.[0] ?? '',
@@ -1527,7 +1542,9 @@ async function main(): Promise<void> {
     'The human summary must retain the canonical technical-observation count.'
   );
   assert.equal(
-    countOccurrences(groupingAtAGlance, '| Technical note |'),
+    groupingAtAGlance
+      .split('\n')
+      .filter(line => /^\| \[(?:02|03|04|05|06|07|08)\]\(#item-/.test(line)).length,
     7,
     'Every canonical technical observation must retain its own at-a-glance row.'
   );
@@ -1559,23 +1576,26 @@ async function main(): Promise<void> {
   );
   assert.deepEqual(
     classificationPresentation.detailedFindings.map(finding => finding.title),
-    ['Failed resource request for poster image', 'Placeholder content detected in link text'],
+    [
+      'Image file returned a 404 error',
+      'Possible issue: Placeholder content detected in link text'
+    ],
     'The poster presentation asset and visible placeholder must route to Findings.'
   );
   assert.deepEqual(
     classificationPresentation.technicalObservations.map(observation => observation.title),
     [
-      'Failed script request execution',
-      'Failed script request execution',
+      'Script file failed to load',
+      'Script file failed to load',
       'Invalid SVG attribute value',
-      'Cross-origin DNS resolution failure observed',
+      'Cross-origin address lookup failed',
       'Cross-origin resource access failure'
     ],
     'SVG, DNS, CORS, aborted script, and ORB-blocked script observations must route to Technical observations.'
   );
   assert.equal(
     classificationPresentation.atAGlance.find(
-      item => item.title === 'Failed resource request for poster image'
+      item => item.title === 'Image file returned a 404 error'
     )?.type,
     'Possible issue'
   );
@@ -1586,7 +1606,7 @@ async function main(): Promise<void> {
   );
   assert.match(
     classificationFindingSection,
-    /### 01 — Failed resource request for poster image[\s\S]*The browser reported an HTTP 404 response for the page resource “https:\/\/example\.com\/assets\/poster\.jpg”\./
+    /### 01 — Image file returned a 404 error[\s\S]*An image file requested by the page returned a 404 error\.[\s\S]*<summary>Technical details<\/summary>[\s\S]*Resource URL: https:\/\/example\.com\/assets\/poster\.jpg/
   );
   assert.doesNotMatch(
     classificationFindingSection,
@@ -1599,10 +1619,10 @@ async function main(): Promise<void> {
   );
   assert.match(
     classificationTechnicalSection,
-    /### 05 — Invalid SVG attribute value[\s\S]*\*\*Pages:\*\* [^\n]+`\/page-1`[^\n]+`\/page-2`[^\n]+`\/page-3`[^\n]+`\/page-4`/
+    /### 05 — Invalid SVG attribute value[\s\S]*\*\*Affected:\*\* 4 pages[\s\S]*<summary>Affected pages \(4\)<\/summary>[\s\S]*`\/page-1`[\s\S]*`\/page-2`[\s\S]*`\/page-3`[\s\S]*`\/page-4`/
   );
   assert.equal(
-    countOccurrences(classificationTechnicalSection, '— Failed script request execution'),
+    countOccurrences(classificationTechnicalSection, '— Script file failed to load'),
     2,
     'The aborted and ORB-blocked script identities must render separately despite equal titles.'
   );
@@ -1689,14 +1709,14 @@ async function main(): Promise<void> {
   );
   assert.deepEqual(
     typeIndependencePresentation.detailedFindings.map(finding => finding.title),
-    ['Failed resource request for poster image'],
+    ['Image file returned a 404 error'],
     'The inconclusive poster asset failure must render in Findings.'
   );
   const projectedPlaceholder = classificationPresentation.detailedFindings.find(
-    finding => finding.title === 'Placeholder content detected in link text'
+    finding => finding.title === 'Possible issue: Placeholder content detected in link text'
   )!;
   const projectedPoster = classificationPresentation.detailedFindings.find(
-    finding => finding.title === 'Failed resource request for poster image'
+    finding => finding.title === 'Image file returned a 404 error'
   )!;
   const projectedSvg = classificationPresentation.technicalObservations.find(
     observation => observation.title === 'Invalid SVG attribute value'
@@ -1781,7 +1801,7 @@ async function main(): Promise<void> {
   );
   const placeholderWithoutPresentation =
     classificationWithoutPresentationModel.detailedFindings.find(
-      finding => finding.title === 'Placeholder content detected in link text'
+      finding => finding.title === 'Possible issue: Placeholder content detected in link text'
     )!;
   assert.deepEqual(
     {
@@ -1799,9 +1819,9 @@ async function main(): Promise<void> {
     evidenceSourceModel.detailedFindings.map(finding => [finding.title, finding.evidenceSource]),
     [
       ['Deterministic rule only', 'Seen in browser data'],
-      ['Deterministic rule plus model evidence', 'Seen in browser data'],
-      ['Accessible name conflicts with visible label', 'Seen in browser data'],
-      ['Model evidence only', 'AI analysis only']
+      ['Possible issue: Deterministic rule plus model evidence', 'Seen in browser data'],
+      ['Disclosure has an unclear label', 'Seen in browser data'],
+      ['Possible issue: Model evidence only', 'AI analysis only']
     ],
     'Deterministic and admitted accessibility facts must remain distinct from model-only evidence.'
   );
@@ -1826,7 +1846,7 @@ async function main(): Promise<void> {
     'The existing passive-security evidence label must remain browser-backed.'
   );
   const higherSeverityPlaceholder = higherPlaceholderSeverityModel.detailedFindings.find(
-    finding => finding.title === 'Placeholder content detected in link text'
+    finding => finding.title === 'Possible issue: Placeholder content detected in link text'
   )!;
   assert.deepEqual(
     {
@@ -1865,8 +1885,8 @@ async function main(): Promise<void> {
     },
     'Saved-run-style counts must derive from Loop 2A classification and keep security separate.'
   );
-  assert.match(classificationMarkdown, /- \*\*0\*\* confirmed findings/);
-  assert.match(classificationMarkdown, /- \*\*2\*\* findings needing review/);
+  assert.doesNotMatch(classificationMarkdown, /- \*\*0\*\* confirmed/);
+  assert.match(classificationMarkdown, /- \*\*2\*\* findings need review/);
   assert.match(classificationMarkdown, /- \*\*5\*\* technical observations/);
   assert.deepEqual(
     classificationRankedTitles.slice(0, 3),
@@ -1877,10 +1897,7 @@ async function main(): Promise<void> {
     ],
     'The saved-run ranking must put the directly observed placeholder first, poster asset second, and SVG observation third.'
   );
-  assert.equal(
-    classificationPresentation.notableSummary,
-    'The most notable items were placeholder content detected in link text and failed resource request for poster image.'
-  );
+  assert.equal(classificationPresentation.notableSummary, null);
   assert.ok(
     !classificationRankedTitles
       .slice(0, 2)
@@ -1965,25 +1982,24 @@ async function main(): Promise<void> {
   const dedupBranchMarkdown = renderHumanMarkdownReport(dedupBranchReport);
   const dedupBranchExpectations = [
     {
-      title: 'Failed resource request for poster image',
-      whatHappened:
-        /The browser reported an HTTP 404 response for the page resource “https:\/\/example\.com\/assets\/poster\.jpg”\./,
+      title: 'Image file returned a 404 error',
+      whatHappened: /An image file requested by the page returned a 404 error\./,
       technicalEvidenceLinkExpected: false
     },
     {
-      title: 'Cross-origin DNS resolution failure observed',
-      whatHappened: /The browser could not resolve a cross-origin resource during the run\./,
+      title: 'Cross-origin address lookup failed',
+      whatHappened:
+        /The browser could not find the address of an external service requested by the page\./,
       technicalEvidenceLinkExpected: true
     },
     {
-      title: 'Failed script request execution',
-      whatHappened: /The browser reported that a script request failed with “net::ERR_ABORTED”\./,
+      title: 'Script file failed to load',
+      whatHappened: /A script file requested by the page failed to load\./,
       technicalEvidenceLinkExpected: true
     },
     {
       title: 'Cross-origin resource access failure',
-      whatHappened:
-        /The browser reported that a cross-origin xhr request was blocked by its access policy\./,
+      whatHappened: /The browser blocked a request to another origin while the page was open\./,
       technicalEvidenceLinkExpected: true
     }
   ] as const;
@@ -1994,12 +2010,12 @@ async function main(): Promise<void> {
     assert.match(block, expectation.whatHappened);
     assert.match(
       block,
-      /\*\*Pages:\*\* [^\n]+`\/page-1`[^\n]+`\/page-2`/,
+      /\*\*Affected:\*\* 2 pages[\s\S]*<summary>Affected pages \(2\)<\/summary>[\s\S]*`\/page-1`[\s\S]*`\/page-2`/,
       `${expectation.title} must retain both affected pages after breadth-prose deduplication.`
     );
     assert.match(
       block,
-      /\*\*Where this came from\*\*[\s\S]*captured on 2 pages\./,
+      /<summary>Technical details<\/summary>[\s\S]*captured on 2 pages\./,
       `${expectation.title} must retain multi-page provenance after breadth-prose deduplication.`
     );
     assert.doesNotMatch(
@@ -2031,30 +2047,24 @@ async function main(): Promise<void> {
   }
   assert.match(classificationMarkdown, /## Security notes/);
   assert.match(classificationMarkdown, /### S01 — HSTS response header was not observed/);
+  assert.match(classificationPosterBlock, /Medium severity · Evidence found — needs review/);
   assert.match(
     classificationPosterBlock,
-    /Possible issue · Seen in browser data · Needs human review · Medium/
+    /\*\*What’s wrong\*\*[\s\S]*An image file requested by the page returned a 404 error/
   );
   assert.match(
     classificationPosterBlock,
-    /\*\*What happened\*\*[\s\S]*HTTP 404 response for the page resource “https:\/\/example\.com\/assets\/poster\.jpg”/
-  );
-  assert.match(
-    classificationPosterBlock,
-    /\*\*Why it may matter\*\*[\s\S]*no visible problem was captured/
+    /\*\*Why it matters\*\*[\s\S]*did not capture a visible consequence/
   );
   assert.doesNotMatch(
     classificationPosterBlock,
     /image (?:was|is) visibly missing|visible image (?:failure|defect)|confirmed visible/i,
     'Poster wording must not claim that the failed image was visibly missing.'
   );
+  assert.match(classificationSvgBlock, /Low severity · Evidence found — needs review/);
   assert.match(
     classificationSvgBlock,
-    /Technical note · Seen in browser data · Needs human review · Low/
-  );
-  assert.match(
-    classificationSvgBlock,
-    /\*\*What happened\*\*[\s\S]*The browser logged: “Error: &lt;svg&gt; attribute height: Expected length, "auto"\.”/
+    /\*\*What’s wrong\*\*[\s\S]*The browser recorded an error while the page was open\.[\s\S]*<summary>Technical details<\/summary>[\s\S]*Console message: Error: &lt;svg&gt; attribute height: Expected length, "auto"\./
   );
   assert.doesNotMatch(
     classificationSvgBlock,
@@ -2063,7 +2073,7 @@ async function main(): Promise<void> {
   );
   assert.match(
     classificationSvgBlock,
-    /\*\*Why it may matter\*\*[\s\S]*practical impact is not clear from the evidence collected/
+    /\*\*Why it matters\*\*[\s\S]*has not established that this browser error affected what visitors see or can do/
   );
   assert.doesNotMatch(
     classificationSvgBlock,
@@ -2075,10 +2085,7 @@ async function main(): Promise<void> {
     projectedSvg.whereThisCameFrom,
     'What happened and Where this came from must communicate different facts.'
   );
-  assert.match(
-    classificationDnsBlock,
-    /Technical note · Seen in browser data · Needs human review · Low/
-  );
+  assert.match(classificationDnsBlock, /Low severity · Evidence found — needs review/);
   assert.match(
     classificationDnsBlock,
     /DNS failure may reflect the test environment rather than the website/
@@ -2089,16 +2096,19 @@ async function main(): Promise<void> {
   );
   assert.match(
     distinctTechnicalMarkdown,
-    /\| \[01\]\(#item-01\) \| \[Distinct technical title A\]\(#item-01\) \| Technical note/
+    /\| \[01\]\(#item-01\) \| \[Script file failed to load\]\(#item-01\) \| Evidence found — needs review/
   );
-  assert.match(distinctTechnicalMarkdown, /### 01 — Distinct technical title A/);
-  assert.match(distinctTechnicalMarkdown, /### 02 — Distinct technical title B/);
+  assert.match(distinctTechnicalMarkdown, /### 01 — Script file failed to load/);
+  assert.match(distinctTechnicalMarkdown, /### 02 — Script file failed to load/);
   assert.doesNotMatch(
     distinctTechnicalMarkdown,
     /\(\d+ related\)/,
-    'All-distinct technical titles must retain the existing rendering.'
+    'Distinct technical identities must remain separate even when their human titles match.'
   );
-  assert.equal(countOccurrences(duplicateTitleMarkdown, '### 01 — Identical title'), 1);
+  assert.equal(
+    countOccurrences(duplicateTitleMarkdown, '### 01 — Possible issue: Identical title'),
+    1
+  );
   assert.equal(countOccurrences(duplicateTitleMarkdown, '### 02 — Identical title'), 1);
   assert.doesNotMatch(
     duplicateTitleMarkdown,
@@ -2139,7 +2149,7 @@ async function main(): Promise<void> {
   );
   assert.match(
     ungroundedTechnicalMarkdown,
-    /Possible issue · AI analysis only · Needs human review · Low[\s\S]*\*\*What happened\*\*[\s\S]*Concrete observation 41\.[\s\S]*\*\*Where this came from\*\*[\s\S]*AI analysis only; no matching browser or screenshot evidence was linked\./
+    /Low severity · AI suggestion — needs review[\s\S]*\*\*What’s wrong\*\*[\s\S]*AI suggested this possible issue: Concrete observation 41\.[\s\S]*<summary>Technical details<\/summary>[\s\S]*AI analysis only; no matching browser or screenshot evidence was linked\./
   );
   assert.doesNotMatch(
     ungroundedTechnicalMarkdown,
@@ -2152,13 +2162,13 @@ async function main(): Promise<void> {
   );
   assert.match(
     ungroundedTechnicalMarkdown,
-    /\| \[01\]\(#item-01\) \| \[Browser network request definitely failed\]\(#item-01\) \| Possible issue \| AI analysis only \| Needs human review \| Low \| [^|]+ \|/
+    /\| \[01\]\(#item-01\) \| \[Possible issue: Browser network request definitely failed\]\(#item-01\) \| AI suggestion — needs review \| Low \| [^|]+ \|/
   );
+  assert.doesNotMatch(ungroundedTechnicalMarkdown, /The most notable item/);
   assert.match(
     ungroundedTechnicalMarkdown,
-    /The most notable item was browser network request definitely failed\./
+    /### 01 — Possible issue: Browser network request definitely failed/
   );
-  assert.match(ungroundedTechnicalMarkdown, /### 01 — Browser network request definitely failed/);
   assert.equal(
     ungroundedTechnicalReport.findings[0]?.title,
     ungroundedCanonicalTitleBefore,
@@ -2166,17 +2176,14 @@ async function main(): Promise<void> {
   );
   assert.match(
     legitimateCandidateMarkdown,
-    /### 01 — Candidate selection is broken/,
+    /### 01 — Possible issue: Candidate selection is broken/,
     'Legitimate uses of candidate outside the exact prefix must be preserved.'
   );
   assert.match(
     prefixedTechnicalMarkdown,
-    /\| \[01\]\(#item-01\) \| \[Invalid SVG attribute value\]\(#item-01\) \| Technical note \| Seen in browser data \| Needs human review/
+    /\| \[01\]\(#item-01\) \| \[Invalid SVG attribute value\]\(#item-01\) \| Evidence found — needs review \| Low/
   );
-  assert.match(
-    prefixedTechnicalMarkdown,
-    /The most notable item was invalid SVG attribute value\./
-  );
+  assert.doesNotMatch(prefixedTechnicalMarkdown, /The most notable item/);
   assert.match(prefixedTechnicalMarkdown, /### 01 — Invalid SVG attribute value/);
   assert.doesNotMatch(prefixedTechnicalMarkdown, /Model candidate:/i);
   assert.equal(
@@ -2211,7 +2218,7 @@ async function main(): Promise<void> {
   );
   assert.equal(
     humanPresentation.technicalObservations.some(
-      observation => observation.title === 'Third-party telemetry request failed'
+      observation => observation.title === 'Script file failed to load'
     ),
     true,
     'A runtime-grounded technical candidate remains a technical observation.'
@@ -2277,8 +2284,8 @@ async function main(): Promise<void> {
     markdown.indexOf('Finding 1') < markdown.indexOf('Finding 2'),
     'Severity order should be stable and put medium before low.'
   );
-  assert.match(markdown, /- \*\*19\*\* findings needing review/);
-  assert.match(markdown, /- \*\*1\*\* confirmed finding/);
+  assert.match(markdown, /- \*\*19\*\* findings need review/);
+  assert.match(markdown, /- \*\*1\*\* confirmed issue/);
   assert.match(markdown, /- \*\*1\*\* technical observation/);
   assert.equal(
     countOccurrences(markdown, '### How to read this report'),
@@ -2286,15 +2293,10 @@ async function main(): Promise<void> {
     'The compact report vocabulary must render exactly once.'
   );
   for (const label of [
-    'Possible issue',
-    'Technical note',
-    'Security note',
-    'Observed directly',
-    'Seen in browser data',
-    'AI analysis only',
     'Confirmed issue',
     'Confirmed observation',
-    'Needs human review'
+    'Evidence found — needs review',
+    'AI suggestion — needs review'
   ]) {
     assert.match(markdown, new RegExp(`\\*\\*${label}:\\*\\*`));
   }
@@ -2314,10 +2316,10 @@ async function main(): Promise<void> {
     Math.max(0, possibleIssueCount - humanReportDetailedFindingLimit)
   );
   for (const heading of [
-    '**What happened**',
-    '**Why it may matter**',
-    '**What still needs checking**',
-    '**Where this came from**'
+    '**What’s wrong**',
+    '**Why it matters**',
+    '**What to check**',
+    '<summary>Technical details</summary>'
   ]) {
     assert.equal(
       countOccurrences(markdown, heading),
@@ -2326,22 +2328,23 @@ async function main(): Promise<void> {
     );
   }
   assert.doesNotMatch(markdown, /\*\*(?:What I saw|Evidence status|Evidence provenance)\*\*/);
+  const alwaysVisibleMarkdown = markdown.replace(/<details>[\s\S]*?<\/details>/g, '');
   assert.doesNotMatch(
-    markdown,
+    alwaysVisibleMarkdown,
     /verification-capable|verification state|canonical|fingerprint|projection/i,
     'Prominent human Markdown must not expose internal report-pipeline terminology.'
   );
   assert.match(
     markdown,
-    /### 01 — Finding 1[\s\S]*Possible issue · Observed directly · Needs human review · Medium[\s\S]*\*\*What happened\*\*[\s\S]*The text `Example` appeared visibly in a heading\.[\s\S]*focused-1\.png/
+    /### 01 — Possible issue: Finding 1[\s\S]*Medium severity · Evidence found — needs review[\s\S]*\*\*What’s wrong\*\*[\s\S]*Concrete observation 1\.[\s\S]*focused-1\.png/
   );
   assert.match(
     markdown,
-    /### 02 — Finding 2[\s\S]*Possible issue · Observed directly · Confirmed issue · Low[\s\S]*focused-confirmed\.png/
+    /### 02 — Finding 2[\s\S]*Low severity · Confirmed issue[\s\S]*focused-confirmed\.png/
   );
   assert.match(
     mixedFindingSection,
-    /\*\*Pages:\*\* \[Example page\]\(https:\/\/example\.com\/path\) — `\/path`, \[Other example page\]\(https:\/\/example\.com\/other\) — `\/other`/
+    /\*\*Affected:\*\* 2 pages[\s\S]*<summary>Affected pages \(2\)<\/summary>[\s\S]*\[Example page\]\(https:\/\/example\.com\/path\) — `\/path`[\s\S]*\[Other example page\]\(https:\/\/example\.com\/other\) — `\/other`/
   );
   assert.equal(
     humanPresentation.detailedFindings.find(finding => finding.title === 'Finding 2')
@@ -2351,7 +2354,7 @@ async function main(): Promise<void> {
   );
   assert.match(fullyConfirmedFindingSection, /focused-confirmed\.png/);
   assert.match(markdown, /## Security notes[\s\S]*HSTS response header was not observed/);
-  assert.match(markdown, /## Additional possible issues/);
+  assert.match(markdown, /## Additional findings/);
 
   for (let index = 1; index <= 20; index += 1) {
     assert.match(markdown, new RegExp(`Finding ${index}(?:\\D|$)`));
@@ -2359,7 +2362,7 @@ async function main(): Promise<void> {
 
   assert.match(markdown, /4 of 7 observed instances are shown\./);
   assert.match(markdown, /\]\(evidence\/focused-1\.png\)/);
-  assert.match(markdown, /## Technical notes[\s\S]*Third-party telemetry request failed/);
+  assert.match(markdown, /## Technical notes[\s\S]*Script file failed to load/);
   assert.doesNotMatch(markdown, /Disproved candidate/);
   assert.doesNotMatch(markdown, /C:\\private/);
   assert.doesNotMatch(
@@ -2371,15 +2374,12 @@ async function main(): Promise<void> {
     /Unexpected, repeated, or unclear content|Review the observed area and confirm|No focused visual evidence/i
   );
   assert.doesNotMatch(markdown, /Reached the configured page limit/);
+  assert.match(markdown, /\| # \| Item \| Status \| Severity \| Page\(s\) \|/);
   assert.match(
     markdown,
-    /\| # \| Item \| Type \| Evidence \| Assessment \| Severity \| Page\(s\) \|/
+    /\| \[21\]\(#item-21\) \| \[Script file failed to load\]\(#item-21\) \| Evidence found — needs review \| Low \|/
   );
-  assert.match(
-    markdown,
-    /\| \[21\]\(#item-21\) \| \[Third-party telemetry request failed\]\(#item-21\) \| Technical note \| Seen in browser data \| Needs human review \| Low \|/
-  );
-  assert.match(markdown, /### 01 — Finding 1/);
+  assert.match(markdown, /### 01 — Possible issue: Finding 1/);
   assert.match(
     markdown,
     /\| \[Example page\]\(https:\/\/example\.com\/path\) — `\/path` \| Start URL \| \[01\]\(#item-01\)/
