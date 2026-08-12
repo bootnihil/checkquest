@@ -116,7 +116,10 @@ export async function inspectPage(input: InspectPageInput): Promise<InspectPageR
 
   const classifiedDiagnostics = classifyDiagnostics(diagnostics);
 
-  const findings = evaluatePageObservation(pageObservation);
+  const findings = evaluatePageObservation(
+    pageObservation,
+    passiveSecuritySnapshot.headers['content-type']
+  );
 
   const pageContent = await extractPageContent(page);
 

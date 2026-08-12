@@ -10,7 +10,21 @@ export interface PageFinding {
   url: string;
 }
 
-export function evaluatePageObservation(observation: VisitedPageObservation): PageFinding[] {
+function supportsHtmlStructureEvaluation(contentTypes: readonly string[] | undefined): boolean {
+  const mediaTypes = (contentTypes ?? [])
+    .map(value => value.split(';', 1)[0]?.trim().toLowerCase() ?? '')
+    .filter(value => value.length > 0);
+
+  return (
+    mediaTypes.length === 0 ||
+    mediaTypes.some(mediaType => mediaType === 'text/html' || mediaType === 'application/xhtml+xml')
+  );
+}
+
+export function evaluatePageObservation(
+  observation: VisitedPageObservation,
+  mainDocumentContentTypes?: readonly string[]
+): PageFinding[] {
   const findings: PageFinding[] = [];
 
   if (observation.httpStatus === null) {
@@ -37,6 +51,10 @@ export function evaluatePageObservation(observation: VisitedPageObservation): Pa
       evidence: 'The selected internal page returned a client-error response.',
       url: observation.finalUrl
     });
+  }
+
+  if (!supportsHtmlStructureEvaluation(mainDocumentContentTypes)) {
+    return findings;
   }
 
   const normalizedTitle = observation.title.trim();
