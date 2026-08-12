@@ -3,7 +3,11 @@ import { access } from 'node:fs/promises';
 
 import { chromium } from '@playwright/test';
 
-import { captureFindingPresentationEvidence } from '../../agent/browser/capture-finding-presentation-evidence';
+import {
+  calculateFocusedEvidenceClip,
+  captureFindingPresentationEvidence,
+  type FocusedEvidenceClip
+} from '../../agent/browser/capture-finding-presentation-evidence';
 
 async function main(): Promise<void> {
   const browser = await chromium.launch({
@@ -330,6 +334,138 @@ async function main(): Promise<void> {
 
     await trustPage.close();
 
+    const contextPage = await browser.newPage({
+      viewport: {
+        width: 900,
+        height: 400
+      }
+    });
+    await contextPage.setContent(`
+      <!doctype html>
+      <html lang="en">
+        <head>
+          <meta charset="utf-8">
+          <title>Contextual presentation evidence fixture</title>
+          <style>
+            body { margin: 0; min-height: 1200px; font: 16px system-ui; }
+            .before { height: 520px; }
+            .context-card { width: 520px; margin: 0 auto; padding: 32px; border: 1px solid #888; }
+            .context-target { display: inline-block; margin: 12px 0; padding: 4px 8px; }
+          </style>
+        </head>
+        <body>
+          <div class="before"></div>
+          <section class="context-card">
+            <h2>Nearby section heading</h2>
+            <p>Nearby explanatory content before the target.</p>
+            <a class="context-target" href="#context">Context target</a>
+            <p>Nearby explanatory content after the target.</p>
+          </section>
+        </body>
+      </html>
+    `);
+
+    let contextualClip: FocusedEvidenceClip | null = null;
+    let contextualTargetBox: FocusedEvidenceClip | null = null;
+    const contextualCapture = await captureFindingPresentationEvidence(
+      contextPage,
+      {
+        runId,
+        pageNumber: 2,
+        candidateNumber: 4,
+        target: {
+          kind: 'visible-text',
+          elementKind: 'link',
+          text: 'Context target'
+        }
+      },
+      {
+        captureScreenshot: async (capturePage, filePath, clip) => {
+          contextualClip = clip;
+          contextualTargetBox = await capturePage.locator('.context-target').boundingBox();
+          await capturePage.screenshot({
+            path: filePath,
+            clip
+          });
+        }
+      }
+    );
+
+    assert.equal(contextualCapture.totalTargetCount, 1);
+    assert.equal(contextualCapture.shownTargetCount, 1);
+    assert.equal(contextualCapture.screenshotPaths.length, 1);
+    await access(contextualCapture.screenshotPaths[0]!);
+    assert.ok(contextualClip !== null);
+    assert.ok(contextualTargetBox !== null);
+
+    const contextClip = contextualClip as FocusedEvidenceClip;
+    const contextTarget = contextualTargetBox as FocusedEvidenceClip;
+    assert.ok(
+      contextClip.x <= contextTarget.x &&
+        contextClip.y <= contextTarget.y &&
+        contextClip.x + contextClip.width >= contextTarget.x + contextTarget.width &&
+        contextClip.y + contextClip.height >= contextTarget.y + contextTarget.height,
+      'The expanded contextual crop must still include the exact target.'
+    );
+    assert.ok(
+      contextClip.width > contextTarget.width + 56 &&
+        contextClip.height > contextTarget.height + 56,
+      'Visible-text evidence must include more context than the former 28px-per-side crop.'
+    );
+    assert.ok(
+      contextClip.width < 900 && contextClip.height < 400,
+      'Context expansion must remain a bounded crop rather than becoming a full viewport capture.'
+    );
+    assert.match(
+      contextualCapture.screenshotPaths[0]!,
+      /page-02-finding-04-evidence-01\.png$/,
+      'Context expansion must not change the page/candidate evidence association.'
+    );
+
+    const upperBoundaryClip = calculateFocusedEvidenceClip(
+      {
+        boxes: [{ x: 5, y: 3, width: 100, height: 30 }]
+      },
+      {
+        width: 500,
+        height: 400
+      },
+      96
+    );
+    assert.deepEqual(
+      upperBoundaryClip,
+      {
+        x: 0,
+        y: 0,
+        width: 201,
+        height: 129
+      },
+      'Context clips must clamp at the viewport top and left edges.'
+    );
+
+    const lowerBoundaryClip = calculateFocusedEvidenceClip(
+      {
+        boxes: [{ x: 450, y: 370, width: 50, height: 30 }]
+      },
+      {
+        width: 500,
+        height: 400
+      },
+      96
+    );
+    assert.deepEqual(
+      lowerBoundaryClip,
+      {
+        x: 354,
+        y: 274,
+        width: 146,
+        height: 126
+      },
+      'Context clips must clamp at the viewport bottom and right edges.'
+    );
+
+    await contextPage.close();
+
     const single = await captureFindingPresentationEvidence(page, {
       runId,
       pageNumber: 1,
@@ -415,13 +551,28 @@ async function main(): Promise<void> {
       'A transient select state is not replayed unless that exact action was already observed.'
     );
 
-    const replayed = await captureFindingPresentationEvidence(page, {
-      runId,
-      pageNumber: 1,
-      candidateNumber: 5,
-      target: selectTarget,
-      allowObservedStateReplay: true
-    });
+    let selectClip: FocusedEvidenceClip | null = null;
+    let selectBox: FocusedEvidenceClip | null = null;
+    const replayed = await captureFindingPresentationEvidence(
+      page,
+      {
+        runId,
+        pageNumber: 1,
+        candidateNumber: 5,
+        target: selectTarget,
+        allowObservedStateReplay: true
+      },
+      {
+        captureScreenshot: async (capturePage, filePath, clip) => {
+          selectClip = clip;
+          selectBox = await capturePage.locator('#country').boundingBox();
+          await capturePage.screenshot({
+            path: filePath,
+            clip
+          });
+        }
+      }
+    );
 
     assert.equal(replayed.replay?.action, 'select-option');
     assert.equal(
@@ -432,6 +583,21 @@ async function main(): Promise<void> {
     assert.equal(replayed.totalTargetCount, 1);
     assert.equal(replayed.shownTargetCount, 1);
     await access(replayed.screenshotPaths[0]);
+    assert.ok(selectClip !== null);
+    assert.ok(selectBox !== null);
+    assert.deepEqual(
+      selectClip,
+      calculateFocusedEvidenceClip(
+        {
+          boxes: [selectBox as FocusedEvidenceClip]
+        },
+        {
+          width: 900,
+          height: 400
+        }
+      ),
+      'Non-presentation evidence must retain the existing 28px crop behavior.'
+    );
     assert.equal(
       replayed.replay?.restored,
       true,

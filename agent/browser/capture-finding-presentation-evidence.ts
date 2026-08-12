@@ -51,6 +51,7 @@ export interface FocusedEvidenceCaptureDependencies {
 
 const maximumFocusedEvidenceImages = 3;
 const focusedEvidencePadding = 28;
+const visibleTextContextPadding = 96;
 const annotationAttribute = 'data-checkquest-presentation-evidence';
 const targetAttribute = 'data-checkquest-presentation-evidence-target';
 const highlightAttribute = 'data-checkquest-presentation-evidence-highlight';
@@ -800,7 +801,8 @@ export async function captureFindingPresentationEvidence(
         {
           width: viewport.width,
           height: viewport.height
-        }
+        },
+        input.target.kind === 'visible-text' ? visibleTextContextPadding : focusedEvidencePadding
       );
       const captureableTargetIndices = await retainCaptureableEvidenceAnnotations(
         page,
