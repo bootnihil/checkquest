@@ -441,18 +441,9 @@ async function assertRejectsWithMessage(
 async function main(): Promise<void> {
   assert.equal(getHumanReaderStatus('Observed directly', 'Confirmed issue'), 'Confirmed issue');
   assert.equal(getHumanReaderStatus('Seen in browser data', 'Confirmed issue'), 'Confirmed issue');
-  assert.equal(
-    getHumanReaderStatus('Observed directly', 'Needs human review'),
-    'Evidence found — needs review'
-  );
-  assert.equal(
-    getHumanReaderStatus('Seen in browser data', 'Needs human review'),
-    'Evidence found — needs review'
-  );
-  assert.equal(
-    getHumanReaderStatus('AI analysis only', 'Needs human review'),
-    'AI suggestion — needs review'
-  );
+  assert.equal(getHumanReaderStatus('Observed directly', 'Needs human review'), 'Needs review');
+  assert.equal(getHumanReaderStatus('Seen in browser data', 'Needs human review'), 'Needs review');
+  assert.equal(getHumanReaderStatus('AI analysis only', 'Needs human review'), 'Needs review');
   assert.equal(
     getHumanReaderStatus('Seen in browser data', 'Confirmed observation'),
     'Confirmed observation'
@@ -506,14 +497,14 @@ async function main(): Promise<void> {
       whatToCheck: tabPresentation.whatStillNeedsChecking
     },
     {
-      title: 'Tab label shows an unresolved token',
+      title: 'Accessibility tools may announce placeholder text instead of the control’s name',
       status: 'Confirmed issue',
       severity: 'low',
       whatsWrong:
-        'A tab is exposed to screen-reader users as the raw token “[#LABEL_42#]” instead of a meaningful label.',
+        'Accessibility tools receive the placeholder text “[#LABEL_42#]” as this control’s name instead of a clear description.',
       whyItMatters: 'People using a screen reader may not understand what this control does.',
       whatToCheck:
-        'Check the tab label and replace the unclear value with wording that explains what the tab does.'
+        'Check the control’s name and replace the unclear value with wording that explains what the control does.'
     }
   );
   assert.deepEqual(
@@ -526,14 +517,14 @@ async function main(): Promise<void> {
       whatToCheck: disclosurePresentation.whatStillNeedsChecking
     },
     {
-      title: 'Disclosure label shows an unresolved token',
+      title: 'Accessibility tools may announce placeholder text instead of the control’s name',
       status: 'Confirmed issue',
       severity: 'low',
       whatsWrong:
-        'A disclosure is exposed to screen-reader users as the raw token “{{label.key.42}}” instead of a meaningful label.',
+        'Accessibility tools receive the placeholder text “{{label.key.42}}” as this control’s name instead of a clear description.',
       whyItMatters: 'People using a screen reader may not understand what this control does.',
       whatToCheck:
-        'Check the disclosure label and replace the unclear value with wording that explains what the disclosure does.'
+        'Check the control’s name and replace the unclear value with wording that explains what the control does.'
     }
   );
 
@@ -558,9 +549,16 @@ async function main(): Promise<void> {
 
   assert.match(
     structuredMarkdown,
-    /\| \[01\]\(#item-01\) \| \[Tab label shows an unresolved token\]\(#item-01\) \|/
+    /\| \[01\]\(#item-01\) \| \[Accessibility tools may announce placeholder text instead of the control’s name\]\(#item-01\) \|/
   );
-  assert.match(structuredMarkdown, /### 01 — Tab label shows an unresolved token/);
+  assert.match(
+    structuredMarkdown,
+    /### 01 — Accessibility tools may announce placeholder text instead of the control’s name/
+  );
+  assert.match(structuredMarkdown, /Status: Confirmed issue · Severity: Low/);
+  assert.match(structuredMarkdown, /\*\*What’s wrong\*\*/);
+  assert.match(structuredMarkdown, /\*\*What to do\*\*/);
+  assert.doesNotMatch(structuredMarkdown, /confirm whether (?:the )?(?:issue|finding) exists/i);
   assert.doesNotMatch(structuredMarkdown, /The most notable item/);
 
   for (const unsupportedTerm of [
@@ -708,7 +706,7 @@ async function main(): Promise<void> {
   assert.equal(exploratoryEnriched.humanNarratives.exploratory.length, 1);
   const exploratoryPresentation = buildHumanReportPresentation(exploratoryEnriched);
   const exploratoryDetail = exploratoryPresentation.detailedFindings[0]!;
-  assert.equal(exploratoryDetail.status, 'Evidence found — needs review');
+  assert.equal(exploratoryDetail.status, 'Needs review');
   assert.equal(
     exploratoryDetail.whyItMayMatter,
     'CheckQuest has not established any further user impact yet.'
@@ -1007,43 +1005,39 @@ async function main(): Promise<void> {
   assert.match(cspAcceptance.technicalDetails.join('\n'), /Security code:/);
   assert.match(cspAcceptance.evidence.join('\n'), /content-security-policy evidence/);
 
-  assert.equal(imageAcceptance.title, 'Image file returned a 404 error');
+  assert.equal(imageAcceptance.title, 'An image file failed to load');
   assert.match(imageAcceptance.whatHappened, /^An image file /);
-  assert.equal(scriptAcceptance.title, 'Script file failed to load');
+  assert.equal(scriptAcceptance.title, 'A script file failed to load');
   assert.match(scriptAcceptance.whatHappened, /^A script file /);
   assert.match(imageAcceptance.whyItMayMatter, /did not capture a visible consequence/);
   assert.match(scriptAcceptance.whyItMayMatter, /did not capture a visible consequence/);
 
-  assert.equal(aiOnlyAcceptance.status, 'AI suggestion — needs review');
-  assert.match(aiOnlyAcceptance.whatHappened, /^AI suggested this possible issue:/);
-  assert.match(
-    aiOnlyAcceptance.whatStillNeedsChecking,
-    /No matching browser or screenshot evidence/
-  );
-  assert.match(firstRender, /\| # \| Item \| Status \| Severity \| Page\(s\) \|/);
+  assert.equal(aiOnlyAcceptance.status, 'Needs review');
+  assert.doesNotMatch(aiOnlyAcceptance.whatHappened, /\b(?:AI|model)\b/i);
+  assert.doesNotMatch(aiOnlyAcceptance.whatStillNeedsChecking, /\b(?:AI|model)\b/i);
+  assert.match(firstRender, /\| # \| Finding \| Status \| Severity \| Found on \|/);
   assert.doesNotMatch(firstRender, /\| # \| Item \| Type \| Evidence \| Assessment/);
   assert.doesNotMatch(firstRender, /Possible issue · Seen in browser data · Needs human review/);
-  assert.match(firstRender, /Low severity · AI suggestion — needs review/);
-  assert.match(firstRender, /AI suggested this possible issue:/);
-  assert.match(firstRender, /No matching browser or screenshot evidence confirmed it\./);
+  assert.match(firstRender, /Status: Needs review · Severity: Low/);
+  assert.doesNotMatch(firstRender, /AI suggestion|AI suggested|model analysis/i);
   assert.match(firstRender, /The country list contains both “Ecuador” and “Equador”/);
   assert.match(
     firstRender,
-    /A tab is exposed to screen-reader users as the raw token “\[#IABV2SETTINGS#\]”/
+    /Accessibility tools receive the placeholder text “\[#IABV2SETTINGS#\]” as this control’s name/
   );
   assert.match(firstRender, /An image file requested by the page returned a 404 error\./);
   assert.match(firstRender, /did not capture a visible consequence/);
-  assert.match(firstRender, /Script file failed to load/);
+  assert.match(firstRender, /A script file failed to load/);
   assert.match(firstRender, /A script file requested by the page failed to load\./);
   assert.doesNotMatch(
-    firstRender.match(/### 05 — Script file failed to load[\s\S]*?(?=\n---)/)?.[0] ?? '',
+    firstRender.match(/### 05 — A script file failed to load[\s\S]*?(?=\n---)/)?.[0] ?? '',
     /broken image|missing imagery/i
   );
   assert.match(firstRender, /The site did not send an enforcing Content Security Policy \(CSP\)\./);
   assert.match(firstRender, /Its absence does not prove the site is vulnerable\./);
   assert.doesNotMatch(
     firstRender.match(
-      /### S01 — A browser security policy was not enforced[\s\S]*?(?=\n---)/
+      /### S01 — A restriction on what the browser may load was not enforced[\s\S]*?(?=\n---)/
     )?.[0] ?? '',
     /scripts? only/i
   );
@@ -1051,7 +1045,8 @@ async function main(): Promise<void> {
   assert.match(firstRender, /software or platform serving the page/);
   assert.match(firstRender, /<summary>Technical details<\/summary>/);
   assert.doesNotMatch(firstRender, /- Assessment:/);
-  assert.match(firstRender, /Confirmed observation · 1 page/);
+  assert.match(firstRender, /Status: Confirmed observation · Severity: Low/);
+  assert.match(firstRender, /\| Confirmed observation \| Low \| 1 page \|/);
   assert.doesNotMatch(firstRender, /All 1 page/);
 
   const exploratorySummaryItem = acceptancePresentation.atAGlance.find(
@@ -1072,7 +1067,13 @@ async function main(): Promise<void> {
   secondSecurityOccurrence.pageTitle = 'Checkout';
   secondSecurityOccurrence.responseUrl = 'https://example.com/checkout';
   twoPageReport.passiveSecurity.observations[0]!.occurrences.push(secondSecurityOccurrence);
-  assert.match(renderHumanMarkdownReport(twoPageReport), /Confirmed observation · All 2 pages/);
+  const twoPageMarkdown = renderHumanMarkdownReport(twoPageReport);
+  assert.match(twoPageMarkdown, /\| Confirmed observation \| Low \| 2 pages \|/);
+  assert.match(twoPageMarkdown, /Found on all 2 inspected pages/);
+  assert.doesNotMatch(
+    twoPageMarkdown.match(/### S01 —[\s\S]*?(?=\n---)/)?.[0] ?? '',
+    /<summary>Found on 2 pages<\/summary>|https:\/\/example\.com\/checkout/
+  );
 
   const visible = visibleMarkdown(firstRender);
 
@@ -1105,6 +1106,14 @@ async function main(): Promise<void> {
     occurrenceReference: `occurrence-${index + 20}`,
     pageUrl: `https://example.com/page-${index + 1}`
   }));
+  grouped.inspectedPages = Array.from({ length: 10 }, (_value, index) => ({
+    ...structuredClone(grouped.inspectedPages[0]!),
+    observation: {
+      ...structuredClone(grouped.inspectedPages[0]!.observation),
+      finalUrl: `https://example.com/page-${index + 1}`,
+      title: `Page ${index + 1}`
+    }
+  }));
   let groupedCalls = 0;
   const groupedEnriched = await enrichSiteAgentReportWithHumanNarratives(grouped, {
     generateNarrative: async input => {
@@ -1117,13 +1126,10 @@ async function main(): Promise<void> {
   assert.equal(groupedCalls, 1);
   assert.equal(groupedEnriched.humanNarratives.exploratory.length, 1);
   const groupedMarkdown = renderHumanMarkdownReport(groupedEnriched);
-  assert.match(groupedMarkdown, /\*\*Affected:\*\* 10 pages/);
-  assert.match(groupedMarkdown, /<summary>Affected pages \(10\)<\/summary>/);
-  const groupedBeforeCondition = groupedMarkdown.slice(
-    groupedMarkdown.indexOf('### 01 —'),
-    groupedMarkdown.indexOf('**What’s wrong**')
-  );
-  assert.doesNotMatch(groupedBeforeCondition, /https:\/\//);
+  assert.match(groupedMarkdown, /Found on all 10 inspected pages/);
+  const groupedDetail = groupedMarkdown.match(/### 01 —[\s\S]*?(?=\n---)/)?.[0] ?? '';
+  assert.doesNotMatch(groupedDetail, /<summary>Found on 10 pages<\/summary>|\/page-10/);
+  assert.doesNotMatch(groupedMarkdown, /Affected/);
 
   const technicalGrouped = createAcceptanceReport();
   technicalGrouped.findings = [structuredClone(technicalGrouped.findings[4]!)];
@@ -1132,18 +1138,27 @@ async function main(): Promise<void> {
     occurrenceReference: `occurrence-${index + 40}`,
     pageUrl: `https://example.com/technical-page-${index + 1}`
   }));
+  technicalGrouped.inspectedPages = Array.from({ length: 10 }, (_value, index) => ({
+    ...structuredClone(technicalGrouped.inspectedPages[0]!),
+    observation: {
+      ...structuredClone(technicalGrouped.inspectedPages[0]!.observation),
+      finalUrl: `https://example.com/technical-page-${index + 1}`,
+      title: `Technical page ${index + 1}`
+    }
+  }));
   const technicalGroupedEnriched = await enrichSiteAgentReportWithHumanNarratives(
     technicalGrouped,
     { generateNarrative: async input => fixedNarrative(input) }
   );
   const technicalGroupedMarkdown = renderHumanMarkdownReport(technicalGroupedEnriched);
-  assert.match(technicalGroupedMarkdown, /\*\*Affected:\*\* 10 pages/);
-  assert.match(technicalGroupedMarkdown, /<summary>Affected pages \(10\)<\/summary>/);
-  const technicalBeforeCondition = technicalGroupedMarkdown.slice(
-    technicalGroupedMarkdown.indexOf('### 01 —'),
-    technicalGroupedMarkdown.indexOf('**What’s wrong**')
+  assert.match(technicalGroupedMarkdown, /Found on all 10 inspected pages/);
+  const technicalGroupedDetail =
+    technicalGroupedMarkdown.match(/### 01 —[\s\S]*?(?=\n---)/)?.[0] ?? '';
+  assert.doesNotMatch(
+    technicalGroupedDetail,
+    /<summary>Found on 10 pages<\/summary>|\/technical-page-10/
   );
-  assert.doesNotMatch(technicalBeforeCondition, /https:\/\//);
+  assert.doesNotMatch(technicalGroupedMarkdown, /Affected/);
 
   const missing = structuredClone(enriched);
   missing.humanNarratives.exploratory.pop();
@@ -1282,7 +1297,7 @@ async function main(): Promise<void> {
       whatStillNeedsChecking: representativeExploratory.whatStillNeedsChecking
     },
     {
-      status: 'Evidence found — needs review',
+      status: 'Needs review',
       title: 'Visible option “Equador” may need review',
       whatHappened: 'The “COUNTRY*” list includes the visible option “Equador”.',
       whyItMayMatter: 'CheckQuest has not established any further user impact yet.',
@@ -1292,18 +1307,45 @@ async function main(): Promise<void> {
   );
   assert.equal(
     representativeStructured.whatStillNeedsChecking,
-    'Check whether the tab label “[#IABV2SETTINGS#]” is intentional. If not, replace it with wording that explains what the tab does.'
+    'Check whether the control name “[#IABV2SETTINGS#]” is intentional. If not, replace it with wording that explains what the control does.'
   );
-  assert.equal(representativeImage.title, 'Image file returned a 404 error');
+  assert.equal(representativeImage.title, 'An image file failed to load');
   assert.match(representativeImage.whyItMayMatter, /did not capture a visible consequence/);
   assert.equal(representativePresentation.notableSummary, null);
-  assert.match(representativeMarkdown, /- \*\*3\*\* findings need review/);
-  assert.match(representativeMarkdown, /- \*\*3\*\* security observations/);
+  assert.match(
+    representativeMarkdown,
+    /CheckQuest inspected 10 pages in 3s and identified 6 items:/
+  );
+  assert.match(representativeMarkdown, /- \*\*3\*\* need review/);
+  assert.match(representativeMarkdown, /- \*\*3\*\* confirmed observations/);
   assert.doesNotMatch(representativeMarkdown, /- \*\*0\*\* confirmed/);
   assert.doesNotMatch(representativeMarkdown, /- \*\*0\*\* technical observations/);
   assert.doesNotMatch(representativeMarkdown, /## Technical notes/);
   assert.doesNotMatch(representativeMarkdown, /\[Technical notes\]\(#technical-notes\)/);
   assert.doesNotMatch(representativeMarkdown, /The most notable item/);
+  assert.match(representativeMarkdown, /## Findings: At a Glance/);
+  assert.match(representativeMarkdown, /## Findings: In Detail/);
+  assert.match(representativeMarkdown, /\| # \| Finding \| Status \| Severity \| Found on \|/);
+  assert.match(representativeMarkdown, /Status — how sure CheckQuest is/);
+  assert.match(representativeMarkdown, /Severity — how important it may be/);
+  assert.doesNotMatch(
+    representativeMarkdown,
+    /Evidence found — needs review|AI suggestion — needs review/
+  );
+  assert.deepEqual(
+    [...new Set(representativePresentation.atAGlance.map(item => item.status))].sort(),
+    ['Confirmed observation', 'Needs review']
+  );
+  assert.equal(representativePresentation.atAGlance.length, 6);
+  const representativeAtAGlance = representativeMarkdown.slice(
+    representativeMarkdown.indexOf('## Findings: At a Glance'),
+    representativeMarkdown.indexOf('## Findings: In Detail')
+  );
+  assert.equal(
+    representativeAtAGlance.split('\n').filter(line => /^\| \[(?:\d+|S\d+)\]/.test(line)).length,
+    6
+  );
+  assert.match(representativeAtAGlance, /\[S01\]\(#security-s01\)/);
   assert.doesNotMatch(
     representativeMarkdown,
     /machine-readable evidence target|evaluated deterministically|semantic finding|exact-target occurrence evidence|does not independently verify|semantic verification/i
@@ -1324,20 +1366,49 @@ async function main(): Promise<void> {
   );
   assert.doesNotMatch(representativeMarkdown, /reported condition|affected value or behavior/i);
   assert.doesNotMatch(representativeMarkdown, /validation issues/i);
-  assert.match(representativeMarkdown, /\*\*Affected:\*\* 8 pages/);
-  assert.match(representativeMarkdown, /\*\*Affected:\*\* 6 pages/);
-  assert.match(representativeMarkdown, /Image file returned a 404 error/);
-  assert.match(representativeMarkdown, /Tab label shows an unresolved token/);
-  assert.match(representativeMarkdown, /A browser security policy was not enforced/);
-  assert.match(representativeMarkdown, /Server technology information was exposed/);
-  assert.match(representativeMarkdown, /Platform information was exposed/);
+  assert.match(representativeMarkdown, /<summary>Found on 8 pages<\/summary>/);
+  assert.match(representativeMarkdown, /<summary>Found on 6 pages<\/summary>/);
+  assert.doesNotMatch(representativeMarkdown, /Affected(?: pages)?:/);
+  assert.match(representativeMarkdown, /An image file failed to load/);
+  assert.match(
+    representativeMarkdown,
+    /Accessibility tools may announce placeholder text instead of the control’s name/
+  );
+  assert.match(
+    representativeMarkdown,
+    /A restriction on what the browser may load was not enforced/
+  );
+  assert.match(representativeMarkdown, /The site publicly identifies its server technology/);
+  assert.match(representativeMarkdown, /The site publicly identifies its software platform/);
+  assert.match(representativeMarkdown, /## Security testing scope/);
+  assert.doesNotMatch(representativeMarkdown, /## Security notes/);
+  const firstSecurityBlock = representativeMarkdown.slice(
+    representativeMarkdown.indexOf('### S01 —'),
+    representativeMarkdown.indexOf('### S02 —')
+  );
+  assert.match(firstSecurityBlock, /\*\*What CheckQuest observed\*\*/);
+  assert.doesNotMatch(firstSecurityBlock, /\*\*What’s wrong\*\*/);
+  const technologyBlock = representativeMarkdown.slice(
+    representativeMarkdown.indexOf('### S02 —'),
+    representativeMarkdown.indexOf('### S03 —')
+  );
+  assert.match(technologyBlock, /Consider whether this technology information/);
+  assert.doesNotMatch(technologyBlock, /Confirm whether/i);
+  assert.match(representativeMarkdown, /\| # \| Page \|/);
+  assert.doesNotMatch(representativeMarkdown, /Reached via|\| Exploration \|/);
+  assert.match(
+    representativeMarkdown,
+    /\| 1 \| \[Example page 1\]\(https:\/\/example\.com\/page-1\)<br><small>Start URL<br>\/page-1<\/small> \|/
+  );
+  assert.match(
+    representativeMarkdown,
+    /\[Example page 2\]\(https:\/\/example\.com\/page-2\)<br><small>\/page-2<\/small>/
+  );
 
   const standoutReport = structuredClone(representativeReport);
   standoutReport.findings[1]!.severity = 'high';
-  assert.equal(
-    buildHumanReportPresentation(standoutReport).notableSummary,
-    'The most notable item was image file returned a 404 error.'
-  );
+  assert.equal(buildHumanReportPresentation(standoutReport).notableSummary, null);
+  assert.doesNotMatch(renderHumanMarkdownReport(standoutReport), /most notable/i);
 
   const acceptancePath = join(tmpdir(), 'checkquest-human-report-reader-cleanup.md');
   await writeFile(acceptancePath, representativeMarkdown, 'utf8');

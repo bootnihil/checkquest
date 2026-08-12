@@ -384,14 +384,18 @@ function checkSvgConsoleAssociation(): void {
 
   const markdown = renderHumanMarkdownReport(createMinimalReport(findings, pages));
 
-  assert.match(markdown, /Technical note/);
+  assert.match(markdown, /## Findings: In Detail/);
+  assert.match(markdown, /Browser reported a page error/);
   assert.match(
     markdown,
     /The browser recorded an error while the page was open\.[\s\S]*Console message: Error: &lt;svg&gt; attribute height: Expected length/
   );
-  assert.match(markdown, /\*\*Affected:\*\* 4 pages/);
-  assert.match(markdown, /<summary>Affected pages \(4\)<\/summary>/);
-  assert.match(markdown, /\/w\/enterprise[\s\S]*\/crm[\s\S]*\/w\/nonprofits/);
+  assert.match(markdown, /Found on all 4 inspected pages/);
+  const findingDetail = markdown.slice(
+    markdown.indexOf('### 01 —'),
+    markdown.indexOf('\n---', markdown.indexOf('### 01 —'))
+  );
+  assert.doesNotMatch(findingDetail, /\/w\/enterprise|\/crm|\/w\/nonprofits/);
   assert.doesNotMatch(
     markdown,
     /CheckQuest did not match it to browser, network, console, or runtime diagnostics/
@@ -631,10 +635,8 @@ function checkConsoleAssociationRejections(): void {
       ]
     )
   );
-  assert.match(
-    unlinkedMarkdown,
-    /AI analysis only; no matching browser or screenshot evidence was linked/
-  );
+  assert.match(unlinkedMarkdown, /Recorded during this CheckQuest inspection\./);
+  assert.doesNotMatch(unlinkedMarkdown, /AI analysis|AI suggestion|model/i);
   assert.doesNotMatch(
     unlinkedMarkdown,
     /CheckQuest did not match it to browser, network, console, or runtime diagnostics/

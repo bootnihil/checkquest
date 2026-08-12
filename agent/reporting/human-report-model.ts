@@ -38,11 +38,7 @@ export type HumanEvidenceSource = 'Observed directly' | 'Seen in browser data' |
 
 export type HumanAssessment = 'Confirmed issue' | 'Confirmed observation' | 'Needs human review';
 
-export type HumanReaderStatus =
-  | 'Confirmed issue'
-  | 'Confirmed observation'
-  | 'Evidence found — needs review'
-  | 'AI suggestion — needs review';
+export type HumanReaderStatus = 'Confirmed issue' | 'Confirmed observation' | 'Needs review';
 
 export type HumanFindingStatus = Extract<HumanAssessment, 'Confirmed issue' | 'Needs human review'>;
 
@@ -124,9 +120,9 @@ export interface HumanIndexItem {
   displayId: string;
   anchor: string;
   title: string;
-  type: Exclude<HumanItemType, 'Security note'>;
+  type: HumanItemType;
   evidenceSource: HumanEvidenceSource;
-  severity: UnifiedFinding['severity'];
+  severity: UnifiedFinding['severity'] | PassiveSecurityObservation['severity'];
   pages: HumanPageReference[];
   assessment: HumanAssessment;
   status: HumanReaderStatus;
@@ -208,14 +204,7 @@ export function getHumanReaderStatus(
     return 'Confirmed observation';
   }
 
-  switch (evidenceSource) {
-    case 'Observed directly':
-    case 'Seen in browser data':
-      return 'Evidence found — needs review';
-
-    case 'AI analysis only':
-      return 'AI suggestion — needs review';
-  }
+  return 'Needs review';
 }
 
 function getHumanObservationAssessment(
@@ -487,7 +476,7 @@ function getHumanEvidenceSource(
 
 function getWhereThisCameFrom(
   evidenceSource: HumanEvidenceSource,
-  finding: UnifiedFinding,
+  _finding: UnifiedFinding,
   pageCount: number
 ): string {
   if (evidenceSource === 'Observed directly') {
@@ -496,26 +485,9 @@ function getWhereThisCameFrom(
       : `Focused screenshot evidence captured on ${pageCount} inspected pages.`;
   }
 
-  if (evidenceSource === 'AI analysis only') {
-    return 'AI analysis only; no matching browser or screenshot evidence was linked.';
-  }
-
-  const identity = getRuntimeTechnicalIdentity(finding);
-  const scope = pageCount === 1 ? 'from the inspected page' : `captured on ${pageCount} pages`;
-
-  if (identity?.kind === 'console-error') {
-    return `Matched to browser console data ${scope}.`;
-  }
-
-  if (identity?.kind === 'failed-request') {
-    return `Matched to browser network data ${scope}.`;
-  }
-
-  if (identity?.kind === 'cors') {
-    return `Matched to browser console and network data ${scope}.`;
-  }
-
-  return `Matched to linked browser data ${scope}.`;
+  return pageCount === 1
+    ? 'Recorded during this CheckQuest inspection.'
+    : `Recorded by CheckQuest on ${pageCount} inspected pages.`;
 }
 
 interface PlainHumanNarrative {
@@ -559,11 +531,11 @@ function getTechnicalNarrative(finding: UnifiedFinding): PlainHumanNarrative | n
 
       if (isCrossOriginDnsFailureIdentity(identity)) {
         return {
-          title: 'Cross-origin address lookup failed',
+          title: 'A connection to an external service failed',
           condition:
             'The browser could not find the address of an external service requested by the page.',
           impact:
-            'The external service may not have loaded, but the DNS failure may reflect the test environment rather than the website.',
+            'The external service may not have loaded, but the failure may have come from CheckQuest’s test environment rather than the website.',
           check:
             'Repeat the check from another environment before attributing the failure to the website.',
           technicalDetails: [
@@ -576,7 +548,7 @@ function getTechnicalNarrative(finding: UnifiedFinding): PlainHumanNarrative | n
       }
 
       return {
-        title: `${formatTitleWord(resourceName)} failed to load`,
+        title: `${getIndefiniteArticle(resourceName)} ${resourceName} failed to load`,
         condition: `${getIndefiniteArticle(resourceName)} ${resourceName} requested by the page failed to load.`,
         impact: `The ${resource} request failed, but CheckQuest did not capture a visible consequence, so we do not yet know whether visitors can actually see or experience a problem.`,
         check: `Open the page and check whether the failed ${resourceName} affects anything visitors need to see or use.`,
@@ -600,7 +572,7 @@ function getTechnicalNarrative(finding: UnifiedFinding): PlainHumanNarrative | n
       return {
         title:
           identity.httpStatus !== null && resourceType !== 'page resource'
-            ? `${formatTitleWord(resourceName)} returned a ${identity.httpStatus} error`
+            ? `${getIndefiniteArticle(resourceName)} ${resourceName} failed to load`
             : 'Browser reported a page error',
         condition:
           identity.httpStatus !== null && identity.source === 'resource'
@@ -626,8 +598,8 @@ function getTechnicalNarrative(finding: UnifiedFinding): PlainHumanNarrative | n
 
     case 'cors':
       return {
-        title: 'Cross-origin request was blocked',
-        condition: 'The browser blocked a request to another origin while the page was open.',
+        title: 'A request to an external service was blocked',
+        condition: 'The browser blocked a request to an external service while the page was open.',
         impact:
           'CheckQuest has not established that the blocked request affected a feature visitors use.',
         check:
@@ -798,20 +770,20 @@ function getDeterministicFindingNarrative(finding: UnifiedFinding): PlainHumanNa
   const structured = getStructuredAccessibilityNarrativeFacts(finding);
 
   if (structured?.identity !== null && structured?.identity !== undefined) {
-    const control = structured.identity.subject.controlType;
     const rawValue = `“${structured.identity.observedValue}”`;
 
     return {
       title:
         structured.identity.mechanism === 'unresolved-token'
-          ? `${formatTitleWord(control)} label shows an unresolved token`
-          : `${formatTitleWord(control)} has an unclear label`,
+          ? 'Accessibility tools may announce placeholder text instead of the control’s name'
+          : 'Accessibility tools may receive an unclear name for a control',
       condition:
         structured.identity.mechanism === 'unresolved-token'
-          ? `A ${control} is exposed to screen-reader users as the raw token ${rawValue} instead of a meaningful label.`
-          : `A ${control} is exposed to screen-reader users as ${rawValue}, which does not clearly describe the control.`,
+          ? `Accessibility tools receive the placeholder text ${rawValue} as this control’s name instead of a clear description.`
+          : `Accessibility tools receive ${rawValue} as this control’s name, which does not clearly describe it.`,
       impact: 'People using a screen reader may not understand what this control does.',
-      check: `Check the ${control} label and replace the unclear value with wording that explains what the ${control} does.`,
+      check:
+        'Check the control’s name and replace the unclear value with wording that explains what the control does.',
       technicalDetails: [
         `Structured control type: ${structured.identity.subject.controlType}`,
         `Control id: ${structured.identity.subject.controlId}`,
@@ -866,13 +838,13 @@ function getDeterministicFindingNarrative(finding: UnifiedFinding): PlainHumanNa
       condition:
         'The page returned a server-error response instead of a normal successful response.',
       impact: 'Visitors may be unable to open or use the page.',
-      check: 'Open the page and confirm whether it loads successfully for visitors.'
+      check: 'Investigate the server response and restore normal page loading.'
     },
     HTTP_CLIENT_ERROR: {
       title: 'Page returned a client error',
       condition: 'The page returned an error response instead of a normal successful response.',
       impact: 'Visitors following this link may reach an error page.',
-      check: 'Confirm that the page URL is correct and loads successfully.'
+      check: 'Check the page URL and restore a successful response where the error is unintended.'
     },
     EMPTY_PAGE_TITLE: {
       title: 'Page has no browser title',
@@ -885,7 +857,7 @@ function getDeterministicFindingNarrative(finding: UnifiedFinding): PlainHumanNa
       title: 'Page has no main headings',
       condition: 'The page does not contain a visible main or section heading.',
       impact: 'Visitors may find it harder to understand and scan the page structure.',
-      check: 'Confirm that the page uses clear headings for its main content and sections.'
+      check: 'Review the page structure and add clear headings for its main content and sections.'
     },
     VISIBLE_ERROR_PAGE: {
       title: 'Page appears to show an error',
@@ -1001,10 +973,9 @@ function createNeedsReviewStructuredCheck(finding: UnifiedFinding, fallback: str
     return fallback;
   }
 
-  const control = structured.identity.subject.controlType;
   const rawValue = `“${structured.identity.observedValue}”`;
 
-  return `Check whether the ${control} label ${rawValue} is intentional. If not, replace it with wording that explains what the ${control} does.`;
+  return `Check whether the control name ${rawValue} is intentional. If not, replace it with wording that explains what the control does.`;
 }
 
 function buildHumanFinding(
@@ -1091,7 +1062,6 @@ function buildHumanFinding(
       : acceptedNarrative.impact;
   const checkStatement =
     'whatToCheck' in acceptedNarrative ? acceptedNarrative.whatToCheck : acceptedNarrative.check;
-  const isAiOnly = readerStatus === 'AI suggestion — needs review';
   const readerSafeNarrative =
     status === 'Needs human review' && (persistedNarrative !== null || usesGenericNarrative)
       ? createNeedsReviewExploratoryNarrative(finding, plainTitle, plainCondition)
@@ -1113,10 +1083,7 @@ function buildHumanFinding(
     displayId,
     anchor: `item-${displayId.toLowerCase()}`,
     findingReference: finding.findingReference,
-    title:
-      report.reportSchemaVersion === '4' && isAiOnly
-        ? `AI suggestion: ${readerTitle}`
-        : readerTitle,
+    title: readerTitle,
     itemType,
     evidenceSource,
     assessment: status,
@@ -1125,21 +1092,13 @@ function buildHumanFinding(
     category: finding.category,
     pages,
     observation: getRawObservation(finding),
-    whatHappened: isAiOnly
-      ? `AI suggested this possible issue: ${readerSafeNarrative === null ? readerCondition : plainCondition}`
-      : readerCondition,
-    whyItMayMatter:
-      isAiOnly && readerSafeNarrative === null
-        ? `If the suggestion is correct: ${readerImpact}`
-        : readerImpact,
-    whatStillNeedsChecking: isAiOnly
-      ? `No matching browser or screenshot evidence confirmed it. ${readerCheck}`
-      : readerCheck,
+    whatHappened: readerCondition,
+    whyItMayMatter: readerImpact,
+    whatStillNeedsChecking: readerCheck,
     whereThisCameFrom: getWhereThisCameFrom(evidenceSource, finding, pages.length),
     technicalDetails: [
       ...(deterministicNarrative?.technicalDetails ?? []),
       ...getExploratoryFindingTechnicalDetails(finding),
-      `Evidence source: ${evidenceSource}`,
       `Verification state: ${finding.verification.state}`
     ],
     focusedEvidence,
@@ -1285,62 +1244,6 @@ export function rankHumanReportNotableItems(report: SiteAgentReport): UnifiedFin
     .map(item => item.finding);
 }
 
-function createNotableSummary(
-  report: SiteAgentReport,
-  items: readonly (HumanFindingPresentation | HumanTechnicalObservation)[]
-): string | null {
-  const ranked = rankHumanReportNotableItems(report);
-  const titleByReference = new Map(items.map(item => [item.findingReference, item.title]));
-
-  if (ranked.length < 2) {
-    return null;
-  }
-
-  const firstRanked = ranked[0]!;
-  const firstAssessmentRank = assessmentRank(firstRanked);
-  const firstSeverityRank = severityRank[firstRanked.severity];
-  const firstIsVisiblyStrongest = !ranked.some(
-    finding =>
-      assessmentRank(finding) < firstAssessmentRank ||
-      (assessmentRank(finding) === firstAssessmentRank &&
-        severityRank[finding.severity] < firstSeverityRank)
-  );
-  const equallyNotable = ranked.filter(
-    finding =>
-      assessmentRank(finding) === firstAssessmentRank &&
-      severityRank[finding.severity] === firstSeverityRank
-  );
-
-  if (!firstIsVisiblyStrongest || equallyNotable.length === ranked.length) {
-    return null;
-  }
-
-  const notable = equallyNotable.slice(0, 2);
-
-  if (notable.length === 1) {
-    const finding = notable[0];
-    const title =
-      finding === undefined
-        ? ''
-        : (titleByReference.get(finding.findingReference) ?? cleanFindingTitle(finding.title));
-
-    return `The most notable item was ${title?.charAt(0).toLowerCase()}${title?.slice(1)}.`;
-  }
-
-  const first = notable[0];
-  const second = notable[1];
-  const firstTitle =
-    first === undefined
-      ? ''
-      : (titleByReference.get(first.findingReference) ?? cleanFindingTitle(first.title));
-  const secondTitle =
-    second === undefined
-      ? ''
-      : (titleByReference.get(second.findingReference) ?? cleanFindingTitle(second.title));
-
-  return `The most notable items were ${firstTitle?.charAt(0).toLowerCase()}${firstTitle?.slice(1)} and ${secondTitle?.charAt(0).toLowerCase()}${secondTitle?.slice(1)}.`;
-}
-
 function buildTechnicalObservation(
   finding: UnifiedFinding,
   displayId: string,
@@ -1367,7 +1270,7 @@ function buildTechnicalObservation(
     displayId,
     anchor: `item-${displayId.toLowerCase()}`,
     findingReference: finding.findingReference,
-    title: usesResourceSpecificTitle(finding) ? narrative.title : cleanFindingTitle(finding.title),
+    title: narrative.title,
     itemType,
     evidenceSource,
     assessment,
@@ -1382,7 +1285,6 @@ function buildTechnicalObservation(
     technicalDetails: [
       ...narrative.technicalDetails,
       ...getExploratoryFindingTechnicalDetails(finding),
-      `Evidence source: ${evidenceSource}`,
       `Verification state: ${finding.verification.state}`
     ],
     evidencePath: `evidence/${displayId}-${slugifyEvidenceName(finding.title)}-evidence.json`
@@ -1393,11 +1295,11 @@ function getSecurityNarrative(observation: PassiveSecurityObservation): PlainHum
   switch (observation.code) {
     case 'PS_CSP_RESPONSE_HEADER_NOT_OBSERVED':
       return {
-        title: 'A browser security policy was not enforced',
+        title: 'A restriction on what the browser may load was not enforced',
         condition: 'The site did not send an enforcing Content Security Policy (CSP).',
         impact:
           'CSP can restrict which resources and content the browser is allowed to load or run. Its absence does not prove the site is vulnerable.',
-        check: 'Review whether the site should send an enforcing Content Security Policy.',
+        check: 'Consider restricting which resources and content browsers may load or run.',
         technicalDetails: []
       };
 
@@ -1406,59 +1308,60 @@ function getSecurityNarrative(observation: PassiveSecurityObservation): PlainHum
 
       return {
         title: isServer
-          ? 'Server technology information was exposed'
-          : 'Platform information was exposed',
+          ? 'The site publicly identifies its server technology'
+          : 'The site publicly identifies its software platform',
         condition: isServer
           ? 'The site tells browsers some information about the server technology it uses.'
           : 'The site exposes information about the software or platform serving the page.',
         impact: 'This is informational and is not a problem by itself.',
         check:
-          'Confirm whether this technology information needs to be included in public responses.',
+          'Consider whether this technology information needs to be included in public responses.',
         technicalDetails: []
       };
     }
 
     case 'PS_HTTP_DOCUMENT':
       return {
-        title: 'Page was delivered without HTTPS',
+        title: 'The page was delivered without a secure connection',
         condition: 'The page was delivered over an unencrypted HTTP connection.',
         impact:
           'Information sent between a visitor and the site may be easier for others on the network to read or alter.',
-        check:
-          'Confirm that the page redirects to HTTPS and is not intentionally available over HTTP.',
+        check: 'Consider requiring this page to redirect to a secure HTTPS connection.',
         technicalDetails: []
       };
 
     case 'PS_HSTS_NOT_OBSERVED':
     case 'PS_HSTS_NOT_ENFORCING':
+    case 'HSTS_NOT_OBSERVED':
       return {
-        title: 'Strict HTTPS protection was not enforced',
+        title: 'Future visits were not required to use a secure connection',
         condition: 'The site did not tell browsers to keep future visits on HTTPS.',
         impact:
           'This removes a browser safeguard against accidental or forced connections over unencrypted HTTP, but does not prove an attack is possible.',
-        check: 'Review whether the site should send an enforcing Strict-Transport-Security header.',
+        check: 'Consider requiring browsers to keep future visits on a secure connection.',
         technicalDetails: []
       };
 
     case 'PS_NOSNIFF_NOT_ENFORCING':
       return {
-        title: 'Browser content-type protection was not enforced',
+        title: 'A safeguard against misidentified file types was not enabled',
         condition: 'The site did not tell browsers to strictly follow declared file types.',
         impact:
           'This removes one browser safeguard against interpreting a file as the wrong content type, but does not prove the site is vulnerable.',
         check:
-          'Review whether responses should send X-Content-Type-Options with the value nosniff.',
+          'Consider enabling the browser safeguard that prevents files from being treated as a different type.',
         technicalDetails: []
       };
 
     case 'PS_FRAME_POLICY_NOT_OBSERVED':
       return {
-        title: 'Frame-embedding restriction was not observed',
+        title: 'A safeguard against displaying pages inside other sites was not observed',
         condition:
-          'The site did not send a policy that restricts other sites from placing its pages inside a frame.',
+          'The site did not send a policy that restricts other sites from placing its pages inside their own interfaces.',
         impact:
           'Without an appropriate restriction, some pages may be easier to imitate or overlay in deceptive interfaces. This observation does not prove an attack is possible.',
-        check: 'Review whether the site should restrict which origins may embed its pages.',
+        check:
+          'Consider restricting other sites from displaying these pages within their own interfaces.',
         technicalDetails: []
       };
 
@@ -1575,6 +1478,14 @@ export function buildHumanReportPresentation(report: SiteAgentReport): HumanRepo
   }
 
   const summary = buildReconciledRunSummaryProjection(report);
+  const securityObservations = report.passiveSecurity.observations.map((observation, index) =>
+    buildSecurityObservation(
+      observation,
+      report.inspectedPages.length,
+      `S${String(index + 1).padStart(2, '0')}`,
+      urlContext
+    )
+  );
   const indexItems: HumanIndexItem[] = [
     ...primaryFindings.map(finding => ({
       displayId: finding.displayId,
@@ -1597,31 +1508,49 @@ export function buildHumanReportPresentation(report: SiteAgentReport): HumanRepo
       pages: observation.pages,
       assessment: observation.assessment,
       status: observation.status
+    })),
+    ...securityObservations.map(observation => ({
+      displayId: observation.displayId,
+      anchor: observation.anchor,
+      title: observation.title,
+      type: observation.itemType,
+      evidenceSource: observation.evidenceSource,
+      severity: observation.severity,
+      pages: observation.pages,
+      assessment: observation.assessment,
+      status: observation.status
     }))
-  ].sort((left, right) => Number(left.displayId) - Number(right.displayId));
-  const inspectedPages = report.inspectedPages.map(page => {
-    const pageReference = createPageReference(
-      page.observation.title,
-      page.observation.finalUrl,
-      urlContext
-    );
-    const relatedItems = indexItems
-      .filter(item => item.pages.some(itemPage => itemPage.url === page.observation.finalUrl))
-      .map(item => ({
-        displayId: item.displayId,
-        anchor: item.anchor
-      }));
+  ];
+  const inspectedPages = [...report.inspectedPages]
+    .sort((left, right) => {
+      const leftRank = left.selection.type === 'start-url' ? 0 : 1;
+      const rightRank = right.selection.type === 'start-url' ? 0 : 1;
 
-    return {
-      page: pageReference,
-      reachedVia:
-        page.selection.type === 'start-url' ? ('Start URL' as const) : ('Exploration' as const),
-      result: getPageResult(
-        getPageFindingCounts(primaryFindings, technicalObservations, page.observation.finalUrl)
-      ),
-      relatedItems
-    };
-  });
+      return leftRank - rightRank;
+    })
+    .map(page => {
+      const pageReference = createPageReference(
+        page.observation.title,
+        page.observation.finalUrl,
+        urlContext
+      );
+      const relatedItems = indexItems
+        .filter(item => item.pages.some(itemPage => itemPage.url === page.observation.finalUrl))
+        .map(item => ({
+          displayId: item.displayId,
+          anchor: item.anchor
+        }));
+
+      return {
+        page: pageReference,
+        reachedVia:
+          page.selection.type === 'start-url' ? ('Start URL' as const) : ('Exploration' as const),
+        result: getPageResult(
+          getPageFindingCounts(primaryFindings, technicalObservations, page.observation.finalUrl)
+        ),
+        relatedItems
+      };
+    });
 
   return {
     siteName: getSiteName(report),
@@ -1633,20 +1562,13 @@ export function buildHumanReportPresentation(report: SiteAgentReport): HumanRepo
     technicalObservationCount: summary.technicalObservationCount,
     securityObservationCount: report.passiveSecurity.observations.length,
     outcomeNote: report.outcome.type === 'finished' ? report.outcome.summary : null,
-    notableSummary: createNotableSummary(report, [...primaryFindings, ...technicalObservations]),
+    notableSummary: null,
     atAGlance: indexItems,
     detailedFindings: primaryFindings.slice(0, humanReportDetailedFindingLimit),
     additionalFindings: primaryFindings.slice(humanReportDetailedFindingLimit),
     technicalObservations,
     securityDisclaimer: report.passiveSecurity.disclaimer,
-    securityObservations: report.passiveSecurity.observations.map((observation, index) =>
-      buildSecurityObservation(
-        observation,
-        report.inspectedPages.length,
-        `S${String(index + 1).padStart(2, '0')}`,
-        urlContext
-      )
-    ),
+    securityObservations,
     inspectedPages
   };
 }

@@ -353,25 +353,41 @@ async function main(): Promise<void> {
     2
   );
 
-  assert.match(markdown, /## Security notes/);
-
-  assert.match(markdown, /did not perform penetration testing or active vulnerability probing/);
+  assert.match(markdown, /## Security testing scope/);
 
   assert.match(
     markdown,
-    /\| \[S01\]\(#security-s01\) \| \[Strict HTTPS protection was not enforced\]\(#security-s01\) \| Confirmed observation \| Low \| 2 pages \|/
+    /CheckQuest only reports security-related signals it encounters during normal browsing\. It does not perform penetration testing or actively probe for vulnerabilities\./
   );
 
-  assert.match(markdown, /### S01 — Strict HTTPS protection was not enforced/);
+  assert.match(
+    markdown,
+    /\| \[S01\]\(#security-s01\) \| \[Future visits were not required to use a secure connection\]\(#security-s01\) \| Confirmed observation \| Low \| 2 pages \|/
+  );
+
+  assert.match(markdown, /### S01 — Future visits were not required to use a secure connection/);
+  assert.match(markdown, /The site publicly identifies its server technology/);
+  assert.doesNotMatch(markdown, /Strict HTTPS protection|HSTS response header was not observed/);
 
   assert.match(
     markdown,
     /\[Security evidence file\]\(evidence\/S01-HSTS-RESPONSE-HEADER-WAS-NOT-OBSERVED-evidence\.txt\)/
   );
 
-  assert.match(markdown, /\*\*Low severity · Confirmed observation · 2 pages\*\*/);
+  assert.match(markdown, /\*\*Status: Confirmed observation · Severity: Low\*\*/);
+  assert.match(markdown, /<summary>Found on 2 pages<\/summary>/);
 
-  assert.match(markdown, /## Technical notes[\s\S]*\*\*High severity · Confirmed observation\*\*/);
+  const technologyBlock = markdown.slice(
+    markdown.indexOf('### S02 —'),
+    markdown.indexOf('## Pages inspected')
+  );
+  assert.match(technologyBlock, /Consider whether this technology information/);
+  assert.doesNotMatch(technologyBlock, /Confirm whether/i);
+
+  assert.match(
+    markdown,
+    /## Findings: In Detail[\s\S]*\*\*Status: Confirmed observation · Severity: High\*\*/
+  );
 
   assert.equal(markdown.includes('\n## injected heading'), false);
 

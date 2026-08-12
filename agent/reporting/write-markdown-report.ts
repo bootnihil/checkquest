@@ -7,6 +7,7 @@ import {
   type HumanIndexItem,
   type HumanPageReference,
   type HumanReportPresentation,
+  type HumanReaderStatus,
   type HumanTechnicalObservation
 } from './human-report-model';
 import type { SiteAgentReport } from './report-types';
@@ -88,21 +89,35 @@ function createPageLink(page: HumanPageReference): string {
     : `[${escapeMarkdownInlineText(page.title)}](${href}) — ${displayLocation}`;
 }
 
-function pushAffectedScope(lines: string[], pages: readonly HumanPageReference[]): void {
-  if (pages.length === 1) {
-    lines.push(`**Page:** ${createPageLink(pages[0] as HumanPageReference)}`, '');
-    return;
+function coversEveryInspectedPage(
+  pages: readonly HumanPageReference[],
+  inspectedPages: readonly HumanPageReference[]
+): boolean {
+  if (pages.length < 2 || pages.length !== inspectedPages.length) {
+    return false;
   }
 
-  lines.push(`**Affected:** ${pages.length} pages`, '');
+  const findingPageUrls = new Set(pages.map(page => page.url));
+
+  return inspectedPages.every(page => findingPageUrls.has(page.url));
 }
 
-function pushCollapsedAffectedPages(lines: string[], pages: readonly HumanPageReference[]): void {
-  if (pages.length < 2) {
+function pushFindingLocation(
+  lines: string[],
+  pages: readonly HumanPageReference[],
+  inspectedPages: readonly HumanPageReference[]
+): void {
+  if (pages.length === 1) {
+    lines.push(`**Found on:** ${createPageLink(pages[0] as HumanPageReference)}`, '');
     return;
   }
 
-  lines.push('<details>', `<summary>Affected pages (${pages.length})</summary>`, '');
+  if (coversEveryInspectedPage(pages, inspectedPages)) {
+    lines.push(`**Found on all ${pages.length} inspected pages**`, '');
+    return;
+  }
+
+  lines.push('<details>', `<summary>Found on ${pages.length} pages</summary>`, '');
 
   for (const page of pages) {
     lines.push(`- ${createPageLink(page)}`);
@@ -116,37 +131,34 @@ function pluralize(count: number, singular: string, plural = `${singular}s`): st
 }
 
 function createAtAGlancePageLabel(pages: readonly HumanPageReference[]): string {
-  return pages.length === 1
-    ? createPageLink(pages[0] as HumanPageReference)
-    : `${pages.length} pages`;
+  return pluralize(pages.length, 'page');
 }
 
 function createFindingCountSummary(report: HumanReportPresentation): string[] {
+  const readerItems = report.atAGlance;
+  const confirmedIssues = readerItems.filter(item => item.status === 'Confirmed issue').length;
+  const needsReview = readerItems.filter(item => item.status === 'Needs review').length;
+  const confirmedObservations = readerItems.filter(
+    item => item.status === 'Confirmed observation'
+  ).length;
   const counts = [
-    ...(report.confirmedIssueCount > 0
+    ...(confirmedIssues > 0
       ? [
-          `- **${report.confirmedIssueCount}** ${report.confirmedIssueCount === 1 ? 'confirmed issue' : 'confirmed issues'}`
+          `- **${confirmedIssues}** ${confirmedIssues === 1 ? 'confirmed issue' : 'confirmed issues'}`
         ]
       : []),
-    ...(report.needsReviewCount > 0
-      ? [
-          `- **${report.needsReviewCount}** ${report.needsReviewCount === 1 ? 'finding needs review' : 'findings need review'}`
-        ]
+    ...(needsReview > 0
+      ? [`- **${needsReview}** ${needsReview === 1 ? 'needs review' : 'need review'}`]
       : []),
-    ...(report.technicalObservationCount > 0
+    ...(confirmedObservations > 0
       ? [
-          `- **${report.technicalObservationCount}** ${report.technicalObservationCount === 1 ? 'technical observation' : 'technical observations'}`
-        ]
-      : []),
-    ...(report.securityObservationCount > 0
-      ? [
-          `- **${report.securityObservationCount}** ${report.securityObservationCount === 1 ? 'security observation' : 'security observations'}`
+          `- **${confirmedObservations}** ${confirmedObservations === 1 ? 'confirmed observation' : 'confirmed observations'}`
         ]
       : [])
   ];
 
   return [
-    '**CheckQuest found:**',
+    `CheckQuest inspected ${pluralize(report.pagesInspected, 'page')} in ${report.duration} and identified ${pluralize(readerItems.length, 'item')}:`,
     '',
     ...(counts.length > 0 ? counts : ['- No issues or observations to report'])
   ];
@@ -156,17 +168,24 @@ function pushReportVocabulary(lines: string[]): void {
   lines.push(
     '### How to read this report',
     '',
-    '> - **Confirmed issue:** The available evidence supports the reported problem.',
-    '> - **Confirmed observation:** CheckQuest confirmed what the browser reported, but that does not automatically mean visitors were affected.',
-    '> - **Evidence found — needs review:** CheckQuest found supporting evidence, but a person still needs to decide what it means.',
-    '> - **AI suggestion — needs review:** AI suggested a possible issue, but no matching browser or screenshot evidence confirmed it.',
-    '> - **Severity** indicates the potential priority; it does not change how certain the item is.',
+    '**Status — how sure CheckQuest is**',
+    '',
+    '- **Confirmed issue** — CheckQuest confirmed that the problem is present.',
+    '- **Needs review** — CheckQuest found a possible problem that should be checked.',
+    '- **Confirmed observation** — CheckQuest confirmed a technical condition, but it may not be a problem by itself.',
+    '',
+    '**Severity — how important it may be**',
+    '',
+    '- **High** — Review promptly.',
+    '- **Medium** — Worth addressing.',
+    '- **Low** — Minor; usually not urgent.',
+    '- **Info** — Informational only.',
     ''
   );
 }
 
 function pushAtAGlanceTable(lines: string[], findings: readonly HumanIndexItem[]): void {
-  lines.push('| # | Item | Status | Severity | Page(s) |', '| --- | --- | --- | --- | --- |');
+  lines.push('| # | Finding | Status | Severity | Found on |', '| --- | --- | --- | --- | --- |');
 
   for (const finding of findings) {
     lines.push(
@@ -178,10 +197,10 @@ function pushAtAGlanceTable(lines: string[], findings: readonly HumanIndexItem[]
 }
 
 function pushAtAGlance(lines: string[], findings: readonly HumanIndexItem[]): void {
-  lines.push('## At a glance', '');
+  lines.push('## Findings: At a Glance', '');
 
   if (findings.length === 0) {
-    lines.push('No possible issues or technical notes were identified.', '');
+    lines.push('No findings were identified.', '');
     return;
   }
 
@@ -193,23 +212,8 @@ function pushAtAGlance(lines: string[], findings: readonly HumanIndexItem[]): vo
   pushAtAGlanceTable(lines, findings);
 }
 
-function pushContents(lines: string[], report: HumanReportPresentation): void {
-  const links = [
-    '[At a glance](#at-a-glance)',
-    '[Findings](#findings)',
-    ...(report.additionalFindings.length > 0
-      ? ['[Additional findings](#additional-findings)']
-      : []),
-    ...(report.technicalObservations.length > 0 ? ['[Technical notes](#technical-notes)'] : []),
-    '[Security notes](#security-notes)',
-    '[Pages inspected](#pages-inspected)'
-  ];
-
-  lines.push(`**Contents:** ${links.join(' · ')}`, '');
-}
-
 function pushBackToSummary(lines: string[]): void {
-  lines.push('[Back to summary](#at-a-glance)', '');
+  lines.push('[Back to summary](#findings-at-a-glance)', '');
 }
 
 function pushFocusedEvidence(lines: string[], finding: HumanFindingPresentation): void {
@@ -238,9 +242,32 @@ function pushFocusedEvidence(lines: string[], finding: HumanFindingPresentation)
   }
 }
 
+function getConditionHeading(status: HumanReaderStatus): string {
+  switch (status) {
+    case 'Confirmed issue':
+      return 'What’s wrong';
+    case 'Needs review':
+      return 'What CheckQuest found';
+    case 'Confirmed observation':
+      return 'What CheckQuest observed';
+  }
+}
+
+function getNextStepHeading(status: HumanReaderStatus): string {
+  switch (status) {
+    case 'Confirmed issue':
+      return 'What to do';
+    case 'Needs review':
+      return 'What to check';
+    case 'Confirmed observation':
+      return 'What to consider';
+  }
+}
+
 function pushItemExplanation(
   lines: string[],
   item: {
+    status: HumanReaderStatus;
     whatHappened: string;
     whyItMayMatter: string;
     whatStillNeedsChecking: string;
@@ -251,7 +278,7 @@ function pushItemExplanation(
   }
 ): void {
   lines.push(
-    '**What’s wrong**',
+    `**${getConditionHeading(item.status)}**`,
     '',
     formatMarkdownProse(item.whatHappened),
     '',
@@ -259,7 +286,7 @@ function pushItemExplanation(
     '',
     formatMarkdownProse(item.whyItMayMatter),
     '',
-    '**What to check**',
+    `**${getNextStepHeading(item.status)}**`,
     '',
     formatMarkdownProse(item.whatStillNeedsChecking),
     '',
@@ -287,34 +314,40 @@ function pushItemExplanation(
   lines.push('', '</details>', '');
 }
 
-function pushDetailedFinding(lines: string[], finding: HumanFindingPresentation): void {
+function pushDetailedFinding(
+  lines: string[],
+  finding: HumanFindingPresentation,
+  inspectedPages: readonly HumanPageReference[]
+): void {
   lines.push(
     `<a id="${finding.anchor}"></a>`,
     `### ${finding.displayId} — ${escapeMarkdownInlineText(finding.title)}`,
     '',
-    `**${formatSeverity(finding.severity)} severity · ${finding.status}**`,
+    `**Status: ${finding.status} · Severity: ${formatSeverity(finding.severity)}**`,
     ''
   );
-  pushAffectedScope(lines, finding.pages);
+  pushFindingLocation(lines, finding.pages, inspectedPages);
   pushItemExplanation(lines, finding);
-  pushCollapsedAffectedPages(lines, finding.pages);
   pushFocusedEvidence(lines, finding);
   pushBackToSummary(lines);
 
   lines.push('---', '');
 }
 
-function pushAdditionalFinding(lines: string[], finding: HumanFindingPresentation): void {
+function pushAdditionalFinding(
+  lines: string[],
+  finding: HumanFindingPresentation,
+  inspectedPages: readonly HumanPageReference[]
+): void {
   lines.push(
     `<a id="${finding.anchor}"></a>`,
     `### ${finding.displayId} — ${escapeMarkdownInlineText(finding.title)}`,
     '',
-    `**${formatSeverity(finding.severity)} severity · ${finding.status}**`,
+    `**Status: ${finding.status} · Severity: ${formatSeverity(finding.severity)}**`,
     ''
   );
-  pushAffectedScope(lines, finding.pages);
+  pushFindingLocation(lines, finding.pages, inspectedPages);
   pushItemExplanation(lines, finding);
-  pushCollapsedAffectedPages(lines, finding.pages);
 
   if (finding.focusedEvidence.length > 0) {
     for (const evidence of finding.focusedEvidence) {
@@ -333,16 +366,17 @@ function pushAdditionalFinding(lines: string[], finding: HumanFindingPresentatio
 function pushTechnicalObservationDetails(
   lines: string[],
   observation: HumanTechnicalObservation,
-  heading: string
+  heading: string,
+  inspectedPages: readonly HumanPageReference[]
 ): void {
   lines.push(
     `<a id="${observation.anchor}"></a>`,
     heading,
     '',
-    `**${formatSeverity(observation.severity)} severity · ${observation.status}**`,
+    `**Status: ${observation.status} · Severity: ${formatSeverity(observation.severity)}**`,
     ''
   );
-  pushAffectedScope(lines, observation.pages);
+  pushFindingLocation(lines, observation.pages, inspectedPages);
   pushItemExplanation(lines, {
     ...observation,
     technicalLinks: [
@@ -352,96 +386,96 @@ function pushTechnicalObservationDetails(
       }
     ]
   });
-  pushCollapsedAffectedPages(lines, observation.pages);
   pushBackToSummary(lines);
 }
 
 function pushTechnicalObservations(
   lines: string[],
-  observations: readonly HumanTechnicalObservation[]
+  observations: readonly HumanTechnicalObservation[],
+  inspectedPages: readonly HumanPageReference[]
 ): void {
   for (const observation of observations) {
     pushTechnicalObservationDetails(
       lines,
       observation,
-      `### ${observation.displayId} — ${escapeMarkdownInlineText(observation.title)}`
+      `### ${observation.displayId} — ${escapeMarkdownInlineText(observation.title)}`,
+      inspectedPages
     );
     lines.push('---', '');
   }
 }
 
+function createInspectedPageCell(page: HumanPageReference, isStartUrl: boolean): string {
+  const title = page.title ?? page.label;
+  const primary =
+    page.href === null
+      ? escapeTableCell(title)
+      : `[${escapeTableCell(title)}](${escapeMarkdownLinkDestination(page.href)})`;
+  const secondary = isStartUrl
+    ? `Start URL<br>${escapeTableCell(page.label)}`
+    : escapeTableCell(page.label);
+
+  return `${primary}<br><small>${secondary}</small>`;
+}
+
 export function renderHumanMarkdownReport(report: SiteAgentReport): string {
   const presentation = buildHumanReportPresentation(report);
+  const inspectedPages = presentation.inspectedPages.map(item => item.page);
   const lines: string[] = [
     `# CheckQuest report — ${escapeMarkdownInlineText(presentation.siteName)}`,
-    '',
-    `CheckQuest inspected ${pluralize(presentation.pagesInspected, 'page')} in ${presentation.duration}.`,
     '',
     ...createFindingCountSummary(presentation),
     ''
   ];
 
-  pushContents(lines, presentation);
   pushReportVocabulary(lines);
-
-  if (presentation.notableSummary !== null) {
-    lines.push(formatMarkdownProse(presentation.notableSummary), '');
-  }
-
-  if (presentation.outcomeNote !== null) {
-    lines.push(formatMarkdownProse(presentation.outcomeNote), '');
-  }
-
   pushAtAGlance(lines, presentation.atAGlance);
 
-  lines.push('## Findings', '');
+  lines.push('## Findings: In Detail', '');
 
-  if (presentation.detailedFindings.length === 0) {
+  if (
+    presentation.detailedFindings.length === 0 &&
+    presentation.additionalFindings.length === 0 &&
+    presentation.technicalObservations.length === 0
+  ) {
     lines.push('No findings were identified.', '');
   } else {
     for (const finding of presentation.detailedFindings) {
-      pushDetailedFinding(lines, finding);
+      pushDetailedFinding(lines, finding, inspectedPages);
     }
   }
 
   if (presentation.additionalFindings.length > 0) {
-    lines.push('## Additional findings', '');
+    lines.push('## Findings: Additional', '');
 
     for (const finding of presentation.additionalFindings) {
-      pushAdditionalFinding(lines, finding);
+      pushAdditionalFinding(lines, finding, inspectedPages);
     }
   }
 
   if (presentation.technicalObservations.length > 0) {
-    lines.push('## Technical notes', '');
-    pushTechnicalObservations(lines, presentation.technicalObservations);
-
-    lines.push('Additional browser and diagnostic details are available in `report.json`.', '');
+    pushTechnicalObservations(lines, presentation.technicalObservations, inspectedPages);
   }
 
-  lines.push('## Security notes', '', formatMarkdownProse(presentation.securityDisclaimer), '');
+  lines.push(
+    '## Security testing scope',
+    '',
+    'CheckQuest only reports security-related signals it encounters during normal browsing. It does not perform penetration testing or actively probe for vulnerabilities.',
+    ''
+  );
 
   if (presentation.securityObservations.length === 0) {
-    lines.push('No security notes were produced.', '');
+    lines.push('No security-related signals were observed during normal browsing.', '');
   } else {
-    lines.push('| # | Item | Status | Severity | Scope |', '| --- | --- | --- | --- | --- |');
-
-    for (const observation of presentation.securityObservations) {
-      lines.push(
-        `| [${observation.displayId}](#${observation.anchor}) | [${escapeTableCell(observation.title)}](#${observation.anchor}) | ${observation.status} | ${formatSeverity(observation.severity)} | ${escapeTableCell(observation.scope)} |`
-      );
-    }
-
-    lines.push('');
-
     for (const observation of presentation.securityObservations) {
       lines.push(
         `<a id="${observation.anchor}"></a>`,
         `### ${observation.displayId} — ${escapeMarkdownInlineText(observation.title)}`,
         '',
-        `**${formatSeverity(observation.severity)} severity · ${observation.status} · ${observation.scope}**`,
+        `**Status: ${observation.status} · Severity: ${formatSeverity(observation.severity)}**`,
         ''
       );
+      pushFindingLocation(lines, observation.pages, inspectedPages);
       pushItemExplanation(lines, {
         ...observation,
         technicalEvidence: observation.evidence,
@@ -459,24 +493,13 @@ export function renderHumanMarkdownReport(report: SiteAgentReport): string {
     }
   }
 
-  lines.push(
-    '## Pages inspected',
-    '',
-    '| Page | Reached via | Related items |',
-    '| --- | --- | --- |'
-  );
+  lines.push('## Pages inspected', '', '| # | Page |', '| --- | --- |');
 
   if (presentation.inspectedPages.length === 0) {
-    lines.push('| No pages were inspected | - | - |');
+    lines.push('| - | No pages were inspected |');
   } else {
-    for (const page of presentation.inspectedPages) {
-      lines.push(
-        `| ${createPageLink(page.page)} | ${page.reachedVia} | ${
-          page.relatedItems.length === 0
-            ? 'None'
-            : page.relatedItems.map(item => `[${item.displayId}](#${item.anchor})`).join(', ')
-        } |`
-      );
+    for (const [index, page] of presentation.inspectedPages.entries()) {
+      lines.push(`| ${index + 1} | ${createInspectedPageCell(page.page, index === 0)} |`);
     }
   }
 

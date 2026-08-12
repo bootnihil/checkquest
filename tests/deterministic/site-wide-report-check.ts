@@ -437,45 +437,36 @@ async function main(): Promise<void> {
     );
   }
 
-  if (
-    markdown.includes('- **0** confirmed') ||
-    !markdown.includes('- **1** finding needs review')
-  ) {
+  if (markdown.includes('- **0** confirmed') || !markdown.includes('- **1** needs review')) {
     throw new Error('Markdown summary does not contain the human finding counts.');
   }
 
   if (
     !markdown.includes(
-      '| [01](#item-01) | [Visible option “Equador” may need review](#item-01) | Evidence found — needs review | Low | 3 pages |'
+      '| [01](#item-01) | [Visible option “Equador” may need review](#item-01) | Needs review | Low | 3 pages |'
     )
   ) {
     throw new Error('Markdown at-a-glance table does not contain the human finding.');
   }
 
-  if (
-    !markdown.includes('**Affected:** 3 pages') ||
-    !markdown.includes('<summary>Affected pages (3)</summary>') ||
-    !markdown.includes('- [Radiology](https://example.com/radiology) — `/radiology`') ||
-    !markdown.includes('- [Platform](https://example.com/platform) — `/platform`') ||
-    !markdown.includes('- [Solutions](https://example.com/solutions) — `/solutions`')
-  ) {
-    throw new Error('Markdown finding does not contain the expected affected pages.');
-  }
-
-  const findingLead = markdown.slice(
+  const detailedFinding = markdown.slice(
     markdown.indexOf('### 01 — Visible option “Equador” may need review'),
-    markdown.indexOf('**What’s wrong**')
+    markdown.indexOf('\n---', markdown.indexOf('### 01 —'))
   );
 
-  if (/https:\/\//.test(findingLead)) {
-    throw new Error('Markdown finding expands page links before the condition.');
+  if (
+    !detailedFinding.includes('Found on all 3 inspected pages') ||
+    detailedFinding.includes('<summary>Found on 3 pages</summary>') ||
+    detailedFinding.includes('https://example.com/radiology')
+  ) {
+    throw new Error('Markdown all-pages finding repeats the complete inspected-page list.');
   }
 
   if (!markdown.includes('### 01 — Visible option “Equador” may need review')) {
     throw new Error('Markdown finding does not use the clean human-facing title.');
   }
 
-  if (!markdown.includes('**Low severity · Evidence found — needs review**')) {
+  if (!markdown.includes('**Status: Needs review · Severity: Low**')) {
     throw new Error('Markdown finding does not expose the reader status and severity.');
   }
 
@@ -513,14 +504,14 @@ async function main(): Promise<void> {
 
   if (
     !markdown.includes(
-      '| [Radiology](https://example.com/radiology) — `/radiology` | Start URL | [01](#item-01) |'
+      '| 1 | [Radiology](https://example.com/radiology)<br><small>Start URL<br>/radiology</small> |'
     ) ||
     !markdown.includes(
-      '| [Platform](https://example.com/platform) — `/platform` | Exploration | [01](#item-01) |'
+      '| 2 | [Platform](https://example.com/platform)<br><small>/platform</small> |'
     )
   ) {
     throw new Error(
-      'Markdown page reporting does not distinguish the start page from exploration.'
+      'Markdown page reporting must mark only the start page and keep titles primary.'
     );
   }
 
