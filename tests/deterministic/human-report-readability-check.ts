@@ -30,7 +30,10 @@ import {
 import { persistSiteAgentReport } from '../../agent/reporting/persist-site-agent-report';
 import type { SiteAgentReportV4 } from '../../agent/reporting/report-types';
 import { renderHumanMarkdownReport } from '../../agent/reporting/write-markdown-report';
-import type { PassiveSecurityObservation } from '../../agent/security/passive-security-model';
+import type {
+  PassivePageSecuritySnapshot,
+  PassiveSecurityObservation
+} from '../../agent/security/passive-security-model';
 
 function modelEvidence(
   index: number,
@@ -197,6 +200,25 @@ function securityObservation(
         ]
       }
     ]
+  };
+}
+
+function pageSecuritySnapshot(
+  url: string,
+  title: string,
+  contentTypes?: string[]
+): PassivePageSecuritySnapshot {
+  return {
+    requestedUrl: url,
+    finalUrl: url,
+    responseUrl: url,
+    responseStatus: 200,
+    responseReceived: true,
+    finalScheme: 'https:',
+    origin: new URL(url).origin,
+    pageTitle: title,
+    redirects: [],
+    headers: contentTypes === undefined ? {} : { 'content-type': contentTypes }
   };
 }
 
@@ -691,6 +713,8 @@ async function main(): Promise<void> {
     reasoning: 'This may cause confusion.',
     browserBacked: true
   });
+  exploratoryFinding.suggestedCheck =
+    'Verify whether quantity changes should update the checkout total.';
   assert.deepEqual(determineHumanNarrativeRoute(exploratoryFinding), { kind: 'exploratory' });
   const exploratoryReport = createAcceptanceReport();
   exploratoryReport.runId = 'human-readability-valid-replay';
@@ -704,16 +728,23 @@ async function main(): Promise<void> {
   });
   assert.equal(exploratoryGeneratorCalls, 1);
   assert.equal(exploratoryEnriched.humanNarratives.exploratory.length, 1);
+  const exploratoryNarrative = exploratoryEnriched.humanNarratives.exploratory[0]!;
+
+  assert.equal(exploratoryNarrative.impactStatement, 'This may cause confusion.');
+  assert.equal(
+    exploratoryNarrative.whatToCheck,
+    'Verify whether quantity changes should update the checkout total.'
+  );
   const exploratoryPresentation = buildHumanReportPresentation(exploratoryEnriched);
   const exploratoryDetail = exploratoryPresentation.detailedFindings[0]!;
   assert.equal(exploratoryDetail.status, 'Needs review');
   assert.equal(
     exploratoryDetail.whyItMayMatter,
-    'CheckQuest has not established any further user impact yet.'
+    'The available evidence suggests: This may cause confusion.'
   );
   assert.equal(
     exploratoryDetail.whatStillNeedsChecking,
-    'Check whether this behavior is intentional. If not, correct the affected part.'
+    'Verify whether quantity changes should update the checkout total.'
   );
   assert.equal(exploratoryPresentation.atAGlance[0]?.title, exploratoryDetail.title);
   assert.equal(exploratoryPresentation.notableSummary, null);
@@ -725,8 +756,191 @@ async function main(): Promise<void> {
   const exploratoryRenderTwo = renderHumanMarkdownReport(exploratoryEnriched);
   assert.equal(exploratoryGeneratorCalls, 1);
   assert.equal(exploratoryRenderOne, exploratoryRenderTwo);
+  assert.match(exploratoryRenderOne, /The available evidence suggests: This may cause confusion\./);
+  assert.match(
+    exploratoryRenderOne,
+    /Verify whether quantity changes should update the checkout total\./
+  );
+  assert.doesNotMatch(
+    exploratoryRenderOne,
+    /CheckQuest has not established any further user impact yet\./
+  );
+  assert.doesNotMatch(
+    exploratoryRenderOne,
+    /Check whether this behavior is intentional\. If not, correct the affected part\./
+  );
   assert.doesNotMatch(exploratoryRenderOne, /users may select the wrong option/i);
   assert.doesNotMatch(exploratoryRenderOne, /Possible stale total/);
+
+  const distinctGuidanceReport = createAcceptanceReport();
+  const trackingGuidanceFinding = createFinding(20, {
+    title: 'Possible tracking configuration issue',
+    evidence: 'A tracking request did not complete.',
+    reasoning: 'The service configuration may need review.'
+  });
+  trackingGuidanceFinding.suggestedCheck =
+    'Verify whether the tracking service is required and correctly configured.';
+  const promotionGuidanceFinding = createFinding(21, {
+    title: 'Possible promotional-link placement issue',
+    evidence: 'Promotional links appear alongside the main content.',
+    reasoning: 'The placement may make the content harder to distinguish.'
+  });
+  promotionGuidanceFinding.suggestedCheck =
+    'Check whether promotional links are clearly separated from the main content.';
+  distinctGuidanceReport.findings = [trackingGuidanceFinding, promotionGuidanceFinding];
+  let distinctGuidanceGeneratorCalls = 0;
+  const distinctGuidanceEnriched = await enrichSiteAgentReportWithHumanNarratives(
+    distinctGuidanceReport,
+    {
+      generateNarrative: async input => {
+        distinctGuidanceGeneratorCalls += 1;
+        return fixedNarrative(input);
+      }
+    }
+  );
+
+  assert.deepEqual(
+    distinctGuidanceEnriched.humanNarratives.exploratory.map(narrative => narrative.whatToCheck),
+    [
+      'Verify whether the tracking service is required and correctly configured.',
+      'Check whether promotional links are clearly separated from the main content.'
+    ]
+  );
+  renderHumanMarkdownReport(distinctGuidanceEnriched);
+  assert.equal(distinctGuidanceGeneratorCalls, 2);
+
+  const fallbackGuidanceReport = createAcceptanceReport();
+  const missingGuidanceFinding = createFinding(22, {
+    title: 'Possible missing-guidance condition',
+    evidence: 'A possible condition was observed.',
+    reasoning: 'The condition may need review.'
+  });
+  missingGuidanceFinding.suggestedCheck = null;
+  const blankGuidanceFinding = createFinding(23, {
+    title: 'Possible blank-guidance condition',
+    evidence: 'Another possible condition was observed.',
+    reasoning: 'The condition may need review.'
+  });
+  blankGuidanceFinding.suggestedCheck = '  \n  ';
+  fallbackGuidanceReport.findings = [missingGuidanceFinding, blankGuidanceFinding];
+  const fallbackGuidanceEnriched = await enrichSiteAgentReportWithHumanNarratives(
+    fallbackGuidanceReport,
+    { generateNarrative: async input => fixedNarrative(input) }
+  );
+  const genericWhatToCheck =
+    'Confirm whether the reported condition is present and unintended. If confirmed, review the affected value or behavior and decide whether it should be corrected.';
+
+  assert.deepEqual(
+    fallbackGuidanceEnriched.humanNarratives.exploratory.map(narrative => narrative.whatToCheck),
+    [genericWhatToCheck, genericWhatToCheck]
+  );
+
+  const duplicateOptionReport = structuredClone(exploratoryEnriched);
+  const duplicateOptionFinding = duplicateOptionReport.findings[0]!;
+  const duplicateOptionNarrative = duplicateOptionReport.humanNarratives.exploratory[0]!;
+  duplicateOptionFinding.title = 'Duplicate entry in country selection dropdown';
+  duplicateOptionFinding.occurrences[0]!.target = {
+    kind: 'select-option',
+    controlLabel: 'Country',
+    controlName: 'country',
+    controlId: 'country',
+    optionText: 'קנדה'
+  };
+  duplicateOptionNarrative.plainTitle = 'Duplicate country option in menu';
+  duplicateOptionNarrative.plainCondition =
+    'The country selection list displays the name for Canada twice.';
+  const duplicateOptionPresentation =
+    buildHumanReportPresentation(duplicateOptionReport).detailedFindings[0]!;
+  const duplicateOptionMarkdown = renderHumanMarkdownReport(duplicateOptionReport);
+
+  assert.equal(
+    duplicateOptionPresentation.title,
+    'Possible issue: Duplicate country option in menu'
+  );
+  assert.equal(
+    duplicateOptionPresentation.whatHappened,
+    'The available evidence suggests: The country selection list displays the name for Canada twice.'
+  );
+  assert.match(
+    duplicateOptionMarkdown,
+    /### 01 — Possible issue: Duplicate country option in menu/
+  );
+  assert.match(
+    duplicateOptionMarkdown,
+    /The available evidence suggests: The country selection list displays the name for Canada twice\./
+  );
+  assert.doesNotMatch(duplicateOptionMarkdown, /Visible option “קנדה” may need review/);
+  assert.doesNotMatch(duplicateOptionMarkdown, /includes the visible option “קנדה”/);
+
+  const ordinaryOptionReport = structuredClone(exploratoryEnriched);
+  const ordinaryOptionFinding = ordinaryOptionReport.findings[0]!;
+  const ordinaryOptionNarrative = ordinaryOptionReport.humanNarratives.exploratory[0]!;
+  ordinaryOptionFinding.title = 'Country option may need review';
+  ordinaryOptionFinding.occurrences[0]!.target = {
+    kind: 'select-option',
+    controlLabel: 'Country',
+    controlName: 'country',
+    controlId: 'country',
+    optionText: 'Canada'
+  };
+  ordinaryOptionNarrative.plainTitle = 'Country option may need review';
+  ordinaryOptionNarrative.plainCondition = 'The Country list includes the visible option Canada.';
+  const ordinaryOptionPresentation =
+    buildHumanReportPresentation(ordinaryOptionReport).detailedFindings[0]!;
+
+  assert.equal(ordinaryOptionPresentation.title, 'Visible option “Canada” may need review');
+  assert.equal(
+    ordinaryOptionPresentation.whatHappened,
+    'The “Country” list includes the visible option “Canada”.'
+  );
+
+  const missingNarrativeFields = structuredClone(exploratoryEnriched);
+  const incompleteNarrative = missingNarrativeFields.humanNarratives.exploratory[0] as Partial<
+    (typeof missingNarrativeFields.humanNarratives.exploratory)[number]
+  >;
+
+  delete incompleteNarrative.impactStatement;
+  incompleteNarrative.whatToCheck = '   ';
+
+  const missingNarrativeDetail =
+    buildHumanReportPresentation(missingNarrativeFields).detailedFindings[0]!;
+
+  assert.equal(
+    missingNarrativeDetail.whyItMayMatter,
+    'CheckQuest has not established any further user impact yet.'
+  );
+  assert.equal(
+    missingNarrativeDetail.whatStillNeedsChecking,
+    'Check whether this behavior is intentional. If not, correct the affected part.'
+  );
+
+  const confirmedExploratoryFinding = createFinding(15, {
+    title: 'Checkout total does not update',
+    evidence: 'The total remained unchanged after a quantity change.',
+    reasoning: 'This may block checkout with the intended quantity.',
+    state: 'verified',
+    browserBacked: true
+  });
+  const confirmedExploratoryReport = createAcceptanceReport();
+  confirmedExploratoryReport.findings = [confirmedExploratoryFinding];
+  const confirmedExploratoryEnriched = await enrichSiteAgentReportWithHumanNarratives(
+    confirmedExploratoryReport,
+    {
+      generateNarrative: async input => fixedNarrative(input)
+    }
+  );
+  const confirmedExploratoryDetail = buildHumanReportPresentation(confirmedExploratoryEnriched)
+    .detailedFindings[0]!;
+
+  assert.equal(confirmedExploratoryDetail.status, 'Confirmed issue');
+  assert.equal(
+    confirmedExploratoryDetail.whyItMayMatter,
+    'This may block checkout with the intended quantity.'
+  );
+  assert.equal(
+    confirmedExploratoryDetail.whatStillNeedsChecking,
+    'Review the confirmed condition and decide how the affected value or behavior should be corrected.'
+  );
 
   const strengtheningAttempt = {
     plainTitle: 'Checkout total may not update',
@@ -975,6 +1189,128 @@ async function main(): Promise<void> {
   assert.equal(firstRenderCalls, 0);
   assert.equal(secondRenderCalls, 0);
   assert.equal(firstRender, secondRender);
+
+  const unrelatedContentBefore = buildHumanReportPresentation(enriched);
+  const contentTypeReport = structuredClone(enriched);
+  const contentTypeCases = [
+    {
+      url: 'https://example.com/content-a',
+      title: 'HTML content',
+      contentTypes: ['text/html; charset=UTF-8']
+    },
+    {
+      url: 'https://example.com/content-b',
+      title: 'XHTML content',
+      contentTypes: ['application/xhtml+xml']
+    },
+    {
+      url: 'https://example.com/content-c',
+      title: 'Image response',
+      contentTypes: ['image/png']
+    },
+    {
+      url: 'https://example.com/content-d',
+      title: 'PDF response',
+      contentTypes: ['application/pdf']
+    },
+    {
+      url: 'https://example.com/content-e',
+      title: 'XML response',
+      contentTypes: ['text/xml']
+    },
+    {
+      url: 'https://example.com/content-f',
+      title: 'Missing content type',
+      contentTypes: undefined
+    },
+    {
+      url: 'https://example.com/content-g',
+      title: 'Malformed content type',
+      contentTypes: ['not a media type']
+    }
+  ];
+  contentTypeReport.inspectedPages = contentTypeCases.map(item => {
+    const page = structuredClone(contentTypeReport.inspectedPages[0]!);
+
+    page.observation.requestedUrl = item.url;
+    page.observation.finalUrl = item.url;
+    page.observation.title = item.title;
+    return page;
+  });
+  contentTypeReport.passiveSecurity.pageSnapshots = contentTypeCases.map(item =>
+    pageSecuritySnapshot(item.url, item.title, item.contentTypes)
+  );
+  for (const observation of contentTypeReport.passiveSecurity.observations) {
+    const occurrence = observation.occurrences[0]!;
+    observation.occurrences = contentTypeCases.map(item => ({
+      ...structuredClone(occurrence),
+      pageUrl: item.url,
+      pageTitle: item.title,
+      responseUrl: item.url
+    }));
+  }
+  contentTypeReport.summary.pagesInspected = contentTypeReport.inspectedPages.length;
+  const contentTypePersistedBefore = JSON.stringify({
+    inspectedPages: contentTypeReport.inspectedPages,
+    findings: contentTypeReport.findings,
+    securityObservations: contentTypeReport.passiveSecurity.observations
+  });
+  const contentTypeGeneratorCallsBeforeRender = generatorCalls;
+  const contentTypePresentation = buildHumanReportPresentation(contentTypeReport);
+  const contentTypeMarkdown = renderHumanMarkdownReport(contentTypeReport);
+  const pagesInspectedSection = contentTypeMarkdown.slice(
+    contentTypeMarkdown.indexOf('## Pages inspected')
+  );
+
+  assert.equal(contentTypePresentation.pagesInspected, 4);
+  assert.deepEqual(
+    contentTypePresentation.inspectedPages.map(page => page.page.title),
+    ['HTML content', 'XHTML content', 'Missing content type', 'Malformed content type']
+  );
+  assert.match(contentTypeMarkdown, /CheckQuest inspected 4 pages/);
+  assert.equal(pagesInspectedSection.split('\n').filter(line => /^\| \d+ \|/.test(line)).length, 4);
+  assert.match(pagesInspectedSection, /content-a/);
+  assert.match(pagesInspectedSection, /content-b/);
+  assert.match(pagesInspectedSection, /content-f/);
+  assert.match(pagesInspectedSection, /content-g/);
+  assert.doesNotMatch(pagesInspectedSection, /content-c/);
+  assert.doesNotMatch(pagesInspectedSection, /content-d/);
+  assert.doesNotMatch(pagesInspectedSection, /content-e/);
+  assert.equal(contentTypeReport.inspectedPages.length, 7);
+  assert.equal(contentTypeReport.summary.pagesInspected, 7);
+  assert.deepEqual(
+    contentTypePresentation.securityObservations[0]!.pages.map(page => page.title),
+    ['HTML content', 'XHTML content', 'Missing content type', 'Malformed content type']
+  );
+  assert.ok(
+    contentTypePresentation.securityObservations.every(
+      observation => observation.pages.length === 4
+    )
+  );
+  const contentTypeSecuritySection = contentTypeMarkdown.slice(
+    contentTypeMarkdown.indexOf('### S01 —'),
+    contentTypeMarkdown.indexOf('## Pages inspected')
+  );
+  assert.match(contentTypeSecuritySection, /Found on all 4 inspected pages/);
+  assert.doesNotMatch(contentTypeSecuritySection, /content-c|content-d|content-e/);
+  assert.deepEqual(
+    contentTypePresentation.detailedFindings,
+    unrelatedContentBefore.detailedFindings
+  );
+  assert.deepEqual(
+    contentTypePresentation.technicalObservations,
+    unrelatedContentBefore.technicalObservations
+  );
+  assert.equal(
+    JSON.stringify({
+      inspectedPages: contentTypeReport.inspectedPages,
+      findings: contentTypeReport.findings,
+      securityObservations: contentTypeReport.passiveSecurity.observations
+    }),
+    contentTypePersistedBefore
+  );
+  assert.equal(generatorCalls, contentTypeGeneratorCallsBeforeRender);
+
   const acceptancePresentation = buildHumanReportPresentation(enriched);
   const structuredAcceptance = acceptancePresentation.detailedFindings.find(
     item => item.findingReference === 'finding-1'

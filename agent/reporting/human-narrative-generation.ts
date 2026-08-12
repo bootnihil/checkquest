@@ -841,10 +841,13 @@ function buildDeterministicExploratoryStatements(
     normalizedValue(canonicalImpact) === normalizedValue(normalizedCondition)
       ? 'CheckQuest has not established any further user impact yet.'
       : canonicalImpact;
+  const suggestedCheck = normalizeFrozenCanonicalProse(finding.suggestedCheck ?? '');
   const whatToCheck =
     finding.verification.state === 'verified'
       ? 'Review the confirmed condition and decide how the affected value or behavior should be corrected.'
-      : 'Confirm whether the reported condition is present and unintended. If confirmed, review the affected value or behavior and decide whether it should be corrected.';
+      : suggestedCheck.length > 0
+        ? suggestedCheck
+        : 'Confirm whether the reported condition is present and unintended. If confirmed, review the affected value or behavior and decide whether it should be corrected.';
 
   return { impactStatement, whatToCheck };
 }

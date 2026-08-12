@@ -1,6 +1,7 @@
 import { isAbsolute, relative, resolve, sep } from 'node:path';
 import { exploratoryQaFindingSchema } from '../analysis/exploratory-qa-schema';
 import { isCrossOriginDnsFailureIdentity } from '../analysis/technical-observation-reconciliation';
+import { createSafeDisplayUrl } from '../errors/safe-display-url';
 
 import type {
   FindingTarget,
@@ -9,9 +10,14 @@ import type {
 } from '../findings/finding-model';
 import type {
   PassiveSecurityEvidence,
+  PassiveSecurityOccurrence,
+  PassivePageSecuritySnapshot,
   PassiveSecurityObservation
 } from '../security/passive-security-model';
-import type { FindingPresentationEvidence } from '../inspection/inspected-page-result';
+import type {
+  FindingPresentationEvidence,
+  InspectedPageResult
+} from '../inspection/inspected-page-result';
 import type { SiteAgentReport } from './report-types';
 import {
   getPersistedHumanNarrative,
@@ -947,22 +953,56 @@ function getSelectOptionReaderNarrative(finding: UnifiedFinding): ReaderSafeNarr
   };
 }
 
-function createNeedsReviewExploratoryNarrative(
+function hasDuplicateSelectOptionCondition(
   finding: UnifiedFinding,
   title: string,
   condition: string
+): boolean {
+  const reportedCondition = [finding.title, getRawObservation(finding), title, condition].join(
+    '\n'
+  );
+
+  return (
+    /\b(?:duplicat(?:e|ed|es|ing|ion)|repeat(?:ed|s|ing)?|twice)\b/i.test(reportedCondition) ||
+    /\b(?:two|2)\s+(?:distinct\s+)?(?:entries|options|instances|occurrences)\b/i.test(
+      reportedCondition
+    )
+  );
+}
+
+function hedgeNeedsReviewStatement(statement: string): string {
+  return `The available evidence suggests: ${statement}`;
+}
+
+function hasUsableNarrativeStatement(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function createNeedsReviewExploratoryNarrative(
+  finding: UnifiedFinding,
+  title: string,
+  condition: string,
+  impactStatement: unknown,
+  checkStatement: unknown
 ): ReaderSafeNarrative {
   const selectOptionNarrative = getSelectOptionReaderNarrative(finding);
 
-  if (selectOptionNarrative !== null) {
+  if (
+    selectOptionNarrative !== null &&
+    !hasDuplicateSelectOptionCondition(finding, title, condition)
+  ) {
     return selectOptionNarrative;
   }
 
   return {
     title: /^possible\b/i.test(title) ? title : `Possible issue: ${title}`,
-    condition: `The available evidence suggests: ${condition}`,
-    impact: 'CheckQuest has not established any further user impact yet.',
-    check: 'Check whether this behavior is intentional. If not, correct the affected part.'
+    condition: hedgeNeedsReviewStatement(condition),
+    impact: hasUsableNarrativeStatement(impactStatement)
+      ? hedgeNeedsReviewStatement(impactStatement)
+      : 'CheckQuest has not established any further user impact yet.',
+    check: hasUsableNarrativeStatement(checkStatement)
+      ? checkStatement
+      : 'Check whether this behavior is intentional. If not, correct the affected part.'
   };
 }
 
@@ -1064,7 +1104,13 @@ function buildHumanFinding(
     'whatToCheck' in acceptedNarrative ? acceptedNarrative.whatToCheck : acceptedNarrative.check;
   const readerSafeNarrative =
     status === 'Needs human review' && (persistedNarrative !== null || usesGenericNarrative)
-      ? createNeedsReviewExploratoryNarrative(finding, plainTitle, plainCondition)
+      ? createNeedsReviewExploratoryNarrative(
+          finding,
+          plainTitle,
+          plainCondition,
+          persistedNarrative === null ? undefined : impactStatement,
+          persistedNarrative === null ? undefined : checkStatement
+        )
       : null;
   const readerTitle = readerSafeNarrative?.title ?? plainTitle;
   const readerCondition = readerSafeNarrative?.condition ?? plainCondition;
@@ -1136,8 +1182,94 @@ function formatPassiveEvidence(evidence: PassiveSecurityEvidence): string {
   return `${evidence.summary} Values: ${values.join(', ')}.`;
 }
 
-function getSecurityScope(observation: PassiveSecurityObservation, totalPages: number): string {
-  const pageCount = new Set(observation.occurrences.map(occurrence => occurrence.pageUrl)).size;
+const mediaTypeTokenPattern = /^[!#$%&'*+\-.^_`|~0-9A-Za-z]+$/;
+const quotedParameterValuePattern = /^"(?:[^"\\]|\\.)*"$/;
+
+function parsePersistedMediaType(value: string): string | null {
+  const [rawMediaType = '', ...rawParameters] = value.trim().split(';');
+  const separatorIndex = rawMediaType.indexOf('/');
+
+  if (
+    separatorIndex <= 0 ||
+    separatorIndex !== rawMediaType.lastIndexOf('/') ||
+    !mediaTypeTokenPattern.test(rawMediaType.slice(0, separatorIndex).trim()) ||
+    !mediaTypeTokenPattern.test(rawMediaType.slice(separatorIndex + 1).trim())
+  ) {
+    return null;
+  }
+
+  for (const rawParameter of rawParameters) {
+    const parameter = rawParameter.trim();
+    const assignmentIndex = parameter.indexOf('=');
+    const name = parameter.slice(0, assignmentIndex).trim();
+    const parameterValue = parameter.slice(assignmentIndex + 1).trim();
+
+    if (
+      assignmentIndex <= 0 ||
+      !mediaTypeTokenPattern.test(name) ||
+      (!mediaTypeTokenPattern.test(parameterValue) &&
+        !quotedParameterValuePattern.test(parameterValue))
+    ) {
+      return null;
+    }
+  }
+
+  return rawMediaType.trim().toLowerCase();
+}
+
+function confidentlyIdentifiesNonHtml(contentTypes: readonly string[] | undefined): boolean {
+  if (contentTypes === undefined || contentTypes.length === 0) {
+    return false;
+  }
+
+  const mediaTypes = contentTypes.map(parsePersistedMediaType);
+
+  return (
+    mediaTypes.every(mediaType => mediaType !== null) &&
+    mediaTypes.every(
+      mediaType => mediaType !== 'text/html' && mediaType !== 'application/xhtml+xml'
+    )
+  );
+}
+
+function snapshotMatchesInspectedPage(
+  snapshot: PassivePageSecuritySnapshot,
+  page: InspectedPageResult
+): boolean {
+  return (
+    snapshot.requestedUrl === createSafeDisplayUrl(page.observation.requestedUrl) &&
+    snapshot.finalUrl === createSafeDisplayUrl(page.observation.finalUrl) &&
+    snapshot.pageTitle === page.observation.title
+  );
+}
+
+function getHumanFacingInspectedPages(report: SiteAgentReport): InspectedPageResult[] {
+  const snapshots = report.passiveSecurity.pageSnapshots;
+
+  if (!Array.isArray(snapshots) || snapshots.length !== report.inspectedPages.length) {
+    return [...report.inspectedPages];
+  }
+
+  return report.inspectedPages.filter((page, index) => {
+    const snapshot = snapshots[index];
+
+    if (
+      snapshot === undefined ||
+      !snapshot.responseReceived ||
+      !snapshotMatchesInspectedPage(snapshot, page)
+    ) {
+      return true;
+    }
+
+    return !confidentlyIdentifiesNonHtml(snapshot.headers['content-type']);
+  });
+}
+
+function getSecurityScope(
+  occurrences: readonly PassiveSecurityOccurrence[],
+  totalPages: number
+): string {
+  const pageCount = new Set(occurrences.map(occurrence => occurrence.pageUrl)).size;
 
   if (totalPages > 0 && pageCount === totalPages) {
     return totalPages === 1 ? '1 page' : `All ${totalPages} pages`;
@@ -1383,6 +1515,7 @@ function getSecurityNarrative(observation: PassiveSecurityObservation): PlainHum
 
 function buildSecurityObservation(
   observation: PassiveSecurityObservation,
+  occurrences: readonly PassiveSecurityOccurrence[],
   totalPages: number,
   displayId: string,
   urlContext: HumanReportUrlContext
@@ -1395,7 +1528,7 @@ function buildSecurityObservation(
     }
   }
   const pages = uniquePages(
-    observation.occurrences.map(occurrence =>
+    occurrences.map(occurrence =>
       createPageReference(occurrence.pageTitle, occurrence.pageUrl, urlContext)
     )
   );
@@ -1410,7 +1543,7 @@ function buildSecurityObservation(
     assessment: 'Confirmed observation',
     status: 'Confirmed observation',
     severity: observation.severity,
-    scope: getSecurityScope(observation, totalPages),
+    scope: getSecurityScope(occurrences, totalPages),
     description: observation.description,
     whatHappened: narrative.condition,
     whyItMayMatter: narrative.impact,
@@ -1434,6 +1567,19 @@ function buildSecurityObservation(
 
 export function buildHumanReportPresentation(report: SiteAgentReport): HumanReportPresentation {
   const urlContext = createHumanReportUrlContext(report.homepage?.finalUrl ?? report.site.startUrl);
+  const humanFacingInspectedPages = getHumanFacingInspectedPages(report);
+  const humanFacingPageSet = new Set(humanFacingInspectedPages);
+  const humanFacingSecurityPageKeys = new Set(
+    humanFacingInspectedPages.map(
+      page => `${createSafeDisplayUrl(page.observation.finalUrl)}\n${page.observation.title}`
+    )
+  );
+  const excludedSecurityPageKeys = new Set(
+    report.inspectedPages
+      .filter(page => !humanFacingPageSet.has(page))
+      .map(page => `${createSafeDisplayUrl(page.observation.finalUrl)}\n${page.observation.title}`)
+      .filter(pageKey => !humanFacingSecurityPageKeys.has(pageKey))
+  );
   const eligibleFindings = report.findings
     .map((finding, stableIndex) => ({
       finding,
@@ -1478,14 +1624,19 @@ export function buildHumanReportPresentation(report: SiteAgentReport): HumanRepo
   }
 
   const summary = buildReconciledRunSummaryProjection(report);
-  const securityObservations = report.passiveSecurity.observations.map((observation, index) =>
-    buildSecurityObservation(
+  const securityObservations = report.passiveSecurity.observations.map((observation, index) => {
+    const humanFacingOccurrences = observation.occurrences.filter(
+      occurrence => !excludedSecurityPageKeys.has(`${occurrence.pageUrl}\n${occurrence.pageTitle}`)
+    );
+
+    return buildSecurityObservation(
       observation,
-      report.inspectedPages.length,
+      humanFacingOccurrences,
+      humanFacingInspectedPages.length,
       `S${String(index + 1).padStart(2, '0')}`,
       urlContext
-    )
-  );
+    );
+  });
   const indexItems: HumanIndexItem[] = [
     ...primaryFindings.map(finding => ({
       displayId: finding.displayId,
@@ -1521,7 +1672,7 @@ export function buildHumanReportPresentation(report: SiteAgentReport): HumanRepo
       status: observation.status
     }))
   ];
-  const inspectedPages = [...report.inspectedPages]
+  const inspectedPages = [...humanFacingInspectedPages]
     .sort((left, right) => {
       const leftRank = left.selection.type === 'start-url' ? 0 : 1;
       const rightRank = right.selection.type === 'start-url' ? 0 : 1;
@@ -1555,7 +1706,7 @@ export function buildHumanReportPresentation(report: SiteAgentReport): HumanRepo
   return {
     siteName: getSiteName(report),
     startUrl: report.site.startUrl,
-    pagesInspected: report.inspectedPages.length,
+    pagesInspected: humanFacingInspectedPages.length,
     duration: formatDuration(report.startedAt, report.finishedAt),
     confirmedIssueCount: summary.confirmedFindingCount,
     needsReviewCount: summary.reviewFindingCount,
