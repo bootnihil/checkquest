@@ -1,7 +1,11 @@
 import { GoogleGenAI } from '@google/genai';
 import { parseModelJsonResponse } from '../ai/parse-model-json-response';
 import { requireGeminiApiKey } from '../ai/resolve-gemini-api-key';
-import { runGeminiRequest } from '../ai/run-gemini-request';
+import {
+  runGeminiRequest,
+  type GeminiRequestDependencies,
+  type GeminiRequestOptions
+} from '../ai/run-gemini-request';
 import type { GeminiOperationOptions } from '../ai/gemini-operation-options';
 import type { ExtractedPageContent } from '../browser/extracted-page-content';
 import type { VisitedPageObservation } from '../browser/visit-approved-link';
@@ -20,9 +24,18 @@ export interface AnalyzePageForQaInput {
   knownFindings?: KnownFindingPromptContext[];
 }
 
+export interface AnalyzePageForQaOptions
+  extends GeminiOperationOptions,
+    Pick<GeminiRequestDependencies, 'wait' | 'random'> {
+  requestModelResponse?: (
+    prompt: string,
+    requestOptions: GeminiRequestOptions
+  ) => Promise<string | undefined>;
+}
+
 export async function analyzePageForQa(
   input: AnalyzePageForQaInput,
-  requestDependencies: GeminiOperationOptions = {}
+  requestDependencies: AnalyzePageForQaOptions = {}
 ): Promise<ExploratoryQaAnalysis> {
   const ai = new GoogleGenAI({
     apiKey: requireGeminiApiKey(requestDependencies.geminiApiKey)
@@ -30,14 +43,13 @@ export async function analyzePageForQa(
 
   const prompt = buildExploratoryQaPrompt(input);
 
-  const response = await runGeminiRequest(
-    'performing exploratory QA analysis',
-
-    async requestOptions => {
-      return ai.models.generateContent({
+  const requestModelResponse =
+    requestDependencies.requestModelResponse ??
+    (async (requestPrompt: string, requestOptions: GeminiRequestOptions) => {
+      const response = await ai.models.generateContent({
         model: requestDependencies.model ?? aiConfig.model,
 
-        contents: prompt,
+        contents: requestPrompt,
 
         config: {
           responseMimeType: 'application/json',
@@ -60,16 +72,30 @@ export async function analyzePageForQa(
           }
         }
       });
+
+      return response.text;
+    });
+
+  return runGeminiRequest(
+    'performing exploratory QA analysis',
+
+    async requestOptions => {
+      const rawResponse = await requestModelResponse(prompt, requestOptions);
+
+      return parseModelJsonResponse(
+        rawResponse,
+        'exploratory-qa-analysis-response',
+        exploratoryQaAnalysisSchema,
+        {
+          retryable: true
+        }
+      );
     },
     {
       onEvent: requestDependencies.onEvent,
-      signal: requestDependencies.signal
+      signal: requestDependencies.signal,
+      wait: requestDependencies.wait,
+      random: requestDependencies.random
     }
-  );
-
-  return parseModelJsonResponse(
-    response.text,
-    'exploratory-qa-analysis-response',
-    exploratoryQaAnalysisSchema
   );
 }

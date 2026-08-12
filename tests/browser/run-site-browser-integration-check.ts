@@ -4,6 +4,7 @@ import { createServer, type Server, type ServerResponse } from 'node:http';
 import type { AnalyzePageForQaInput } from '../../agent/analysis/analyze-page-for-qa';
 import type { SiteConfig } from '../../agent/config/site-config';
 import type { NavigationBudgetContext } from '../../agent/exploration/navigation-policy';
+import { CheckQuestError } from '../../agent/errors/checkquest-error';
 import { runSite, type RunSiteDependencies } from '../../agent/run/run-site';
 import type { RunEvent } from '../../agent/run/run-event';
 import { listenOnBrowserSafeLoopbackPort } from '../support/listen-on-browser-safe-loopback-port';
@@ -143,6 +144,20 @@ function createFixtureServer(receivedRequests: ReceivedRequest[]): Server {
 
       case '/redirect/shared':
         writePage(response, 'Shared destination', '<h1>Shared destination</h1>');
+        return;
+
+      case '/disallowed-start': {
+        const port = request.headers.host?.split(':').at(-1);
+
+        response.writeHead(302, {
+          location: `http://localhost:${port}/disallowed-final`
+        });
+        response.end();
+        return;
+      }
+
+      case '/disallowed-final':
+        writePage(response, 'Disallowed destination', '<h1>Disallowed destination</h1>');
         return;
 
       case '/no-candidates':
@@ -400,6 +415,27 @@ async function main(): Promise<void> {
   const baseUrl = `http://${allowedHost}:${address.port}`;
 
   try {
+    {
+      const startUrl = `${baseUrl}/disallowed-start`;
+      const finalUrl = `http://localhost:${address.port}/disallowed-final`;
+
+      await assert.rejects(
+        runSite({
+          site: createSite(baseUrl, '/disallowed-start', 1, 0),
+          runId: 'raw-host-policy-named-site-rejection',
+          startedAt: new Date('2026-08-12T00:00:00.000Z'),
+          dependencies: createRunCollaborators().dependencies
+        }),
+        error =>
+          error instanceof CheckQuestError &&
+          error.code === 'NAVIGATION' &&
+          error.message ===
+            "The site redirected to a different host that CheckQuest isn't allowed to explore. If the redirected address is the site you intended to test, start a new run with that URL." &&
+          error.requestedUrl === startUrl &&
+          error.finalUrl === finalUrl
+      );
+    }
+
     {
       const requestStart = receivedRequests.length;
       const collaborators = createRunCollaborators();

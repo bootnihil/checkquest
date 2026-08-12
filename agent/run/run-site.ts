@@ -259,7 +259,7 @@ async function executeRunSite(
       if (!site.allowedHosts.includes(homepageFinalUrl.hostname)) {
         throw new CheckQuestError(
           'NAVIGATION',
-          'The configured start page redirected to a disallowed host.',
+          "The site redirected to a different host that CheckQuest isn't allowed to explore. If the redirected address is the site you intended to test, start a new run with that URL.",
           {
             phase: 'start-page-navigation',
             runId,

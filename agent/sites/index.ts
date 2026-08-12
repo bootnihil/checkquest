@@ -39,21 +39,17 @@ function createRuntimeSiteConfig(rawUrl: string): SiteConfig {
   }
 
   /*
-   * For raw-URL mode we intentionally allow only the exact hostname
-   * supplied by the user.
-   *
-   * This is conservative by design:
-   *
-   * https://www.example.com/
-   *
-   * allows:
-   *
-   * www.example.com
-   *
-   * but does not automatically grant permission to explore unrelated
-   * subdomains or external hosts.
+   * Raw-URL mode permits only the supplied hostname and its exact www peer.
+   * This covers common apex/www canonical redirects without granting access
+   * to arbitrary subdomains or registrable-domain siblings.
    */
-  const allowedHosts = [parsedUrl.hostname];
+  const canonicalPeer = parsedUrl.hostname.startsWith('www.')
+    ? parsedUrl.hostname.slice('www.'.length)
+    : `www.${parsedUrl.hostname}`;
+  const allowedHosts =
+    canonicalPeer.length > 0 && canonicalPeer !== parsedUrl.hostname
+      ? [parsedUrl.hostname, canonicalPeer]
+      : [parsedUrl.hostname];
 
   return {
     id: `runtime-${parsedUrl.hostname}`,

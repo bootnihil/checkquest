@@ -222,6 +222,21 @@ async function main(): Promise<void> {
         retryable: false
       }),
       expectedAttempts: 1
+    },
+    {
+      name: 'explicitly retryable CheckQuest error is retried',
+      failure: new CheckQuestError('MODEL_RESPONSE', 'Synthetic safe model response failure.', {
+        retryable: true
+      }),
+      expectedAttempts: 2
+    },
+    {
+      name: 'explicitly non-retryable cancellation is not retried',
+      failure: new CheckQuestError('CANCELLED', 'Synthetic cancellation.', {
+        retryable: false,
+        cause: statusError(503)
+      }),
+      expectedAttempts: 1
     }
   ];
 

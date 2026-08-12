@@ -70,6 +70,7 @@
     "agent:error-handling-check": "tsx tests/deterministic/error-handling-check.ts",
     "agent:application-error-diagnostics-check": "tsx tests/deterministic/application-error-diagnostics-check.ts",
     "agent:gemini-hardening-check": "tsx tests/deterministic/gemini-hardening-check.ts",
+    "agent:exploratory-qa-retry-check": "tsx tests/deterministic/exploratory-qa-retry-check.ts",
     "agent:gemini-credential-preflight-check": "tsx tests/deterministic/gemini-credential-preflight-check.ts",
     "agent:target-reachability-preflight-check": "tsx tests/deterministic/target-reachability-preflight-check.ts",
     "agent:cancellation-propagation-check": "tsx tests/deterministic/cancellation-propagation-check.ts",

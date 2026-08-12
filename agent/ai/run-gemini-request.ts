@@ -170,6 +170,10 @@ function isStructuredTimeout(error: unknown): boolean {
 }
 
 export function isRetryableGeminiError(error: unknown): boolean {
+  if (error instanceof CheckQuestError && error.retryable !== undefined) {
+    return error.retryable;
+  }
+
   const statusCode = getGeminiStatusCode(error);
 
   if (statusCode !== null) {

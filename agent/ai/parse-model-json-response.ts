@@ -173,6 +173,7 @@ function cleanJsonResponse(rawText: string): string {
 function responseError(
   operation: string,
   responseClass: 'empty' | 'malformed-json' | 'schema-invalid',
+  retryable: boolean,
   cause?: unknown
 ): CheckQuestError {
   const explanations = {
@@ -186,7 +187,7 @@ function responseError(
     `${explanations[responseClass]} Operation: ${operation}.`,
     {
       phase: operation,
-      retryable: false,
+      retryable,
       cause
     }
   );
@@ -195,10 +196,15 @@ function responseError(
 export function parseModelJsonResponse<T>(
   rawText: string | undefined,
   operation: string,
-  schema: ZodType<T>
+  schema: ZodType<T>,
+  options: {
+    retryable?: boolean;
+  } = {}
 ): T {
+  const retryable = options.retryable ?? false;
+
   if (rawText === undefined || rawText.trim().length === 0) {
-    throw responseError(operation, 'empty');
+    throw responseError(operation, 'empty', retryable);
   }
 
   const cleanedText = cleanJsonResponse(rawText);
@@ -212,7 +218,7 @@ export function parseModelJsonResponse<T>(
      * JSON parser messages can echo the rejected input. Do not retain
      * that parser error or the raw model response in the public error.
      */
-    throw responseError(operation, 'malformed-json');
+    throw responseError(operation, 'malformed-json', retryable);
   }
 
   const validationResult = schema.safeParse(parsedJson);
@@ -225,6 +231,7 @@ export function parseModelJsonResponse<T>(
     throw responseError(
       operation,
       'schema-invalid',
+      retryable,
       createSchemaDiagnosticError(rawText, cleanedText, parsedJson, validationResult.error.issues)
     );
   }
