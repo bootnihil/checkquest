@@ -148,11 +148,20 @@ That acceptance blocker has been remediated without weakening the existing
 The report remediation is an acceptance fix discovered through G2, not a new
 roadmap stage and not an early start on G4's dedicated in-app report viewer.
 
-The report trustworthiness and human-readable presentation remediation itself is
-implemented. Remaining report work in G2 is acceptance of the real generated
-output, not another report-policy or presentation redesign. The bounded Phase
-5B severity-policy audit is closed: its implementation follow-up is deferred /
-not warranted with current signals and is not part of active G2 scope.
+The report trustworthiness remediation is implemented, and the human-report
+readability gate passed live validation on 2026-08-12. It is no longer blocking
+the remaining G2 acceptance work. The completed gate preserves useful
+finding-specific impact and follow-up guidance for inconclusive findings,
+retains duplicate select-option conditions, excludes confidently non-HTML
+responses from HTML-only checks and human-facing page/security occurrence
+lists without altering persisted run data, and gives visible-text evidence
+captures bounded surrounding context. The same gate cycle also completed raw
+URL apex/`www` canonicalization and one retry for invalid exploratory structured
+responses. `npm run check` passed all 41 deterministic checks.
+
+The bounded Phase 5B severity-policy audit is closed: its implementation
+follow-up is deferred / not warranted with current signals and is not part of
+active G2 scope.
 
 **G2 remains open pending:**
 
@@ -163,13 +172,14 @@ not warranted with current signals and is not part of active G2 scope.
   Gemini-key entry with precise storage copy, contextual run-readiness
   feedback, cleanup of irrelevant default Electron menu commands, and a final
   contrast/section-hierarchy audit;
-- two independent representative model-backed **10/10/10 acceptance runs** to
-  verify reconciliation, focused evidence, verification-state integrity, report
-  accounting/navigation, and practical human readability end to end. A major
-  trust defect in Run 1 blocks Run 2 until fixed; otherwise Run 2 is an
-  independent confirmation. Legitimately different navigation paths or page
-  subsets do not by themselves constitute a trust defect, and a third run is
-  not required merely for reassurance; and
+- two independent representative model-backed **10/10/10 acceptance runs** for
+  the remaining broader end-to-end G2 acceptance, including reconciliation,
+  focused evidence, verification-state integrity, and report
+  accounting/navigation. The completed readability gate need not be reopened
+  without a regression. A major trust defect in Run 1 blocks Run 2 until fixed;
+  otherwise Run 2 is an independent confirmation. Legitimately different
+  navigation paths or page subsets do not by themselves constitute a trust
+  defect, and a third run is not required merely for reassurance; and
 - follow-up on the Electron desktop smoke-process crash observed during the
   remediation pass, despite the deterministic desktop suite, desktop build, and
   constituent browser checks otherwise passing.

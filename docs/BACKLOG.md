@@ -6,8 +6,8 @@
 **Current roadmap document:** `ROADMAP-V2.md`
 **Current roadmap stage:** G2 - Local GUI MVP
 **Completed roadmap:** Roadmap v1 - Stages 1-10 accepted
-**Current execution focus:** G2 acceptance: complete the bounded GUI configuration-polish bucket, execute two independent representative 10/10/10 model-backed acceptance runs for report trustworthiness and human readability, and resolve or disposition the Electron smoke failure
-**Most recently completed:** Phase 5B.1 severity-policy audit/design cleanup; Phase 5B.2 deferred / not warranted with current signals; Phase 5B closed (2026-08-10)
+**Current execution focus:** G2 acceptance: complete the bounded GUI configuration-polish bucket, execute the remaining independent representative 10/10/10 model-backed acceptance runs, and resolve or disposition the Electron smoke failure
+**Most recently completed:** Human-report readability gate passed after live validation; full deterministic gate passed 41/41 (2026-08-12)
 
 This is the single project-wide parking place for work that should not silently interrupt the current roadmap stage. It persists across Roadmap v1, v2, and future roadmap versions.
 
@@ -59,7 +59,16 @@ projection, and gives human report items stable run-scoped IDs and navigation.
 
 ## Report readability and severity-policy status
 
-The G2 human-report trustworthiness and presentation remediation is implemented.
+The G2 human-report trustworthiness remediation is implemented, and the
+readability gate passed live validation. Inconclusive findings retain useful
+specific impact and follow-up guidance; duplicate-option conditions remain
+understandable; confidently non-HTML responses are omitted from HTML-only
+checks and human-facing page/security occurrence presentation without changing
+persisted run data; and visible-text evidence has bounded surrounding context.
+Raw URL apex/`www` canonicalization and exploratory structured-response retry
+reliability were also completed during this gate cycle. The deterministic gate
+passes 41/41, so readability is no longer blocking the remaining G2 work.
+
 Phase 5B.1, the bounded severity-policy audit/design pass, is complete. Phase
 5B.2 is **deferred / not warranted with current signals** and is not an active
 implementation phase. Reconsider severity recalibration only if a concrete
@@ -164,6 +173,14 @@ These are valid future possibilities, but they are **not commitments to build th
 | CQ-P013 | CI/release and recurring-monitoring integrations | PARKED | Consider CI triggers, scheduled runs, history, new/resolved finding comparison, and notifications only if external usage demonstrates recurring-monitoring demand. |
 | CQ-P014 | Packaged-app user-data and report-storage location | PARKED | The G1 application boundary returns absolute artifact paths while preserving the existing persistence root. Select an OS-appropriate user-data/report location when the product shell and Windows packaging requirements are established; this is not a G1 requirement. |
 | CQ-P015 | Forced real-Chromium browser-close failure injection | PARKED | G1 deterministically covers cleanup precedence and integration-tests real browser connection cleanup. Add a seam that can force a real `browser.close()` failure only if future cleanup risk justifies it; it is not required for G1. |
+| CQ-P017 | Authoritative identity for repeated unstructured exploratory findings | PARKED | Repeated unstructured exploratory findings cannot be safely grouped without authoritative shared technical identity. |
+| CQ-P018 | Persist the initial authoritative known-finding occurrence | PARKED | The initial authoritative `KnownFindingOccurrence` is not currently persisted. |
+| CQ-P019 | Prevent unsupported page-role wording in generated human narratives | PARKED | Human-narrative generation can introduce unsupported page-role wording; do not address this with URL or prose heuristics. |
+| CQ-P020 | Add sanitized attempt-level exploratory retry diagnostics | PARKED | Exhausted exploratory retries do not retain sanitized attempt-level validation diagnostics. |
+| CQ-P021 | Replace duplicate-language routing with structured semantics | PARKED | Duplicate-option presentation currently relies on narrow duplicate-language detection and should eventually use structured semantics. |
+| CQ-P022 | Validate wider visible-text evidence on a real applicable finding | PARKED | Observe the wider bounded crop on a naturally occurring applicable finding before considering the visual follow-up complete. |
+| CQ-P023 | Clarify repeated candidate references in technical details | PARKED | Multiple candidate references in technical details can look duplicated or confusing. |
+| CQ-P024 | Clarify summary finding-count semantics | PARKED | Clarify the intended distinction between `summary.findingsCount` and `summary.logicalFindingsCount`. |
 
 ---
 
