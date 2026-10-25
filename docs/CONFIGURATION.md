@@ -313,7 +313,7 @@ GEMINI_MODEL
 ```
 
 When it is absent, the current implementation default is
-`gemini-3.1-flash-lite`. That default is implementation configuration, not a
+`gemini-3.5-flash-lite`. That default is implementation configuration, not a
 stable public API guarantee. CheckQuest does not provide model aliases,
 provider selection, or configuration for non-Gemini providers.
 
