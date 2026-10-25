@@ -451,8 +451,11 @@ A transient state may be replayed only when the same benign action was already
 executed during normal candidate investigation and the existing safety policy
 permits it. The current replay path supports previously executed native
 select-option actions, restores the original state after capture, and records
-replay metadata. Other transient states are withheld when CheckQuest cannot
-safely and deterministically restore them; evidence capture does not grant new
+replay metadata. Native option selection and replay use the shared containment
+boundary. A containment failure or failed replay rollback aborts inspection
+before findings are committed or a successful report is returned. Other
+transient states are withheld when CheckQuest cannot safely and deterministically
+restore them; evidence capture does not grant new
 exploration authority. Focused visual evidence is bounded to at most three
 images per logical finding.
 
@@ -477,8 +480,34 @@ or run. The boundary does not weaken browser security or claim that arbitrary
 interaction is safe. Production-safe behavior is an engineering goal, not a
 formal guarantee of no side effects.
 
-This transaction is specific to disclosure and tab clicks. It is not a generic
-wrapper around all action types.
+Native option selection also uses this containment boundary, while preserving
+its post-selection evidence semantics. Evidence replay keeps containment armed
+through mandatory restoration. This is not a generic wrapper around all action
+types.
+
+The shared browser guard tracks callbacks scheduled through the main world's
+`setTimeout`, `setInterval`, and `requestAnimationFrame` APIs while it is armed.
+Before releasing containment it cancels outstanding tracked callbacks and rejects
+the interaction if any remained; it also rejects new scheduling after that seal.
+String timer callbacks are rejected. This avoids treating a short quiet period
+as proof that a deferred save cannot occur later. Rejected interactions stop the
+affected inspection rather than preserving coverage at the expense of safety.
+
+Select evidence rollback retains the original element identity and option state.
+After restoration handlers run, deferred work is sealed and the live target is
+resolved again under containment. Detachment, replacement, ambiguity, changed
+options, or a mismatched selection invalidate the replay. Boundary setup and
+required cleanup failures are fatal safety errors with diagnostic causes;
+cancellation retains precedence.
+
+This is a bounded guarantee, not isolation from arbitrary website JavaScript.
+It does not account for work already scheduled before arming, scheduling functions
+cached before the guard was installed, workers, other JavaScript realms, or
+deliberate tampering with browser APIs. Network interception protects requests
+while armed, including cached fetch calls, but a quiet period cannot prove those
+other mechanisms absent. Sites requiring protection against such mechanisms
+should run with investigation disabled (`--steps-per-page 0`); select replay is
+then unavailable. No universal zero-side-effect guarantee is made.
 
 ## Passive security inspection
 

@@ -234,7 +234,8 @@ export async function runExploratoryLoop(
 
     throwIfRunCancelled(dependencies.signal, undefined, 'exploratory-investigation');
 
-    const observationAfter = await extractPageContent(page);
+    const observationAfter =
+      executionResult.status === 'unsafe' ? observationBefore : await extractPageContent(page);
 
     steps.push({
       step: stepNumber,

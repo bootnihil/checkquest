@@ -1,4 +1,5 @@
 import { chromium } from '@playwright/test';
+import { preparePageForGuardedInteractions } from '../../agent/browser/guarded-interaction-safety-boundary';
 
 import { executeAgentAction } from '../../agent/browser/execute-agent-action';
 import { extractPageContent } from '../../agent/browser/extract-page-content';
@@ -25,6 +26,7 @@ async function main(): Promise<void> {
   });
 
   try {
+    await preparePageForGuardedInteractions(page);
     await page.setContent(`
       <!DOCTYPE html>
       <html lang="en">

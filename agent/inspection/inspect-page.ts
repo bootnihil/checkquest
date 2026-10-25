@@ -220,6 +220,18 @@ export async function inspectPage(input: InspectPageInput): Promise<InspectPageR
       }
     );
 
+    if (exploratoryInvestigation.stopReason === 'unsafe-interaction-detected') {
+      throw new CheckQuestError(
+        'BROWSER',
+        'Investigation stopped because page state could not be trusted after an unsafe interaction.',
+        {
+          phase: 'investigation-safety',
+          runId,
+          pageNumber
+        }
+      );
+    }
+
     const postInvestigationUrl = new URL(page.url());
 
     if (!site.allowedHosts.includes(postInvestigationUrl.hostname)) {
@@ -309,7 +321,11 @@ export async function inspectPage(input: InspectPageInput): Promise<InspectPageR
         'focused-evidence-screenshot'
       );
 
-      if (normalizedError instanceof CheckQuestError && normalizedError.code === 'CANCELLED') {
+      if (
+        normalizedError instanceof CheckQuestError &&
+        (normalizedError.code === 'CANCELLED' ||
+          normalizedError.phase === 'focused-evidence-safety')
+      ) {
         throw normalizedError;
       }
     }

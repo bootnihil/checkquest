@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 
 import { chromium, type Page } from '@playwright/test';
+import { preparePageForGuardedInteractions } from '../../agent/browser/guarded-interaction-safety-boundary';
 
 import type { ExploratoryQaFinding } from '../../agent/analysis/exploratory-qa-schema';
 import { evaluateFindingInvestigationOutcome } from '../../agent/investigation/evaluate-finding-investigation-outcome';
@@ -209,6 +210,7 @@ async function main(): Promise<void> {
   const page = await browser.newPage();
 
   try {
+    await preparePageForGuardedInteractions(page);
     await page.setContent(`
       <label for="country">Country</label>
       <select id="country" name="country">

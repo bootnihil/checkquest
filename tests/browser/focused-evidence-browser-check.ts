@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
+import { CheckQuestError } from '../../agent/errors/checkquest-error';
 import { access } from 'node:fs/promises';
 
 import { chromium } from '@playwright/test';
+import { preparePageForGuardedInteractions } from '../../agent/browser/guarded-interaction-safety-boundary';
 
 import {
   calculateFocusedEvidenceClip,
@@ -22,6 +24,7 @@ async function main(): Promise<void> {
       }
     });
 
+    await preparePageForGuardedInteractions(page);
     await page.setContent(`
       <!doctype html>
       <html lang="en">
@@ -609,62 +612,6 @@ async function main(): Promise<void> {
       'Evidence replay must restore the original local selection.'
     );
 
-    await page.evaluate(() => {
-      const select = document.getElementById('clone-country') as HTMLSelectElement | null;
-
-      select?.addEventListener('change', () => {
-        if (document.querySelector('[data-restoration-clone]') !== null) {
-          return;
-        }
-
-        const clone = select.cloneNode(true) as HTMLSelectElement;
-
-        clone.id = 'clone-country-copy';
-        clone.setAttribute('data-restoration-clone', 'true');
-        select.after(clone);
-      });
-    });
-    const ambiguousRestoration = await captureFindingPresentationEvidence(
-      page,
-      {
-        runId,
-        pageNumber: 1,
-        candidateNumber: 13,
-        target: {
-          kind: 'select-option',
-          controlLabel: 'Clone Country',
-          controlName: 'clone-country',
-          controlId: 'clone-country',
-          optionText: 'Changed option'
-        },
-        allowObservedStateReplay: true
-      },
-      {
-        captureScreenshot: async () => undefined
-      }
-    );
-
-    assert.equal(
-      ambiguousRestoration.replay?.restored,
-      false,
-      'Restoration must fail closed when a change listener creates multiple exactly annotated selects.'
-    );
-    assert.equal(
-      await page.locator('#clone-country').inputValue(),
-      'changed',
-      'Ambiguous restoration must not report success after restoring an arbitrary annotated select.'
-    );
-    assert.equal(
-      await page.locator('select[data-restoration-clone]').count(),
-      1,
-      'The regression fixture must create a second annotated restoration candidate during replay.'
-    );
-    assert.equal(
-      await page.locator('[data-checkquest-presentation-evidence-target]').count(),
-      0,
-      'Replay annotations must still be cleaned up after ambiguous restoration.'
-    );
-
     const ambiguousSelect = await captureFindingPresentationEvidence(page, {
       runId,
       pageNumber: 1,
@@ -873,6 +820,58 @@ async function main(): Promise<void> {
       'The original scroll position must be restored.'
     );
 
+    await page.evaluate(() => {
+      const select = document.getElementById('clone-country') as HTMLSelectElement | null;
+
+      select?.addEventListener('change', () => {
+        if (document.querySelector('[data-restoration-clone]') !== null) {
+          return;
+        }
+
+        const clone = select.cloneNode(true) as HTMLSelectElement;
+
+        clone.id = 'clone-country-copy';
+        clone.setAttribute('data-restoration-clone', 'true');
+        select.after(clone);
+      });
+    });
+    await assert.rejects(
+      captureFindingPresentationEvidence(
+        page,
+        {
+          runId,
+          pageNumber: 1,
+          candidateNumber: 13,
+          target: {
+            kind: 'select-option',
+            controlLabel: 'Clone Country',
+            controlName: 'clone-country',
+            controlId: 'clone-country',
+            optionText: 'Changed option'
+          },
+          allowObservedStateReplay: true
+        },
+        {
+          captureScreenshot: async () => undefined
+        }
+      ),
+      (error: unknown) => error instanceof CheckQuestError && error.code === 'BROWSER'
+    );
+    assert.equal(
+      await page.locator('#clone-country').inputValue(),
+      'changed',
+      'Ambiguous restoration must not report success after restoring an arbitrary annotated select.'
+    );
+    assert.equal(
+      await page.locator('select[data-restoration-clone]').count(),
+      1,
+      'The regression fixture must create a second annotated restoration candidate during replay.'
+    );
+    assert.equal(
+      await page.locator('[data-checkquest-presentation-evidence-target]').count(),
+      0,
+      'Replay annotations must still be cleaned up after ambiguous restoration.'
+    );
     console.log('Focused evidence browser check passed.');
   } finally {
     await browser.close();

@@ -1,13 +1,16 @@
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import type { Page } from '@playwright/test';
+import type { ElementHandle, Page } from '@playwright/test';
 
 import type {
   ExploratoryQaFinding,
   FindingPresentationTarget
 } from '../analysis/exploratory-qa-schema';
 import { runPageOperationWithCancellation } from './run-page-operation-with-cancellation';
+import { runGuardedInteractionSafetyBoundary } from './guarded-interaction-safety-boundary';
+import { CheckQuestError } from '../errors/checkquest-error';
+import { normalizeRunCancellation } from '../errors/run-cancellation';
 
 type InvestigationEvidenceTarget = NonNullable<ExploratoryQaFinding['evidenceTarget']>;
 
@@ -647,6 +650,80 @@ export async function captureFindingPresentationEvidence(
   },
   dependencies: FocusedEvidenceCaptureDependencies = {}
 ): Promise<FocusedEvidenceCapture> {
+  if (input.target.kind !== 'select-option' || input.allowObservedStateReplay !== true) {
+    return captureFocusedEvidence(page, input, dependencies);
+  }
+
+  let captureError: Error | undefined;
+  const boundary = await runGuardedInteractionSafetyBoundary(
+    page,
+    'native option evidence replay',
+    async context => {
+      try {
+        return await captureFocusedEvidence(page, input, dependencies, context.sealDeferredWork);
+      } catch (error) {
+        if (error instanceof CheckQuestError && error.phase === 'focused-evidence-rollback') {
+          throw error;
+        }
+        captureError =
+          error instanceof Error ? error : new Error('Evidence capture failed.', { cause: error });
+        return null;
+      }
+    }
+  ).catch((error: unknown) => {
+    const normalizedError = normalizeRunCancellation(
+      error,
+      input.signal,
+      input.runId,
+      'focused-evidence-safety'
+    );
+    if (normalizedError instanceof CheckQuestError && normalizedError.code === 'CANCELLED') {
+      throw normalizedError;
+    }
+    throw new CheckQuestError('BROWSER', 'Native option evidence containment failed.', {
+      phase: 'focused-evidence-safety',
+      runId: input.runId,
+      pageNumber: input.pageNumber,
+      cause: normalizedError
+    });
+  });
+
+  if (boundary.status === 'unsafe') {
+    throw normalizeRunCancellation(
+      new CheckQuestError(
+        'BROWSER',
+        'Native option evidence replay could not be safely contained or restored.',
+        {
+          phase: 'focused-evidence-safety',
+          runId: input.runId,
+          pageNumber: input.pageNumber,
+          cause: boundary.cause
+        }
+      ),
+      input.signal,
+      input.runId,
+      'focused-evidence-safety'
+    );
+  }
+  if (captureError !== undefined) {
+    throw captureError;
+  }
+  if (boundary.value === null) {
+    throw new CheckQuestError('BROWSER', 'Native option evidence replay did not complete.', {
+      phase: 'focused-evidence-safety',
+      runId: input.runId,
+      pageNumber: input.pageNumber
+    });
+  }
+  return boundary.value;
+}
+
+async function captureFocusedEvidence(
+  page: Page,
+  input: Parameters<typeof captureFindingPresentationEvidence>[1],
+  dependencies: FocusedEvidenceCaptureDependencies,
+  sealDeferredWork?: () => Promise<void>
+): Promise<FocusedEvidenceCapture> {
   if (input.target.kind === 'select-option' && input.allowObservedStateReplay !== true) {
     return {
       screenshotPaths: [],
@@ -703,48 +780,70 @@ export async function captureFindingPresentationEvidence(
     recursive: true
   });
 
-  let replayOriginalValue: string | null = null;
+  let replayOriginalState: { value: string; text: string; selected: boolean }[] | null = null;
+  let replayOriginalControl: ElementHandle<HTMLSelectElement> | null = null;
   let replayRestored = false;
 
   if (input.target.kind === 'select-option') {
-    replayOriginalValue = await page.evaluate(
-      replay => {
-        const matchingSelects = [...document.querySelectorAll('select')].filter(
-          candidate => candidate.getAttribute(replay.targetAttribute) === '0'
-        );
-        const select = matchingSelects.length === 1 ? matchingSelects[0] : undefined;
-        const option =
-          select === undefined
-            ? undefined
-            : [...select.options].find(
-                item => (item.textContent ?? '').replace(/\s+/g, ' ').trim() === replay.optionText
-              );
+    replayOriginalControl = (await page
+      .locator(`select[${targetAttribute}="0"]`)
+      .elementHandle()) as ElementHandle<HTMLSelectElement> | null;
+    replayOriginalState = await page
+      .evaluate(
+        replay => {
+          const matchingSelects = [...document.querySelectorAll('select')].filter(
+            candidate => candidate.getAttribute(replay.targetAttribute) === '0'
+          );
+          const select = matchingSelects.length === 1 ? matchingSelects[0] : undefined;
+          const option =
+            select === undefined
+              ? undefined
+              : [...select.options].find(
+                  item => (item.textContent ?? '').replace(/\s+/g, ' ').trim() === replay.optionText
+                );
 
-        if (select === undefined || option === undefined) {
-          return null;
+          if (select === undefined || option === undefined) {
+            return null;
+          }
+
+          const originalState = [...select.options].map(option => ({
+            value: option.value,
+            text: option.text,
+            selected: option.selected
+          }));
+          select.value = option.value;
+          select.dispatchEvent(
+            new Event('input', {
+              bubbles: true
+            })
+          );
+          select.dispatchEvent(
+            new Event('change', {
+              bubbles: true
+            })
+          );
+          return originalState;
+        },
+        {
+          optionText: input.target.optionText,
+          targetAttribute
         }
-
-        const originalValue = select.value;
-        select.value = option.value;
-        select.dispatchEvent(
-          new Event('input', {
-            bubbles: true
-          })
+      )
+      .catch((error: unknown) => {
+        throw new CheckQuestError(
+          'BROWSER',
+          'Native option replay failed before its original state could be verified.',
+          {
+            phase: 'focused-evidence-rollback',
+            runId: input.runId,
+            pageNumber: input.pageNumber,
+            cause: error
+          }
         );
-        select.dispatchEvent(
-          new Event('change', {
-            bubbles: true
-          })
-        );
-        return originalValue;
-      },
-      {
-        optionText: input.target.optionText,
-        targetAttribute
-      }
-    );
+      });
 
-    if (replayOriginalValue === null) {
+    if (replayOriginalState === null) {
+      await replayOriginalControl?.dispose();
       await removeEvidenceAnnotations(page, scrollPosition).catch(() => undefined);
 
       return {
@@ -757,6 +856,7 @@ export async function captureFindingPresentationEvidence(
   }
 
   const capturedTargetIndices = new Set<number>();
+  let captureError: Error | undefined;
 
   try {
     const shownBoxes = await addEvidenceAnnotations(page, selectedBoxes, input.target);
@@ -836,22 +936,38 @@ export async function captureFindingPresentationEvidence(
         capturedTargetIndices.add(targetIndex);
       }
     }
+  } catch (error) {
+    captureError =
+      error instanceof Error ? error : new Error('Evidence capture failed.', { cause: error });
   } finally {
     if (!page.isClosed()) {
-      if (input.target.kind === 'select-option' && replayOriginalValue !== null) {
-        replayRestored = await page
+      if (
+        input.target.kind === 'select-option' &&
+        replayOriginalState !== null &&
+        replayOriginalControl !== null
+      ) {
+        replayRestored = await replayOriginalControl
           .evaluate(
-            restore => {
+            (select, restore) => {
               const matchingSelects = [...document.querySelectorAll('select')].filter(
                 candidate => candidate.getAttribute(restore.targetAttribute) === '0'
               );
-              const select = matchingSelects.length === 1 ? matchingSelects[0] : undefined;
-
-              if (select === undefined) {
+              if (
+                !select.isConnected ||
+                matchingSelects.length !== 1 ||
+                matchingSelects[0] !== select ||
+                select.options.length !== restore.options.length
+              ) {
                 return false;
               }
 
-              select.value = restore.value;
+              for (const [index, option] of [...select.options].entries()) {
+                const original = restore.options[index];
+                if (option.value !== original?.value || option.text !== original.text) {
+                  return false;
+                }
+                option.selected = original.selected;
+              }
               select.dispatchEvent(
                 new Event('input', {
                   bubbles: true
@@ -862,18 +978,79 @@ export async function captureFindingPresentationEvidence(
                   bubbles: true
                 })
               );
-              return select.value === restore.value;
+              return true;
             },
             {
-              value: replayOriginalValue,
+              options: replayOriginalState,
               targetAttribute
             }
           )
           .catch(() => false);
+        await sealDeferredWork?.().catch((error: unknown) => {
+          throw new CheckQuestError(
+            'BROWSER',
+            'Deferred work could not be sealed before verifying select rollback.',
+            {
+              phase: 'focused-evidence-rollback',
+              runId: input.runId,
+              pageNumber: input.pageNumber,
+              cause: error
+            }
+          );
+        });
+        if (replayRestored) {
+          replayRestored = await replayOriginalControl
+            .evaluate(
+              (select, restore) => {
+                const liveTargets = [...document.querySelectorAll('select')].filter(
+                  candidate => candidate.getAttribute(restore.targetAttribute) === '0'
+                );
+                return (
+                  select.isConnected &&
+                  liveTargets.length === 1 &&
+                  liveTargets[0] === select &&
+                  select.options.length === restore.options.length &&
+                  [...select.options].every((option, index) => {
+                    const original = restore.options[index];
+                    return (
+                      original !== undefined &&
+                      option.value === original.value &&
+                      option.text === original.text &&
+                      option.selected === original.selected
+                    );
+                  })
+                );
+              },
+              { options: replayOriginalState, targetAttribute }
+            )
+            .catch(() => false);
+        }
       }
 
       await removeEvidenceAnnotations(page, scrollPosition).catch(() => undefined);
     }
+    await replayOriginalControl?.dispose().catch((error: unknown) => {
+      throw new CheckQuestError('BROWSER', 'Select rollback resources could not be released.', {
+        phase: 'focused-evidence-rollback',
+        runId: input.runId,
+        pageNumber: input.pageNumber,
+        cause: error
+      });
+    });
+  }
+  if (input.target.kind === 'select-option' && replayOriginalState !== null && !replayRestored) {
+    throw new CheckQuestError(
+      'BROWSER',
+      'The exact original select state was not restored after evidence capture.',
+      {
+        phase: 'focused-evidence-rollback',
+        runId: input.runId,
+        pageNumber: input.pageNumber
+      }
+    );
+  }
+  if (captureError !== undefined) {
+    throw captureError;
   }
 
   return {

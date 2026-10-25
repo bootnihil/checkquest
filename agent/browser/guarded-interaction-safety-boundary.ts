@@ -1,4 +1,5 @@
 import type { BrowserContext, Download, Page, Request, Route } from '@playwright/test';
+import { completeRequiredCleanup } from '../errors/required-cleanup';
 
 export type GuardedInteractionSafetyEventKind =
   | 'unsafe-environment'
@@ -23,6 +24,7 @@ export interface GuardedInteractionSafetyEvent {
 export interface GuardedInteractionBoundaryContext {
   safetyEvents: GuardedInteractionSafetyEvent[];
   collectBrowserSafetyEvents: () => Promise<void>;
+  sealDeferredWork: () => Promise<void>;
   originalUrl: string;
   originalOrigin: string;
 }
@@ -33,6 +35,7 @@ export interface GuardedInteractionBoundaryResult<T> {
   safetyEvents: GuardedInteractionSafetyEvent[];
   hardBreach: boolean;
   value: T | null;
+  cause?: Error;
 }
 
 export interface PreparedPageState {
@@ -49,7 +52,8 @@ interface BrowserGuardEvent {
     | 'mutation-request'
     | 'popup'
     | 'navigation'
-    | 'realtime-channel';
+    | 'realtime-channel'
+    | 'unsafe-environment';
   method?: string;
   url?: string;
   detail: string;
@@ -58,6 +62,7 @@ interface BrowserGuardEvent {
 interface BrowserGuardStore {
   events: BrowserGuardEvent[];
   restore: () => void;
+  sealDeferredWork: () => void;
 }
 
 type GuardedWindow = Window & {
@@ -264,6 +269,7 @@ export async function runGuardedInteractionSafetyBoundary<T>(
   const safetyEvents: GuardedInteractionSafetyEvent[] = [];
   const openedPages: Page[] = [];
   let value: T | null = null;
+  let executionError: Error | undefined;
 
   const routeHandler = async (route: Route): Promise<void> => {
     const request = route.request();
@@ -359,6 +365,18 @@ export async function runGuardedInteractionSafetyBoundary<T>(
       });
     }
   };
+  const sealDeferredWork = async (): Promise<void> => {
+    await page.evaluate(() => {
+      const store = (window as GuardedWindow).__checkQuestDisclosureGuard;
+      if (store === undefined) {
+        throw new Error(
+          'The guarded interaction store disappeared before deferred work was sealed.'
+        );
+      }
+      store.sealDeferredWork();
+    });
+    safetyEvents.push(...(await readBrowserGuardEvents(page)));
+  };
 
   await page.route('**/*', routeHandler);
   page.on('popup', popupHandler);
@@ -371,23 +389,35 @@ export async function runGuardedInteractionSafetyBoundary<T>(
     value = await operation({
       safetyEvents,
       collectBrowserSafetyEvents,
+      sealDeferredWork,
       originalUrl,
       originalOrigin
     });
     await collectBrowserSafetyEvents();
+    await sealDeferredWork();
   } catch (error) {
+    executionError =
+      error instanceof Error ? error : new Error('Guarded interaction failed.', { cause: error });
     safetyEvents.push({
       kind: 'unsafe-environment',
       severity: 'ordinary',
       detail: `Guarded ${interactionName} execution failed: ${error instanceof Error ? error.message : String(error)}`
     });
   } finally {
-    await collectAndRestoreBrowserGuard(page, safetyEvents);
-    page.off('popup', popupHandler);
-    page.off('download', downloadHandler);
-    page.off('framenavigated', frameNavigationHandler);
-    context.off('page', contextPageHandler);
-    await page.unroute('**/*', routeHandler);
+    await completeRequiredCleanup(
+      executionError,
+      [
+        () => collectAndRestoreBrowserGuard(page, safetyEvents),
+        () => {
+          page.off('popup', popupHandler);
+          page.off('download', downloadHandler);
+          page.off('framenavigated', frameNavigationHandler);
+          context.off('page', contextPageHandler);
+        },
+        () => page.unroute('**/*', routeHandler)
+      ],
+      { phase: 'guarded-interaction-cleanup' }
+    );
   }
 
   addUrlSafetyEvents(page, originalUrl, originalOrigin, safetyEvents);
@@ -406,7 +436,8 @@ export async function runGuardedInteractionSafetyBoundary<T>(
         : `Guarded ${interactionName} safety boundary completed without events.`,
     safetyEvents,
     hardBreach,
-    value
+    value,
+    cause: executionError
   };
 }
 
@@ -461,6 +492,58 @@ export async function installBrowserGuard(page: Page): Promise<void> {
       const originalWebSocketSend =
         WebSocket.prototype.send;
       const xhrMethods = new WeakMap();
+      const originalSetTimeout = window.setTimeout;
+      const originalClearTimeout = window.clearTimeout;
+      const originalSetInterval = window.setInterval;
+      const originalClearInterval = window.clearInterval;
+      const originalRequestAnimationFrame = window.requestAnimationFrame;
+      const originalCancelAnimationFrame = window.cancelAnimationFrame;
+      const deferred = new Map();
+      let deferredSealed = false;
+      const deferredEvent = () => events.push({
+        kind: 'unsafe-environment',
+        detail: 'Deferred page callbacks cannot outlive a guarded interaction.'
+      });
+      const cancelDeferred = () => {
+        deferredSealed = true;
+        if (deferred.size > 0) deferredEvent();
+        for (const [key, cancel] of deferred) cancel();
+        deferred.clear();
+      };
+      const schedule = (kind, nativeSchedule, nativeCancel, callback, delay, args = []) => {
+        if (deferredSealed || typeof callback !== 'function') {
+          deferredEvent();
+          return 0;
+        }
+        let key;
+        const id = nativeSchedule.call(window, (...callbackArgs) => {
+          if (kind !== 'interval') deferred.delete(key);
+          Reflect.apply(callback, window, callbackArgs);
+        }, delay, ...args);
+        key = kind + ':' + id;
+        deferred.set(key, () => nativeCancel.call(window, id));
+        return id;
+      };
+      window.setTimeout = (callback, delay, ...args) =>
+        schedule('timeout', originalSetTimeout, originalClearTimeout, callback, delay, args);
+      window.clearTimeout = id => {
+        deferred.delete('timeout:' + id);
+        deferred.delete('interval:' + id);
+        originalClearTimeout.call(window, id);
+      };
+      window.setInterval = (callback, delay, ...args) =>
+        schedule('interval', originalSetInterval, originalClearInterval, callback, delay, args);
+      window.clearInterval = id => {
+        deferred.delete('interval:' + id);
+        deferred.delete('timeout:' + id);
+        originalClearInterval.call(window, id);
+      };
+      window.requestAnimationFrame = callback =>
+        schedule('frame', originalRequestAnimationFrame, originalCancelAnimationFrame, callback);
+      window.cancelAnimationFrame = id => {
+        deferred.delete('frame:' + id);
+        originalCancelAnimationFrame.call(window, id);
+      };
 
       const recordRequest = (
         method,
@@ -656,7 +739,15 @@ export async function installBrowserGuard(page: Page): Promise<void> {
 
       window.__checkQuestDisclosureGuard = {
         events,
+        sealDeferredWork: cancelDeferred,
         restore: () => {
+          cancelDeferred();
+          window.setTimeout = originalSetTimeout;
+          window.clearTimeout = originalClearTimeout;
+          window.setInterval = originalSetInterval;
+          window.clearInterval = originalClearInterval;
+          window.requestAnimationFrame = originalRequestAnimationFrame;
+          window.cancelAnimationFrame = originalCancelAnimationFrame;
           window.fetch =
             originalFetch;
           XMLHttpRequest.prototype.open =
@@ -710,23 +801,20 @@ export async function collectAndRestoreBrowserGuard(
     return;
   }
 
-  const events = await page
-    .evaluate(() => {
-      const guardedWindow = window as GuardedWindow;
-      const store = guardedWindow.__checkQuestDisclosureGuard;
+  const events = await page.evaluate(() => {
+    const guardedWindow = window as GuardedWindow;
+    const store = guardedWindow.__checkQuestDisclosureGuard;
 
-      if (store === undefined) {
-        return [];
-      }
+    if (store === undefined) {
+      return [];
+    }
 
-      const remainingEvents = store.events.splice(0, store.events.length);
+    store.restore();
+    const remainingEvents = store.events.splice(0, store.events.length);
+    delete guardedWindow.__checkQuestDisclosureGuard;
 
-      store.restore();
-      delete guardedWindow.__checkQuestDisclosureGuard;
-
-      return remainingEvents;
-    })
-    .catch(() => [] as BrowserGuardEvent[]);
+    return remainingEvents;
+  });
 
   safetyEvents.push(...events.map(browserGuardEventToSafetyEvent));
 }

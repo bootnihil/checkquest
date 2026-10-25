@@ -5,7 +5,10 @@ import {
   executeGuardedDisclosureAction,
   type DisclosureActionEvidence
 } from './execute-guarded-disclosure-action';
-import type { GuardedInteractionSafetyEvent } from './guarded-interaction-safety-boundary';
+import {
+  runGuardedInteractionSafetyBoundary,
+  type GuardedInteractionSafetyEvent
+} from './guarded-interaction-safety-boundary';
 import { executeGuardedTabAction, type TabActionEvidence } from './execute-guarded-tab-action';
 
 export interface ExecutedAgentActionResult {
@@ -322,9 +325,23 @@ async function executeSelectOption(
     );
   }
 
-  await control.selectOption({
-    label: action.optionText
-  });
+  const boundary = await runGuardedInteractionSafetyBoundary(
+    page,
+    'native option selection',
+    async () => {
+      await control.selectOption({ label: action.optionText });
+    }
+  );
+
+  if (boundary.status === 'unsafe') {
+    return {
+      kind: action.kind,
+      status: 'unsafe',
+      detail: boundary.detail,
+      safetyEvents: boundary.safetyEvents,
+      hardBreach: boundary.hardBreach
+    };
+  }
 
   return {
     kind: action.kind,
