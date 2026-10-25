@@ -13,6 +13,12 @@ import {
   reconcileFindingObservations
 } from '../../agent/findings/reconcile-finding-observations';
 import type { FindingEvidence } from '../../agent/findings/finding-model';
+import { commitRunPageFindings } from '../../agent/findings/commit-run-page-findings';
+import { prepareRunPageFindings } from '../../agent/findings/prepare-run-page-findings';
+import {
+  createRunFindingLifecycle,
+  getRunFindings
+} from '../../agent/findings/run-finding-lifecycle';
 import { createExploratoryFindingFingerprint } from '../../agent/investigation/finding-fingerprint';
 
 const pageUrl = 'https://example.com/checkout';
@@ -111,6 +117,137 @@ function createCorsDiagnostics(): ClassifiedDiagnostics {
       }
     ]
   };
+}
+
+function commitModelPage(
+  lifecycle: ReturnType<typeof createRunFindingLifecycle>,
+  url: string,
+  findings: ExploratoryQaFinding[],
+  pageNumber: number
+) {
+  const page = prepareRunPageFindings(lifecycle.knownFindingState, {
+    pageUrl: url,
+    pageTitle: `Page ${pageNumber}`,
+    ruleFindings: [],
+    rawExploratoryQaAnalysis: { summary: 'Identity fixture', findings },
+    knownFindingPreparation: { deterministicKnownOccurrenceDrafts: [], knownFindingContext: [] }
+  });
+  commitRunPageFindings(lifecycle, {
+    page,
+    pageUrl: url,
+    pageTitle: `Page ${pageNumber}`,
+    pageNumber,
+    screenshotPath: null,
+    exploratoryFindingResults: page.pageCandidates.map(candidate => ({
+      candidateReference: candidate.reference,
+      finding: candidate.finding,
+      outcome: { status: 'inconclusive', summary: 'No investigation', evidence: [] }
+    }))
+  });
+  return page.reconciledFindingObservations;
+}
+
+function checkFallbackRegistryIdentity(): void {
+  const collisions: string[] = [];
+  for (const [firstPath, secondPath] of [
+    ['/a-b', '/a/b'],
+    ['/Checkout', '/checkout'],
+    ['/checkout?mode=a-b', '/checkout?mode=a/b'],
+    ['/checkout?mode=AbC', '/checkout?mode=abc'],
+    ['/a.b', '/a_b'],
+    ['/a%2Fb', '/a-2Fb']
+  ]) {
+    const lifecycle = createRunFindingLifecycle();
+    const urls = [firstPath, secondPath].map(path => `https://example.com${path}`);
+    const observations = [
+      createModelFinding({ title: 'First issue', reasoning: 'First description', severity: 'low' }),
+      createModelFinding({
+        title: 'Second issue',
+        reasoning: 'Second description',
+        severity: 'high'
+      })
+    ];
+    urls.forEach((url, index) => {
+      commitModelPage(lifecycle, url, [observations[index]], index + 1);
+    });
+    const registered = getRunFindings(lifecycle);
+    console.log(
+      `${firstPath} versus ${secondPath}: ${registered.length} logical finding(s), ${registered.map(finding => finding.occurrences.length).join(',')} occurrence(s), ${registered.map(finding => `${finding.severity}: ${finding.title}`).join('; ')}`
+    );
+    if (registered.length !== 2) {
+      collisions.push(`${firstPath} versus ${secondPath}`);
+      continue;
+    }
+    assert.deepEqual(
+      registered.map(finding => ({
+        title: finding.title,
+        description: finding.description,
+        severity: finding.severity,
+        pageUrls: finding.occurrences.map(occurrence => occurrence.pageUrl),
+        modelEvidence: finding.occurrences[0].evidence.find(evidence => evidence.source === 'model')
+          ?.rawSource?.value
+      })),
+      observations.map((finding, index) => ({
+        title: finding.title,
+        description: finding.reasoning,
+        severity: finding.severity,
+        pageUrls: [urls[index]],
+        modelEvidence: finding
+      })),
+      'Separate findings must preserve their own presentation and exact source occurrence.'
+    );
+  }
+  assert.deepEqual(
+    collisions,
+    [],
+    'Distinct fallback sources must not merge in the committed registry.'
+  );
+
+  const lifecycle = createRunFindingLifecycle();
+  const observation = createModelFinding();
+  const first = commitModelPage(lifecycle, pageUrl, [observation, observation], 1);
+  const repeated = commitModelPage(lifecycle, pageUrl, [observation, observation], 1);
+  assert.deepEqual(first.candidateFingerprints, repeated.candidateFingerprints);
+  assert.equal(
+    new Set(first.candidateFingerprints).size,
+    2,
+    'Even identical prose at different model positions remains separate.'
+  );
+  assert.equal(getRunFindings(lifecycle).length, 2);
+  assert.deepEqual(
+    getRunFindings(lifecycle).map(finding => finding.occurrences.length),
+    [1, 1],
+    'Reprocessing the same observations must not duplicate their canonical occurrences.'
+  );
+
+  const structuredLifecycle = createRunFindingLifecycle();
+  const structured = createModelFinding({
+    evidenceTarget: {
+      kind: 'select-option',
+      controlLabel: 'Country',
+      controlName: 'country',
+      controlId: 'country',
+      optionText: 'Equador'
+    }
+  });
+  commitModelPage(structuredLifecycle, 'https://example.com/a-b', [structured], 1);
+  commitModelPage(
+    structuredLifecycle,
+    'https://example.com/a/b',
+    [{ ...structured, title: 'Different wording' }],
+    2
+  );
+  const shared = getRunFindings(structuredLifecycle);
+  assert.equal(
+    shared.length,
+    1,
+    'A genuinely shared structured target must still deduplicate across pages.'
+  );
+  assert.equal(shared[0].fingerprint, 'target|select-option|country|equador');
+  assert.deepEqual(
+    shared[0].occurrences.map(occurrence => occurrence.pageUrl),
+    ['https://example.com/a-b', 'https://example.com/a/b']
+  );
 }
 
 function checkTechnicalIdentityCannotMergeWithSamePageRule(): void {
@@ -613,9 +750,10 @@ function runChecks(): void {
   );
 
   checkTechnicalIdentityCannotMergeWithSamePageRule();
+  checkFallbackRegistryIdentity();
 
   console.log(
-    'Finding reconciliation check passed (trust-boundary and reconciliation coverage, 52 assertions).'
+    'Finding reconciliation check passed (trust-boundary, fallback registry identity, and reconciliation coverage).'
   );
 }
 

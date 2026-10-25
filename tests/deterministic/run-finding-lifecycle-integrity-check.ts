@@ -1028,7 +1028,7 @@ function checkRejectedStructuredIdentityCommit(): void {
   assert.match(fingerprint, /^unstructured\|/);
   assert.notEqual(
     fingerprint,
-    'unstructured|no stable identity',
+    createExploratoryFindingFingerprint({ ...finding, structuredIdentity: null }),
     'Rejected structured identity must retain its observation-scoped canonical fingerprint.'
   );
 

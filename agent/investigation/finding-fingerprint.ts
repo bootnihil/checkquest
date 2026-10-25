@@ -178,6 +178,7 @@ export function createExploratoryFindingFingerprint(
    * Generated prose is deliberately absent. Without validated structured
    * identity, the caller must supply an observation-scoped discriminator and
    * must not infer sameness from wording.
+   * The discriminator is opaque identity; preserve its exact case and punctuation.
    */
-  return ['unstructured', normalizeFingerprintText(unstructuredDiscriminator)].join('|');
+  return ['unstructured', JSON.stringify(unstructuredDiscriminator)].join('|');
 }
