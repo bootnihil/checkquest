@@ -1,6 +1,7 @@
 import type { Download, Page, Route } from '@playwright/test';
 
 import type { AgentAction } from '../actions/agent-action-schema';
+import { completeRequiredCleanup } from '../errors/required-cleanup';
 
 import {
   addUrlSafetyEvents,
@@ -9,6 +10,7 @@ import {
   collectAndRestoreBrowserGuard,
   disableClickLikeInteractions,
   installBrowserGuard,
+  installGuardedInteractionRoutes,
   mutationMethods,
   preparedPages,
   quietPeriodTimeoutMs,
@@ -258,7 +260,7 @@ export async function executeGuardedDisclosureAction(
     }
   };
 
-  await page.route('**/*', routeHandler);
+  const removeRoutes = await installGuardedInteractionRoutes(page, routeHandler, safetyEvents);
 
   page.on('popup', popupHandler);
   page.on('download', downloadHandler);
@@ -322,14 +324,20 @@ export async function executeGuardedDisclosureAction(
       detail: `Guarded disclosure execution failed: ${error instanceof Error ? error.message : String(error)}`
     });
   } finally {
-    await collectAndRestoreBrowserGuard(page, safetyEvents);
-
-    page.off('popup', popupHandler);
-    page.off('download', downloadHandler);
-    page.off('framenavigated', frameNavigationHandler);
-    context.off('page', contextPageHandler);
-
-    await page.unroute('**/*', routeHandler);
+    await completeRequiredCleanup(
+      undefined,
+      [
+        () => collectAndRestoreBrowserGuard(page, safetyEvents),
+        () => {
+          page.off('popup', popupHandler);
+          page.off('download', downloadHandler);
+          page.off('framenavigated', frameNavigationHandler);
+          context.off('page', contextPageHandler);
+        },
+        removeRoutes
+      ],
+      { phase: 'guarded-interaction-cleanup' }
+    );
   }
 
   const hardBreach = safetyEvents.some(event => event.severity === 'hard-breach');

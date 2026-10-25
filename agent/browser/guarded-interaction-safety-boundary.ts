@@ -1,5 +1,5 @@
 import type { BrowserContext, Download, Page, Request, Route } from '@playwright/test';
-import { completeRequiredCleanup } from '../errors/required-cleanup';
+import { completeRequiredCleanup, getSecondaryCleanupError } from '../errors/required-cleanup';
 
 export type GuardedInteractionSafetyEventKind =
   | 'unsafe-environment'
@@ -129,6 +129,59 @@ export async function preparePageForGuardedInteractions(page: Page): Promise<voi
       reason: 'CheckQuest blocks realtime channels before guarded interactions.'
     });
   });
+}
+
+export async function installGuardedInteractionRoutes(
+  page: Page,
+  routeHandler: (route: Route) => Promise<void>,
+  safetyEvents: GuardedInteractionSafetyEvent[]
+): Promise<() => Promise<void>> {
+  const context = page.context();
+  const existingPages = new Set(context.pages());
+  const popupRouteHandler = async (route: Route): Promise<void> => {
+    const request = route.request();
+    if (!request.isNavigationRequest()) {
+      await route.fallback();
+      return;
+    }
+    let existingPage = false;
+    try {
+      existingPage = existingPages.has(request.frame().page());
+    } catch {
+      // The initial popup request can arrive before its frame exists.
+    }
+    if (existingPage) {
+      await route.fallback();
+      return;
+    }
+    safetyEvents.push({
+      kind: 'popup',
+      severity: 'hard-breach',
+      detail: 'Blocked the initial navigation request of a new browser page.',
+      method: request.method(),
+      url: request.url()
+    });
+    await route.abort('blockedbyclient');
+  };
+  const removeRoutes = (): Promise<void> =>
+    completeRequiredCleanup(
+      undefined,
+      [() => page.unroute('**/*', routeHandler), () => context.unroute('**/*', popupRouteHandler)],
+      { phase: 'guarded-interaction-route-cleanup' }
+    );
+  try {
+    await page.route('**/*', routeHandler);
+    // Page routes cannot intercept a popup's first request.
+    await context.route('**/*', popupRouteHandler);
+  } catch (error) {
+    const primaryError =
+      error instanceof Error ? error : new Error('Guarded route setup failed.', { cause: error });
+    await completeRequiredCleanup(primaryError, [removeRoutes], {
+      phase: 'guarded-interaction-route-cleanup'
+    });
+    throw primaryError;
+  }
+  return removeRoutes;
 }
 
 /**
@@ -378,7 +431,7 @@ export async function runGuardedInteractionSafetyBoundary<T>(
     safetyEvents.push(...(await readBrowserGuardEvents(page)));
   };
 
-  await page.route('**/*', routeHandler);
+  const removeRoutes = await installGuardedInteractionRoutes(page, routeHandler, safetyEvents);
   page.on('popup', popupHandler);
   page.on('download', downloadHandler);
   page.on('framenavigated', frameNavigationHandler);
@@ -414,10 +467,14 @@ export async function runGuardedInteractionSafetyBoundary<T>(
           page.off('framenavigated', frameNavigationHandler);
           context.off('page', contextPageHandler);
         },
-        () => page.unroute('**/*', routeHandler)
+        removeRoutes
       ],
       { phase: 'guarded-interaction-cleanup' }
     );
+  }
+
+  if (executionError !== undefined && getSecondaryCleanupError(executionError) !== undefined) {
+    throw executionError;
   }
 
   addUrlSafetyEvents(page, originalUrl, originalOrigin, safetyEvents);
