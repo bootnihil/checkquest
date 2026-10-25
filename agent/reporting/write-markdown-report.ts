@@ -465,7 +465,7 @@ export function renderHumanMarkdownReport(report: SiteAgentReport): string {
   );
 
   if (presentation.securityObservations.length === 0) {
-    lines.push('No security-related signals were observed during normal browsing.', '');
+    lines.push('No security-related observations are listed for the inspected web pages.', '');
   } else {
     for (const observation of presentation.securityObservations) {
       lines.push(
@@ -475,7 +475,11 @@ export function renderHumanMarkdownReport(report: SiteAgentReport): string {
         `**Status: ${observation.status} · Severity: ${formatSeverity(observation.severity)}**`,
         ''
       );
-      pushFindingLocation(lines, observation.pages, inspectedPages);
+      if (observation.pages.length === 0) {
+        lines.push('**Location:** No page location was recorded.', '');
+      } else {
+        pushFindingLocation(lines, observation.pages, inspectedPages);
+      }
       pushItemExplanation(lines, {
         ...observation,
         technicalEvidence: observation.evidence,

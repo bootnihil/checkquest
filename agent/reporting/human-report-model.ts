@@ -1427,11 +1427,13 @@ function getSecurityNarrative(observation: PassiveSecurityObservation): PlainHum
   switch (observation.code) {
     case 'PS_CSP_RESPONSE_HEADER_NOT_OBSERVED':
       return {
-        title: 'A restriction on what the browser may load was not enforced',
-        condition: 'The site did not send an enforcing Content Security Policy (CSP).',
+        title: 'A page response lacked a header that limits unwanted scripts',
+        condition:
+          'The affected page responses did not include a security header that limits unwanted scripts and other content.',
         impact:
-          'CSP can restrict which resources and content the browser is allowed to load or run. Its absence does not prove the site is vulnerable.',
-        check: 'Consider restricting which resources and content browsers may load or run.',
+          'This header can limit what a browser loads or runs. Its absence from a response does not prove the page is vulnerable; other protections may apply.',
+        check:
+          'Check whether the affected pages need this header to limit unwanted scripts and other content.',
         technicalDetails: []
       };
 
@@ -1440,11 +1442,11 @@ function getSecurityNarrative(observation: PassiveSecurityObservation): PlainHum
 
       return {
         title: isServer
-          ? 'The site publicly identifies its server technology'
-          : 'The site publicly identifies its software platform',
+          ? 'A page response identifies its server technology'
+          : 'A page response identifies its software platform',
         condition: isServer
-          ? 'The site tells browsers some information about the server technology it uses.'
-          : 'The site exposes information about the software or platform serving the page.',
+          ? 'The affected page responses tell browsers some information about the server technology used to deliver them.'
+          : 'The affected page responses expose information about the software or platform used to deliver them.',
         impact: 'This is informational and is not a problem by itself.',
         check:
           'Consider whether this technology information needs to be included in public responses.',
@@ -1466,20 +1468,25 @@ function getSecurityNarrative(observation: PassiveSecurityObservation): PlainHum
     case 'PS_HSTS_NOT_ENFORCING':
     case 'HSTS_NOT_OBSERVED':
       return {
-        title: 'Future visits were not required to use a secure connection',
-        condition: 'The site did not tell browsers to keep future visits on HTTPS.',
+        title: 'A page response lacked a valid instruction for future secure visits',
+        condition:
+          observation.code === 'PS_HSTS_NOT_ENFORCING'
+            ? 'The affected page responses included an instruction for future secure visits, but it did not contain a valid time for browsers to keep using HTTPS.'
+            : 'The affected page responses did not include an instruction telling browsers to use HTTPS on future visits.',
         impact:
-          'This removes a browser safeguard against accidental or forced connections over unencrypted HTTP, but does not prove an attack is possible.',
-        check: 'Consider requiring browsers to keep future visits on a secure connection.',
+          'This instruction helps browsers keep future visits on secure connections. Other protections may still apply, including HTTPS rules the browser already knows.',
+        check:
+          'Check whether the affected responses should tell browsers to keep future visits on a secure connection.',
         technicalDetails: []
       };
 
     case 'PS_NOSNIFF_NOT_ENFORCING':
       return {
-        title: 'A safeguard against misidentified file types was not enabled',
-        condition: 'The site did not tell browsers to strictly follow declared file types.',
+        title: 'A page response lacked a file-type safeguard',
+        condition:
+          'The affected page responses did not include a valid instruction telling browsers to use the file type declared by the server.',
         impact:
-          'This removes one browser safeguard against interpreting a file as the wrong content type, but does not prove the site is vulnerable.',
+          'This instruction helps prevent browsers from treating a file as the wrong type. Its absence from these responses does not prove the pages are vulnerable.',
         check:
           'Consider enabling the browser safeguard that prevents files from being treated as a different type.',
         technicalDetails: []
@@ -1487,11 +1494,11 @@ function getSecurityNarrative(observation: PassiveSecurityObservation): PlainHum
 
     case 'PS_FRAME_POLICY_NOT_OBSERVED':
       return {
-        title: 'A safeguard against displaying pages inside other sites was not observed',
+        title: 'A page response lacked a header limiting display inside other sites',
         condition:
-          'The site did not send a policy that restricts other sites from placing its pages inside their own interfaces.',
+          'The affected page responses did not include a recognized security header limiting other sites from displaying these pages inside their own interfaces.',
         impact:
-          'Without an appropriate restriction, some pages may be easier to imitate or overlay in deceptive interfaces. This observation does not prove an attack is possible.',
+          'Restricting this display can help prevent deceptive interfaces. Embedding may be intentional, and this observation does not prove an attack is possible.',
         check:
           'Consider restricting other sites from displaying these pages within their own interfaces.',
         technicalDetails: []
@@ -1522,7 +1529,7 @@ function buildSecurityObservation(
 ): HumanSecurityObservation {
   const evidence = new Set<string>();
 
-  for (const occurrence of observation.occurrences) {
+  for (const occurrence of occurrences) {
     for (const item of occurrence.evidence) {
       evidence.add(formatPassiveEvidence(item));
     }
@@ -1544,14 +1551,14 @@ function buildSecurityObservation(
     status: 'Confirmed observation',
     severity: observation.severity,
     scope: getSecurityScope(occurrences, totalPages),
-    description: observation.description,
+    description: narrative.condition,
     whatHappened: narrative.condition,
     whyItMayMatter: narrative.impact,
     whatStillNeedsChecking: narrative.check,
     whereThisCameFrom:
-      pages.length === 1
-        ? 'Passive browser response data captured on the inspected page.'
-        : `Passive browser response data captured on ${pages.length} inspected pages.`,
+      pages.length === 0
+        ? 'Passive browser response data; no page location was recorded.'
+        : 'Passive browser response data captured for the listed pages.',
     technicalDetails: [
       `Security code: ${observation.code}`,
       `Security category: ${observation.category}`,
@@ -1624,19 +1631,34 @@ export function buildHumanReportPresentation(report: SiteAgentReport): HumanRepo
   }
 
   const summary = buildReconciledRunSummaryProjection(report);
-  const securityObservations = report.passiveSecurity.observations.map((observation, index) => {
+  const securityObservations: HumanSecurityObservation[] = [];
+  for (const observation of report.passiveSecurity.observations) {
     const humanFacingOccurrences = observation.occurrences.filter(
-      occurrence => !excludedSecurityPageKeys.has(`${occurrence.pageUrl}\n${occurrence.pageTitle}`)
+      occurrence =>
+        !excludedSecurityPageKeys.has(
+          `${createSafeDisplayUrl(occurrence.pageUrl)}\n${occurrence.pageTitle}`
+        )
     );
+    if (observation.occurrences.length > 0 && humanFacingOccurrences.length === 0) {
+      continue;
+    }
 
-    return buildSecurityObservation(
-      observation,
-      humanFacingOccurrences,
-      humanFacingInspectedPages.length,
-      `S${String(index + 1).padStart(2, '0')}`,
-      urlContext
+    securityObservations.push(
+      buildSecurityObservation(
+        observation,
+        humanFacingOccurrences,
+        humanFacingOccurrences.every(occurrence =>
+          humanFacingSecurityPageKeys.has(
+            `${createSafeDisplayUrl(occurrence.pageUrl)}\n${occurrence.pageTitle}`
+          )
+        )
+          ? humanFacingInspectedPages.length
+          : 0,
+        `S${String(securityObservations.length + 1).padStart(2, '0')}`,
+        urlContext
+      )
     );
-  });
+  }
   const indexItems: HumanIndexItem[] = [
     ...primaryFindings.map(finding => ({
       displayId: finding.displayId,
@@ -1711,7 +1733,7 @@ export function buildHumanReportPresentation(report: SiteAgentReport): HumanRepo
     confirmedIssueCount: summary.confirmedFindingCount,
     needsReviewCount: summary.reviewFindingCount,
     technicalObservationCount: summary.technicalObservationCount,
-    securityObservationCount: report.passiveSecurity.observations.length,
+    securityObservationCount: securityObservations.length,
     outcomeNote: report.outcome.type === 'finished' ? report.outcome.summary : null,
     notableSummary: null,
     atAGlance: indexItems,

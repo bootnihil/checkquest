@@ -2035,7 +2035,7 @@ async function main(): Promise<void> {
   assert.match(classificationMarkdown, /## Security testing scope/);
   assert.match(
     classificationMarkdown,
-    /### S01 — Future visits were not required to use a secure connection/
+    /### S01 — A page response lacked a valid instruction for future secure visits/
   );
   assert.match(classificationPosterBlock, /Status: Needs review · Severity: Medium/);
   assert.match(
@@ -2107,15 +2107,15 @@ async function main(): Promise<void> {
   );
   assert.match(
     duplicateSecurityMarkdown,
-    /### S01 — Future visits were not required to use a secure connection/
+    /### S01 — A page response lacked a valid instruction for future secure visits/
   );
   assert.match(
     duplicateSecurityMarkdown,
-    /### S02 — Future visits were not required to use a secure connection/
+    /### S02 — A page response lacked a valid instruction for future secure visits/
   );
   assert.doesNotMatch(
     duplicateSecurityMarkdown,
-    /Future visits were not required to use a secure connection \(2 related\)/,
+    /A page response lacked a valid instruction for future secure visits \(2 related\)/,
     'Security observations must not be grouped by title.'
   );
   assert.deepEqual(
@@ -2335,7 +2335,7 @@ async function main(): Promise<void> {
   assert.match(fullyConfirmedFindingSection, /focused-confirmed\.png/);
   assert.match(
     markdown,
-    /## Security testing scope[\s\S]*Future visits were not required to use a secure connection/
+    /## Security testing scope[\s\S]*A page response lacked a valid instruction for future secure visits/
   );
   assert.match(markdown, /## Findings: Additional/);
 

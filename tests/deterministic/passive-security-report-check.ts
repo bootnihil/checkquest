@@ -362,11 +362,14 @@ async function main(): Promise<void> {
 
   assert.match(
     markdown,
-    /\| \[S01\]\(#security-s01\) \| \[Future visits were not required to use a secure connection\]\(#security-s01\) \| Confirmed observation \| Low \| 2 pages \|/
+    /\| \[S01\]\(#security-s01\) \| \[A page response lacked a valid instruction for future secure visits\]\(#security-s01\) \| Confirmed observation \| Low \| 2 pages \|/
   );
 
-  assert.match(markdown, /### S01 — Future visits were not required to use a secure connection/);
-  assert.match(markdown, /The site publicly identifies its server technology/);
+  assert.match(
+    markdown,
+    /### S01 — A page response lacked a valid instruction for future secure visits/
+  );
+  assert.match(markdown, /A page response identifies its server technology/);
   assert.doesNotMatch(markdown, /Strict HTTPS protection|HSTS response header was not observed/);
 
   assert.match(

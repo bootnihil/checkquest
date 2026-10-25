@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -35,6 +35,11 @@ import type {
   PassiveSecurityObservation
 } from '../../agent/security/passive-security-model';
 
+import {
+  createPassiveSecurityRegistry,
+  registerPassiveSecuritySnapshot,
+  getPassiveSecurityReport
+} from '../../agent/security/passive-security-registry';
 function modelEvidence(
   index: number,
   input: {
@@ -458,6 +463,200 @@ async function assertRejectsWithMessage(
   pattern: RegExp
 ): Promise<void> {
   await assert.rejects(operation, pattern);
+}
+
+async function checkSecurityProjection(base: SiteAgentReportV4): Promise<void> {
+  function fixture(
+    snapshots: PassivePageSecuritySnapshot[],
+    includePages = true
+  ): SiteAgentReportV4 {
+    const report = structuredClone(base);
+    report.findings = [];
+    report.inspectedPages = includePages
+      ? snapshots.map(snapshot => {
+          const page = structuredClone(base.inspectedPages[0]!);
+          page.observation.requestedUrl = snapshot.requestedUrl;
+          page.observation.finalUrl = snapshot.finalUrl;
+          page.observation.title = snapshot.pageTitle;
+          return page;
+        })
+      : [];
+    const registry = createPassiveSecurityRegistry();
+    for (const snapshot of snapshots) {
+      registerPassiveSecuritySnapshot(registry, snapshot);
+    }
+    report.passiveSecurity = getPassiveSecurityReport(registry);
+    return report;
+  }
+  const html = pageSecuritySnapshot('https://example.com/html', 'HTML page', ['text/html']);
+  html.headers.server = ['HTML_SERVER_EVIDENCE'];
+  const pdf = pageSecuritySnapshot('https://example.com/file.pdf', 'PDF response', [
+    'application/pdf'
+  ]);
+  pdf.headers.server = ['PDF_SERVER_EVIDENCE'];
+  const protectedHtml = pageSecuritySnapshot('https://example.com/protected', 'Protected page', [
+    'text/html'
+  ]);
+  protectedHtml.headers = {
+    ...protectedHtml.headers,
+    'content-security-policy': ["default-src 'self'; frame-ancestors 'none'"],
+    'strict-transport-security': ['max-age=31536000'],
+    'x-content-type-options': ['nosniff']
+  };
+  const failures: unknown[] = [];
+  function check(name: string, operation: () => void): void {
+    try {
+      operation();
+      console.log('PASS: ' + name);
+    } catch (error) {
+      failures.push(error);
+      console.error('FAIL: ' + name, error);
+    }
+  }
+  for (const [name, snapshots, expectedPages, expectedNotes] of [
+    ['excluded-only', [pdf], 0, 0],
+    ['included-only', [html], 1, 5],
+    ['mixed HTML/PDF', [html, pdf], 1, 5],
+    ['zero pages', [], 0, 0]
+  ] as const) {
+    check('security projection: ' + name, () => {
+      const report = fixture([...snapshots]);
+      const canonicalBefore = JSON.stringify(report);
+      const presentation = buildHumanReportPresentation(report);
+      const markdown = renderHumanMarkdownReport(report);
+      assert.equal(presentation.pagesInspected, expectedPages);
+      assert.equal(presentation.securityObservationCount, expectedNotes);
+      assert.equal(presentation.securityObservations.length, expectedNotes);
+      assert.equal(presentation.atAGlance.length, expectedNotes);
+      if (expectedNotes === 0) {
+        assert.match(
+          markdown,
+          /No security-related observations are listed for the inspected web pages/
+        );
+      }
+      assert.ok(presentation.atAGlance.every(item => item.type === 'Security note'));
+      for (const note of presentation.securityObservations) {
+        assert.deepEqual(
+          note.pages.map(page => page.title),
+          ['HTML page']
+        );
+        assert.equal(note.scope, '1 page');
+        assert.doesNotMatch(note.evidence.join('\n'), /PDF_SERVER_EVIDENCE/);
+      }
+      assert.doesNotMatch(markdown, /PDF_SERVER_EVIDENCE|file\.pdf|PDF response/);
+      assert.equal(
+        JSON.stringify(report),
+        canonicalBefore,
+        'Human projection must not change canonical JSON.'
+      );
+    });
+  }
+  check('one excluded-only note leaves no human security items', () => {
+    const report = fixture([pdf]);
+    report.passiveSecurity.observations = report.passiveSecurity.observations.filter(
+      note => note.code === 'PS_CSP_RESPONSE_HEADER_NOT_OBSERVED'
+    );
+    const canonicalBefore = JSON.stringify(report);
+    const presentation = buildHumanReportPresentation(report);
+    assert.equal(report.passiveSecurity.observations.length, 1);
+    assert.equal(presentation.pagesInspected, 0);
+    assert.equal(presentation.securityObservationCount, 0);
+    assert.equal(presentation.atAGlance.length, 0);
+    assert.equal(JSON.stringify(report), canonicalBefore);
+  });
+  check('excluded-only notes do not leave gaps or suppress unassociated notes', () => {
+    const report = fixture([pdf, protectedHtml]);
+    const unassociated = structuredClone(report.passiveSecurity.observations[0]!);
+    unassociated.occurrences[0]!.pageUrl = 'https://example.com/unassociated';
+    unassociated.occurrences[0]!.pageTitle = 'Unassociated response';
+    report.passiveSecurity.observations.push(unassociated);
+    const presentation = buildHumanReportPresentation(report);
+    assert.equal(presentation.securityObservationCount, 1);
+    assert.equal(presentation.securityObservations[0]!.displayId, 'S01');
+    assert.deepEqual(
+      presentation.securityObservations[0]!.pages.map(page => page.title),
+      ['Unassociated response']
+    );
+  });
+  check('unassociated security observations remain visible', () => {
+    const report = fixture([html], false);
+    const presentation = buildHumanReportPresentation(report);
+    assert.equal(presentation.pagesInspected, 0);
+    assert.equal(presentation.securityObservationCount, report.passiveSecurity.observations.length);
+    assert.ok(
+      presentation.securityObservations.some(note =>
+        note.evidence.join(' ').includes('HTML_SERVER_EVIDENCE')
+      )
+    );
+    report.passiveSecurity.observations[0]!.occurrences = [];
+    assert.match(renderHumanMarkdownReport(report), /No page location was recorded/);
+    assert.doesNotMatch(renderHumanMarkdownReport(report), /Found on 0 pages/);
+    assert.equal(
+      buildHumanReportPresentation(report).securityObservationCount,
+      presentation.securityObservationCount
+    );
+  });
+  check('response-scoped security wording with mixed header coverage', () => {
+    const report = fixture([html, protectedHtml]);
+    const canonicalBefore = JSON.stringify(report);
+    const presentation = buildHumanReportPresentation(report);
+    const markdown = renderHumanMarkdownReport(report);
+    for (const code of [
+      'PS_CSP_RESPONSE_HEADER_NOT_OBSERVED',
+      'PS_HSTS_NOT_OBSERVED',
+      'PS_NOSNIFF_NOT_ENFORCING',
+      'PS_FRAME_POLICY_NOT_OBSERVED'
+    ]) {
+      const note = presentation.securityObservations.find(item =>
+        item.technicalDetails.includes('Security code: ' + code)
+      )!;
+      assert.deepEqual(
+        note.pages.map(page => page.title),
+        ['HTML page']
+      );
+      assert.match(note.whatHappened, /response/i);
+      assert.doesNotMatch(note.whatHappened, /The site /);
+    }
+    const hsts = presentation.securityObservations.find(item =>
+      item.technicalDetails.includes('Security code: PS_HSTS_NOT_OBSERVED')
+    )!;
+    assert.match(hsts.whyItMayMatter, /Other protections may still apply/);
+    assert.doesNotMatch(
+      markdown,
+      /Future visits were not required|This removes a browser safeguard|The site did not send/
+    );
+    assert.equal(JSON.stringify(report), canonicalBefore);
+    const nonEnforcing = structuredClone(html);
+    nonEnforcing.headers['strict-transport-security'] = ['max-age=0'];
+    const invalidHsts = buildHumanReportPresentation(
+      fixture([nonEnforcing])
+    ).securityObservations.find(item =>
+      item.technicalDetails.includes('Security code: PS_HSTS_NOT_ENFORCING')
+    )!;
+    assert.match(invalidHsts.whatHappened, /response/i);
+    assert.match(invalidHsts.whyItMayMatter, /Other protections may still apply/);
+  });
+  assert.equal(failures.length, 0, 'Security projection regressions failed.');
+  for (const [name, snapshots] of [
+    ['mixed-html-pdf', [html, pdf]],
+    ['mixed-header-coverage', [html, protectedHtml]]
+  ] as const) {
+    const report = fixture([...snapshots]);
+    report.runId = 'human-security-' + name + '-' + Date.now();
+    const expectedJson = JSON.stringify(report, null, 2) + '\n';
+    const paths = await persistSiteAgentReport(report);
+    assert.equal(await readFile(paths.jsonReportPath, 'utf8'), expectedJson);
+    assert.equal(
+      await readFile(paths.markdownReportPath, 'utf8'),
+      renderHumanMarkdownReport(report)
+    );
+    for (const note of buildHumanReportPresentation(report).securityObservations) {
+      const evidenceText = await readFile(join(paths.directoryPath, note.evidencePath), 'utf8');
+      assert.doesNotMatch(evidenceText, /PDF_SERVER_EVIDENCE|file\.pdf|PDF response/);
+      assert.ok(evidenceText.includes(note.whatHappened));
+    }
+    console.log('Security example: ' + paths.markdownReportPath);
+  }
 }
 
 async function main(): Promise<void> {
@@ -1190,6 +1389,8 @@ async function main(): Promise<void> {
   assert.equal(secondRenderCalls, 0);
   assert.equal(firstRender, secondRender);
 
+  await checkSecurityProjection(enriched);
+
   const unrelatedContentBefore = buildHumanReportPresentation(enriched);
   const contentTypeReport = structuredClone(enriched);
   const contentTypeCases = [
@@ -1369,16 +1570,19 @@ async function main(): Promise<void> {
     firstRender.match(/### 05 — A script file failed to load[\s\S]*?(?=\n---)/)?.[0] ?? '',
     /broken image|missing imagery/i
   );
-  assert.match(firstRender, /The site did not send an enforcing Content Security Policy \(CSP\)\./);
-  assert.match(firstRender, /Its absence does not prove the site is vulnerable\./);
+  assert.match(
+    firstRender,
+    /The affected page responses did not include a security header that limits unwanted scripts and other content\./
+  );
+  assert.match(firstRender, /Its absence from a response does not prove the page is vulnerable/);
   assert.doesNotMatch(
     firstRender.match(
-      /### S01 — A restriction on what the browser may load was not enforced[\s\S]*?(?=\n---)/
+      /### S01 — A page response lacked a header that limits unwanted scripts[\s\S]*?(?=\n---)/
     )?.[0] ?? '',
     /scripts? only/i
   );
-  assert.match(firstRender, /server technology it uses/);
-  assert.match(firstRender, /software or platform serving the page/);
+  assert.match(firstRender, /server technology used to deliver them/);
+  assert.match(firstRender, /software or platform used to deliver them/);
   assert.match(firstRender, /<summary>Technical details<\/summary>/);
   assert.doesNotMatch(firstRender, /- Assessment:/);
   assert.match(firstRender, /Status: Confirmed observation · Severity: Low/);
@@ -1712,10 +1916,10 @@ async function main(): Promise<void> {
   );
   assert.match(
     representativeMarkdown,
-    /A restriction on what the browser may load was not enforced/
+    /A page response lacked a header that limits unwanted scripts/
   );
-  assert.match(representativeMarkdown, /The site publicly identifies its server technology/);
-  assert.match(representativeMarkdown, /The site publicly identifies its software platform/);
+  assert.match(representativeMarkdown, /A page response identifies its server technology/);
+  assert.match(representativeMarkdown, /A page response identifies its software platform/);
   assert.match(representativeMarkdown, /## Security testing scope/);
   assert.doesNotMatch(representativeMarkdown, /## Security notes/);
   const firstSecurityBlock = representativeMarkdown.slice(
