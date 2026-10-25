@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { access, mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { inspect } from 'node:util';
 import { z } from 'zod';
 
 import { sanitizeApplicationError } from '../../agent/application/sanitize-application-boundary';
@@ -31,10 +32,29 @@ async function main(): Promise<void> {
   assert.equal(sanitized.message, 'An unexpected CheckQuest failure occurred.');
   assert.equal(sanitized.phase, 'application-run');
   assert.equal(sanitized.runId, 'diagnostic-run');
+  assert.equal(sanitized.cause, undefined);
+  assert.equal(sanitized.developerContext, undefined);
+
+  function assertPrivateValuesAbsent(error: CheckQuestError): void {
+    const representations = [
+      inspect(error, { depth: null, showHidden: true }),
+      JSON.stringify(error),
+      JSON.stringify(error, Object.getOwnPropertyNames(error)),
+      inspect(structuredClone(error), { depth: null, showHidden: true })
+    ];
+    for (const representation of representations) {
+      for (const secret of [geminiApiKey, bearerToken, cookieValue]) {
+        assert.equal(representation.includes(secret), false);
+      }
+    }
+  }
+
+  assertPrivateValuesAbsent(sanitized);
+  const nested = new Error('Private outer failure.', { cause: underlying });
+  assertPrivateValuesAbsent(sanitizeApplicationError(nested, 'nested-run', geminiApiKey));
   assert.equal(
-    sanitized.cause,
-    underlying,
-    'The internal exception must remain available after public error normalization.'
+    sanitizeApplicationError(underlying, 'run-' + geminiApiKey, geminiApiKey).runId,
+    'run-[REDACTED]'
   );
 
   const publicOutput = formatPublicError(sanitized);
@@ -44,7 +64,7 @@ async function main(): Promise<void> {
   assert.equal(publicOutput.includes(bearerToken), false);
   assert.equal(publicOutput.includes(cookieValue), false);
 
-  const developerOutput = formatDeveloperErrorDiagnostic(sanitized, {
+  const developerOutput = formatDeveloperErrorDiagnostic(underlying, {
     secrets: [geminiApiKey]
   });
 
@@ -214,7 +234,9 @@ async function main(): Promise<void> {
     }
   };
   const arbitraryError = sanitizeApplicationError(arbitraryCause, 'non-error-run', geminiApiKey);
-  const arbitraryDiagnostic = formatDeveloperErrorDiagnostic(arbitraryError, {
+  assert.equal(arbitraryError.cause, undefined);
+  assertPrivateValuesAbsent(arbitraryError);
+  const arbitraryDiagnostic = formatDeveloperErrorDiagnostic(arbitraryCause, {
     secrets: [geminiApiKey]
   });
 
@@ -252,6 +274,7 @@ async function main(): Promise<void> {
   assert.equal(copiedExisting.code, 'MODEL');
   assert.equal(copiedExisting.message, 'Safe model failure [REDACTED]');
   assert.equal(copiedExisting.developerContext, undefined);
+  assertPrivateValuesAbsent(copiedExisting);
   assert.equal(
     copiedExisting.cause,
     undefined,
@@ -275,8 +298,10 @@ async function main(): Promise<void> {
 
   const withCleanup = sanitizeApplicationError(underlying, 'diagnostic-run', geminiApiKey);
 
-  assert.equal(withCleanup.cause, underlying);
+  assert.equal(withCleanup.cause, undefined);
   assert.equal(getSecondaryCleanupError(withCleanup)?.code, 'CLEANUP');
+  assert.equal(getSecondaryCleanupError(withCleanup)?.cause, undefined);
+  assertPrivateValuesAbsent(withCleanup);
 
   console.log('Application INTERNAL error observability and developer-diagnostic checks passed.');
 }

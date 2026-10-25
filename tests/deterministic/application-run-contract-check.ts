@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { inspect } from 'node:util';
 
 import { startCheckQuest } from '../../agent/application/start-checkquest';
 import { CheckQuestError } from '../../agent/errors/checkquest-error';
@@ -11,6 +12,43 @@ import {
 import type { RunEvent } from '../../agent/run/run-event';
 
 async function main(): Promise<void> {
+  const privateSentinel = 'SYNTHETIC_APPLICATION_PRIVATE_SENTINEL';
+  const nativeFailure = new TypeError('Private failure ' + privateSentinel, {
+    cause: new Error('Nested private failure ' + privateSentinel)
+  });
+  const nativeEvents: RunEvent[] = [];
+  const nativeRun = startCheckQuest({
+    target: 'https://example.com',
+    budgets: {
+      get pages(): number {
+        throw nativeFailure;
+      }
+    },
+    onEvent: event => {
+      nativeEvents.push(event);
+    }
+  });
+  await assert.rejects(nativeRun.result, (error: unknown) => {
+    assert.ok(error instanceof CheckQuestError);
+    assert.equal(error.name, 'CheckQuestError');
+    assert.equal(error.code, 'INTERNAL');
+    assert.equal(error.message, 'An unexpected CheckQuest failure occurred.');
+    assert.equal(error.phase, 'application-run');
+    assert.equal(error.cause, undefined);
+    assert.equal(
+      inspect(error, { depth: null, showHidden: true }).includes(privateSentinel),
+      false
+    );
+    assert.equal(JSON.stringify(error).includes(privateSentinel), false);
+    assert.equal(structuredClone(error).cause, undefined);
+    return true;
+  });
+  assert.deepEqual(
+    nativeEvents.map(event => event.type),
+    ['run-failed']
+  );
+  assert.equal(JSON.stringify(nativeEvents).includes(privateSentinel), false);
+
   const events: RunEvent[] = [];
   const run = startCheckQuest({
     target: 'not-a-configured-site-or-url',

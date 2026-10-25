@@ -77,8 +77,7 @@ export function sanitizeApplicationError(
     'An unexpected CheckQuest failure occurred.',
     {
       phase: 'application-run',
-      runId,
-      cause: error
+      runId: redactCredential(runId, geminiApiKey)
     }
   );
   const cleanupError = getSecondaryCleanupError(error);
