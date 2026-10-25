@@ -289,14 +289,42 @@ export async function runGeminiRequest<T>(
     });
 
     try {
-      const result = await operation({
-        timeout_ms: aiConfig.requestTimeoutMs,
-        abortSignal: dependencies.signal,
+      throwIfRunCancelled(dependencies.signal, undefined, 'gemini-request');
+      const deadline = new AbortController();
+      const signal =
+        dependencies.signal === undefined
+          ? deadline.signal
+          : AbortSignal.any([dependencies.signal, deadline.signal]);
+      const timeout = setTimeout(() => deadline.abort(), aiConfig.requestTimeoutMs);
+      let result: T;
+      try {
+        result = await operation({
+          timeout_ms: aiConfig.requestTimeoutMs,
+          abortSignal: signal,
 
-        retries: {
-          strategy: 'none'
+          retries: {
+            strategy: 'none'
+          }
+        });
+        throwIfRunCancelled(dependencies.signal, undefined, 'gemini-request');
+        if (deadline.signal.aborted) {
+          throw new DOMException('Gemini request deadline expired.', 'TimeoutError');
         }
-      });
+      } catch (error: unknown) {
+        throwIfRunCancelled(dependencies.signal, undefined, 'gemini-request');
+        if (error instanceof CheckQuestError && error.code === 'CANCELLED') {
+          throw error;
+        }
+        // SDK abort errors do not identify their owner; only our deadline proves expiry.
+        if (deadline.signal.aborted) {
+          throw Object.assign(new Error('Gemini request deadline expired.', { cause: error }), {
+            name: 'TimeoutError'
+          });
+        }
+        throw error;
+      } finally {
+        clearTimeout(timeout);
+      }
 
       notifyRequestObserver(dependencies.onEvent, {
         type: 'completed',

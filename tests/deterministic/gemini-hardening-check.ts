@@ -6,6 +6,7 @@ import { parseModelJsonResponse } from '../../agent/ai/parse-model-json-response
 import { resolveGeminiApiKey } from '../../agent/ai/resolve-gemini-api-key';
 import { runGeminiRequest } from '../../agent/ai/run-gemini-request';
 import { CheckQuestError, formatPublicError } from '../../agent/errors/checkquest-error';
+import { checkGeminiTimeouts } from './gemini-timeout-check';
 
 interface RetryScenario {
   name: string;
@@ -291,6 +292,7 @@ async function main(): Promise<void> {
   );
 
   assert.deepEqual(boundedDelays, [60_000]);
+  await checkGeminiTimeouts();
 
   console.log('Stage 8D.1 Gemini BYOK, response privacy, and bounded retry checks passed.');
 }

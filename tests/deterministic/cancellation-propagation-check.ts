@@ -121,9 +121,11 @@ async function main(): Promise<void> {
     }
   );
 
-  assert.equal(receivedSignal, geminiAbortController.signal);
+  assert.ok(receivedSignal);
+  assert.equal(receivedSignal.aborted, false);
 
   geminiAbortController.abort();
+  assert.equal(receivedSignal.aborted, true);
 
   await assert.rejects(
     modelRequest,
