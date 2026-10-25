@@ -2,7 +2,7 @@ import { chromium } from '@playwright/test';
 
 import { requireGeminiApiKey } from '../ai/resolve-gemini-api-key';
 import { collectPageDiagnostics } from '../browser/collect-page-diagnostics';
-import { gotoWithCancellation } from '../browser/goto-with-cancellation';
+import { openInspectionDocument, type InspectionDocument } from '../browser/inspection-document';
 import { preparePageForGuardedInteractions } from '../browser/guarded-interaction-safety-boundary';
 import type { SiteConfig } from '../config/site-config';
 import type { chooseNavigationLink } from '../decisions/choose-navigation-link';
@@ -189,6 +189,7 @@ async function executeRunSite(
   }
 
   let browserPrimaryError: Error | undefined;
+  let homepageDocument: InspectionDocument | undefined;
 
   try {
     let page: Awaited<ReturnType<typeof browser.newPage>>;
@@ -228,7 +229,7 @@ async function executeRunSite(
       try {
         throwIfRunCancelled(input.signal, runId, 'start-page-navigation');
 
-        homepageResponse = await gotoWithCancellation(
+        const openedDocument = await openInspectionDocument(
           page,
           site.startUrl,
           {
@@ -242,6 +243,8 @@ async function executeRunSite(
             phase: 'start-page-navigation'
           }
         );
+        homepageResponse = openedDocument.response;
+        homepageDocument = openedDocument.document;
       } catch (error: unknown) {
         throw new CheckQuestError('NAVIGATION', 'Unable to open the configured start page.', {
           phase: 'start-page-navigation',
@@ -279,6 +282,7 @@ async function executeRunSite(
 
         httpStatus: homepageResponse?.status() ?? null
       };
+      await homepageDocument.assertCurrent();
 
       const exploration = await runSiteExploration({
         page,
@@ -286,6 +290,7 @@ async function executeRunSite(
         runId,
         homepage: homepageObservation,
         homepageResponse,
+        homepageDocument,
         diagnosticsCollector,
         dependencies: input.dependencies,
         geminiApiKey: input.credentials?.geminiApiKey,
@@ -366,9 +371,13 @@ async function executeRunSite(
     browserPrimaryError = normalizedError;
     throw normalizedError;
   } finally {
-    await completeRequiredCleanup(browserPrimaryError, [() => browser.close()], {
-      phase: 'browser-close',
-      runId
-    });
+    await completeRequiredCleanup(
+      browserPrimaryError,
+      [() => homepageDocument?.dispose(), () => browser.close()],
+      {
+        phase: 'browser-close',
+        runId
+      }
+    );
   }
 }

@@ -176,6 +176,7 @@ export async function selectNextPageForInspection(
     );
 
     if (navigationResolution.finalUrlAlreadyInspected) {
+      await approvedPageVisit.document.dispose();
       input.emit({
         type: 'navigation-completed',
         message: `Navigation ${navigationStepsUsed} resolved to an already-inspected page.`,
@@ -225,6 +226,7 @@ export async function selectNextPageForInspection(
           }
         },
         observation: pageObservation,
+        document: approvedPageVisit.document,
         passiveSecuritySnapshot,
         traversalDepth: decision.policyCandidate.minimumDiscoveryDepth
       }

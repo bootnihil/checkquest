@@ -9,6 +9,8 @@ import type { PageDiagnosticsCollector } from '../browser/collect-page-diagnosti
 import { extractPageContent } from '../browser/extract-page-content';
 import { inspectNavigation } from '../browser/inspect-navigation';
 import { runPageOperationWithCancellation } from '../browser/run-page-operation-with-cancellation';
+import type { InspectionDocument } from '../browser/inspection-document';
+import { runWithRequiredCleanup } from '../errors/required-cleanup';
 import type { SiteConfig } from '../config/site-config';
 import { markFinalUrlInspected, type NavigationUrlState } from '../exploration/visited-links';
 import {
@@ -41,6 +43,7 @@ import {
 import type { FindingPresentationEvidence, InspectedPageResult } from './inspected-page-result';
 
 export interface OpenPageInspectionInput {
+  document: InspectionDocument;
   selection: InspectedPageResult['selection'];
 
   observation: InspectedPageResult['observation'];
@@ -86,6 +89,14 @@ export interface InspectPageResult {
 }
 
 export async function inspectPage(input: InspectPageInput): Promise<InspectPageResult> {
+  return runWithRequiredCleanup(
+    () => inspectDocumentPage(input),
+    [input.currentPage.document.dispose],
+    { phase: 'inspection-document-cleanup', runId: input.runId }
+  );
+}
+
+async function inspectDocumentPage(input: InspectPageInput): Promise<InspectPageResult> {
   const {
     page,
     site,
@@ -108,9 +119,11 @@ export async function inspectPage(input: InspectPageInput): Promise<InspectPageR
     traversalDepth
   } = currentPage;
 
-  registerPassiveSecuritySnapshot(passiveSecurityRegistry, passiveSecuritySnapshot);
+  const assertDocument = input.currentPage.document.assertCurrent;
+  await assertDocument();
 
   await waitForRunDelay(1_000, input.dependencies?.signal, runId, 'page-observation-settle');
+  await assertDocument();
 
   const diagnostics = diagnosticsCollector.snapshot();
 
@@ -122,6 +135,7 @@ export async function inspectPage(input: InspectPageInput): Promise<InspectPageR
   );
 
   const pageContent = await extractPageContent(page);
+  await assertDocument();
 
   const discoveredLinks = await runPageOperationWithCancellation(
     page,
@@ -133,6 +147,8 @@ export async function inspectPage(input: InspectPageInput): Promise<InspectPageR
     }
   );
 
+  await assertDocument();
+
   const effectivePredictedIdentity = predictPageIdentity(pageObservation.finalUrl, [
     ...getNavigationFrontierEntries(navigationFrontier).map(entry => entry.link),
     ...discoveredLinks
@@ -143,12 +159,6 @@ export async function inspectPage(input: InspectPageInput): Promise<InspectPageR
 
     selection.navigationAudit.predictedRouteFamilyKey = effectivePredictedIdentity.routeFamilyKey;
   }
-
-  const pageNovelty = registerInspectedPageNovelty(
-    pageNoveltyState,
-    effectivePredictedIdentity,
-    pageContent
-  );
 
   const containsPasswordField = pageContent.textFields.some(
     field => field.inputType === 'password'
@@ -182,6 +192,7 @@ export async function inspectPage(input: InspectPageInput): Promise<InspectPageR
       onEvent: input.dependencies?.onModelRequestEvent
     }
   );
+  await assertDocument();
 
   const preparedPageFindings = prepareRunPageFindings(findingLifecycle.knownFindingState, {
     pageUrl: pageObservation.finalUrl,
@@ -216,9 +227,11 @@ export async function inspectPage(input: InspectPageInput): Promise<InspectPageR
         geminiApiKey: input.dependencies?.geminiApiKey,
         model: input.dependencies?.model,
         signal: input.dependencies?.signal,
-        onModelRequestEvent: input.dependencies?.onModelRequestEvent
+        onModelRequestEvent: input.dependencies?.onModelRequestEvent,
+        assertDocument
       }
     );
+    await assertDocument();
 
     if (exploratoryInvestigation.stopReason === 'unsafe-interaction-detected') {
       throw new CheckQuestError(
@@ -267,6 +280,7 @@ export async function inspectPage(input: InspectPageInput): Promise<InspectPageR
   const presentationEvidence: FindingPresentationEvidence[] = [];
 
   for (const [candidateIndex, exploratoryFindingResult] of exploratoryFindingResults.entries()) {
+    await assertDocument();
     const target =
       exploratoryFindingResult.finding.presentationTarget ??
       (exploratoryFindingResult.finding.evidenceTarget?.kind === 'select-option'
@@ -300,6 +314,7 @@ export async function inspectPage(input: InspectPageInput): Promise<InspectPageR
         allowObservedStateReplay,
         signal: input.dependencies?.signal
       });
+      await assertDocument();
 
       if (focusedEvidence.totalTargetCount > 0) {
         presentationEvidence.push({
@@ -324,13 +339,15 @@ export async function inspectPage(input: InspectPageInput): Promise<InspectPageR
       if (
         normalizedError instanceof CheckQuestError &&
         (normalizedError.code === 'CANCELLED' ||
-          normalizedError.phase === 'focused-evidence-safety')
+          normalizedError.phase === 'focused-evidence-safety' ||
+          normalizedError.phase === 'inspection-document')
       ) {
         throw normalizedError;
       }
     }
   }
 
+  await assertDocument();
   let screenshotPath: string | null = null;
 
   if (shouldCaptureScreenshot) {
@@ -343,6 +360,15 @@ export async function inspectPage(input: InspectPageInput): Promise<InspectPageR
 
     screenshotPath = screenshot.filePath;
   }
+
+  await assertDocument();
+
+  const pageNovelty = registerInspectedPageNovelty(
+    pageNoveltyState,
+    effectivePredictedIdentity,
+    pageContent
+  );
+  registerPassiveSecuritySnapshot(passiveSecurityRegistry, passiveSecuritySnapshot);
 
   const knownFindingOccurrences = commitRunPageFindings(findingLifecycle, {
     page: preparedPageFindings,

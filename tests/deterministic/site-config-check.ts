@@ -21,6 +21,14 @@ function createRedirectedPage(finalUrl: string): Page {
       return null;
     },
     url: () => currentUrl,
+    on: () => undefined,
+    off: () => undefined,
+    route: async () => undefined,
+    unroute: async () => undefined,
+    evaluateHandle: async () => ({
+      evaluate: async () => true,
+      dispose: async () => undefined
+    }),
     locator: () => ({
       allTextContents: async () => []
     }),

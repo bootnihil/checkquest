@@ -1,4 +1,5 @@
 import type { Page, Response } from '@playwright/test';
+import type { InspectionDocument } from '../browser/inspection-document';
 
 import type { GeminiRequestEvent } from '../ai/run-gemini-request';
 import type { PageDiagnosticsCollector } from '../browser/collect-page-diagnostics';
@@ -47,6 +48,7 @@ export interface RunSiteExplorationInput {
   runId: string;
   homepage: HomepageObservation;
   homepageResponse: Response | null;
+  homepageDocument: InspectionDocument;
   diagnosticsCollector: PageDiagnosticsCollector;
   dependencies?: SiteExplorationDependencies;
   geminiApiKey?: string;
@@ -254,6 +256,7 @@ export async function runSiteExploration(
         }
       },
       observation: startPageObservation,
+      document: input.homepageDocument,
       passiveSecuritySnapshot: startPagePassiveSecuritySnapshot,
       traversalDepth: 0
     },

@@ -151,6 +151,7 @@ export async function runExploratoryLoop(
     model?: string;
     signal?: AbortSignal;
     onModelRequestEvent?: (event: GeminiRequestEvent) => void;
+    assertDocument?: () => Promise<void>;
   } = {}
 ): Promise<ExploratoryLoopResult> {
   const steps: ExploratoryLoopStep[] = [];
@@ -175,8 +176,10 @@ export async function runExploratoryLoop(
 
   for (let stepNumber = 1; stepNumber <= maxPlannerDecisions; stepNumber += 1) {
     throwIfRunCancelled(dependencies.signal, undefined, 'exploratory-investigation');
+    await dependencies.assertDocument?.();
 
     const observationBefore = await extractPageContent(page);
+    await dependencies.assertDocument?.();
 
     const decision = await planner(
       {
@@ -201,6 +204,7 @@ export async function runExploratoryLoop(
     );
 
     throwIfRunCancelled(dependencies.signal, undefined, 'exploratory-investigation');
+    await dependencies.assertDocument?.();
 
     const rejectionReason = validateDecisionCandidateRelevance(decision, investigableCandidates);
 
@@ -231,11 +235,13 @@ export async function runExploratoryLoop(
     }
 
     const executionResult = await executor(page, decision.action);
+    await dependencies.assertDocument?.();
 
     throwIfRunCancelled(dependencies.signal, undefined, 'exploratory-investigation');
 
     const observationAfter =
       executionResult.status === 'unsafe' ? observationBefore : await extractPageContent(page);
+    await dependencies.assertDocument?.();
 
     steps.push({
       step: stepNumber,

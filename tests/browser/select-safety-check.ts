@@ -401,7 +401,8 @@ async function main(): Promise<void> {
             const newPage = runBrowser.newPage.bind(runBrowser);
             runBrowser.newPage = async options => {
               const page = await newPage(options);
-              injectBoundaryFailure(page, mode, 2);
+              // Inspection owns the first route; selection and replay own the next two.
+              injectBoundaryFailure(page, mode, mode === 'setup' ? 3 : 2);
               return page;
             };
             return runBrowser;
