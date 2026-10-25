@@ -80,6 +80,7 @@ function main(): void {
 
       buttons: ['Submit'],
 
+      containsPasswordField: false,
       textFields: [
         {
           tagName: 'input',

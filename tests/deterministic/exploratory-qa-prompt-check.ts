@@ -31,6 +31,7 @@ const prompt = buildExploratoryQaPrompt({
 
     buttons: ['Request a Demo'],
 
+    containsPasswordField: false,
     textFields: [],
 
     selects: [],

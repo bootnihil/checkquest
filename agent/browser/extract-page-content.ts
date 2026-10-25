@@ -110,7 +110,7 @@ export async function extractPageContent(page: Page): Promise<ExtractedPageConte
       'number'
     ]);
 
-    const textFields = Array.from(
+    const visibleTextFields = Array.from(
       document.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea')
     )
       .filter(element => {
@@ -131,7 +131,11 @@ export async function extractPageContent(page: Page): Promise<ExtractedPageConte
         }
 
         return approvedInputTypes.has(element.type.toLowerCase());
-      })
+      });
+    const containsPasswordField = visibleTextFields.some(
+      element => element instanceof HTMLInputElement && element.type.toLowerCase() === 'password'
+    );
+    const textFields = visibleTextFields
       .map(element => {
         let label: string | null = null;
 
@@ -753,6 +757,7 @@ export async function extractPageContent(page: Page): Promise<ExtractedPageConte
       bodyText,
       links,
       buttons,
+      containsPasswordField,
       textFields,
       selects,
       disclosures,

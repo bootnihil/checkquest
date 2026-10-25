@@ -100,6 +100,7 @@ function createPageContent(title: string, fixtures: SelectFixture[]): ExtractedP
       .join(' '),
     links: [],
     buttons: [],
+    containsPasswordField: false,
     textFields: [],
     selects: fixtures.map(fixture => ({
       label: fixture.label,

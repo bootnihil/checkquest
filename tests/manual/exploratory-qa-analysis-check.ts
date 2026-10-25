@@ -34,6 +34,7 @@ async function main(): Promise<void> {
 
         buttons: ['Request a Demo'],
 
+        containsPasswordField: false,
         textFields: [],
 
         selects: [],

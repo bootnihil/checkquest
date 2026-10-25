@@ -54,6 +54,7 @@ function createContent(
     bodyText: '',
     links: [],
     buttons: [],
+    containsPasswordField: false,
     textFields: [],
     selects: [],
     disclosures: [disclosure],

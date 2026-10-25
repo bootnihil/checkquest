@@ -47,6 +47,7 @@ function createContent(title: string): ExtractedPageContent {
     bodyText: title,
     links: [],
     buttons: [],
+    containsPasswordField: false,
     textFields: [],
     selects: [],
     disclosures: [],

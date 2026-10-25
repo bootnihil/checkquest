@@ -139,6 +139,7 @@ function createPageContent(optionText = 'Equador'): ExtractedPageContent {
 
     buttons: [],
 
+    containsPasswordField: false,
     textFields: [],
 
     selects: [
@@ -613,6 +614,7 @@ async function main(): Promise<void> {
     bodyText: 'What does CheckQuest test?',
     links: [],
     buttons: ['What does CheckQuest test?'],
+    containsPasswordField: false,
     textFields: [],
     selects: [],
     disclosures: [
@@ -671,6 +673,7 @@ async function main(): Promise<void> {
     bodyText: 'Overview Details',
     links: [],
     buttons: ['Overview', 'Details'],
+    containsPasswordField: false,
     textFields: [],
     selects: [],
     disclosures: [],

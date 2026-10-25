@@ -104,6 +104,8 @@ export interface ExtractedPageContent {
   bodyText: string;
   links: PageContentLink[];
   buttons: string[];
+  /** Visible supported password input in the main document, independent of field sampling. */
+  containsPasswordField: boolean;
   textFields: PageTextFieldControl[];
   selects: PageSelectControl[];
   disclosures: PageDisclosureControl[];

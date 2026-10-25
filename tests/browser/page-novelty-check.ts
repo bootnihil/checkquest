@@ -56,6 +56,7 @@ function createPageContent(options: {
 
     buttons: options.buttons,
 
+    containsPasswordField: (options.textFieldTypes ?? []).includes('password'),
     textFields: (options.textFieldTypes ?? []).map((inputType, index) => ({
       tagName: 'input' as const,
       inputType,

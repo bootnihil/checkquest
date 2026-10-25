@@ -62,6 +62,7 @@ async function main(): Promise<void> {
          * No editable form controls exist that could meaningfully
          * investigate the candidate content issue.
          */
+        containsPasswordField: false,
         textFields: [],
 
         selects: [],

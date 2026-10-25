@@ -20,6 +20,7 @@ const analysisInput: AnalyzePageForQaInput = {
     bodyText: 'Example page body.',
     links: [],
     buttons: [],
+    containsPasswordField: false,
     textFields: [],
     selects: [],
     disclosures: [],

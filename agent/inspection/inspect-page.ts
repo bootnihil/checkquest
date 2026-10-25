@@ -160,10 +160,6 @@ async function inspectDocumentPage(input: InspectPageInput): Promise<InspectPage
     selection.navigationAudit.predictedRouteFamilyKey = effectivePredictedIdentity.routeFamilyKey;
   }
 
-  const containsPasswordField = pageContent.textFields.some(
-    field => field.inputType === 'password'
-  );
-
   const knownFindingPreparation = prepareKnownFindingAnalysis(
     findingLifecycle.knownFindingState,
     pageContent
@@ -216,7 +212,11 @@ async function inspectDocumentPage(input: InspectPageInput): Promise<InspectPage
 
   let exploratoryInvestigation: InspectedPageResult['exploratoryInvestigation'] = null;
 
-  if (!containsPasswordField && site.maxExploratoryStepsPerPage > 0 && pageCandidates.length > 0) {
+  if (
+    !pageContent.containsPasswordField &&
+    site.maxExploratoryStepsPerPage > 0 &&
+    pageCandidates.length > 0
+  ) {
     exploratoryInvestigation = await runExploratoryLoop(
       page,
       pageObservation.finalUrl,

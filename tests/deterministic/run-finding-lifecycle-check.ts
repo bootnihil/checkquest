@@ -42,6 +42,7 @@ function createPageContent(title: string, controlId: string): ExtractedPageConte
     bodyText: 'Country Ecuador Equador',
     links: [],
     buttons: [],
+    containsPasswordField: false,
     textFields: [],
     selects: [
       {

@@ -52,6 +52,7 @@ function buildPageContent(selectedOption: 'Ecuador' | 'Equador' | null): Extract
 
     buttons: [],
 
+    containsPasswordField: false,
     textFields: [],
 
     selects: [
