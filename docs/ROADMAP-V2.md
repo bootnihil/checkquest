@@ -1,327 +1,192 @@
-# CheckQuest Roadmap v2 — Public Landing + Local GUI / Product Shell
+# CheckQuest roadmap v2 - Public landing and local product shell
+
+**Current stage:** G2 - Local GUI MVP. Implemented; acceptance remains open.
+**Started:** 2026-07-26. [Roadmap v1](ROADMAP.md) is complete.
+**Working backlog:** [BACKLOG.md](BACKLOG.md).
+
+## Goal and constraints
+
+Make the existing engine discoverable and usable without requiring end users
+to understand Git, npm, or CLI workflows. This is a product-shell roadmap,
+not permission to expand browser authority or QA intelligence.
+
+Keep the core presentation-agnostic and deployment-agnostic. Reuse the shared
+application, event, error, report, and narrow model-collaborator boundaries.
+Gemini is BYOK; keys remain ephemeral and must not enter public outputs.
+The static landing page is not hosted execution. Prefer a thin local product
+before SaaS, and let external evidence determine work after G7.
+
+Finding identity, verification, evidence, safety, and compatibility contracts
+remain authoritative. Current schema evolution is documented in
+[Public contracts](PUBLIC-CONTRACTS.md), not redefined for GUI convenience.
+
+## G0 - Public landing and brand presence
+
+**Completed:** 2026-07-26.
+
+Delivered the responsive static GitHub Pages front door with honest product
+scope, branding, repository/documentation links, and desktop/mobile acceptance.
+No accounts, backend, billing, cloud browsers, or hosted scans were introduced.
+Product visuals must reflect real behavior.
+
+## G1 - GUI/core boundary
+
+**Completed:** 2026-07-26.
+
+Delivered `startCheckQuest(...)`: target/budgets, transient credentials, optional
+per-run model, ordered events, categorized errors, cancellation, persisted
+reports, and absolute artifact paths. CLI and desktop delegate through it.
+Cancellation preserves mandatory rollback and cleanup; cleanup cannot replace
+an earlier failure. Application outputs redact the key and remove nested causes.
+
+Historical acceptance passed the then-current 29 deterministic and seven local
+browser checks, direct application-browser integration, and external regression
+3/3 once network access was available. Those counts are historical, not the
+current test inventory. Active writes remain cooperative; partial/transactional
+report delivery and packaged storage locations were not G1 requirements.
+
+## G2 - Local GUI MVP
+
+**Status:** Implemented; acceptance remains open.
+
+The MVP provides target/budget/key entry, Run, Cancel, and basic progress/status.
+There is no model selector in the GUI; the application/CLI model seam remains.
+No accounts, database, cloud execution, or SaaS features belong to this stage.
+
+Acceptance exposed report-trust issues, now addressed through validated
+structured finding identity, conservative verification, focused evidence,
+shared GUI/report summary accounting, and run-scoped item navigation. Generic
+page screenshots do not establish finding evidence. Repeated findings without
+trustworthy shared identity remain separate. This work did not start G4's
+in-app viewer or authorize further report editorial work.
+
+The human-report readability gate passed live validation on 2026-08-12, with
+41 deterministic checks reported passing. Severity-policy follow-up remains
+**deferred / not warranted with current signals** and requires explicit
+reauthorization. Do not reopen either gate without a material regression.
+
+### Implementation and acceptance are separate
+
+The former configuration-polish implementation checklist is now partly stale:
+committed code includes bare-domain normalization, masked key entry and remote
+credential preflight, session-memory key reuse, editable budgets, basic
+readiness/status, and target reachability/canonicalization preflight.
+Contextual missing-field guidance and native-menu cleanup remain in the G2
+polish bucket. See [desktop inputs](CONFIGURATION.md#desktop-inputs) for actual
+behavior. Their presence does not prove final visual/accessibility acceptance
+or close G2. The [polish bucket](BACKLOG.md#g2-gui-configuration-polish-bucket)
+retains item order and acceptance intent.
+
+Current hardening also includes popup-first-request containment, pinned document
+identity, password suppression beyond the field sample, collision-safe fallback
+finding identity, owned Gemini deadlines, and the `gemini-3.5-flash-lite` default.
+New report delivery uses schema v4 with persisted required exploratory narratives;
+historical v3 remains supported. These are implemented behavior, not broader
+claims of production readiness.
+
+### Remaining gate
+
+1. Confirm the ordered configuration-polish acceptance criteria, including
+   measured contrast, focus, and section hierarchy; do not reimplement features
+   merely because an old checklist says NOW.
+2. Complete the remaining two independent representative **10/10/10**
+   model-backed acceptance runs. Review reconciliation, evidence, verification,
+   report references, filenames, page references, and GUI/report accounting.
+   A major trust defect in Run 1 blocks Run 2 until fixed. Different legitimate
+   navigation paths/counts alone are not defects; no third run for reassurance.
+3. Reproduce and resolve or explicitly disposition the recorded Electron
+   smoke-process crash in the normal acceptance environment.
+4. Update documentation/status and explicitly decide whether G2 is accepted.
+
+A previously reported bounded one-page Gemini 3.5 Flash-Lite acceptance success
+is narrower than this gate and does not replace the two representative runs.
+This documentation audit does not rerun scans or certify those historical results.
 
-**Status:** In progress
-**Current stage:** G2 — Local GUI MVP
-**Roadmap v1:** Complete (Stages 1–10)
-**Roadmap v2 started:** 2026-07-26
+**G2 is complete when:** configuration is understandable and safely validated,
+the two representative runs have trustworthy reconciled output and consistent
+accounting, and no G2-blocking desktop runtime issue remains. Quick/Standard/
+Thorough presets are optional later work, with explicit editable budgets.
+Do not begin G3 merely because an implementation checklist is exhausted.
 
-## Goal
+## G3 - Live run experience
 
-Turn the completed CheckQuest engine into something a normal QA user can discover, understand, run, and use without Git, npm, Node.js, or command-line knowledge.
+Render structured events as understandable progress. Completion requires useful
+status, safe cancellation/cleanup, no secrets in UI events, and isolation of
+observer/UI failures from execution. Existing basic status does not by itself
+close this stage.
 
-Roadmap v2 is primarily a **product-shell roadmap**, not a new engine roadmap. It begins with a small public-facing product surface, then moves into the local GUI. Existing finding, safety, navigation, BYOK, investigation, and report semantics remain authoritative unless a stage explicitly requires a compatible interface change.
+## G4 - Findings and report viewer
 
-## Guiding principles
+Build a dedicated completed-run interface showing severity, verification,
+affected pages, evidence, and investigation outcome. Users must be able to open
+JSON/Markdown reports or their folder. Capture at least one representative real
+run as reusable product evidence from observation through investigation and
+verification; no mocked product proof. Existing generated reports are not the
+in-app viewer.
 
-- Keep the core engine presentation-agnostic.
-- Keep Gemini credentials user-owned and ephemeral by default.
-- Reuse the existing `runSite(...)`, event, error, and report boundaries.
-- Preserve the existing narrow AI collaborator seams; product-shell work must not introduce unnecessary direct Gemini coupling into presentation or orchestration layers.
-- Prefer a thin local product before committing to SaaS infrastructure.
-- Keep the public landing page static, honest, and clearly separate from hosted CheckQuest execution.
-- Do not add new QA intelligence merely because a GUI or landing page exists.
-- Let external user feedback and measured product friction determine the roadmap after G7.
+## G5 - Saved local configurations
 
-## Stages
+Save reusable site/run configuration as an optional convenience. Named profiles
+must not become a prerequisite for raw URLs. Keys remain ephemeral by default;
+persistent secrets require proper OS-level secure storage before being offered.
+Current session-memory reuse is not persistent credential storage.
 
-### G0 — Public landing & brand presence
+## G6 - Windows packaging
 
-**Completed:** 2026-07-26
+Deliver install - launch - configure - run without Git, Node, npm, or manual
+browser setup. Choose packaging technology here after the shell is proven.
+The source `desktop:build` command is not a packaged installer.
 
-Create a small public front door for CheckQuest before the local application shell.
+## G7 - External usability and product acceptance
 
-The landing page is a **product/marketing surface**, not the CheckQuest GUI and not a hosted execution environment.
+### External usability
 
-**Scope:**
+New users must independently install, understand purpose/safety, configure a
+target and BYOK key, run, understand progress/failure, interpret findings and
+verification, and locate reports. Required undocumented explanations are product
+friction.
 
-- publish a responsive GitHub Pages landing page;
-- use the current CheckQuest visual identity and **Explore. Investigate. Report.** slogan;
-- explain, concisely and accurately, what CheckQuest is, what it is not, who it is for, and why someone should consider it;
-- communicate the core workflow: explore a deployed website, investigate potential issues safely, and produce evidence-backed findings/reports;
-- include links to the GitHub repository and relevant documentation;
-- add representative product visuals or examples only when they reflect real CheckQuest behavior;
-- keep the site static and dependency-light.
+### Controlled evaluation
 
-No accounts, backend, cloud browser execution, billing, hosted scans, or SaaS infrastructure are introduced here.
+Use a small deterministic local fixture with seeded defects, safe lookalikes,
+repeated occurrences, inconclusive cases, useful candidate-linked interactions,
+and interactions the agent must refuse. Record expected findings detected/missed,
+obvious false positives, verification correctness, reconciliation, safety refusals,
+and material run-to-run instability. This does not establish universal accuracy
+or recall on arbitrary sites.
 
-**Done when:** a public GitHub Pages site is deployed, works well on desktop and mobile, communicates the product in a few seconds without overstating its capabilities, and routes users cleanly to the repository/documentation.
+### Model dependency
 
-G0 is intentionally bounded. It establishes CheckQuest's public identity without becoming a detour from the local product shell.
+Record availability, latency, rate limits, cost, provider changes, and output
+variability. Gemini remains the production provider; another provider is not
+required unless evidence justifies promoting that backlog item.
 
-### G1 — GUI/core boundary
-
-**Completed:** 2026-07-26
-
-Confirm that the GUI can configure and invoke CheckQuest through the existing reusable execution boundary without UI-specific logic leaking into the engine.
-
-The product shell may expose today's Gemini-backed capability, but it must preserve the existing narrow collaborator boundaries rather than embedding provider-specific behavior into GUI or application-shell logic.
-
-**Done when:** URL, budgets, transient Gemini credentials, progress, completion/failure, cancellation, and report location can be handled through a clean boundary; the GUI does not bypass the existing engine contracts or introduce unnecessary new direct Gemini coupling.
-
-G1 delivered the presentation-agnostic `startCheckQuest(...)` application
-boundary. A product shell can now supply an arbitrary HTTP/HTTPS URL or an
-existing site configuration, page/navigation/investigation budgets, transient
-per-run Gemini credentials, and an optional per-run model override. It can
-observe structured run events, receive categorized failures, cancel
-programmatically, and receive the schema-v3 report plus absolute paths for the
-report directory and persisted JSON and Markdown artifacts.
-
-Cancellation is explicit and idempotent before execution starts, during
-execution or persistence, and after completion. The engine stops further useful
-work at safe boundaries, does not interrupt mandatory guarded-action rollback,
-and closes Playwright/browser resources through required cleanup on success,
-ordinary failure, and cancellation. A cancellation cannot race into an
-apparent successful completion, and cleanup failure remains secondary to the
-primary run failure or cancellation.
-
-The application boundary now sanitizes its public outputs: raw nested error
-causes do not cross the boundary, and the transient Gemini credential is
-redacted from serialized event metadata, returned errors and results, report
-content, and persisted report files. Per-run model overrides do not mutate
-process-global state.
-
-The CLI is now a thin consumer of `startCheckQuest(...)`. It owns argument and
-environment adaptation, terminal event rendering, signal handling, and final
-console output while shared application code owns execution, cancellation, and
-report persistence.
-
-G1 acceptance verification passed:
-
-- `npm run check` — PASS, including 29/29 deterministic checks;
-- `npm run test:browser:ci` — PASS, 7/7;
-- `npm run agent:application-run-browser-check` — PASS;
-- `npm test` — PASS, 3/3 when network permission was available; the earlier
-  sandbox network denial occurred before assertions and was environmental; and
-- `git diff --check` — PASS.
-
-The following remain non-blocking future work rather than G1 requirements:
-
-- cancellation during an active filesystem write remains cooperative, and no
-  partial-report contract is required;
-- packaged-app user-data and report-storage location selection remains product
-  shell/packaging work; and
-- forced injection of a real Chromium `browser.close()` failure is not required
-  for G1; cleanup precedence is covered deterministically and real browser
-  connection cleanup is covered by integration checks.
-
-### G2 — Local GUI MVP
-
-**Status:** Implemented; acceptance remains in progress.
-
-Build the smallest useful local interface.
-
-**MVP:** URL, page/navigation/investigation budgets, transient Gemini key, Run,
-Cancel, and basic status. The reusable application/CLI boundaries retain an
-optional per-run model override, but the current desktop MVP intentionally does
-not expose a model selector.
-
-No accounts, database, cloud execution, or SaaS features.
-
-The Electron GUI MVP is implemented. Real-run acceptance then exposed a
-trustworthiness problem below the GUI layer: the human report could split one
-logical defect into multiple findings when model-generated wording drifted,
-make visual-sounding claims without focused visual evidence, and present
-finding/occurrence/count information in ways that were difficult to reconcile.
-
-That acceptance blocker has been remediated without weakening the existing
-`VERIFIED` / `INCONCLUSIVE` boundary:
-
-- finding reconciliation now uses validated structured evidence identity rather
-  than generated title/description prose, while observations without trustworthy
-  structured identity remain separate rather than being guessed together;
-- repeated occurrences retain one canonical logical finding and occurrence
-  history, with explicit under-merge and over-merge regression coverage;
-- visual claims require appropriate focused visual evidence, while
-  accessibility, network, technical, and security observations use evidence
-  suited to the claim;
-- generic visited-page screenshots are no longer treated as finding evidence;
-  replay of transient UI state remains bounded by the existing safe-interaction
-  policy;
-- GUI and report completion counts derive from one reconciled summary source and
-  distinguish confirmed findings, review findings, and technical observations;
-- the human report now uses run-scoped item IDs, a complete primary index,
-  page-to-item links, correlated evidence filenames, clearer item boundaries,
-  and proportionate security detail; and
-- verification thresholds and canonical finding semantics were not relaxed to
-  make the report appear more decisive.
-
-The report remediation is an acceptance fix discovered through G2, not a new
-roadmap stage and not an early start on G4's dedicated in-app report viewer.
-
-The report trustworthiness remediation is implemented, and the human-report
-readability gate passed live validation on 2026-08-12. It is no longer blocking
-the remaining G2 acceptance work. The completed gate preserves useful
-finding-specific impact and follow-up guidance for inconclusive findings,
-retains duplicate select-option conditions, excludes confidently non-HTML
-responses from HTML-only checks and human-facing page/security occurrence
-lists without altering persisted run data, and gives visible-text evidence
-captures bounded surrounding context. The same gate cycle also completed raw
-URL apex/`www` canonicalization and one retry for invalid exploratory structured
-responses. `npm run check` passed all 41 deterministic checks.
-
-The bounded Phase 5B severity-policy audit is closed: its implementation
-follow-up is deferred / not warranted with current signals and is not part of
-active G2 scope.
-
-**G2 remains open pending:**
-
-- a bounded GUI configuration-polish pass, tracked in the dedicated
-  [G2 GUI configuration polish bucket](BACKLOG.md#g2-gui-configuration-polish-bucket),
-  covering target URL normalization/validation, consistent required-field
-  signaling, editable and understandable budget controls, masked and validated
-  Gemini-key entry with precise storage copy, contextual run-readiness
-  feedback, cleanup of irrelevant default Electron menu commands, and a final
-  contrast/section-hierarchy audit;
-- two independent representative model-backed **10/10/10 acceptance runs** for
-  the remaining broader end-to-end G2 acceptance, including reconciliation,
-  focused evidence, verification-state integrity, and report
-  accounting/navigation. The completed readability gate need not be reopened
-  without a regression. A major trust defect in Run 1 blocks Run 2 until fixed;
-  otherwise Run 2 is an independent confirmation. Legitimately different
-  navigation paths or page subsets do not by themselves constitute a trust
-  defect, and a third run is not required merely for reassurance; and
-- follow-up on the Electron desktop smoke-process crash observed during the
-  remediation pass, despite the deterministic desktop suite, desktop build, and
-  constituent browser checks otherwise passing.
-
-Quick / Standard / Thorough presets remain a later optional refinement rather
-than a G2 acceptance requirement. Any future presets must keep the explicit
-exploration budgets visible and editable rather than hiding their meaning.
-
-**G2 is complete when:** the MVP has understandable and safely validated run
-configuration, completes two independent representative 10/10/10 real runs with
-trustworthy reconciled output, consistent final accounting, and acceptable
-human readability, and has no known G2-blocking desktop runtime issue.
-
-### G3 — Live run experience
-
-Render structured engine events as understandable progress.
-
-**Done when:** users can see what CheckQuest is doing, cancellation cleans up safely, secrets never enter UI events, and UI/observer failures cannot corrupt the run.
-
-### G4 — Findings and report viewer
-
-Present completed findings in a useful human interface.
-
-The viewer should make CheckQuest's evidence model visible rather than reducing a finding to a generic pass/fail label.
-
-**Done when:**
-
-- users can review severity, verification state, affected pages, evidence, and investigation outcome;
-- users can open the JSON/Markdown report or report folder; and
-- at least one representative real CheckQuest run can be captured as a reusable product-proof artefact showing the path from suspicious observation through investigation to verification state and supporting evidence.
-
-The representative artefact may later be reused in the public landing page, README, documentation, screenshots, or a short demo. It must reflect real CheckQuest behavior rather than a mocked product experience.
-
-### G5 — Saved local configurations
-
-Allow reusable local run configurations for frequently tested sites.
-
-Named profiles become an optional user convenience, not a prerequisite for arbitrary URLs.
-
-Gemini keys remain ephemeral by default; persistent secrets require proper OS-level secure storage before being offered.
-
-### G6 — Windows packaging
-
-Package the local application so a user does not need Git, Node.js, npm, or manual browser setup.
-
-**Target:** install → launch → configure → run.
-
-Packaging technology is chosen here, after the local GUI architecture is proven.
-
-### G7 — External usability and product acceptance
-
-Give the packaged application to people who have not participated in development and perform a bounded credibility/evaluation pass before deciding what CheckQuest becomes next.
-
-#### External usability acceptance
-
-Acceptance asks whether new users can independently:
-
-1. install CheckQuest;
-2. understand its purpose and safety boundary;
-3. configure a site and BYOK key;
-4. run a scan;
-5. understand progress and failures;
-6. interpret findings and verification state; and
-7. locate/use the generated report.
-
-Any required “you also need to know…” explanation is treated as product friction.
-
-#### Controlled evaluation fixture
-
-Maintain a small deterministic local site/fixture containing deliberately seeded cases that exercise CheckQuest's core claims without pretending exploratory QA has a complete bug denominator.
-
-The fixture should include representative examples such as:
-
-- defects that CheckQuest is expected to detect;
-- safe lookalikes that should not become findings;
-- repeated occurrences that should reconcile correctly;
-- cases whose evidence should remain `INCONCLUSIVE`;
-- candidate-linked interactions that can gather meaningful evidence; and
-- interactions or states that CheckQuest should refuse or back away from because of its safety boundary.
-
-The evaluation should record, at minimum:
-
-- expected seeded findings detected or missed;
-- obvious false-positive behavior;
-- correctness of `VERIFIED` versus `INCONCLUSIVE` handling;
-- occurrence reconciliation/deduplication behavior;
-- safety-boundary refusals; and
-- material run-to-run instability on the controlled fixture.
-
-This is a repeatable credibility check, not a claim that CheckQuest can achieve a universal accuracy, recall, or defect-detection percentage on arbitrary websites.
-
-#### Model-dependency assessment
-
-During G7, record whether the current Gemini dependency creates meaningful product friction through availability, latency, rate limits, cost, provider behavior changes, or material run-to-run variability.
-
-Roadmap v2 does **not** require another provider. The purpose of this assessment is to determine whether provider abstraction deserves promotion from the parking lot based on observed user/deployment need rather than architectural fashion.
-
-**G7 is complete when:** external users can perform the core workflow with acceptable product friction, the controlled evaluation fixture has been exercised and reviewed, and the observed model-dependency/repeatability risks are documented well enough to inform the next roadmap.
+G7 closes when outsiders can use the core workflow with acceptable friction,
+the controlled fixture has been exercised/reviewed, and dependency/repeatability
+risks can inform the next product decision.
 
 ## Product validation gate
 
-Roadmap v2 stops after G7.
+Stop after G7 and explicitly choose direction before Roadmap v3. Possible needs
+include monitoring/history, authenticated exploration, regression-test generation,
+additional providers, partial reports, or CI/release integrations. They are not
+committed v2 requirements.
 
-Before defining Roadmap v3, make explicit product decisions based on external usage and the G7 evidence.
+Also explicitly decide licensing/distribution from product evidence: remaining
+source-visible/proprietary, open source, open core, or another model. A public
+repository does not imply a license grant.
 
-### Product-direction decision
+## Explicit exclusions
 
-Determine which problems real users actually want CheckQuest to solve next. Candidates may include:
-
-- SaaS / scheduled monitoring and run history;
-- authenticated application exploration;
-- finding-to-Playwright regression-test generation;
-- additional model providers;
-- partial-run reporting;
-- CI/release integrations; or
-- other needs repeatedly demonstrated by real users.
-
-These are **not committed Roadmap v2 requirements**.
-
-### Distribution and licensing decision
-
-Explicitly decide the intended distribution/commercial model before broad adoption is encouraged.
-
-Possible outcomes include remaining source-visible/proprietary, adopting an open-source license, using an open-core model, or another deliberate commercial/distribution approach.
-
-The public repository must not be treated as implying an open-source commitment. The decision should follow product validation rather than precede it.
-
-## Explicitly out of scope for Roadmap v2
-
-- SaaS accounts, teams, billing, or cloud browser workers;
-- hosted CheckQuest execution from the public landing page;
-- scheduled scans or notifications;
-- arbitrary browser-action expansion;
-- new passive-security scope;
-- authenticated workflows;
-- multi-model/provider support;
-- generated regression tests;
-- automatic updates;
-- browser extensions;
-- universal accuracy/recall claims for exploratory testing; and
-- changes to schema-v3 semantics merely for GUI convenience.
+V2 does not authorize SaaS accounts/teams/billing/cloud workers, hosted execution
+from the landing page, schedules/notifications, arbitrary action expansion, new
+passive-security scope, authenticated workflows, multi-provider support,
+generated tests, automatic updates, extensions, universal accuracy claims, or
+incompatible report changes for GUI convenience. Record new needs in the backlog
+and preserve stage order.
 
 The purpose of Roadmap v2 is simple:
 
-> **Give CheckQuest a clear public front door, expose the CheckQuest we already built to humans, prove its core behavior in a bounded and honest way, then learn what deserves to be built next.**
+> Give CheckQuest a clear public front door, expose the CheckQuest we already
+> built to humans, prove its core behavior in a bounded and honest way, then
+> learn what deserves to be built next.

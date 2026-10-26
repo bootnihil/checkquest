@@ -1,17 +1,13 @@
 # CheckQuest Backlog
 
-**Scope:** Unified living backlog across all CheckQuest roadmap versions
-**Established:** 2026-07-23
-**Current roadmap:** Roadmap v2 - Public Landing + Local GUI / Product Shell
-**Current roadmap document:** `ROADMAP-V2.md`
-**Current roadmap stage:** G2 - Local GUI MVP
-**Completed roadmap:** Roadmap v1 - Stages 1-10 accepted
-**Current execution focus:** G2 acceptance: complete the bounded GUI configuration-polish bucket, execute the remaining independent representative 10/10/10 model-backed acceptance runs, and resolve or disposition the Electron smoke failure
-**Most recently completed:** Human-report readability gate passed after live validation; full deterministic gate passed 41/41 (2026-08-12)
+**Scope:** Living backlog across roadmap versions, established 2026-07-23.
+**Current stage:** [Roadmap v2](ROADMAP-V2.md#g2---local-gui-mvp), G2 acceptance.
+**Completed plan:** [Roadmap v1](ROADMAP.md), Stages 1-10.
 
-This is the single project-wide parking place for work that should not silently interrupt the current roadmap stage. It persists across Roadmap v1, v2, and future roadmap versions.
-
-The **current** canonical stage order is defined in `ROADMAP-V2.md`. The completed Roadmap v1 is preserved in `ROADMAP.md` as the historical Stage 1–10 engineering record. When a future roadmap becomes current, this same backlog continues; only the roadmap pointers and execution focus are updated.
+Stage order takes precedence over item number. Record non-blocking work here;
+only a true blocker or an explicit planning decision interrupts the current
+stage. NOW means in scope, not evidence that implementation is absent or that
+acceptance passed.
 
 ## Status values
 
@@ -32,56 +28,38 @@ A newly added backlog item does **not** become immediate work merely because it 
 
 # Active and queued backlog
 
-Roadmap v2 stages G2–G7 are the remaining committed execution plan and are intentionally not duplicated as backlog rows. New defects, refinements, or product ideas discovered while executing them belong here unless they are true blockers for the current stage.
+G2-G7 remain the committed sequence; their requirements live in
+[Roadmap v2](ROADMAP-V2.md) rather than duplicate backlog rows. G0 and G1 are
+complete. The GUI MVP and report-trustworthiness remediation are implemented;
+the human-report readability gate passed live validation on 2026-08-12.
 
-G0 — Public landing & brand presence — completed on 2026-07-26. The public GitHub Pages site, aligned repository/branding presentation, responsive/contrast acceptance, and Pages deployment are complete.
-
-G1 — GUI/core boundary — completed on 2026-07-26. The accepted
-`startCheckQuest(...)` application boundary supports arbitrary URLs and
-existing site configurations, page/navigation/investigation budgets, transient
-per-run Gemini credentials, per-run model override, structured events,
-categorized failures, idempotent cancellation, report persistence, and
-absolute artifact paths. Cancellation preserves guarded-action rollback and
-required browser cleanup; application-boundary sanitization prevents
-credentials and nested causes from crossing public event, error, report, or
-result boundaries. The CLI now delegates execution and persistence to this
-shared boundary.
-
-Current execution continues with **G2 — Local GUI MVP** in `ROADMAP-V2.md`.
-
-The Electron GUI MVP is implemented. G2 acceptance exposed and then remediated
-a deeper report-trustworthiness blocker: generated prose could fragment one
-logical defect, visual-sounding claims could lack focused visual proof, and GUI
-and report totals could describe the same run differently. The remediation now
-uses validated structured identity, preserves conservative verification,
-captures claim-appropriate evidence, derives GUI/report counts from one shared
-projection, and gives human report items stable run-scoped IDs and navigation.
+Remaining G2 work is configuration-polish acceptance, the two representative
+10/10/10 acceptance runs, and resolution or explicit disposition of the recorded
+Electron smoke failure. Current code implements several formerly pending polish
+items; validate their acceptance criteria rather than treating this table as an
+implementation inventory. This documentation pass does not accept G2.
 
 ## Report readability and severity-policy status
 
-The G2 human-report trustworthiness remediation is implemented, and the
-readability gate passed live validation. Inconclusive findings retain useful
-specific impact and follow-up guidance; duplicate-option conditions remain
-understandable; confidently non-HTML responses are omitted from HTML-only
-checks and human-facing page/security occurrence presentation without changing
-persisted run data; and visible-text evidence has bounded surrounding context.
-Raw URL apex/`www` canonicalization and exploratory structured-response retry
-reliability were also completed during this gate cycle. The deterministic gate
-passes 41/41, so readability is no longer blocking the remaining G2 work.
+The completed readability gate is not an active blocker. Current reports use
+schema v4 with persisted exploratory narratives; historical v3 remains supported.
+The gate also delivered structured identity, claim-appropriate evidence,
+non-HTML filtering in HTML-only checks/human views, bounded visible-text context,
+apex/`www` handling, and exploratory response retry. See
+[Architecture](ARCHITECTURE.md) for current behavior.
 
-Phase 5B.1, the bounded severity-policy audit/design pass, is complete. Phase
-5B.2 is **deferred / not warranted with current signals** and is not an active
-implementation phase. Reconsider severity recalibration only if a concrete
-future trigger shows that the existing structured signals are insufficient or
-produce a material user-facing severity problem; any such work requires
-explicit reauthorization before implementation.
+Phase 5B.1 severity-policy audit/design is complete. Phase 5B.2 remains
+**deferred / not warranted with current signals**. Reopen only for a material
+user-facing problem or concrete evidence that current structured signals are
+insufficient, with explicit reauthorization.
 
 ## G2 GUI configuration polish bucket
 
-This is the ordered working bucket for configuration-side GUI polish discovered
-during G2 acceptance. Add new configuration-form ideas here rather than
-scattering them through roadmap prose or immediately interrupting the current
-acceptance sequence.
+This ordered bucket retains configuration-polish acceptance intent. Bare-domain
+normalization, masked/remote-checked keys with session reuse, editable budgets,
+and basic readiness/status exist in committed code. Contextual missing-field
+guidance, menu cleanup, final visual acceptance, and stage closure remain open.
+Add new ideas here rather than interrupting the acceptance sequence.
 
 `NOW` items are bounded G2 polish. `PARKED` items are deliberate later ideas and
 are not G2 completion requirements. Implementation must preserve the existing
@@ -135,7 +113,8 @@ The polish pass should not redesign the interface for its own sake. Preserve:
 
 ### Remaining G2 acceptance order
 
-1. Implement and verify the nine `NOW` configuration-polish items above.
+1. Verify the nine `NOW` configuration-polish acceptance criteria above,
+   completing only confirmed remaining implementation gaps.
 2. Run an independent representative model-backed **10/10/10 acceptance run**
    and inspect reconciliation, focused evidence, verification-state integrity,
    item numbering/links, filenames, page references, GUI/report totals, and

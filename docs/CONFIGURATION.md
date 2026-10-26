@@ -1,458 +1,205 @@
-# CheckQuest Configuration
+# CheckQuest configuration
 
-This document is the configuration reference for the current repository. Start
-with the [README](../README.md) for installation and normal CLI usage. See
-[CheckQuest Architecture](ARCHITECTURE.md) for execution flow, programmatic
-events, errors, findings, credentials, and safety boundaries.
+Use the [README](../README.md) for installation and first-run commands.
+This reference covers current inputs; [Public contracts](PUBLIC-CONTRACTS.md)
+defines compatibility. Profiles and TypeScript APIs are source-level interfaces,
+not a published configuration-file format or SDK.
 
-Configuration is currently source-level and experimental. It is not a
-versioned public configuration-file format or SDK stability promise.
-
-## Configuration model
-
-A CLI run is configured in four steps:
-
-1. parse zero or one positional target plus optional runtime controls;
-2. resolve the target to a `SiteConfig`;
-3. apply any supplied budget overrides; and
-4. adapt the invoking environment's Gemini credential into explicit per-run
-   execution context before calling `runSite`.
-
-The target can be a registered site ID or a complete HTTP/HTTPS URL. Registered
-profiles are authored in the repository. A URL supplied at runtime creates a
-temporary conservative profile; CheckQuest does not persist it.
-
-Credentials are deliberately separate from `SiteConfig`. A site profile
-describes exploration policy; a Gemini API key belongs only to the current
-execution.
-
-The authoritative implementations are the
-[CLI option parser](../agent/config/agent-run-options.ts), the
-[site registry](../agent/sites/index.ts),
-[`SiteConfig`](../agent/config/site-config.ts), and the
-[CLI credential adapter](../agent/cli/resolve-run-site-credentials.ts).
-
-## Choosing a target
-
-The CLI accepts zero or one positional target:
+## CLI targets and budgets
 
 ```text
-npm run agent:run -- [configured-site-id-or-url] [options]
+npm start -- [configured-site-id-or-url] [options]
 ```
 
-`agent:run` and `agent:explore` are aliases. When the target is omitted,
-CheckQuest selects `aidoc`.
+`agent:run` and `agent:explore` invoke the same entry point. Supply at most one
+target: a complete `http://` / `https://` URL or a registered profile ID.
+Omitting it selects `aidoc`. Unlike the desktop interface, the CLI does not
+add a scheme to bare domains.
 
-### Configured site
-
-A configured site is a reusable `SiteConfig` registered in the source tree.
-The repository currently contains one registered ID:
-
-| Site ID | Start URL | Allowed hostnames | Default budgets |
+| Target | Start URL | Allowed hostnames | Default pages / navigation / investigation |
 |---|---|---|---|
-| `aidoc` | `https://www.aidoc.com/` | `aidoc.com`, `www.aidoc.com` | 5 pages, 6 navigation decisions, 3 investigation steps/page |
+| Raw URL | Supplied URL, normalized by `URL` | Supplied hostname and exact `www` counterpart | 3 / 4 / 3 |
+| `aidoc` | `https://www.aidoc.com/` | `aidoc.com`, `www.aidoc.com` | 5 / 6 / 3 |
 
-Run the default or explicit configured target with:
+Runtime profiles are temporary and are not added to the registry.
 
-```bash
-npm run agent:run
-npm run agent:run -- aidoc
+| CLI option | Meaning | Range |
+|---|---|---:|
+| `--pages` | Inspected-page ceiling, including page 1 | 1-20 |
+| `--navigation-steps` | Run-level navigation-decision ceiling | 1-50 |
+| `--steps-per-page` | Per-page investigation planner-decision ceiling | 0-10 |
+
+An explicit navigation budget is preserved independently of the page budget.
+When omitted, it becomes `max(profile.maxAgentSteps, effectivePageBudget)`.
+Thus `aidoc --pages 10` gets 10 navigation decisions; a raw URL with `--pages 2`
+retains 4. Decisions can stop or reject actions, so budgets do not guarantee
+that many executed interactions or inspected pages.
+
+```sh
+npm start -- https://www.example.com/ --pages 5 --navigation-steps 7 --steps-per-page 3
+npm start -- https://www.example.com/ --steps-per-page 0
 ```
 
-This registration expresses only the current start URL, hostname policy,
-budgets, and form policy. It does not contain a Gemini credential and does not
-guarantee that every page or control on the site is supported.
+Zero investigation steps leave analysis, diagnostics, deterministic checks,
+and passive security enabled. This is not an offline or Gemini-free mode.
 
-### Arbitrary URL
+## Desktop inputs
 
-Supply a complete URL beginning with `http://` or `https://`:
+Run `npm run desktop:start` after source installation. The interface accepts an
+HTTP(S) URL, bare dotted hostname, localhost, or explicit IP address. Bare
+website hostnames default to HTTPS; local/IP targets default to HTTP. URL
+userinfo is rejected. Profiles cannot be selected by ID in the current form.
 
-```bash
-npm run agent:explore -- https://www.example.com/
-```
+Defaults are 3 pages, 4 navigation decisions, and 3 investigation steps/page.
+Ranges match the CLI except investigation is **1-10**, not 0-10. Desktop
+budgets are submitted explicitly. There is no desktop model selector.
 
-CheckQuest parses and normalizes the URL, derives a run-local profile, and
-allows only the exact supplied hostname. For example,
-`https://www.example.com/` allows `www.example.com`; it does not automatically
-allow `example.com`, sibling subdomains, or external hosts.
+Before exploration, a newly supplied key is checked with an authenticated,
+non-generative Gemini model-list GET (10-second timeout, one SDK attempt).
+An accepted key is held in main-process session memory and reused without
+another key preflight until replaced or the app exits. Request copies and the
+renderer entry are cleared after submission; this is not a claim of secure
+memory erasure. The app does not persist keys.
 
-The runtime profile defaults to:
+Target reachability is checked in a separate headless Chromium visit with a
+15-second navigation timeout before the actual run. Safe canonical redirects
+permit the exact hostname/`www` pair, the same protocol and effective port, or
+an HTTP-to-HTTPS upgrade with the allowed port relationship. Other destinations
+are rejected. This preflight loads the website separately and is not part of
+the exploration page budget. It does not prove every page will be reachable.
 
-| Setting | Value |
-|---|---:|
-| Pages | 3 |
-| Navigation decisions | 4 |
-| Investigation steps per page | 3 |
-| Form submission | Disabled |
-
-An arbitrary URL is not persisted or added to the configured-site registry.
-It also does not imply compatibility with every website, custom control,
-authentication flow, or client-side behavior.
-
-## Runtime controls
-
-Options can follow either target form:
-
-| CLI option | `SiteConfig` field | Meaning | Allowed CLI values |
-|---|---|---|---|
-| `--pages` | `maxPages` | Maximum number of distinct pages inspected, including the start page | Integer 1–20 |
-| `--navigation-steps` | `maxAgentSteps` | Maximum site-level navigation decisions | Integer 1–50 |
-| `--steps-per-page` | `maxExploratoryStepsPerPage` | Maximum autonomous investigation actions for each inspected page | Integer 0–10 |
-
-Analysis, diagnostics, deterministic evaluation, and candidate generation
-still run when `--steps-per-page 0` is selected. Zero disables autonomous
-candidate investigation on the page.
-
-Example:
-
-```bash
-npm run agent:explore -- https://www.example.com/ --pages 5 --navigation-steps 7 --steps-per-page 3
-```
-
-Disable autonomous investigation:
-
-```bash
-npm run agent:explore -- https://www.example.com/ --steps-per-page 0
-```
-
-Increase only the page budget:
-
-```bash
-npm run agent:run -- aidoc --pages 10
-```
-
-Page and navigation budgets are distinct. When `--navigation-steps` is
-explicit, CheckQuest preserves it even when it is lower or higher than the
-page budget. When it is omitted, the effective navigation budget is the
-greater of the profile default and the effective page budget. Consequently,
-`aidoc --pages 10` uses 10 navigation decisions, while a runtime URL with
-`--pages 2` retains its default of 4.
-
-These are ceilings, not promised work counts. A run can finish earlier when no
-eligible navigation or investigation remains.
-
-## `SiteConfig` reference
-
-The current [`SiteConfig`](../agent/config/site-config.ts) fields are:
-
-| Field | Meaning |
-|---|---|
-| `id` | Registered profile identifier |
-| `name` | Human-readable profile name |
-| `startUrl` | Initial HTTP/HTTPS page; always inspected as page 1 |
-| `allowedHosts` | Exact hostnames permitted for start and subsequent navigation |
-| `maxPages` | Run-level inspected-page ceiling |
-| `maxAgentSteps` | Run-level navigation-decision ceiling |
-| `maxExploratoryStepsPerPage` | Per-page autonomous investigation ceiling |
-| `allowFormSubmission` | Explicit form-submission policy flag |
-
-Reusable [`runSite` input validation](../agent/run/validate-run-site-input.ts)
-requires a valid HTTP/HTTPS start URL, a non-empty allowed-host list containing
-the start hostname, safe whole-number budgets, and a Boolean form policy.
-`maxPages` must be at least 1; the two step budgets can be 0 for programmatic
-configuration. The CLI applies its narrower ranges shown above.
-
-Gemini credentials are intentionally absent from `SiteConfig`. They are
-per-run execution context supplied separately to `runSite(...)`.
-
-## Adding a configured site
-
-Adding a reusable profile is a source change, not a CLI registration command.
-Create a small module such as `agent/sites/example.ts`:
-
-```ts
-import type {
-  SiteConfig
-} from '../config/site-config';
-
-export const exampleSite = {
-  id:
-    'example',
-
-  name:
-    'Example website',
-
-  startUrl:
-    'https://www.example.com/',
-
-  allowedHosts: [
-    'www.example.com'
-  ],
-
-  maxPages:
-    3,
-
-  maxAgentSteps:
-    4,
-
-  maxExploratoryStepsPerPage:
-    2,
-
-  allowFormSubmission:
-    false
-} satisfies SiteConfig;
-```
-
-Then import it in the [site registry](../agent/sites/index.ts) and add it to
-the existing `sites` object:
-
-```ts
-import {
-  exampleSite
-} from './example';
-
-const sites: Record<string, SiteConfig> = {
-  [aidocSite.id]:
-    aidocSite,
-
-  [exampleSite.id]:
-    exampleSite
-};
-```
-
-Choose a unique ID, include every hostname that navigation is intentionally
-allowed to reach, and keep all budgets bounded. Keep
-`allowFormSubmission: false` unless a future explicit interaction policy and
-safety review create a concrete reason to change it. Adding a profile does not
-broaden the implemented browser action vocabulary and does not store a Gemini
-credential.
+See [desktop input validation](../desktop/start-run-contract.ts),
+[run controller](../desktop/run-controller.ts), and
+[canonical-target policy](../desktop/preflight-target-reachability.ts).
 
 ## Host policy
 
-Host checks use exact URL hostnames:
+[`allowedHosts`](../agent/config/site-config.ts) contains exact hostnames,
+not origins. Protocol and port are not independently constrained by that list.
+The start hostname, eligible navigation targets, final redirect hostname, and
+post-investigation hostname must be allowed. Subdomains are not inherited.
 
-- the configured start URL hostname must appear in `allowedHosts`;
-- discovered navigation links are restricted to those hostnames;
-- a requested navigation target outside the list is rejected;
-- a redirect whose final hostname is outside the list is rejected; and
-- post-investigation page state is checked against the same list.
+Raw-URL profiles add only one peer: `example.com` pairs with `www.example.com`;
+`app.example.com` pairs with `www.app.example.com`, not the apex domain. A
+source-authored profile must explicitly list each intended hostname.
 
-This is a hostname allowlist, not an origin allowlist: protocol and port are
-not separately represented in `allowedHosts`. Subdomains are not inherited.
-If both `example.com` and `www.example.com` are intended, both must be listed.
-Runtime URL profiles contain only the exact hostname parsed from the supplied
-URL.
-
-The allowlist bounds where CheckQuest navigates; it is not a general network
-isolation or formal no-side-effect guarantee. Ordinary page loading can still
-load resources and execute target-site JavaScript.
-
-## Form-submission policy
-
-`SiteConfig` contains `allowFormSubmission`, and the current `aidoc` and
-runtime-URL profiles set it to `false`.
-
-The current planner and browser action vocabulary does not provide generic
-form-submit authority. Supported form-control actions are narrowly targeted
-local fill, clear, blur, and native-option selection operations; observed
-submit buttons do not grant permission to activate them.
-
-The presence of the configuration field must not be interpreted as a promise
-that arbitrary form submission is implemented or safe. Ordinary supported
-form-control events can still trigger website JavaScript, so
-“production-safe” remains an engineering goal rather than a guarantee of zero
-possible side effects.
+The policy is not network isolation. Redirects are checked at their final URL;
+ordinary loads can contact other hosts for resources and execute site scripts.
+See [Browser safety](ARCHITECTURE.md#browser-safety).
 
 ## Gemini BYOK
 
-Normal model-backed CLI exploration reads one user-owned credential from the
-invoking process environment:
-
-```text
-GEMINI_API_KEY
-```
-
-The CLI resolves that environment value and passes it into `runSite(...)` as
-an explicit per-run credential. The reusable execution core does not silently
-read `process.env.GEMINI_API_KEY` and does not mutate process-global
-credential state.
-
-`GOOGLE_API_KEY` is not accepted as an implicit fallback. The repository has
-no automatic `.env` loader. CheckQuest does not persist the key or include it
-in reports, run events, prompts, diagnostics, reusable site configuration, or
-public error messages. Do not commit credentials to the repository.
-
-When a default Gemini-backed analysis, planner, or navigation path can be
-reached, `runSite(...)` requires a non-blank explicit per-run Gemini key before
-Chromium launches. Missing or blank credentials fail as a non-retryable
-`MODEL` error with phase `gemini-credential-resolution`.
-
-Programmatic callers can supply a transient credential directly:
-
-```ts
-const run = startCheckQuest({
-  target: exampleSite.startUrl,
-  credentials: {
-    geminiApiKey: userGeminiApiKey
-  },
-  model: optionalModelOverride
-});
-
-const result = await run.result;
-```
-
-Because the credential belongs to a single invocation rather than global
-process state, separate desktop or hosted runs can supply different user keys
-without changing `process.env`.
-
-Mandatory browser-free and local Chromium repository gates do not require
-Gemini. A programmatic `runSite(...)` execution whose reachable page-analysis,
-planner, and navigation-choice collaborators are fully injected also requires
-no Gemini key.
-
-The collaborator seam is described in
-[Programmatic `runSite` API](ARCHITECTURE.md#programmatic-runsite-api).
-
-## Model override
-
-`GEMINI_MODEL` optionally overrides the model name used by the production
-Gemini-backed page-analysis, planner, and navigation-choice paths:
-
-```text
-GEMINI_MODEL
-```
-
-When it is absent, the current implementation default is
-`gemini-3.5-flash-lite`. That default is implementation configuration, not a
-stable public API guarantee. CheckQuest does not provide model aliases,
-provider selection, or configuration for non-Gemini providers.
-
-The CLI adapts this environment value into the explicit per-run `model` input.
-Programmatic callers can pass that model directly without mutating process
-environment state. The current Electron desktop GUI intentionally does not
-expose a model selector; desktop runs use the normal implementation default
-unless that product decision changes later. The application boundary still
-retains the optional per-run model seam, so removing the GUI control did not
-remove model override capability from reusable execution.
-
-## Cross-platform environment examples
-
-These examples set values for the current shell or process environment only.
-Replace the placeholders locally; do not store real credentials in source
-control.
+The CLI adapts `GEMINI_API_KEY` from its process environment into explicit
+per-run credentials. There is no implicit `GOOGLE_API_KEY` fallback or automatic
+`.env` loader. Core `runSite(...)` does not read a process-global API key.
 
 PowerShell:
 
 ```powershell
-$env:GEMINI_API_KEY = "your-key"
+$env:GEMINI_API_KEY = "replace-with-your-key"
 $env:GEMINI_MODEL = "your-model"
 ```
 
 Windows cmd:
 
 ```bat
-set GEMINI_API_KEY=your-key
+set GEMINI_API_KEY=replace-with-your-key
 set GEMINI_MODEL=your-model
 ```
 
 POSIX shell:
 
 ```sh
-export GEMINI_API_KEY="your-key"
+export GEMINI_API_KEY="replace-with-your-key"
 export GEMINI_MODEL="your-model"
 ```
 
-For CLI execution, `GEMINI_API_KEY` is read by the CLI adapter and converted
-into the explicit per-run credential supplied to the reusable core.
+`GEMINI_MODEL` is optional. The current default is **`gemini-3.5-flash-lite`**,
+not a stable model-name promise. Programmatic callers can pass `model` per run;
+`aiConfig` also reads `GEMINI_MODEL` at module load, so an inherited environment
+override can affect desktop defaults even though its UI has no selector.
+Gemini is the only production provider.
 
-Permanent environment configuration is operating-system-specific. CheckQuest
-does not manage credential storage or shell profiles.
+Keys are execution context, never `SiteConfig`. CheckQuest must not persist
+or expose them through prompts, reports, events, diagnostics, or public errors.
+The application boundary redacts the supplied key from serialized outputs.
+Page observations are sent to Gemini; the absence of a key in reports does not
+make target content private from the provider.
 
-## Configuration errors
-
-Known CLI target and option failures use `CheckQuestError` code
-`CONFIGURATION` and are rendered as bounded, actionable public messages.
-
-| Situation | Current behavior |
-|---|---|
-| Unknown option | Lists the three supported CLI options |
-| Missing option value | Identifies the option requiring a value |
-| Non-integer or out-of-range value | Reports the required whole-number range |
-| Duplicate option | States that the option can be supplied only once |
-| More than one positional target | Requests only one configured ID or URL |
-| Unknown configured site | Lists the currently available configured IDs |
-| Malformed `http://` or `https://` URL | Requests a complete HTTP/HTTPS URL |
-| Non-HTTP(S) programmatic `startUrl` | Rejected by reusable input validation |
-| Missing or blank CLI `GEMINI_API_KEY` | Non-retryable `MODEL`, not `CONFIGURATION` |
-| Missing or blank required per-run Gemini credential | Non-retryable `MODEL`, not `CONFIGURATION` |
-
-The CLI recognizes runtime URLs by their `http://` or `https://` prefix. A
-target with another scheme is not a runtime URL and will normally be resolved
-as an unknown configured-site ID. Programmatic `runSite` validation separately
-rejects a non-HTTP(S) `SiteConfig.startUrl` as `CONFIGURATION`.
-
-Errors retain internal causes where useful, but public formatting does not dump
-causes, raw model output, or credentials.
+Core credential preflight checks that a required key is non-blank before
+launching Chromium; it is not the desktop's remote authentication preflight.
+A missing required key fails with `MODEL`, phase `gemini-credential-resolution`.
+Fully injected reachable analysis/planner/navigation paths can run without a
+key; applicable report-narrative generation also needs injection to remain
+Gemini-free. See [Architecture](ARCHITECTURE.md#programmatic-runsite-api).
 
 ## Programmatic configuration
 
-Application callers can resolve an arbitrary URL or registered profile,
-configure budgets, provide transient credentials and an optional model, observe
-events, cancel, and receive persisted artifact paths without CLI coupling:
+The application boundary resolves targets, validates budgets, runs exploration,
+and persists reports:
 
 ```ts
+import { startCheckQuest } from '../agent/application/start-checkquest';
+
 const run = startCheckQuest({
   target: 'https://www.example.com/',
-  budgets: {
-    pages: 3,
-    navigationSteps: 2,
-    investigationStepsPerPage: 1
-  },
-  credentials: {
-    geminiApiKey: userGeminiApiKey
-  },
+  budgets: { pages: 3, navigationSteps: 4, investigationStepsPerPage: 1 },
+  credentials: { geminiApiKey: userGeminiApiKey },
   model: optionalModelOverride,
   onEvent
 });
 
 const result = await run.result;
-run.cancel();
 ```
 
-`result` contains the in-memory schema-v3 report and absolute report-directory,
-JSON-report, and Markdown-report paths. `credentials` is per-run execution
-context and is deliberately absent from results and events.
+The import is relative to a hypothetical caller one directory below the
+repository root; adapt it to the caller's location. `result` contains the
+report and absolute artifact paths. Call `run.cancel()` while active to cancel.
+Names such as `userGeminiApiKey` and `onEvent` are caller-supplied values.
 
-The lower-level `runSite` boundary remains available to callers that already
-own a `SiteConfig` and report persistence. It performs reusable validation
-independently of CLI parsing, so callers
-cannot rely on TypeScript shape-checking or earlier CLI validation alone. Its
-optional timestamps, run identity, event observer, model collaborators,
-credential behavior, failure contract, and in-memory report are documented in
-[CheckQuest Architecture](ARCHITECTURE.md#programmatic-runsite-api).
+Lower-level `runSite(...)` accepts a `SiteConfig` and returns an in-memory
+report; it leaves report-file persistence to the caller, although evidence
+capture can write screenshots during execution.
 
-## Configuration examples
+## `SiteConfig` reference
 
-| Goal | Command |
+| Field | Meaning |
 |---|---|
-| Run the default `aidoc` profile | `npm run agent:run` |
-| Run `aidoc` explicitly | `npm run agent:run -- aidoc` |
-| Run an arbitrary URL | `npm run agent:explore -- https://www.example.com/` |
-| Raise the page budget | `npm run agent:run -- aidoc --pages 10` |
-| Set independent page/navigation budgets | `npm run agent:run -- aidoc --pages 10 --navigation-steps 6` |
-| Analyze without autonomous investigation | `npm run agent:explore -- https://www.example.com/ --steps-per-page 0` |
+| `id`, `name` | Profile identity and display name |
+| `startUrl` | Initial HTTP(S) URL, inspected as page 1 |
+| `allowedHosts` | Non-empty list containing the start hostname |
+| `maxPages` | Inspected-page ceiling, at least 1 |
+| `maxAgentSteps` | Navigation-decision ceiling, at least 0 |
+| `maxExploratoryStepsPerPage` | Investigation planner-decision ceiling, at least 0 |
+| `allowFormSubmission` | Boolean policy flag; current profiles use `false` |
 
-Report files from a successful CLI run are written under
-`agent-results/<run-id>/`; see [What you get](../README.md#what-you-get).
+Reusable validation requires safe whole-number budgets but does not impose all
+CLI/desktop upper bounds. An optional run ID must be filesystem-safe and
+1-128 characters; `startedAt` must be a valid `Date`. See
+[input validation](../agent/run/validate-run-site-input.ts).
 
-## Current boundaries
+To add a profile, create an `agent/sites/` module matching `SiteConfig` and
+register it in [the site registry](../agent/sites/index.ts). Follow the existing
+[`aidoc` profile](../agent/sites/aidoc.ts). Keep `allowFormSubmission: false`;
+setting it to true does not implement arbitrary form submission or expand the
+action vocabulary. No current action grants generic submit authority.
 
-- `aidoc` is the only registered reusable site profile.
-- Runtime URL profiles are temporary and scoped to one exact hostname.
-- CheckQuest does not automatically load `.env` files or persist credentials.
-- CLI BYOK is adapted from `GEMINI_API_KEY` into an explicit per-run
-  credential.
-- Reusable `runSite(...)` does not depend on process-global user credentials.
-- Gemini is the only production model provider currently supported.
-- The CLI reads `GEMINI_MODEL` as an optional per-run model override; Gemini
-  remains the only production provider.
-- Configuration is code and CLI/environment input, not a standalone
-  configuration-file format.
-- The programmatic API is source-level, not a published versioned SDK.
-- Host and action policies reduce risk but cannot guarantee universal website
-  compatibility or zero side effects.
-- Fresh-clone source installation remains the supported Stage 10A distribution
-  path. A local Electron GUI MVP now exists in the source tree, but a packaged
-  desktop installer, npm-published package, standalone executable, SaaS, and
-  stable public configuration design remain outside the supported distribution
-  contract.
+## Configuration errors
+
+Unknown/duplicate options, missing or invalid values, extra positional targets,
+and unknown profiles fail as `CONFIGURATION`. CLI runtime URLs are recognized
+by their lowercase HTTP(S) prefix; other strings normally resolve as profile
+IDs. Reusable validation independently rejects non-HTTP(S) start URLs.
+Missing Gemini credentials are `MODEL`, not `CONFIGURATION`.
+
+Public errors are bounded; do not parse their prose as a machine interface.
+For developer diagnostics only, `CHECKQUEST_DEBUG=1` prints a bounded, redacted
+error chain and can write `agent-results/<run-id>/developer-diagnostic.txt` on
+application failure. Diagnostics may include response excerpts and stack paths;
+treat them as sensitive. They do not create a partial-report success contract.
+
+If Chromium cannot launch, run `npm run setup:browser` (or the Linux
+`setup:browser:with-deps` variant). Model failures can reflect credentials,
+quota, provider availability, model selection, transport, or deadlines.
+Report-write failures require a writable `agent-results/` directory under the
+working directory. See [Failure behavior](ARCHITECTURE.md#failure-behavior).

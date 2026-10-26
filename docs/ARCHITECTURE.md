@@ -1,693 +1,376 @@
-# CheckQuest Architecture
+# CheckQuest architecture
 
-This document describes the current runtime architecture and the supported
-programmatic execution seam. It is intentionally conceptual: source links point
-to the authoritative contracts, but the document is not a file-by-file
-walkthrough or a promise of a stable published SDK.
+This guide explains execution ownership and engineering invariants. Read the
+[README](../README.md) for setup, [Configuration](CONFIGURATION.md) for inputs,
+and [Public contracts](PUBLIC-CONTRACTS.md) for compatibility requirements.
+Source links identify the implementation; they do not define a published SDK.
 
-For installation, CLI usage, reports, and contributor commands, see the
-[README](../README.md).
-
-## Architectural goals
-
-CheckQuest is organized around a small reusable core with these constraints:
-
-- production-safe, bounded interaction with public websites;
-- deterministic policy and verification around model-assisted decisions;
-- presentation-agnostic and deployment-agnostic execution;
-- one canonical run-level finding model with traceable occurrences and
-  evidence;
-- passive security observation without additional probe traffic;
-- bring-your-own-key (BYOK) Gemini access through isolated per-run credentials
-  without key persistence or exposure;
-- explicit, privacy-safe progress and failure contracts; and
-- required cleanup that does not hide an earlier operational failure.
-
-The current CLI and local Electron desktop GUI MVP are presentation adapters
-around the same application and reusable-core boundaries. Both can consume
-structured progress, categorized failures, reconciled run summaries, and
-persisted report artifacts without moving presentation logic, credential
-storage, or process-exit behavior into the engine. A future web frontend can
-reuse the same boundary without becoming another finding or reporting
-authority.
-
-## Execution overview
+## Execution boundaries
 
 ```mermaid
 flowchart TD
-  CLI["CLI adapter"] --> CLIIN["Parse CLI arguments and adapt environment"]
-  DESK["Electron desktop GUI"] --> GUIIN["Collect target, budgets, and key"]
-  CLIIN --> APP["startCheckQuest application boundary"]
-  GUIIN --> APP
-  APP --> RUN["runSite reusable coordinator"]
-  RUN -. "RunEvent progress / CheckQuestError" .-> APP
-  RUN --> PRE["Validate input and preflight per-run Gemini credential when required"]
-  PRE --> BROWSER["Launch Chromium and visit the start page"]
-  BROWSER --> PAGE["inspectPage pipeline"]
-  PAGE --> WORK["Observe, analyze, reconcile, investigate, evidence, and commit"]
-  WORK --> MORE{"Eligible page and budgets remain?"}
-  MORE -->|"Yes"| NAV["Deterministic navigation policy"]
-  NAV --> CHOICE["Bounded Gemini choice within eligible band"]
-  CHOICE --> PAGE
-  MORE -->|"No"| REPORT["Build schema-v3 SiteAgentReport"]
-  REPORT --> CLEAN["Dispose diagnostics and close browser"]
-  CLEAN --> RETURN["Return in-memory report"]
-  RETURN --> APP
-  APP --> PERSIST["Persist JSON and Markdown reports"]
-  APP -. "Shared summary / artifacts / terminal state" .-> PRESENT["CLI or desktop presentation"]
+  CLI[CLI: arguments, environment, terminal] --> APP[startCheckQuest]
+  GUI[Electron: inputs, preflights, status] --> APP
+  APP --> RUN[runSite: validation and resource ownership]
+  RUN --> PAGE[inspectPage: observe, analyze, investigate, commit]
+  PAGE --> NEXT{Eligible navigation and budget?}
+  NEXT -->|Yes| PAGE
+  NEXT -->|No| REPORT[Build report and required narratives]
+  REPORT --> CLEAN[Required browser cleanup]
+  CLEAN --> APP
+  APP --> FILES[Persist JSON, then Markdown]
+  FILES --> DONE[Application completion and artifact paths]
 ```
 
-The configured start page is always the first inspected page. Page count,
-site-level navigation steps, and per-page investigation steps are separate
-budgets.
+- [CLI](../agent/run-site-agent.ts) owns argument/environment adaptation,
+  terminal rendering, SIGINT cancellation, and process status.
+- [Desktop](../desktop/run-controller.ts) owns form input, session credentials,
+  credential/reachability preflights, and GUI state. It delegates actual runs.
+- [`startCheckQuest`](../agent/application/start-checkquest.ts) owns target
+  resolution, budget overrides, cancellation, output sanitization, persistence,
+  and application completion.
+- [`runSite`](../agent/run/run-site.ts) validates reusable input, owns Chromium,
+  diagnostics and registries, coordinates pages, constructs the report, and
+  requires cleanup before returning it.
+- [`inspectPage`](../agent/inspection/inspect-page.ts) owns one document's
+  observations, model analysis, reconciliation, investigation, evidence capture,
+  and finding commit.
 
-## CLI adapter and reusable core
-
-The [CLI entry point](../agent/run-site-agent.ts) owns:
-
-- parsing command-line arguments and applying overrides to the selected site
-  configuration;
-- resolving `GEMINI_API_KEY` from the invoking environment and adapting it into
-  the explicit per-run credential contract;
-- creating CLI-oriented run metadata;
-- calling the shared application boundary;
-- rendering `RunEvent` values and returned artifact paths;
-- printing the final public error; and
-- setting process exit behavior.
-
-The local Electron desktop adapter owns its window, renderer state, user input,
-and presentation of the same application events/results. It supplies target,
-budgets, transient per-run Gemini credentials, and cancellation without
-becoming a second execution, finding, or reporting authority. The current
-desktop MVP intentionally does not expose a model selector; optional per-run
-model override remains available at the application and CLI boundaries.
-
-The [run coordinator](../agent/run/run-site.ts) owns:
-
-- reusable input validation;
-- explicit per-run Gemini credential preflight when default model
-  collaborators may be used;
-- browser, diagnostics, passive-security, and run-state lifecycles;
-- start-page navigation and bounded multi-page coordination;
-- calls to the per-page inspection pipeline;
-- canonical finding and passive-security aggregation;
-- construction of the in-memory successful report;
-- required resource cleanup; and
-- ordered progress and terminal events.
-
-The coordinator does not parse CLI arguments, read user credentials from
-`process.env`, render progress, write report files, or terminate a process. A
-programmatic caller can omit the event observer and run silently.
+Core execution does not parse CLI input, render a UI, persist report files,
+read a process-global user key, or terminate a process. Screenshot capture
+can write evidence during execution. Models, renderers, and compatibility
+projections are not separate authorities for finding identity or verification.
 
 ## Programmatic `runSite` API
 
-The source-level API is defined by
-[`RunSiteInput`](../agent/run/run-site.ts) and returns a
-[`SiteAgentReport`](../agent/reporting/report-types.ts):
+The source-level input is [`RunSiteInput`](../agent/run/run-site.ts):
 
 ```ts
 const report = await runSite({
   site,
-  credentials: {
-    geminiApiKey
-  },
-  startedAt,
-  runId,
+  credentials: { geminiApiKey },
   model,
   signal,
+  startedAt,
+  runId,
   onEvent,
   dependencies: {
     analyzePageForQa,
     planNextAction,
-    chooseNavigationLink
+    chooseNavigationLink,
+    generateHumanNarrative
   }
 });
 ```
 
-Only `site` is structurally required. A Gemini credential is required at
-runtime only when a default Gemini-backed execution path can be reached.
+These names represent caller-supplied values. Only `site` is structurally
+required. Validation checks the HTTP(S) start URL, allowed hosts, safe integer
+budgets, Boolean form policy, optional valid date, and optional safe run ID.
+A non-blank explicit key is required before browser launch whenever a default
+analysis, planner, or navigation collaborator is reachable.
 
-| Input | Meaning |
-|---|---|
-| `site` | Validated execution limits, start URL, allowed hosts, and form policy |
-| `credentials` | Optional per-run execution credentials; currently supports a transient Gemini API key |
-| `startedAt` | Optional valid `Date`; generated when omitted |
-| `runId` | Optional filesystem-safe identifier; generated when omitted |
-| `model` | Optional per-run Gemini model override |
-| `signal` | Optional `AbortSignal` for programmatic cancellation |
-| `onEvent` | Optional synchronous `RunEvent` observer |
-| `dependencies.analyzePageForQa` | Optional page-analysis collaborator |
-| `dependencies.planNextAction` | Optional investigation-planner collaborator |
-| `dependencies.chooseNavigationLink` | Optional navigation-choice collaborator |
+The four optional collaborators support testing and embedding, not a general
+provider/plugin framework. Inject reachable model operations, including
+applicable human-narrative generation, for Gemini-free execution. Without
+`onEvent`, reusable execution has no progress output.
 
-The credential is execution context, not site configuration. Reusable
-`runSite(...)` does not resolve a user credential from `process.env`. If a
-default Gemini-backed analysis, planner, or navigation path can be reached,
-the coordinator requires an explicit per-run `credentials.geminiApiKey`
-before launching Chromium.
-
-The three dependency overrides are narrow test and embedding seams. They do
-not form a general dependency-injection, provider, or plugin framework. A
-fully injected local integration can therefore exercise real browser
-coordination without Gemini or a Gemini credential.
-
-`runSite` resolves only after required browser cleanup succeeds. It returns a
-complete successful report or rejects; it does not return a partial success
-report after an operational failure. Evidence such as a screenshot captured
-before a later failure may still exist on disk.
-
-## Application run boundary
-
-[`startCheckQuest(...)`](../agent/application/start-checkquest.ts) is the
-presentation-agnostic boundary used by the current CLI and local Electron
-desktop GUI MVP and intended for any other product shell:
+`runSite` returns a complete in-memory report only after required cleanup.
+Application callers normally use:
 
 ```ts
-const run = startCheckQuest({
-  target,
-  budgets: {
-    pages,
-    navigationSteps,
-    investigationStepsPerPage
-  },
-  credentials: {
-    geminiApiKey
-  },
-  model,
-  onEvent
-});
-
+const run = startCheckQuest({ target, budgets, credentials, model, onEvent });
 const result = await run.result;
-run.cancel();
 ```
 
-`target` may be a registered site ID or an arbitrary HTTP/HTTPS URL. The
-result contains the schema-v3 in-memory report plus absolute paths for the
-report directory, JSON report, and Markdown report. Report persistence uses
-the same reporting boundary as the CLI. Credentials are accepted only as
-per-run execution context and are not returned.
+`result` contains the report and absolute report-directory, JSON, and Markdown
+paths. `run.cancel()` is idempotent and has no effect after completion is
+committed or the promise settles. Configuration examples are in
+[Programmatic configuration](CONFIGURATION.md#programmatic-configuration).
 
-`cancel()` aborts the per-run signal. Cancellation propagates to Gemini
-requests, stops at safe execution boundaries, lets any active guarded action
-finish its mandatory rollback, then closes the browser during required
-cleanup. It rejects with `CheckQuestError` code `CANCELLED` and never emits
-`run-completed`; a cleanup failure is retained as secondary context rather
-than replacing cancellation.
+## Inspection and document provenance
 
-The CLI is a thin adapter over `startCheckQuest(...)`: it parses arguments,
-adapts `GEMINI_API_KEY` and `GEMINI_MODEL` from its environment, renders
-events, and prints the returned artifact paths. The Electron desktop GUI uses
-the same boundary with renderer-supplied run inputs and transient credentials;
-neither adapter owns canonical finding reconciliation or report accounting.
+The configured start page uses the same inspection pipeline as later pages
+and consumes the page budget. Each inspection:
 
-## Configuration and input validation
+1. Pins the main-frame document and its navigation response after the expected
+   redirect chain.
+2. Waits a cancellable one-second settling period, snapshots diagnostics,
+   evaluates deterministic rules, and extracts bounded content/navigation.
+3. Prepares known-finding context and asks Gemini for exploratory candidates.
+4. Reconciles candidates, performs eligible bounded investigation, and derives
+   assertion-specific outcomes.
+5. Captures claim-appropriate focused evidence, validates candidate/result
+   associations, and commits findings, passive observations, novelty, and
+   navigation state.
 
-The reusable [`SiteConfig`](../agent/config/site-config.ts) contains:
+[`InspectionDocument`](../agent/browser/inspection-document.ts) checks response
+request identity and the actual `Document` object at phase boundaries. After
+pinning, further main-frame document navigation requests are blocked and
+invalidate inspection. A reload, replacement document, or attempted unexpected
+navigation fails the run rather than mixing content, actions, or evidence from
+different documents. Same-document hash/history changes do not by themselves
+replace that object. This is not a frozen DOM: content can still mutate.
 
-- `id`, `name`, and `startUrl`;
-- `allowedHosts`;
-- `maxPages`;
-- `maxAgentSteps`, exposed by the CLI as navigation steps;
-- `maxExploratoryStepsPerPage`; and
-- `allowFormSubmission`.
+Deterministic page checks cover HTTP failures/unknown status, empty titles,
+missing collected H1/H2 text, and obvious error wording. Confidently non-HTML
+responses skip HTML-structure checks. Diagnostics and content extraction are
+bounded observations, not exhaustive accessibility, content, or network audits.
 
-Credentials deliberately do not belong to `SiteConfig`. A site profile
-describes where and how CheckQuest may explore; a Gemini key belongs to one
-execution invocation.
+## Navigation and budgets
 
-[`validateRunSiteInput`](../agent/run/validate-run-site-input.ts) runs before
-browser work. It requires an HTTP or HTTPS start URL whose hostname is in the
-non-empty allowed-host list, validates each budget as a safe whole number,
-requires a Boolean form policy, validates `startedAt`, and constrains an
-explicit `runId` to a safe 1-128 character form. Invalid reusable input fails
-with `CONFIGURATION`.
+[Navigation inspection](../agent/browser/inspect-navigation.ts) discovers
+eligible visible internal navigation links. A bounded run-level
+[frontier](../agent/exploration/navigation-policy.ts) tracks discovery source,
+traversal depth, area/route-family identity, novelty, and route value.
+Deterministic policy chooses the best eligible band; Gemini can choose only
+within that band. Low-value routes are deferred, not universally excluded.
 
-When a default Gemini-backed operation may be reached, the coordinator then
-requires a non-blank explicit per-run Gemini credential before Chromium is
-launched. Missing or blank credentials fail with `MODEL` and phase
-`gemini-credential-resolution`.
+Requested/attempted URLs are distinct from inspected final URLs. Redirect
+aliases and previously inspected final URLs do not consume another inspection.
+URL identity normalizes fragments and trailing slashes; path case, query
+values, and query ordering remain significant. There is no persisted cross-run
+coverage history or adaptive yield learning.
 
-CLI parsing, environment-to-credential adaptation, and site-specific defaults
-remain outside these reusable boundaries. See
-[CheckQuest Configuration](CONFIGURATION.md) for the current CLI contract,
-target profiles, environment variables, and profile-authoring reference.
+Pages, run-level navigation decisions, and per-page investigation planner
+decisions are independent ceilings. Planner stop/rejection consumes decision
+opportunity without promising an executed action. Runs can finish early when
+no eligible work remains. Navigation and browser actions are not automatically
+retried. Host policy is described in [Configuration](CONFIGURATION.md#host-policy).
 
-## Progress contract: `RunEvent`
-
-[`RunEvent`](../agent/run/run-event.ts) is a discriminated union intended for
-presentation adapters. Current event types are:
-
-| Phase | Event types |
-|---|---|
-| Run | `run-started`, `run-completed`, `run-failed` |
-| Page inspection | `inspection-started`, `inspection-completed` |
-| Navigation | `navigation-started`, `navigation-completed` |
-| Model request | `model-request-started`, `model-request-retrying`, `model-request-completed` |
-| Investigation | `investigation-completed` |
-
-Events are delivered synchronously in execution order. Observer exceptions and
-rejected thenables are isolated so presentation code cannot alter run
-behavior. Callbacks are not awaited. Omitting the observer is a no-op.
-
-After valid input, a run emits `run-started` and exactly one terminal
-`run-completed` or `run-failed`. Input rejected before a caller-supplied run ID
-is trusted can emit `run-failed` with the fixed safe run identity
-`unavailable`. `run-completed` is emitted only after required core cleanup;
-Direct `runSite(...)` callers receive core completion before any caller-owned
-persistence. `startCheckQuest(...)` holds that terminal completion event until
-report persistence succeeds, so application callers receive exactly one
-terminal completion or failure for the full application run.
-
-Completed-run accounting distinguishes confirmed findings, review findings,
-and technical observations instead of flattening them into one ambiguous
-"findings" count. The application/desktop presentation and human report derive
-those categories from the shared
-[`run-summary-projection`](../agent/reporting/run-summary-projection.ts), so
-presentation surfaces do not independently recompute logical totals.
-
-Event payloads contain bounded operational context and sanitized display URLs.
-They do not contain API keys, prompts, raw model responses, SDK causes, page
-content dumps, or cleanup error chains.
-
-## Failure contract: `CheckQuestError`
-
-[`CheckQuestError`](../agent/errors/checkquest-error.ts) is the typed failure
-boundary for expected operational failures. Its current codes are:
-
-| Code | Responsibility |
-|---|---|
-| `CONFIGURATION` | Invalid reusable input or missing required configuration |
-| `CANCELLED` | Explicit programmatic cancellation |
-| `BROWSER` | Browser launch or browser-level operation |
-| `NAVIGATION` | Start-page or approved-link navigation |
-| `MODEL` | Gemini credential, request, transport, timeout, or service failure |
-| `MODEL_RESPONSE` | Invalid or unusable model output |
-| `REPORTING` | Successful report construction or CLI persistence |
-| `CLEANUP` | Required cleanup failed without an earlier primary failure |
-| `INTERNAL` | Unexpected or invalid internal failure value |
-
-An error can carry bounded context such as phase, run ID, page number,
-navigation step, candidate reference, requested and final URLs, status code,
-and retryability. Its `cause` and secondary cleanup chain remain diagnostic
-internals. [`formatPublicError`](../agent/errors/checkquest-error.ts) exposes
-only the safe code, message, and selected context.
-
-Unsafe or inconclusive investigative actions normally produce structured
-results, not exceptions. `CheckQuestError` is for execution failure, not a
-finding-verification state. Classified operational failures use
-`CheckQuestError`; genuinely unexpected internal defects can still surface as
-native errors, while event and CLI presentation of unknown failures stays
-generic.
-
-## Required cleanup
-
-[`completeRequiredCleanup`](../agent/errors/required-cleanup.ts) attempts every
-registered cleanup operation. If execution already failed, that error remains
-primary and cleanup failures are attached as secondary diagnostics. If
-execution succeeded but required cleanup fails, the first cleanup failure
-becomes a `CLEANUP` error and later cleanup failures are chained behind it.
-
-The coordinator applies this rule at nested ownership boundaries: page
-diagnostics are disposed before the outer browser is closed. A successful
-report is not returned until both boundaries complete.
-
-## Per-page inspection pipeline
-
-[`inspectPage`](../agent/inspection/inspect-page.ts) is the page-level
-coordinator. For each already-navigated page it performs this ordered work:
-
-1. register the passive main-document security snapshot captured during normal
-   navigation;
-2. allow a bounded stabilization period, then snapshot and classify browser
-   diagnostics;
-3. evaluate deterministic page rules;
-4. extract bounded page content and inspect eligible navigation links;
-5. register observed page identity and run-level novelty;
-6. prepare compact known-finding context;
-7. request evidence-grounded exploratory QA analysis;
-8. reconcile raw model candidates with rules and findings already known in the
-   run;
-9. perform bounded, candidate-linked investigation when eligible;
-10. deterministically derive an outcome for every candidate;
-11. capture finding-focused presentation evidence when the claim and evidence
-    policy support it, rather than taking a generic screenshot merely because a
-    page has findings or diagnostics;
-12. validate and commit the complete page finding lifecycle; and
-13. update the navigation frontier and inspected-final-URL state.
-
-The pipeline returns page detail plus run-level metrics. It receives the
-long-lived registries, navigation state, optional per-run Gemini credential,
-and model-request event observer from `runSite`; it does not own browser
-launch, cross-page scheduling, environment credential resolution, report
-persistence, or process output.
-
-## Navigation and run-level exploration
-
-Navigation is deliberately split between deterministic policy and a bounded
-model choice:
-
-- [`inspectNavigation`](../agent/browser/inspect-navigation.ts) discovers
-  visible, eligible internal links.
-- The [navigation frontier and policy](../agent/exploration/navigation-policy.ts)
-  track discovery provenance, traversal depth, predicted area and route-family
-  identity, novelty, route value, and the remaining budgets.
-- Deterministic policy selects the best eligible candidate band.
-- [`chooseNavigationLink`](../agent/decisions/choose-navigation-link.ts) can use
-  Gemini only to choose within that band.
-- [`visitApprovedLink`](../agent/browser/visit-approved-link.ts) records
-  requested and final URLs. Redirect aliases and already-inspected final URLs
-  do not create duplicate page inspections.
-
-Low-value routes can be deferred without being globally forbidden. Exploration
-stops when no eligible work remains or a page/navigation budget is reached. It
-is bounded sampling, not exhaustive crawling, and does not prove the absence
-of defects.
-
-Browser navigation and action execution are not automatically retried.
-
-## Findings, evidence, and verification
-
-The [unified finding model](../agent/findings/finding-model.ts) is the
-authoritative functional finding contract. A logical finding has a stable
-fingerprint, one or more occurrences, traceable evidence, and a conservative
-verification state.
-
-Reconciliation is based on validated structured identity rather than
-human-facing prose. Where applicable, identity uses a composite of the defect
-mechanism, exact observed value, evidence source, semantic control type, and
-stable component/control identity. Model-supplied identity is validated
-against browser-extracted page content before it can participate. Generated
-title, description, reasoning, remediation text, and page-specific locator
-wording do not define logical equivalence. If trustworthy structured identity
-is unavailable, observations remain separate rather than being merged by
-similar prose. Existing explicit structured targets, including the native
-country-option sentinel, remain authoritative where valid.
-
-Canonical human wording is derived only after logical identity is established,
-so page-to-page paraphrase drift cannot create new logical findings or mutate
-an accessibility-only observation into a visual claim.
-
-The [run finding lifecycle](../agent/findings/run-finding-lifecycle.ts):
-
-- prepares known-finding context for later page analysis;
-- reconciles deterministic rules, model candidates, and known occurrences;
-- validates candidate references and complete candidate/result association
-  before mutating run state;
-- commits new findings and occurrences to the canonical registry; and
-- supplies metrics used by reporting.
-
-Candidate references are identities, not array positions. Missing, duplicate,
-stale, or mismatched result references are rejected rather than silently
-associated with the wrong finding.
+## Finding identity and verification
 
 [`UnifiedFindingRegistry`](../agent/findings/unified-finding-registry.ts) is the
-single canonical run-level authority. The separate
-[`KnownFindingState`](../agent/investigation/known-findings.ts) provides compact
-context to later analysis and tracks occurrence reconciliation; it is not
-another report authority. Per-page raw detail remains available, and
-`siteWideExploratoryFindings` is a compatibility projection derived from the
-canonical collection rather than a second authority. Redundant investigation
-is suppressed only when canonical verification supports it.
+canonical run-level finding authority. A logical finding has a fingerprint,
+explicit reference, occurrences, and traceable evidence. Generated title,
+description, reasoning, remediation, and array position do not establish identity.
 
-Verification is assertion-specific and evidence-capability-aware. Mechanical
-success does not automatically verify the broader semantic claim. The
-regression sentinel with fingerprint
-`target|select-option|country|equador` demonstrates this boundary: selecting
-the native `Equador` option can be mechanically `VERIFIED`, while the canonical
-semantic typo finding remains `INCONCLUSIVE` without verification-capable proof
-of that assertion. It therefore must not trigger verified known-finding
-suppression.
+Reconciliation uses authoritative structured targets, validated structured
+identity, or technical identity. Structured control identity includes the
+mechanism, observed value, evidence source, control type, and stable control or
+component identity, validated against extracted content. Without trustworthy
+identity, observations remain separate. Fallback discriminators are opaque:
+case and punctuation are preserved to prevent accidental collisions.
 
-## Candidate-driven investigation
+The [lifecycle](../agent/findings/run-finding-lifecycle.ts) validates complete
+candidate/result association before mutating state. Missing, duplicate, stale,
+or mismatched references fail rather than attaching evidence to the wrong
+finding. [`KnownFindingState`](../agent/investigation/known-findings.ts) supplies
+compact context for later analysis; it is not a second report authority.
+`siteWideExploratoryFindings` is a compatibility projection of canonical
+`findings`. Verified-known suppression requires canonical verification.
 
-Gemini analysis proposes evidence-grounded candidate findings with structured
-targets. Investigation is not free-form browsing:
+[Verification](../agent/findings/derive-verification-state.ts) uses non-model,
+verification-capable evidence for the specific assertion:
 
-- only candidates accepted by reconciliation receive page-local references;
-- planner decisions must reference an active candidate;
-- the prepared candidate identity remains authoritative through result commit;
-- schemas, relevance checks, action eligibility, allowed-host checks, and
-  per-page step limits constrain execution;
-- action results and before/after evidence are recorded; and
-- deterministic outcome evaluation, not Gemini, decides `verified`,
-  `not-verified`, or `inconclusive`.
+| Occurrence evidence | State |
+|---|---|
+| Supports only | `verified` |
+| Contradicts only | `not-verified` |
+| Both, or neither | `inconclusive` |
 
-Current action kinds are intentionally narrow: fill, clear, or blur an
-identified text field; select an observed native option; scroll within a
-bounded viewport count; perform a guarded disclosure or tab interaction; or
-stop. Stop is an explicit structured decision when no useful permitted
-candidate-linked action remains. CheckQuest does not expose arbitrary
-selectors, arbitrary clicks, or arbitrary JavaScript execution.
+A logical finding is verified if any occurrence is verified; otherwise it is
+inconclusive if any occurrence is inconclusive, and not verified if all
+occurrences are not verified. No occurrences means inconclusive.
 
-## Focused presentation evidence
+The regression sentinel `target|select-option|country|equador` preserves the
+mechanical/semantic distinction: selecting `Equador` can succeed while its
+semantic typo claim remains `INCONCLUSIVE` without suitable proof. Raw action
+success must not trigger verified-known suppression for that claim.
 
-[`capture-finding-presentation-evidence`](../agent/browser/capture-finding-presentation-evidence.ts)
-captures human-facing visual evidence for the finding itself rather than
-routine screenshots of every visited page. Visual claims require visual
-support; accessibility-only, network, technical, and security observations use
-evidence appropriate to those claims instead of a meaningless page image.
+## Browser safety
 
-A transient state may be replayed only when the same benign action was already
-executed during normal candidate investigation and the existing safety policy
-permits it. The current replay path supports previously executed native
-select-option actions, restores the original state after capture, and records
-replay metadata. Native option selection and replay use the shared containment
-boundary. A containment failure or failed replay rollback aborts inspection
-before findings are committed or a successful report is returned. Other
-transient states are withheld when CheckQuest cannot safely and deterministically
-restore them; evidence capture does not grant new
-exploration authority. Focused visual evidence is bounded to at most three
-images per logical finding.
+Investigation is candidate-driven. Schemas, active candidate references,
+relevance checks, deterministic eligibility, host policy, and step ceilings
+constrain every proposed action. The vocabulary permits targeted text-field
+fill/clear/blur, native option selection, bounded scrolling, guarded
+informational disclosures, conventional ARIA tabs, and stop. It grants no
+arbitrary clicks, selectors, scripts, login flow, or generic form submission.
+Current profiles prohibit submission; local control events can still execute
+site JavaScript.
 
-## Guarded click-like interaction boundary
+A visible password input suppresses autonomous investigation, including when
+it lies beyond the 30-field content sample. The visibility test checks display,
+visibility, and nonzero dimensions: disabled/read-only or transparent password
+fields still suppress; hidden or zero-size fields do not. Observation and
+analysis continue. This is a safety signal, not an authentication feature or
+a guarantee that all sensitive content is excluded from model input.
 
-Disclosure and tab actions share the
-[guarded-interaction safety boundary](../agent/browser/guarded-interaction-safety-boundary.ts).
-Pages are prepared before the first navigation so request and WebSocket state
-can be tracked for the lifetime of the page.
+Disclosure, tab, native-select, and permitted select-replay operations share
+[containment](../agent/browser/guarded-interaction-safety-boundary.ts):
 
-Before a click-like action, the boundary requires a bounded network-quiet
-period and rejects an already unsafe environment. While the action is armed it
-blocks outbound requests and observes mutation, navigation, popup, download,
-origin, URL, form, and realtime-channel hazards. Browser-side guards also
-cover APIs such as fetch, XHR, beacon, form submission, history changes,
-`window.open`, and WebSocket sends.
+- Page guards are prepared before navigation; service workers are blocked.
+- Arming requires bounded network quiet and rejects an already unsafe state.
+- While armed, requests are blocked and navigation, mutation, forms, downloads,
+  URL/origin changes, popups, and realtime hazards are monitored. Context-level
+  routing covers a popup's first request, which page routing cannot intercept.
+- Action executors retain exact eligibility, transition evidence, and required
+  restoration rules. Disclosure/tab investigation requires verified rollback;
+  select evidence replay remains armed through restoration.
+- Main-world timeout/interval/animation-frame callbacks scheduled while armed
+  are tracked. Outstanding callbacks are cancelled and cause rejection at the
+  seal; new scheduling after the seal and string timers are rejected.
+- Replay re-resolves the original select after restoration handlers. Detached,
+  replaced, ambiguous, or changed options/selection invalidate the evidence.
+- Boundary setup/cleanup failures, unsafe inspection state, and failed replay
+  rollback abort inspection before successful finding commit/report delivery.
+  Cancellation retains precedence and required cleanup still runs.
 
-Action-specific code still owns target eligibility, preflight state,
-transition evidence, and exact rollback. A safety breach returns a structured
-`unsafe` result and can disable further click-like interactions for the page
-or run. The boundary does not weaken browser security or claim that arbitrary
-interaction is safe. Production-safe behavior is an engineering goal, not a
-formal guarantee of no side effects.
+Unsafe actions can return structured results at the executor level; the page
+pipeline treats `unsafe-interaction-detected` as a fatal `BROWSER` failure.
+Some hard breaches disable further click-like actions for the browser context.
+This boundary does not wrap every action type; do not assume text filling has
+the same containment as a guarded tab or select.
 
-Native option selection also uses this containment boundary, while preserving
-its post-selection evidence semantics. Evidence replay keeps containment armed
-through mandatory restoration. This is not a generic wrapper around all action
-types.
+These controls are bounded, not isolation from arbitrary JavaScript. They do
+not account for callbacks scheduled before arming, cached scheduling functions,
+workers, other realms, or deliberate API tampering. Network interception
+protects requests while armed, not all future work. Ordinary navigation can
+contact external resources. For sites requiring stronger protection, disable
+investigation with `--steps-per-page 0`; select replay is then unavailable.
+That still does not prevent ordinary page-load side effects. No universal
+zero-side-effect guarantee is made.
 
-The shared browser guard tracks callbacks scheduled through the main world's
-`setTimeout`, `setInterval`, and `requestAnimationFrame` APIs while it is armed.
-Before releasing containment it cancels outstanding tracked callbacks and rejects
-the interaction if any remained; it also rejects new scheduling after that seal.
-String timer callbacks are rejected. This avoids treating a short quiet period
-as proof that a deferred save cannot occur later. Rejected interactions stop the
-affected inspection rather than preserving coverage at the expense of safety.
+## Evidence and artifacts
 
-Select evidence rollback retains the original element identity and option state.
-After restoration handlers run, deferred work is sealed and the live target is
-resolved again under containment. Detachment, replacement, ambiguity, changed
-options, or a mismatched selection invalidate the replay. Boundary setup and
-required cleanup failures are fatal safety errors with diagnostic causes;
-cancellation retains precedence.
+[Focused capture](../agent/browser/capture-finding-presentation-evidence.ts)
+uses exact finding targets. Routine page screenshots are not finding proof.
+Visual claims need visual support; accessibility, network, technical, and
+security claims need evidence appropriate to their assertions.
 
-This is a bounded guarantee, not isolation from arbitrary website JavaScript.
-It does not account for work already scheduled before arming, scheduling functions
-cached before the guard was installed, workers, other JavaScript realms, or
-deliberate tampering with browser APIs. Network interception protects requests
-while armed, including cached fetch calls, but a quiet period cannot prove those
-other mechanisms absent. Sites requiring protection against such mechanisms
-should run with investigation disabled (`--steps-per-page 0`); select replay is
-then unavailable. No universal zero-side-effect guarantee is made.
+Transient select state can be replayed only after the same benign action was
+executed in investigation, with containment and mandatory restoration. Other
+transient states are withheld when they cannot be safely restored. Each page-local target capture is limited to three images; repeated occurrences
+can produce more files across pages. The human report selects at most three
+images per logical finding for presentation. Ordinary capture
+failures can leave a finding without an image; cancellation, document-identity
+failure, or containment/rollback failure is fatal.
 
-## Passive security inspection
+Evidence references associate assertions, occurrences, and artifacts. Run-scoped
+human IDs such as `01` and `S01` and readable filenames aid navigation; they
+are not cross-run identities or stable machine interfaces. Reports/screenshots
+may include target content and URLs. Key redaction is not general site-data
+anonymization.
 
-Passive security is a separate deterministic subsystem:
+## Passive security
 
-- [`capture-main-document-security`](../agent/security/capture-main-document-security.ts)
-  observes the response and redirect chain produced by ordinary navigation;
-- [`evaluate-passive-security`](../agent/security/evaluate-passive-security.ts)
-  derives allowlisted posture observations; and
-- the [passive security registry](../agent/security/passive-security-registry.ts)
-  aggregates logical observations and occurrences.
+The separate [passive subsystem](../agent/security/evaluate-passive-security.ts)
+uses already-returned main-document responses and redirects. Capture allowlists
+and sanitizes values; the registry aggregates observations by origin. It adds
+no security probe traffic and does not influence Gemini planning or functional
+verification.
 
-The current observation codes are:
+Current codes are `PS_HTTP_DOCUMENT`, `PS_HSTS_NOT_OBSERVED`,
+`PS_HSTS_NOT_ENFORCING`, `PS_CSP_RESPONSE_HEADER_NOT_OBSERVED`,
+`PS_NOSNIFF_NOT_ENFORCING`, `PS_FRAME_POLICY_NOT_OBSERVED`, and
+`PS_TECHNOLOGY_DISCLOSURE`.
 
-- `PS_HTTP_DOCUMENT`;
-- `PS_HSTS_NOT_OBSERVED`;
-- `PS_HSTS_NOT_ENFORCING`;
-- `PS_CSP_RESPONSE_HEADER_NOT_OBSERVED`;
-- `PS_NOSNIFF_NOT_ENFORCING`;
-- `PS_FRAME_POLICY_NOT_OBSERVED`; and
-- `PS_TECHNOLOGY_DISCLOSURE`.
+A missing observed enforcing header is a posture observation, not proof of an
+exploitable vulnerability. This is not cookie analysis, active TLS/DNS probing,
+guessed-path testing, or exhaustive request inventory. The report labels it
+`passive-observation-only`.
 
-The schema-v3 report identifies this subsystem as
-`passive-observation-only`. It remains separate from functional findings,
-Gemini analysis, candidate investigation, and canonical finding verification.
+## Gemini requests and deadlines
 
-CheckQuest sends no additional traffic for passive security. It does not
-perform penetration testing, active TLS or DNS probing, guessed-path requests,
-cookie-posture analysis, infrastructure scanning, or exhaustive request
-inventory. Values are allowlisted and sanitized before reporting.
+Production Gemini operations include page analysis, investigation planning,
+navigation choice, and applicable exploratory human narratives. Clients receive
+explicit per-run keys; the shared
+[`runGeminiRequest`](../agent/ai/run-gemini-request.ts) owns deadlines, retries,
+and progress, not credentials. SDK retries are disabled (one SDK attempt).
 
-## Gemini collaboration and BYOK
+Each shared request permits **two total attempts**, with a **30-second owned
+deadline per attempt**. Retryable conditions are bounded structured transient
+transport/timeouts and HTTP `408`, `429`, `500`, `502`, `503`, `504`.
+Backoff starts at two seconds plus jitter; parsed provider retry delays are
+capped at 60 seconds. There is no overall run-duration deadline.
 
-The production analysis, planner, and navigation-choice paths use Gemini as a
-bounded collaborator.
+An owned deadline is classified as retryable `MODEL` timeout. Explicit caller
+cancellation becomes non-retryable `CANCELLED`, including during backoff. A bare
+SDK `AbortError` does not prove deadline expiry and is not automatically retried.
 
-Reusable execution receives the user's Gemini credential explicitly as
-per-run execution context. `runSite(...)` does not read
-`process.env.GEMINI_API_KEY` and does not mutate process-global credential
-state. If any default Gemini-backed collaborator can be reached, the supplied
-per-run key is validated before Chromium launches.
+Exploratory page analysis parses inside this boundary and explicitly permits
+one retry for empty, malformed, or schema-invalid structured output. Planner,
+navigation, and narrative response parsing do not receive that exception;
+unusable output fails rather than granting new browser authority. Prompts and
+model responses remain untrusted until schema and deterministic validation.
 
-The CLI is an adapter around this boundary. It reads `GEMINI_API_KEY` from the
-invoking process environment and passes the resolved value into `runSite`.
-`GOOGLE_API_KEY` is not accepted as an implicit fallback.
+## Report construction and persistence
 
-The current Electron desktop adapter supplies a transient user credential
-directly through the application boundary. A hosted worker could likewise
-supply a different credential for each run without changing process-global
-environment state.
+New reports use [schema 4](../agent/reporting/report-types.ts). The builder
+creates pending `humanNarratives`; enrichment completes required exploratory
+narratives before core success. Supported structured mechanisms use deterministic
+wording; applicable unstructured exploratory findings use model-generated title
+and condition with deterministic impact/follow-up statements. Incomplete
+recognized mechanisms or failed required narrative generation fail reporting.
+Narratives are presentation data, never identity or verification authority.
 
-The key belongs to the user and is not persisted by CheckQuest or included in
-events, reports, prompts, diagnostics, public errors, or reusable site
-configuration.
+Historical schema-v3 reports remain readable without migration. Schema-v4
+Markdown rendering consumes persisted complete narratives and does not call
+Gemini to recreate them. Machine consumers must handle the schema explicitly;
+see [JSON compatibility](PUBLIC-CONTRACTS.md#json-report-compatibility).
 
-Each production Gemini operation consumes the explicit key only when creating
-its `GoogleGenAI` client.
-[`runGeminiRequest`](../agent/ai/run-gemini-request.ts) remains
-credential-neutral and receives only request, retry, timeout, and event
-concerns.
+The report contains run/site identity, inspected-page observations, diagnostics,
+analysis and investigation detail, canonical `findings`, the compatibility
+projection, passive security, and summary metrics. `summary.findingsCount`
+counts raw deterministic page findings; `logicalFindingsCount` counts canonical
+logical findings. They are not interchangeable. The shared
+[summary projection](../agent/reporting/run-summary-projection.ts) derives the
+confirmed/review/technical categories used by GUI and human reports.
 
-The SDK receives no retry authority. CheckQuest allows at most two total
-attempts and retries only bounded transient transport or timeout conditions
-and HTTP status `408`, `429`, `500`, `502`, `503`, or `504`. Schema-invalid or
-malformed model output is parsed outside that boundary and fails as
-`MODEL_RESPONSE` without retry.
+Persistence writes JSON before Markdown under `agent-results/<run-id>/` in the
+working directory. It is not transactional; late failure or cancellation may
+leave files. Evidence can predate persistence. No failed/partial report schema
+or successful partial delivery is promised.
 
-Prompts provide bounded observations and deterministic policy context. Model
-output is untrusted until schema parsing and deterministic validation succeed.
+## Events and completion
 
-## Reporting and persistence
+[`RunEvent`](../agent/run/run-event.ts) covers run start/completion/failure,
+inspection and navigation start/completion, model start/retry/completion, and
+investigation completion. Events are synchronous and ordered; observers are
+not awaited. Thrown errors and rejected thenables are isolated from execution.
+Payloads contain bounded context and sanitized display URLs, not keys, prompts,
+raw model responses, page dumps, or nested cleanup causes.
 
-[`buildSiteAgentReport`](../agent/reporting/build-site-agent-report.ts)
-constructs the successful in-memory report. The
-[`SiteAgentReport`](../agent/reporting/report-types.ts) contract has
-`reportSchemaVersion: "3"` and includes:
+After execution starts, exactly one terminal event is delivered. Early input
+failure can emit `run-failed` with safe identity `unavailable`; cancellation
+before start can fail without `run-started`. Direct `runSite` completion follows
+required core cleanup. The application holds that completion until both report
+writes succeed and cancellation has been checked, then commits completion.
 
-- run identity, timestamps, site identity, homepage observation, and outcome;
-- full inspected-page observations, diagnostics, model analysis,
-  investigation transcripts, evidence, and navigation provenance;
-- canonical run-level `findings`;
-- the derived `siteWideExploratoryFindings` compatibility projection;
-- the separate passive-security report; and
-- aggregate finding, occurrence, diagnostic, and exploration metrics.
+## Failure behavior
 
-The application reporting boundary writes `report.json` first and then the
-Markdown projection under `agent-results/<runId>/`; both the CLI and desktop
-GUI receive the resulting artifact paths from `startCheckQuest(...)`.
-Screenshots are evidence captured during execution, not a persistence concern
-of `runSite`. A persistence failure is a `REPORTING` delivery failure after
-core execution has completed; it does not retroactively produce a partial
-successful core report.
+[`CheckQuestError`](../agent/errors/checkquest-error.ts) distinguishes
+`CONFIGURATION`, `CANCELLED`, `BROWSER`, `NAVIGATION`, `MODEL`, `MODEL_RESPONSE`,
+`REPORTING`, `CLEANUP`, and `INTERNAL`. Unsafe/inconclusive candidate results
+are distinct from operational errors. An inconclusive finding does not make
+a completed run a failed run.
 
-The human report is a projection of the canonical report rather than another
-finding authority. [`human-report-model`](../agent/reporting/human-report-model.ts)
-assigns run-scoped display IDs such as `01`, `02`, and `S01` only after
-canonical reconciliation. Those IDs provide report navigation, page-to-item
-correlation, and readable evidence filenames; they do not replace stable
-machine-level finding fingerprints and are not cross-run identity.
+Cancellation stops useful work at safe boundaries, propagates to supported
+browser/model operations, preserves mandatory guarded rollback, and closes
+resources. Active filesystem writes are cooperative, not interruptible or
+atomic. It cannot race into apparent application success.
 
-[`run-summary-projection`](../agent/reporting/run-summary-projection.ts)
-provides the shared reconciled counts used by human reporting and product
-presentation. The primary report index accounts for functional findings and
-technical observations, while passive-security observations remain a separate
-numbered category. Evidence filenames are derived from the final display
-identity/title for human correlation, while the evidence type remains matched
-to the claim.
+[Required cleanup](../agent/errors/required-cleanup.ts) attempts all registered
+operations. Earlier failure/cancellation stays primary; cleanup failures remain
+secondary. After otherwise successful execution, cleanup failure becomes
+`CLEANUP` and prevents success. Diagnostics and document guards are disposed
+and Chromium is closed on success, failure, and cancellation.
 
-Reports and screenshots can contain target URLs, visible site content,
-diagnostics, and model-derived observations. They should be handled as
-potentially sensitive artifacts. Gemini API keys are excluded.
+Raw causes remain internal. The application boundary removes nested causes and
+redacts its supplied key from public errors/events/results and persisted reports.
+Opt-in developer diagnostics are separate, bounded, redacted failure artifacts;
+see [Configuration errors](CONFIGURATION.md#configuration-errors).
 
-## Testing seams
+## Verification layers and non-goals
 
-The architecture supports three deliberately different verification layers:
+Browser-free deterministic checks cover contracts, identity, reconciliation,
+verification, reports, errors, events, retries, and credential isolation. Local
+Chromium checks cover loopback navigation, containment, popup first requests,
+document provenance, password suppression, evidence replay, and resource cleanup.
+Optional external Aidoc and real Gemini checks are separate from mandatory CI.
+The [README](../README.md#development-and-verification) lists commands.
 
-- browser-free deterministic checks exercise schemas, policies, lifecycle
-  integrity, reporting, errors, events, credential isolation, and regression
-  sentinels;
-- local loopback Chromium checks exercise real browser safety, navigation,
-  passive response capture, coordinator cleanup, and Gemini-free reusable
-  execution without an external site; and
-- optional external Aidoc or real Gemini checks remain separate from mandatory
-  contributor and CI success.
-
-The physical source tree mirrors those boundaries: production runtime code is
-owned by `agent/`, while checks live under `tests/deterministic/`,
-`tests/browser/`, `tests/manual/`, and `tests/ui/`. Shared test-only harness
-utilities live under `tests/support/`.
-
-The injected page-analysis, investigation-planner, and navigation-choice
-collaborators are sufficient for real `runSite` browser integration without
-widening the production API or requiring a Gemini credential. Most lower-level
-policies and registries are plain deterministic modules and can be tested
-directly.
-
-Current report-quality coverage also exercises structured finding identity,
-under- and over-merge cases, accessibility claim precision, focused evidence
-capture/replay, deterministic evidence naming, shared GUI/report accounting,
-run-scoped report navigation, and verification-state non-regression.
-
-Stage 9 credential-boundary coverage additionally verifies that reusable
-execution does not silently consume `process.env.GEMINI_API_KEY`, distinct
-per-run values remain isolated, process environment state is not mutated, and
-credential sentinels do not enter public events, errors, reports, or serialized
-output.
-
-See [Development and verification](../README.md#development-and-verification)
-in the README for the current contributor commands and CI split.
-
-## Deliberate boundaries and non-goals
-
-The following boundaries are intentional:
-
-- the reusable core has no CLI rendering, process control, report-file
-  persistence, or process-environment credential dependency;
-- per-run credentials are execution context and do not belong to `SiteConfig`;
-- `RunEvent` is a progress contract, not a general event bus, logger, or remote
-  telemetry protocol;
-- model dependency overrides are narrow collaborators, not a provider or
-  plugin architecture;
-- `runGeminiRequest` is credential-neutral and does not act as a credential
-  store or client factory;
-- canonical findings and passive-security observations remain separate;
-- generated human prose is not a canonical finding-identity mechanism;
-- run-scoped report item numbers are presentation identities, not cross-run
-  finding fingerprints;
-- compatibility and human-report projections are derived, not parallel
-  authorities;
-- deterministic policy constrains every model-assisted navigation or action;
-- failed runs reject instead of returning an apparently successful partial
-  report;
-- there is no partial failed-run report schema;
-- browser navigation and action retries are not inferred from safe Gemini
-  request retries; and
-- the source-level API is reusable but is not yet a versioned package or a
-  published SDK contract.
-
-CheckQuest currently provides a CLI and a local Electron desktop GUI MVP. It
-does not yet provide a packaged Windows release, browser frontend, SaaS control
-plane, general crawler, active security scanner, or arbitrary browser
-automation platform. Those presentation and deployment choices do not belong
-in the core execution model.
+The CLI and source Electron MVP exist. Packaged Windows distribution, a dedicated
+in-app report viewer, authenticated exploration, SaaS execution, persisted keys,
+cross-run finding history, arbitrary automation, and active security scanning
+are not current capabilities. Reusable boundaries remain presentation-agnostic
+and deployment-agnostic; future interfaces must preserve those boundaries.

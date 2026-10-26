@@ -57,8 +57,9 @@ A target may be either:
 - a registered site ID; or
 - one complete `http://` or `https://` URL.
 
-For an arbitrary URL, CheckQuest creates a run-local profile scoped to the exact
-supplied hostname. The runtime profile is not persisted.
+For an arbitrary URL, CheckQuest creates a run-local profile allowing the supplied
+hostname and its exact `www` counterpart. It does not grant arbitrary subdomain
+access. The runtime profile is not persisted. See [Host policy](CONFIGURATION.md#host-policy).
 
 ## Supported CLI options
 
@@ -68,9 +69,10 @@ The supported CLI options are:
 |---|---|---:|
 | `--pages` | Maximum distinct pages inspected, including the start page | 1–20 |
 | `--navigation-steps` | Maximum site-level navigation decisions | 1–50 |
-| `--steps-per-page` | Maximum autonomous investigation actions per page | 0–10 |
+| `--steps-per-page` | Maximum investigation planner decisions per page | 0–10 |
 
-These are ceilings, not guaranteed work counts.
+These are ceilings, not guaranteed work counts. Investigation decisions can stop
+or reject an action; they do not guarantee an executed interaction.
 
 Unknown options, duplicate options, missing values, invalid values, extra
 positional targets, and unresolved targets are configuration failures.
@@ -98,6 +100,10 @@ without a package-major or report-schema change.
 
 CheckQuest does not automatically load `.env` files.
 
+`CHECKQUEST_DEBUG=1` enables developer-only redacted failure diagnostics. It is
+not a stable machine-output protocol and does not relax credential privacy. See
+[Configuration errors](CONFIGURATION.md#configuration-errors).
+
 ## CLI success and failure
 
 The CLI process contract is:
@@ -105,7 +111,7 @@ The CLI process contract is:
 | Exit code | Meaning |
 |---|---|
 | `0` | Exploration completed and both JSON and Markdown reports were persisted successfully |
-| `1` | Configuration, exploration, cleanup, or report delivery failed |
+| `1` | Configuration, exploration, cleanup, cancellation, or report delivery failed |
 
 A caller automating CheckQuest should use the process exit code as the success
 signal.
@@ -117,7 +123,7 @@ of a report file alone must not be interpreted as successful CLI completion.
 
 Expected operational failures are presented through bounded CheckQuest error
 codes such as `CONFIGURATION`, `BROWSER`, `NAVIGATION`, `MODEL`,
-`MODEL_RESPONSE`, `REPORTING`, and `CLEANUP`. Human-readable message wording
+`MODEL_RESPONSE`, `CANCELLED`, `REPORTING`, and `CLEANUP`. Human-readable message wording
 and bounded context are presentation details, not a machine protocol.
 
 Failed exploration does not return or persist a successful partial report
@@ -154,13 +160,22 @@ stable machine interfaces.
 
 ## JSON report compatibility
 
-The authoritative machine-readable compatibility signal is:
+The authoritative machine-readable compatibility signal is `reportSchemaVersion`.
+New runs emit **`"4"`**. Historical **`"3"`** reports remain supported without
+migration. The package is still `0.1.0`; package and report versions are independent.
 
-```json
-{
-  "reportSchemaVersion": "3"
-}
-```
+Schema v4 adds report-owned `humanNarratives` with a state and an `exploratory`
+collection keyed by `findingReference`. Each entry contains `plainTitle`,
+`plainCondition`, `impactStatement`, and `whatToCheck`. Successful new reports
+have `state: "complete"` and all required narratives. Missing, invalid, duplicate,
+or unassociated required narratives fail report construction or rendering;
+required generation failure must not silently produce successful incomplete output.
+A pending builder result is not a successfully delivered report.
+
+Narratives do not redefine finding identity, severity, evidence, or verification.
+Schema-v4 Markdown rendering consumes persisted narratives without regenerating
+them through Gemini. Historical v3 rendering does not require v4 narratives;
+existing v3 files are not rewritten or silently upgraded.
 
 For schema version `3`, CheckQuest follows these rules:
 
@@ -179,9 +194,11 @@ For schema version `3`, CheckQuest follows these rules:
 - the fail-fast/no-successful-partial-report behavior remains part of the
   schema-v3 delivery contract.
 
+These shared collection, identity, and delivery semantics also apply to v4.
+
 A change that removes, renames, changes the JSON type of, or materially changes
-the meaning of an existing schema-v3 field requires a new
-`reportSchemaVersion`.
+the meaning of an existing field requires a new `reportSchemaVersion`. The
+existing schema-v3 contract is not redefined by the introduction of v4.
 
 Adding a field that old consumers can safely ignore does not by itself require
 a new schema version.
@@ -201,7 +218,7 @@ Automation should consume `report.json`, not scrape `report.md`.
 
 ## Finding semantics that remain authoritative
 
-Within schema v3:
+For both supported report versions:
 
 - `findings` is the canonical functional finding collection;
 - occurrences are associated through explicit identities and evidence rather
@@ -221,7 +238,7 @@ semantic evidence.
 
 ## Source-level reusable API
 
-`runSite(...)`, `SiteConfig`, `RunEvent`, `CheckQuestError`, and the current
+`startCheckQuest(...)`, `runSite(...)`, `SiteConfig`, `RunEvent`, `CheckQuestError`, and the current
 TypeScript report types provide a deliberate reusable source boundary.
 
 They are not currently a published, separately versioned SDK.
@@ -246,9 +263,12 @@ The current release does not promise:
 - stable evidence filenames;
 - a published npm package;
 - a standalone executable;
-- a desktop or web UI;
+- packaged desktop distribution or a hosted web UI;
 - a hosted service;
 - a stable published SDK.
 
+The source Electron MVP exists; its UI layout and source-level IPC are not a
+separately versioned public API. See [desktop usage](../README.md#run-the-desktop-interface).
+
 These exclusions do not weaken the existing deterministic safety, bounded
-exploration, BYOK privacy, finding-integrity, or schema-v3 semantics.
+exploration, BYOK privacy, finding-integrity, or the semantics of either supported report version.
