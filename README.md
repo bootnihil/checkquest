@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/branding/checkquest-banner.png" alt="CheckQuest — Explore. Investigate. Report." width="100%">
+  <img src="assets/branding/checkquest-banner.png" alt="CheckQuest - Explore. Investigate. Report." width="100%">
 </p>
 
 # CheckQuest 🧭
@@ -10,54 +10,75 @@
 
 **Explore. Investigate. Report.**
 
-Scripted tests check the journeys you already know matter. CheckQuest explores
-for potential problems you did not explicitly write a test for.
+Your automated tests check what you've already planned for. But what about the
+problems you didn't think to test?
 
-Give it an HTTP(S) URL you are authorized to test. It inspects a bounded sample
-of pages, follows promising internal routes, and investigates suspicious signals
-when a permitted action can gather useful evidence. You get findings and the
-observations behind them, ready for human review. No predefined test suite or
-site-specific profile is required.
+CheckQuest takes a different approach. It explores a website, looks for errors
+and unexpected behavior, and investigates selected clues. Then it brings back a
+report explaining what it found, with supporting evidence you can review.
 
-CheckQuest is an experimental exploratory QA tool, currently run through its CLI.
-A desktop GUI is in development and is not yet usable. CheckQuest belongs
-alongside scripted regression and manual testing: use repeatable tests for known requirements, then give
-exploration room to surface questions your scripts do not ask. It does not
-crawl a whole site, prove it defect-free, or perform penetration testing.
+**Another perspective on your website, without having to anticipate and script
+every possible issue yourself.**
 
-## ✨ What it does
+CheckQuest is experimental. The command-line version is available from source;
+a desktop application is in development.
 
-1. Inspects the start page, including content, browser diagnostics, and basic
-   deterministic checks.
-2. Uses Gemini to propose potential issues and help choose eligible internal
-   pages. Deterministic policy controls navigation and browser actions.
-3. Investigates candidates when a permitted action can gather evidence, within
-   separate page, navigation, and per-page investigation budgets.
-4. Reconciles findings and occurrences, derives verification from evidence,
-   and writes JSON and Markdown reports with focused screenshots when available.
+## ✨ How it works
 
-**The model proposes. Evidence decides what can be verified.**
+1. **Explore.** Start with a page of your choice. CheckQuest looks for potential
+   problems, such as loading errors, missing headings, and unexpected error
+   messages, then follows useful internal links to discover other pages.
+2. **Investigate.** When something looks suspicious, CheckQuest can examine
+   selected dropdowns, tabs, expandable sections, or text fields to see how they
+   behave and gather more information.
+3. **Report.** Get readable findings, supporting evidence, and an explanation of
+   what still needs human attention.
 
-Gemini helps identify what may be worth investigating; deterministic code
-controls what the browser may do and how evidence supports a finding. A model
-can suggest that something looks wrong. It cannot make the finding true by
-saying so.
+You choose exploration limits. AI helps identify interesting pages and clues;
+built-in policy controls where CheckQuest can go and how it can interact.
 
-A successful interaction does not necessarily prove the broader claim. Selecting
-a misspelled option proves it is selectable, not that its wording is incorrect.
-CheckQuest keeps those facts separate. Findings can remain inconclusive and
-require human review; that uncertainty is part of the result.
+## 📄 What you get
 
-Passive security observations describe returned document headers and transport;
-they are separate from functional findings and are not vulnerability proof.
-The aim is a useful inspection with an honest evidence trail, not a reassuring
-pass/fail label for the entire site.
+| Output | What it gives you |
+|---|---|
+| `report.md` | Readable findings and observations, affected pages, evidence references, and suggested follow-up |
+| `report.json` | Structured results for your own tools and workflows |
+| `evidence/` | Focused screenshots when capture is available |
 
-## Install from source
+**A suspicion isn't a confirmed problem.** AI can suggest that something looks
+wrong. CheckQuest checks for supporting evidence and distinguishes what it
+observed from what still needs human judgment. A successful interaction does
+not automatically prove the broader claim; findings can remain inconclusive.
 
-Requirements: Git, Node.js **22.13.0+**, npm **10+**, and network access for
-installation, the target website, and Gemini. Normal exploration requires your
-own Gemini API key and may incur provider charges.
+Start with the readable report. The [guided demo](docs/DEMO.md) explains how to
+interpret it; [report contracts](docs/PUBLIC-CONTRACTS.md#json-report-compatibility)
+cover JSON versions and compatibility.
+
+## 🧩 Where it fits
+
+Keep your existing tools:
+
+- **Scripted automated tests** check the requirements and journeys you've already
+  defined.
+- **Human exploratory testing** brings experience, creativity, and judgment to
+  complex questions.
+- **Specialist tools** examine areas such as performance, accessibility, and
+  security in greater depth.
+
+Add CheckQuest for another exploratory perspective: questions and possible
+problems you hadn't anticipated in your test scripts, with evidence to help you
+investigate further.
+
+<!-- markdownlint-disable-next-line MD033 -->
+<a name="install-from-source"></a>
+
+## 🛠️ Install from source
+
+You'll need Git, Node.js **22.13.0+**, npm **10+**, and network access for
+installation, the target website, and the AI provider.
+
+Gemini is currently the only supported AI provider. Bring your own Gemini API
+key; provider usage may incur charges.
 
 ```sh
 git clone https://github.com/bootnihil/checkquest.git
@@ -66,13 +87,13 @@ npm ci
 npm run setup:browser
 ```
 
-On Linux, use `npm run setup:browser:with-deps` if Chromium needs system packages.
-Source installation is the supported distribution; there is no packaged desktop
-installer or published npm package.
+On Linux, use `npm run setup:browser:with-deps` if Chromium needs operating-system
+libraries. Run CheckQuest from the cloned repository; there is no published npm
+package. See [Licensing](#licensing) for the repository's current terms.
 
 ## 🎯 Run from the CLI
 
-Set the key in the shell that will start CheckQuest:
+Set the provider key in the terminal that will start CheckQuest. In PowerShell:
 
 ```powershell
 $env:GEMINI_API_KEY = "replace-with-your-key"
@@ -80,104 +101,107 @@ $env:GEMINI_API_KEY = "replace-with-your-key"
 
 For a POSIX shell, use `export GEMINI_API_KEY="replace-with-your-key"`;
 for Windows cmd, use `set GEMINI_API_KEY=replace-with-your-key`.
-CheckQuest does not load `.env` files or use `GOOGLE_API_KEY` as a fallback.
+CheckQuest does not automatically load `.env` files or fall back to
+`GOOGLE_API_KEY`. Keep your real key out of source control.
 
-Start with one page and investigation disabled:
+Replace the placeholder below with a complete HTTP(S) URL where automated
+testing is permitted, then try a one-page inspection:
 
 ```sh
-npm start -- https://www.example.com/ --pages 1 --navigation-steps 1 --steps-per-page 0
+npm start -- https://your-authorized-site.example/ --pages 1 --navigation-steps 1 --steps-per-page 0
 ```
 
-The [guided demo](docs/DEMO.md) walks through this small first run and its output.
-This still uses Gemini for page analysis. Replace the URL with an authorized
-target. `agent:run` and `agent:explore` are aliases for the same CLI;
-omitting the target selects the built-in `aidoc` reference profile.
+This inspects the starting page without attempting additional interactive
+investigation. Page loading and Gemini analysis still run; this is not an offline
+or side-effect-free mode.
 
-| Option | Scope | Range | Raw-URL default |
-|---|---|---:|---:|
-| `--pages` | Inspected pages, including the start page | 1-20 | 3 |
-| `--navigation-steps` | Navigation decisions across the run | 1-50 | 4 |
-| `--steps-per-page` | Investigation planner decisions per page | 0-10 | 3 |
+Successful runs print the report paths and save files under
+`agent-results/<run-id>/` in the working directory. Open the printed Markdown path
+first. The [guided demo](docs/DEMO.md) walks through the results and a small second
+run with investigation enabled.
 
-Budgets are ceilings, not promised work counts. If navigation steps are omitted,
-the effective ceiling is the greater of the profile default and page budget.
-The `aidoc` defaults are 5 / 6 / 3. See [Configuration](docs/CONFIGURATION.md)
-for host policy, model overrides, and programmatic inputs. The current Gemini
-default is `gemini-3.5-flash-lite`; `GEMINI_MODEL` can override it for CLI runs.
+Use [Configuration](docs/CONFIGURATION.md#cli-targets-and-budgets) for all flags,
+limits, defaults, target profiles, and CLI aliases. The
+[provider reference](docs/CONFIGURATION.md#gemini-byok) covers the current model
+default and optional overrides.
 
-## Desktop GUI in development
+<!-- markdownlint-disable-next-line MD033 -->
+<a name="desktop-gui-in-development"></a>
 
-The CLI is the currently available way to run CheckQuest. There is no usable
-desktop interface yet, and G2 is neither complete nor accepted.
+## 🖥️ Desktop GUI in development
 
-The repository contains Electron components, input validation, credential and
-reachability preflights, and wiring to the shared application boundary. That is
-internal development progress, not an available GUI. Follow
-[Roadmap v2](docs/ROADMAP-V2.md#g2---local-gui-mvp) for the remaining work;
-there is no packaged installer.
-
-## 📄 What you get
-
-Successful CLI runs write under the working directory:
-
-```text
-agent-results/<run-id>/report.json
-agent-results/<run-id>/report.md
-agent-results/<run-id>/evidence/   (when screenshots are captured)
-```
-
-Open Markdown for review; use JSON for automation. New reports use schema **4**,
-including persisted narratives for applicable exploratory findings. Historical
-schema-v3 reports remain supported without migration. Screenshots are focused
-evidence, not a guaranteed image of every page.
-
-CLI exit `0` means exploration, cleanup, and both report writes succeeded.
-Exit `1` means failure or cancellation. Writes are not transactional: files or
-screenshots may remain after failure, but there is no successful partial-report
-contract. Report compatibility is defined in [Public contracts](docs/PUBLIC-CONTRACTS.md).
+A desktop application is being developed to make CheckQuest easier to use
+without typing commands. It is not usable yet, and there is no packaged desktop
+installer. For now, use the command-line version and follow
+[development progress](docs/ROADMAP-V2.md#g2---local-gui-mvp).
 
 ## 🛡️ Safety and limitations
 
-- Only test authorized targets. Ordinary page loads execute site JavaScript and
-  can contact external resources; the hostname allowlist is not network isolation.
-- There is no arbitrary click, selector, script, login, or form-submit authority.
-  Supported control interactions remain narrow and candidate-linked.
-- Visible password fields suppress autonomous investigation. Guarded disclosure,
-  tab, and native-select actions use containment; unsafe states can abort the run.
-- Safety controls reduce risk but cannot guarantee zero side effects on arbitrary
-  websites. See [Browser safety](docs/ARCHITECTURE.md#browser-safety) for exact limits.
-- Gemini receives bounded page observations. Reports and screenshots may contain
-  sensitive site content and URLs. API keys are excluded; handle artifacts carefully.
-- Coverage and model output vary. Neither a successful run nor an inconclusive
-  finding establishes overall site quality or production readiness.
+- **Test only where permitted.** Use your own projects, approved client sites, or
+  test environments where automated testing is allowed.
+- **You set the boundaries.** Page, navigation, and investigation budgets limit
+  the work. Navigation follows configured hostnames; ordinary page loads can
+  still contact other hosts for resources.
+- **Interactions have a purpose.** CheckQuest examines selected controls to
+  clarify suspicious details. It provides no arbitrary click, script, login, or
+  generic form-submission workflow. Visible password fields suppress interactive
+  investigation. Safety checks can reject an action or stop a run.
+- **Observation is not attack.** Security-related observations describe what the
+  browser received. They are not proof of exploitable vulnerabilities, and
+  CheckQuest does not perform penetration testing.
+- **Browser automation can have side effects.** Simply visiting a page or
+  interacting with a control can trigger website behavior. Safeguards reduce
+  risk; they cannot guarantee zero side effects.
+- **Handle site data carefully.** Bounded website observations are sent to the AI
+  provider, currently Gemini. Reports and screenshots may contain sensitive
+  content and URLs. CheckQuest excludes the supplied API key from its reports;
+  that is not general anonymization of website data.
+- **A run samples a website.** Coverage and AI output vary. Neither a successful
+  run nor an empty finding list proves the website is defect-free.
 
-## Development and verification
+Read [Browser safety](docs/ARCHITECTURE.md#browser-safety) for exact interaction
+boundaries and limitations. Safeguards differ by action; the guarded interaction
+boundary does not cover every browser operation.
+
+<!-- markdownlint-disable-next-line MD033 -->
+<a name="development-and-verification"></a>
+
+## 🧪 Development and verification
 
 ```sh
 npm run check
 npm run test:browser:ci
 ```
 
-`check` runs formatting, typechecking, ESLint, Markdown lint, and 41 browser-free
+`check` runs formatting, typechecking, ESLint, Markdown lint, and browser-free
 deterministic checks. The local Chromium gate uses loopback fixtures and no
-Gemini key. `npm test` / `npm run test:ui` is the separate external Aidoc
-regression suite. `npm run desktop:check` checks internal desktop contracts;
-`npm run desktop:build` builds development components. Neither establishes GUI usability.
+Gemini key. `npm test` / `npm run test:ui` is the separate external Aidoc regression
+suite.
+
+For internal desktop work, `npm run desktop:check` checks component contracts and
+`npm run desktop:build` builds development components. See
+[Architecture](docs/ARCHITECTURE.md#verification-layers-and-non-goals) for the
+verification layers.
 
 ## 📚 Documentation
 
 | Document | Use it for |
 |---|---|
-| [Guided demo](docs/DEMO.md) | A minimal first run and report checks |
+| [Guided demo](docs/DEMO.md) | Your first inspection, reading results, and a small exploratory run |
 | [Configuration](docs/CONFIGURATION.md) | CLI inputs, budgets, hosts, credentials, and internal desktop contracts |
 | [Architecture](docs/ARCHITECTURE.md) | Execution, lifecycle, safety, evidence, and failure behavior |
-| [Public contracts](docs/PUBLIC-CONTRACTS.md) | Compatibility and machine-consumer requirements |
+| [Public contracts](docs/PUBLIC-CONTRACTS.md) | CLI delivery, report compatibility, and machine-consumer requirements |
 | [Roadmap](docs/ROADMAP.md) | Planning entry point and completed engine milestones |
-| [Roadmap v2](docs/ROADMAP-V2.md) | Current GUI development, G2 acceptance requirements, and later stages |
+| [Roadmap v2](docs/ROADMAP-V2.md) | Current desktop development, acceptance requirements, and later stages |
 | [Backlog](docs/BACKLOG.md) | Outstanding, parked, and completed work |
+
+<!-- markdownlint-disable-next-line MD033 -->
+<a name="licensing"></a>
 
 ## ⚖️ Licensing
 
-The repository is source-visible, with package metadata marked `UNLICENSED`.
-It does not grant an open-source license. Distribution and licensing decisions
-remain part of the product-validation gate.
+The source is publicly viewable, and the package is marked `UNLICENSED`. The
+repository does not grant an open-source license or permission to reuse, modify,
+or redistribute the code. Installation instructions do not change that status.
+Licensing and distribution terms remain an owner decision at the
+[product-validation gate](docs/ROADMAP-V2.md#product-validation-gate).
