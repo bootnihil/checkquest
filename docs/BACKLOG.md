@@ -1,7 +1,7 @@
 # CheckQuest Backlog
 
 **Scope:** Living backlog across roadmap versions, established 2026-07-23.
-**Current stage:** [Roadmap v2](ROADMAP-V2.md#g2---local-gui-mvp), G2 acceptance.
+**Current stage:** [Roadmap v2](ROADMAP-V2.md#g2---local-gui-mvp), G2 development and acceptance requirements.
 **Completed plan:** [Roadmap v1](ROADMAP.md), Stages 1-10.
 
 Stage order takes precedence over item number. Record non-blocking work here;
@@ -30,10 +30,12 @@ A newly added backlog item does **not** become immediate work merely because it 
 
 G2-G7 remain the committed sequence; their requirements live in
 [Roadmap v2](ROADMAP-V2.md) rather than duplicate backlog rows. G0 and G1 are
-complete. The GUI MVP and report-trustworthiness remediation are implemented;
+complete. Electron components and application integration are internal GUI
+development progress; no usable desktop interface is available. G2 is not
+complete or accepted. Report-trustworthiness remediation is implemented, and
 the human-report readability gate passed live validation on 2026-08-12.
 
-Remaining G2 work is configuration-polish acceptance, the two representative
+G2 still requires a usable GUI, configuration-polish acceptance, the two representative
 10/10/10 acceptance runs, and resolution or explicit disposition of the recorded
 Electron smoke failure. Current code implements several formerly pending polish
 items; validate their acceptance criteria rather than treating this table as an
@@ -57,7 +59,8 @@ insufficient, with explicit reauthorization.
 
 This ordered bucket retains configuration-polish acceptance intent. Bare-domain
 normalization, masked/remote-checked keys with session reuse, editable budgets,
-and basic readiness/status exist in committed code. Contextual missing-field
+and basic readiness/status exist in internal component code. They do not
+establish a usable GUI. Contextual missing-field
 guidance, menu cleanup, final visual acceptance, and stage closure remain open.
 Add new ideas here rather than interrupting the acceptance sequence.
 

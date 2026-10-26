@@ -7,10 +7,14 @@ Source links identify the implementation; they do not define a published SDK.
 
 ## Execution boundaries
 
+The CLI is the currently available run interface. Electron components are
+internal development work; there is no usable desktop GUI yet. The diagram
+shows code ownership and integration, not product availability.
+
 ```mermaid
 flowchart TD
   CLI[CLI: arguments, environment, terminal] --> APP[startCheckQuest]
-  GUI[Electron: inputs, preflights, status] --> APP
+  GUI[Electron internals: in development] -.-> APP
   APP --> RUN[runSite: validation and resource ownership]
   RUN --> PAGE[inspectPage: observe, analyze, investigate, commit]
   PAGE --> NEXT{Eligible navigation and budget?}
@@ -24,8 +28,9 @@ flowchart TD
 
 - [CLI](../agent/run-site-agent.ts) owns argument/environment adaptation,
   terminal rendering, SIGINT cancellation, and process status.
-- [Desktop](../desktop/run-controller.ts) owns form input, session credentials,
-  credential/reachability preflights, and GUI state. It delegates actual runs.
+- [Desktop internals](../desktop/run-controller.ts) contain form-input handling,
+  session credentials, credential/reachability preflights, and GUI state. The
+  controller calls the application boundary; this is not a usable desktop product.
 - [`startCheckQuest`](../agent/application/start-checkquest.ts) owns target
   resolution, budget overrides, cancellation, output sanitization, persistence,
   and application completion.
@@ -314,7 +319,8 @@ projection, passive security, and summary metrics. `summary.findingsCount`
 counts raw deterministic page findings; `logicalFindingsCount` counts canonical
 logical findings. They are not interchangeable. The shared
 [summary projection](../agent/reporting/run-summary-projection.ts) derives the
-confirmed/review/technical categories used by GUI and human reports.
+confirmed/review/technical categories shared by internal desktop projections
+and human reports.
 
 Persistence writes JSON before Markdown under `agent-results/<run-id>/` in the
 working directory. It is not transactional; late failure or cancellation may
@@ -369,7 +375,9 @@ document provenance, password suppression, evidence replay, and resource cleanup
 Optional external Aidoc and real Gemini checks are separate from mandatory CI.
 The [README](../README.md#development-and-verification) lists commands.
 
-The CLI and source Electron MVP exist. Packaged Windows distribution, a dedicated
+The CLI is available; the desktop GUI is in development and not yet usable.
+Electron components and core integration exist, but G2 is not complete or
+accepted. Packaged Windows distribution, a dedicated
 in-app report viewer, authenticated exploration, SaaS execution, persisted keys,
 cross-run finding history, arbitrary automation, and active security scanning
 are not current capabilities. Reusable boundaries remain presentation-agnostic

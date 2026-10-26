@@ -19,9 +19,9 @@ when a permitted action can gather useful evidence. You get findings and the
 observations behind them, ready for human review. No predefined test suite or
 site-specific profile is required.
 
-CheckQuest is an experimental exploratory QA tool, available through a CLI and
-a local Electron desktop interface. It belongs alongside scripted regression
-and manual testing: use repeatable tests for known requirements, then give
+CheckQuest is an experimental exploratory QA tool, currently run through its CLI.
+A desktop GUI is in development and is not yet usable. CheckQuest belongs
+alongside scripted regression and manual testing: use repeatable tests for known requirements, then give
 exploration room to surface questions your scripts do not ask. It does not
 crawl a whole site, prove it defect-free, or perform penetration testing.
 
@@ -105,27 +105,20 @@ The `aidoc` defaults are 5 / 6 / 3. See [Configuration](docs/CONFIGURATION.md)
 for host policy, model overrides, and programmatic inputs. The current Gemini
 default is `gemini-3.5-flash-lite`; `GEMINI_MODEL` can override it for CLI runs.
 
-## Run the desktop interface
+## Desktop GUI in development
 
-After installation:
+The CLI is the currently available way to run CheckQuest. There is no usable
+desktop interface yet, and G2 is neither complete nor accepted.
 
-```sh
-npm run desktop:start
-```
-
-Enter a target, budgets, and Gemini key, then choose Run. Cancel stops the run
-cooperatively. The interface accepts bare domains, validates a newly supplied
-key, and checks website reachability before exploration. Accepted keys remain
-in main-process session memory for reuse until replacement or application exit;
-CheckQuest does not write them to disk. The desktop investigation minimum is
-**1**; use the CLI for zero-investigation runs. There is no desktop model selector.
-
-The desktop MVP exists, but G2 acceptance remains open. A dedicated in-app report
-viewer and Windows packaging are later roadmap stages.
+The repository contains Electron components, input validation, credential and
+reachability preflights, and wiring to the shared application boundary. That is
+internal development progress, not an available GUI. Follow
+[Roadmap v2](docs/ROADMAP-V2.md#g2---local-gui-mvp) for the remaining work;
+there is no packaged installer.
 
 ## 📄 What you get
 
-Successful CLI and desktop runs write under the working directory:
+Successful CLI runs write under the working directory:
 
 ```text
 agent-results/<run-id>/report.json
@@ -168,19 +161,19 @@ npm run test:browser:ci
 `check` runs formatting, typechecking, ESLint, Markdown lint, and 41 browser-free
 deterministic checks. The local Chromium gate uses loopback fixtures and no
 Gemini key. `npm test` / `npm run test:ui` is the separate external Aidoc
-regression suite. `npm run desktop:check` checks desktop contracts;
-`npm run desktop:build` builds the source desktop shell.
+regression suite. `npm run desktop:check` checks internal desktop contracts;
+`npm run desktop:build` builds development components. Neither establishes GUI usability.
 
 ## 📚 Documentation
 
 | Document | Use it for |
 |---|---|
 | [Guided demo](docs/DEMO.md) | A minimal first run and report checks |
-| [Configuration](docs/CONFIGURATION.md) | CLI, desktop, budgets, hosts, and credentials |
+| [Configuration](docs/CONFIGURATION.md) | CLI inputs, budgets, hosts, credentials, and internal desktop contracts |
 | [Architecture](docs/ARCHITECTURE.md) | Execution, lifecycle, safety, evidence, and failure behavior |
 | [Public contracts](docs/PUBLIC-CONTRACTS.md) | Compatibility and machine-consumer requirements |
 | [Roadmap](docs/ROADMAP.md) | Planning entry point and completed engine milestones |
-| [Roadmap v2](docs/ROADMAP-V2.md) | Current G2 acceptance and later product stages |
+| [Roadmap v2](docs/ROADMAP-V2.md) | Current GUI development, G2 acceptance requirements, and later stages |
 | [Backlog](docs/BACKLOG.md) | Outstanding, parked, and completed work |
 
 ## ⚖️ Licensing

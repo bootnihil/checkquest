@@ -1,6 +1,7 @@
 # CheckQuest roadmap v2 - Public landing and local product shell
 
-**Current stage:** G2 - Local GUI MVP. Implemented; acceptance remains open.
+**Current stage:** G2 - Local GUI MVP. In development; not complete or accepted.
+**Available interface:** CLI. No usable desktop GUI yet.
 **Started:** 2026-07-26. [Roadmap v1](ROADMAP.md) is complete.
 **Working backlog:** [BACKLOG.md](BACKLOG.md).
 
@@ -35,7 +36,9 @@ Product visuals must reflect real behavior.
 
 Delivered `startCheckQuest(...)`: target/budgets, transient credentials, optional
 per-run model, ordered events, categorized errors, cancellation, persisted
-reports, and absolute artifact paths. CLI and desktop delegate through it.
+reports, and absolute artifact paths. The CLI delegates through it; internal
+Electron controller code is wired to the same boundary. G1 completion does not
+establish a usable desktop interface.
 Cancellation preserves mandatory rollback and cleanup; cleanup cannot replace
 an earlier failure. Application outputs redact the key and remove nested causes.
 
@@ -47,13 +50,18 @@ report delivery and packaged storage locations were not G1 requirements.
 
 ## G2 - Local GUI MVP
 
-**Status:** Implemented; acceptance remains open.
+**Status:** In development; no usable desktop interface yet. G2 is not complete
+or accepted.
 
-The MVP provides target/budget/key entry, Run, Cancel, and basic progress/status.
-There is no model selector in the GUI; the application/CLI model seam remains.
+G2 aims to provide target/budget/key entry, Run, Cancel, and basic progress/status.
+Electron main/preload/renderer components, validation, preflights, session-key
+handling, and application wiring exist as internal development work. They do not
+yet amount to a usable GUI. The internal form has no model selector; the
+application/CLI model seam remains.
 No accounts, database, cloud execution, or SaaS features belong to this stage.
 
-Acceptance exposed report-trust issues, now addressed through validated
+Earlier G2 development and report-review work exposed report-trust issues,
+addressed through validated
 structured finding identity, conservative verification, focused evidence,
 shared GUI/report summary accounting, and run-scoped item navigation. Generic
 page screenshots do not establish finding evidence. Repeated findings without
@@ -67,14 +75,14 @@ reauthorization. Do not reopen either gate without a material regression.
 
 ### Implementation and acceptance are separate
 
-The former configuration-polish implementation checklist is now partly stale:
-committed code includes bare-domain normalization, masked key entry and remote
+Existing internal component work includes bare-domain normalization, masked key
+entry and remote
 credential preflight, session-memory key reuse, editable budgets, basic
 readiness/status, and target reachability/canonicalization preflight.
 Contextual missing-field guidance and native-menu cleanup remain in the G2
-polish bucket. See [desktop inputs](CONFIGURATION.md#desktop-inputs) for actual
-behavior. Their presence does not prove final visual/accessibility acceptance
-or close G2. The [polish bucket](BACKLOG.md#g2-gui-configuration-polish-bucket)
+polish bucket. See the [desktop development reference](CONFIGURATION.md#desktop-development-reference)
+for code-level contracts. These components do not constitute an available GUI,
+prove visual/accessibility acceptance, or close G2. The [polish bucket](BACKLOG.md#g2-gui-configuration-polish-bucket)
 retains item order and acceptance intent.
 
 Current hardening also includes popup-first-request containment, pinned document
@@ -102,10 +110,13 @@ A previously reported bounded one-page Gemini 3.5 Flash-Lite acceptance success
 is narrower than this gate and does not replace the two representative runs.
 This documentation audit does not rerun scans or certify those historical results.
 
-**G2 is complete when:** configuration is understandable and safely validated,
-the two representative runs have trustworthy reconciled output and consistent
-accounting, and no G2-blocking desktop runtime issue remains. Quick/Standard/
-Thorough presets are optional later work, with explicit editable budgets.
+**G2 is complete when:** a usable local desktop GUI is delivered; its
+configuration is understandable, safely validated, and accepted along with its
+accessibility behavior; two independent representative **10/10/10** runs produce
+trustworthy reconciled output and consistent accounting; the Electron smoke
+failure is resolved or explicitly dispositioned; no G2-blocking desktop runtime
+issue remains; and G2 is explicitly accepted. Quick/Standard/Thorough presets
+are optional later work, with explicit editable budgets.
 Do not begin G3 merely because an implementation checklist is exhausted.
 
 ## G3 - Live run experience

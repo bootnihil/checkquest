@@ -263,12 +263,14 @@ The current release does not promise:
 - stable evidence filenames;
 - a published npm package;
 - a standalone executable;
-- packaged desktop distribution or a hosted web UI;
+- a usable desktop GUI, packaged desktop distribution, or a hosted web UI;
 - a hosted service;
 - a stable published SDK.
 
-The source Electron MVP exists; its UI layout and source-level IPC are not a
-separately versioned public API. See [desktop usage](../README.md#run-the-desktop-interface).
+The CLI is the currently available run interface. Electron components and
+source-level IPC exist as internal development work; there is no usable desktop
+GUI yet, and G2 is not complete or accepted. These internals are not a separately
+versioned public API. See [desktop development status](../README.md#desktop-gui-in-development).
 
 These exclusions do not weaken the existing deterministic safety, bounded
 exploration, BYOK privacy, finding-integrity, or the semantics of either supported report version.

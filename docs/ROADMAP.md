@@ -1,7 +1,7 @@
 # CheckQuest roadmap v1 - completed
 
 **Status:** Stages 1-10 accepted; original roadmap frozen 2026-07-23, completed 2026-07-25 (version 1.17).
-**Current execution:** [Roadmap v2](ROADMAP-V2.md), G2 - Local GUI MVP acceptance.
+**Current execution:** [Roadmap v2](ROADMAP-V2.md), G2 - Local GUI MVP, in development; acceptance open.
 **Backlog:** [BACKLOG.md](BACKLOG.md).
 
 This is the canonical planning entry point and a condensed record of the

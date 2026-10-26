@@ -55,6 +55,5 @@ not arbitrary subdomains. Larger budgets offer more opportunity, not exhaustive
 coverage or stronger proof. Review the [safety limits](ARCHITECTURE.md#browser-safety)
 before enabling investigation on a real site.
 
-For the local GUI, follow [desktop usage](../README.md#run-the-desktop-interface).
-It requires at least one investigation step per page, so it cannot reproduce
-this zero-investigation setup demo exactly.
+Use the CLI for this demo. The [desktop GUI is in development](../README.md#desktop-gui-in-development)
+and is not yet usable.

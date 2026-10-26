@@ -13,8 +13,8 @@ npm start -- [configured-site-id-or-url] [options]
 
 `agent:run` and `agent:explore` invoke the same entry point. Supply at most one
 target: a complete `http://` / `https://` URL or a registered profile ID.
-Omitting it selects `aidoc`. Unlike the desktop interface, the CLI does not
-add a scheme to bare domains.
+Omitting it selects `aidoc`. The CLI requires a complete HTTP(S) URL; it does
+not add a scheme to bare domains.
 
 | Target | Start URL | Allowed hostnames | Default pages / navigation / investigation |
 |---|---|---|---|
@@ -43,33 +43,37 @@ npm start -- https://www.example.com/ --steps-per-page 0
 Zero investigation steps leave analysis, diagnostics, deterministic checks,
 and passive security enabled. This is not an offline or Gemini-free mode.
 
-## Desktop inputs
+## Desktop development reference
 
-Run `npm run desktop:start` after source installation. The interface accepts an
-HTTP(S) URL, bare dotted hostname, localhost, or explicit IP address. Bare
-website hostnames default to HTTPS; local/IP targets default to HTTP. URL
-userinfo is rejected. Profiles cannot be selected by ID in the current form.
+The CLI is the currently available run interface. There is no usable desktop
+GUI yet; G2 is in development, not complete or accepted. The Electron sources
+below are internal components, not a supported user workflow.
 
-Defaults are 3 pages, 4 navigation decisions, and 3 investigation steps/page.
-Ranges match the CLI except investigation is **1-10**, not 0-10. Desktop
-budgets are submitted explicitly. There is no desktop model selector.
+The input-validation code accepts HTTP(S) URLs, bare dotted hostnames, localhost,
+and explicit IP addresses. It normalizes bare website hostnames to HTTPS and
+local/IP targets to HTTP, rejects URL userinfo, and accepts URL targets rather
+than profile IDs. Its defaults are 3 pages, 4 navigation decisions, and 3
+investigation steps/page. Its investigation range is 1-10, compared with the
+CLI's 0-10. The internal form has no model selector.
 
-Before exploration, a newly supplied key is checked with an authenticated,
+The controller contains a credential preflight using an authenticated,
 non-generative Gemini model-list GET (10-second timeout, one SDK attempt).
-An accepted key is held in main-process session memory and reused without
-another key preflight until replaced or the app exits. Request copies and the
-renderer entry are cleared after submission; this is not a claim of secure
-memory erasure. The app does not persist keys.
+Its session store retains an accepted key in main-process memory until
+replacement or application exit. Submission code clears request copies and the
+renderer entry; this is not secure memory erasure or persistent key storage.
 
-Target reachability is checked in a separate headless Chromium visit with a
-15-second navigation timeout before the actual run. Safe canonical redirects
-permit the exact hostname/`www` pair, the same protocol and effective port, or
-an HTTP-to-HTTPS upgrade with the allowed port relationship. Other destinations
-are rejected. This preflight loads the website separately and is not part of
-the exploration page budget. It does not prove every page will be reachable.
+The target-preflight code makes a separate headless Chromium visit with a
+15-second navigation timeout. Canonical redirects permit the exact hostname/
+`www` pair with the same protocol/effective port, or an HTTP-to-HTTPS upgrade
+with the allowed port relationship. Other destinations are rejected. This
+separate visit is outside the exploration page budget and does not establish
+that every page will be reachable.
 
-See [desktop input validation](../desktop/start-run-contract.ts),
-[run controller](../desktop/run-controller.ts), and
+These describe code-level contracts, not a completed desktop product. The
+`desktop:start` and `desktop:build` scripts are development tooling, not an
+available GUI installation or usage path. See
+[input validation](../desktop/start-run-contract.ts),
+[controller](../desktop/run-controller.ts), and
 [canonical-target policy](../desktop/preflight-target-reachability.ts).
 
 ## Host policy
@@ -117,7 +121,8 @@ export GEMINI_MODEL="your-model"
 `GEMINI_MODEL` is optional. The current default is **`gemini-3.5-flash-lite`**,
 not a stable model-name promise. Programmatic callers can pass `model` per run;
 `aiConfig` also reads `GEMINI_MODEL` at module load, so an inherited environment
-override can affect desktop defaults even though its UI has no selector.
+override can affect internal desktop defaults even though the development form
+has no selector.
 Gemini is the only production provider.
 
 Keys are execution context, never `SiteConfig`. CheckQuest must not persist
@@ -127,7 +132,8 @@ Page observations are sent to Gemini; the absence of a key in reports does not
 make target content private from the provider.
 
 Core credential preflight checks that a required key is non-blank before
-launching Chromium; it is not the desktop's remote authentication preflight.
+launching Chromium; it is distinct from the remote authentication preflight
+in the internal desktop controller.
 A missing required key fails with `MODEL`, phase `gemini-credential-resolution`.
 Fully injected reachable analysis/planner/navigation paths can run without a
 key; applicable report-narrative generation also needs injection to remain
@@ -174,7 +180,7 @@ capture can write screenshots during execution.
 | `allowFormSubmission` | Boolean policy flag; current profiles use `false` |
 
 Reusable validation requires safe whole-number budgets but does not impose all
-CLI/desktop upper bounds. An optional run ID must be filesystem-safe and
+CLI or internal desktop-validation upper bounds. An optional run ID must be filesystem-safe and
 1-128 characters; `startedAt` must be a valid `Date`. See
 [input validation](../agent/run/validate-run-site-input.ts).
 
