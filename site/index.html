@@ -3,17 +3,17 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>CheckQuest — Exploratory QA, with evidence</title>
+    <title>CheckQuest - Exploratory website testing</title>
     <meta
       name="description"
-      content="Explore an authorized website beyond scripted tests. Run the CheckQuest CLI from source and review findings, JSON, Markdown, and focused evidence. The desktop GUI is in development."
+      content="Another perspective on your website, without having to anticipate and script every possible issue yourself."
     />
     <meta name="theme-color" content="#071321" />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="CheckQuest — Explore. Investigate. Report." />
+    <meta property="og:title" content="CheckQuest - Explore. Investigate. Report." />
     <meta
       property="og:description"
-      content="Bounded exploratory QA with Gemini-assisted analysis, controlled investigation, and findings that distinguish evidence from uncertainty."
+      content="Another perspective on your website, without having to anticipate and script every possible issue yourself."
     />
     <meta property="og:url" content="https://bootnihil.github.io/checkquest/" />
     <meta
@@ -32,6 +32,12 @@
           fill="currentColor"
           d="M12 .7a11.5 11.5 0 0 0-3.64 22.41c.58.11.79-.25.79-.56v-2.23c-3.22.7-3.9-1.37-3.9-1.37-.53-1.34-1.28-1.7-1.28-1.7-1.05-.72.08-.71.08-.71 1.16.08 1.77 1.19 1.77 1.19 1.03 1.77 2.7 1.26 3.36.96.1-.75.4-1.26.73-1.55-2.57-.29-5.27-1.29-5.27-5.73 0-1.27.45-2.3 1.19-3.12-.12-.29-.52-1.47.11-3.07 0 0 .97-.31 3.16 1.19A10.9 10.9 0 0 1 12 6.02c.98 0 1.95.13 2.87.38 2.19-1.5 3.16-1.19 3.16-1.19.63 1.6.23 2.78.11 3.07.74.82 1.19 1.85 1.19 3.12 0 4.45-2.71 5.43-5.29 5.72.42.36.79 1.07.79 2.15v3.19c0 .31.21.68.8.56A11.5 11.5 0 0 0 12 .7Z"
         ></path>
+      </symbol>
+      <symbol id="icon-arrow-down" viewBox="0 0 24 24">
+        <path d="M12 5v14m-6-6 6 6 6-6" />
+      </symbol>
+      <symbol id="icon-arrow-up-right" viewBox="0 0 24 24">
+        <path d="M4 20 17 7M10 7h7v7" />
       </symbol>
       <symbol id="icon-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v11h-6v-7H9v7H3Z" /></symbol>
       <symbol id="icon-travel_explore" viewBox="0 0 24 24">
@@ -81,6 +87,7 @@
         <nav class="nav" aria-label="Primary">
           <a href="#how-it-works">How it works</a>
           <a href="#what-you-get">What you get</a>
+          <a href="#where-it-fits">Where it fits</a>
           <a href="#safety">Safety</a>
           <a class="nav-try" href="#try-it">Try it</a>
           <a
@@ -101,30 +108,35 @@
         <div class="hero-glow hero-glow-two" aria-hidden="true"></div>
         <div class="shell hero-grid">
           <div class="hero-copy">
-            <p class="eyebrow">Exploratory QA for websites</p>
+            <p class="eyebrow">Exploratory website testing</p>
             <h1 class="hero-title" aria-label="Explore. Investigate. Report.">
               <span class="hero-line">Explore.</span>
               <span class="hero-line hero-line-accent">Investigate.</span>
               <span class="hero-line">Report.</span>
             </h1>
             <p class="hero-lede">
-              Your scripted tests cover known journeys. CheckQuest explores an authorized website
-              for potential problems you didn’t write a test for, investigates within explicit
-              limits, and brings back evidence.
+              Your automated tests check what you've already planned for. CheckQuest takes a
+              different approach: it explores a website, looks for errors and things that seem out
+              of place, and investigates selected clues. Then it gives you a report explaining what
+              it found, with evidence you can review.
             </p>
             <div class="hero-actions">
               <a class="button button-primary" href="#try-it"
-                >Try from source <span aria-hidden="true">↓</span></a
-              >
+                >Try CheckQuest
+                <svg class="icon cta-icon" aria-hidden="true">
+                  <use href="#icon-arrow-down"></use></svg
+              ></a>
               <a
                 class="button button-secondary"
                 href="https://github.com/bootnihil/checkquest/blob/main/docs/DEMO.md"
-                >Walk through a first run <span aria-hidden="true">↗</span></a
-              >
+                >See a guided example
+                <svg class="icon cta-icon" aria-hidden="true">
+                  <use href="#icon-arrow-up-right"></use></svg
+              ></a>
             </div>
             <p class="hero-status">
-              <span class="status-dot" aria-hidden="true"></span>Experimental · CLI available from
-              source · GUI in development
+              <span class="status-dot" aria-hidden="true"></span>Experimental &middot; Command-line
+              version available &middot; Desktop app in development
             </p>
           </div>
           <figure class="quest-illustration">
@@ -256,55 +268,56 @@
                 </span>
               </div>
             </div>
-            <figcaption class="map-caption">Illustration of the exploration process.</figcaption>
           </figure>
         </div>
       </section>
       <section class="section section-steps" id="how-it-works">
         <div class="shell">
-          <div class="section-heading compact-heading">
-            <p class="eyebrow">How a run works</p>
-            <h2>From first pass to final report.</h2>
+          <div class="section-heading">
+            <p class="eyebrow">How it works</p>
+            <h2>Discover problems beyond your test scripts.</h2>
           </div>
           <div class="steps-grid">
             <article class="step-card">
               <div class="card-meta">
-                <span class="outline-number">01</span>
-                <span class="icon-chip"
+                <span class="outline-number">01</span
+                ><span class="icon-chip"
                   ><svg class="icon" aria-hidden="true"><use href="#icon-travel_explore"></use></svg
                 ></span>
               </div>
               <h3>Explore</h3>
               <p>
-                Inspect the start page, then spend the remaining page budget on useful, different
-                internal routes.
+                Start with a page of your choice. CheckQuest looks for problems such as loading
+                errors, missing headings, and unexpected error messages, then follows links to
+                discover other pages worth checking.
               </p>
             </article>
             <article class="step-card step-card-accent">
               <div class="card-meta">
-                <span class="outline-number">02</span>
-                <span class="icon-chip icon-chip-amber"
+                <span class="outline-number">02</span
+                ><span class="icon-chip icon-chip-amber"
                   ><svg class="icon" aria-hidden="true"><use href="#icon-manage_search"></use></svg
                 ></span>
               </div>
               <h3>Investigate</h3>
               <p>
-                Take only narrow, approved actions that can gather evidence for a specific potential
-                issue.
+                When something looks suspicious, CheckQuest can examine certain page controls - such
+                as dropdowns, tabs, expandable sections, or text fields - to see how they behave and
+                gather more information.
               </p>
             </article>
             <article class="step-card">
               <div class="card-meta">
-                <span class="outline-number">03</span>
-                <span class="icon-chip icon-chip-green"
+                <span class="outline-number">03</span
+                ><span class="icon-chip icon-chip-green"
                   ><svg class="icon" aria-hidden="true">
                     <use href="#icon-assignment_turned_in"></use></svg
                 ></span>
               </div>
               <h3>Report</h3>
               <p>
-                Group related observations, keep their evidence together, and show what is verified
-                and what still needs human review.
+                Get a readable summary of what CheckQuest discovered, where problems appeared, what
+                the evidence shows, and what might still need your attention.
               </p>
             </article>
           </div>
@@ -312,45 +325,50 @@
       </section>
       <section class="section output-section" id="what-you-get">
         <div class="shell">
-          <div class="section-heading compact-heading">
-            <p class="eyebrow">What comes back</p>
-            <h2>Findings you can follow back to the evidence.</h2>
+          <div class="section-heading">
+            <p class="eyebrow">What you get</p>
+            <h2>Findings you can understand and act on.</h2>
             <p>
-              A completed CLI run writes its reports to your local
-              <code>agent-results/</code> folder.
+              CheckQuest brings its observations together in reports that help you decide what
+              deserves a closer look.
             </p>
           </div>
           <div class="output-grid">
             <article class="output-card">
               <span class="file-label">report.md</span>
               <h3>A report for people</h3>
-              <p>Review findings, affected pages, verification state, and what to check next.</p>
+              <p>
+                See possible problems, the pages they affect, the evidence behind them, and what
+                might need further investigation.
+              </p>
             </article>
             <article class="output-card">
               <span class="file-label">report.json</span>
-              <h3>The structured record</h3>
+              <h3>Results for your tools</h3>
               <p>
-                Schema-v4 JSON keeps finding identities, occurrences, investigation detail, and
-                evidence references together.
+                Use the same results in your own tools and workflows, without having to extract
+                information from the readable report.
               </p>
             </article>
             <article class="output-card">
               <span class="file-label">evidence/</span>
-              <h3>Focused evidence</h3>
+              <h3>Supporting evidence</h3>
               <p>
-                Finding-focused screenshots when capture is available. Technical observations can
-                use structured evidence instead.
+                Where available, CheckQuest includes screenshots or other supporting information to
+                help explain its findings.
               </p>
             </article>
           </div>
           <div class="evidence-note" id="why-checkquest">
-            <span class="evidence-mark" aria-hidden="true">?</span>
+            <span class="evidence-mark" aria-hidden="true"
+              ><svg class="icon" aria-hidden="true">
+                <use href="#icon-assignment_turned_in"></use></svg
+            ></span>
             <div>
-              <h3>The model proposes. Evidence decides what can be verified.</h3>
+              <h3>A suspicion isn't a confirmed problem.</h3>
               <p>
-                Selecting a misspelled option proves it is selectable, not that its wording is
-                wrong. A model suggestion or successful action is not automatically a verified
-                finding. Inconclusive means there is still something for a human to check.
+                AI can suggest that something looks wrong. CheckQuest checks for supporting evidence
+                and distinguishes what it observed from what still needs human judgment.
               </p>
             </div>
           </div>
@@ -360,56 +378,69 @@
         <div class="shell">
           <div class="section-heading fit-heading">
             <p class="eyebrow">Where it fits</p>
-            <h2>A different job in the QA toolbox.</h2>
+            <h2>Find things you didn't think to test.</h2>
             <p>
-              Keep your regression tests. Add an exploratory pass for the questions you haven’t
-              scripted.
+              Traditional automated tests are excellent at checking known requirements. But what
+              about the unexpected problems nobody thought to write a test for?
+            </p>
+            <p>
+              That's where CheckQuest comes in. It explores without needing a predefined script for
+              every journey, helping uncover overlooked problems and giving you evidence to
+              investigate further.
             </p>
           </div>
           <div class="fit-contrast">
             <div class="not-this-panel">
-              <p class="contrast-label contrast-label-muted">Keep your known checks</p>
+              <p class="contrast-label contrast-label-muted">Keep your existing tools</p>
               <div class="not-list-wrap">
                 <div class="not-item">
-                  <span class="not-icon" aria-hidden="true">✓</span>
+                  <span class="not-icon" aria-hidden="true"
+                    ><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg
+                  ></span>
                   <div>
-                    <strong>Scripted regression</strong
-                    ><small>Repeat the journeys and assertions your team has chosen.</small>
+                    <strong>Automated tests</strong
+                    ><small>Make sure the things you already know should work still work.</small>
                   </div>
                 </div>
                 <div class="not-item">
-                  <span class="not-icon" aria-hidden="true">✓</span>
+                  <span class="not-icon" aria-hidden="true"
+                    ><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg
+                  ></span>
                   <div>
-                    <strong>Manual exploration</strong
-                    ><small
-                      >Bring product context, judgment, and curiosity to the investigation.</small
-                    >
+                    <strong>Human testing</strong
+                    ><small>Bring experience, creativity, and judgment to complex questions.</small>
                   </div>
                 </div>
                 <div class="not-item">
-                  <span class="not-icon" aria-hidden="true">✓</span>
+                  <span class="not-icon" aria-hidden="true"
+                    ><svg class="icon" aria-hidden="true"><use href="#icon-check"></use></svg
+                  ></span>
                   <div>
                     <strong>Specialist tools</strong
                     ><small
-                      >Use dedicated accessibility, site-quality, and security testing for deeper
-                      coverage.</small
+                      >Examine specific areas such as performance, accessibility, and security in
+                      greater depth.</small
                     >
                   </div>
                 </div>
               </div>
             </div>
             <div class="this-is-panel">
-              <div class="this-is-orbit" aria-hidden="true"></div>
-              <div class="this-is-icon" aria-hidden="true">↗</div>
-              <p class="contrast-label contrast-label-bright">Make room for discovery</p>
-              <h3>An autonomous exploratory QA pass.</h3>
+              <div class="this-is-orbit" aria-hidden="true">
+                <div class="this-is-icon">
+                  <svg class="icon" aria-hidden="true"><use href="#icon-arrow-up-right"></use></svg>
+                </div>
+              </div>
+              <p class="contrast-label contrast-label-bright">Add CheckQuest</p>
+              <h3>Give exploration some room.</h3>
               <p>
-                Start from a URL rather than a test script. Gemini helps suggest what looks worth
-                investigating; deterministic policy controls eligible routes, actions, and budgets.
+                Point CheckQuest at a website and let it look around. AI helps identify interesting
+                pages and possible problems, while built-in safeguards control where it can go and
+                how it can interact.
               </p>
               <p class="fit-support">
-                Coverage and model output vary. A run is a bounded sample, never proof that a site
-                is defect-free.
+                <strong>The benefit:</strong> Another perspective on your website, without having to
+                anticipate and script every possible issue yourself.
               </p>
             </div>
           </div>
@@ -418,146 +449,138 @@
       <section class="section safety-section" id="safety">
         <div class="shell">
           <div class="section-heading safety-heading">
-            <p class="eyebrow">Safety by design</p>
-            <h2>Autonomous, not unbounded.</h2>
+            <p class="eyebrow">Safety</p>
+            <h2>Designed to explore carefully.</h2>
             <p>
-              You set the scope. Deterministic policy constrains the browser, even when a model
-              suggests the next step.
+              CheckQuest can explore on its own, but it doesn't have unrestricted control of your
+              browser or website.
             </p>
           </div>
           <div class="guardrail-grid">
             <article class="guardrail-card">
               <div class="card-meta">
-                <span class="outline-number">01</span>
-                <span class="icon-chip"
+                <span class="outline-number">01</span
+                ><span class="icon-chip"
                   ><svg class="icon" aria-hidden="true"><use href="#icon-timer"></use></svg
                 ></span>
               </div>
-              <h3>Bound the run</h3>
-              <p>Separate page, navigation, and per-page investigation budgets bound the work.</p>
-              <div class="guardrail-tags">
-                <span>Page budgets</span><span>Bounded navigation</span>
-              </div>
+              <h3>You set the boundaries</h3>
+              <p>
+                Choose how many pages CheckQuest can explore. Its navigation stays within the
+                website boundaries you configure.
+              </p>
             </article>
             <article class="guardrail-card">
               <div class="card-meta">
-                <span class="outline-number">02</span>
-                <span class="icon-chip icon-chip-amber"
+                <span class="outline-number">02</span
+                ><span class="icon-chip icon-chip-amber"
                   ><svg class="icon" aria-hidden="true"><use href="#icon-rule_settings"></use></svg
                 ></span>
               </div>
-              <h3>Constrain interaction</h3>
-              <p>Autonomous actions stay narrow, candidate-linked, and purpose-specific.</p>
-              <div class="guardrail-tags">
-                <span>Guarded actions</span><span>No arbitrary clicks</span
-                ><span>No submit actions</span>
-              </div>
+              <h3>Interactions have a purpose</h3>
+              <p>
+                CheckQuest doesn't randomly press buttons. It examines selected controls when doing
+                so may help clarify something suspicious.
+              </p>
             </article>
             <article class="guardrail-card">
               <div class="card-meta">
-                <span class="outline-number">03</span>
-                <span class="icon-chip icon-chip-cyan"
+                <span class="outline-number">03</span
+                ><span class="icon-chip icon-chip-cyan"
                   ><svg class="icon" aria-hidden="true"><use href="#icon-shield_lock"></use></svg
                 ></span>
               </div>
-              <h3>Back off on password pages</h3>
+              <h3>It knows when to stop</h3>
               <p>
-                Visible password fields suppress investigation. An unsafe interaction state can stop
-                the run.
+                Safety checks can stop an investigation when an interaction attempts an unexpected
+                page change, download, or other potentially risky behavior.
               </p>
-              <div class="guardrail-tags">
-                <span>Password-page backoff</span><span>Rollback</span>
-              </div>
             </article>
             <article class="guardrail-card">
               <div class="card-meta">
-                <span class="outline-number">04</span>
-                <span class="icon-chip icon-chip-green"
+                <span class="outline-number">04</span
+                ><span class="icon-chip icon-chip-green"
                   ><svg class="icon" aria-hidden="true"><use href="#icon-security"></use></svg
                 ></span>
               </div>
-              <h3>Keep security passive</h3>
+              <h3>Observation, not attack</h3>
               <p>
-                Observe useful security posture without turning the run into vulnerability probing.
+                CheckQuest can flag certain security-related observations, but it doesn't attempt to
+                break into websites or exploit vulnerabilities.
               </p>
-              <div class="guardrail-tags">
-                <span>Authorized sites only</span><span>No active probing</span>
-              </div>
             </article>
           </div>
-          <p class="safety-limit">
-            Safety controls reduce risk; they cannot guarantee zero side effects. Page loads and
-            supported interactions can still trigger website behavior. Inspect only sites you are
-            authorized to test.
-          </p>
-          <a
-            class="text-link"
-            href="https://github.com/bootnihil/checkquest/blob/main/docs/ARCHITECTURE.md#browser-safety"
-            >Read the architecture and safety model <span aria-hidden="true">↗</span></a
-          >
+          <aside class="safety-note" aria-labelledby="responsible-use">
+            <h3 id="responsible-use">A note on responsible use</h3>
+            <p>
+              CheckQuest is intended for websites where automated testing is permitted - such as
+              projects you're working on, approved client websites, and test environments.
+            </p>
+            <p>
+              Like other browser automation, it can't guarantee that simply visiting or interacting
+              with a page will have no side effects.
+            </p>
+            <a
+              class="text-link"
+              href="https://github.com/bootnihil/checkquest/blob/main/docs/ARCHITECTURE.md#browser-safety"
+              >Learn more about safety and limitations
+              <svg class="icon cta-icon" aria-hidden="true">
+                <use href="#icon-arrow-up-right"></use></svg
+            ></a>
+          </aside>
         </div>
       </section>
       <section class="section now-section" id="try-it">
         <div class="shell">
           <div class="section-heading">
-            <p class="eyebrow">Take it for a small expedition</p>
-            <h2>Start with the CLI.</h2>
+            <p class="eyebrow">Ready to explore?</p>
+            <h2>Give CheckQuest a try.</h2>
             <p>
-              You’ll need Git, Node.js 22.13.0+, npm 10+, Chromium setup, and your own Gemini API
-              key. Model requests may incur provider charges.
+              CheckQuest is an experimental project, with a working command-line version and a
+              desktop application under development.
             </p>
           </div>
           <div class="try-grid">
             <article class="try-card">
-              <span class="now-label">CLI · available from source</span>
-              <h3>Start with one page.</h3>
+              <span class="now-label">COMMAND LINE &middot; AVAILABLE NOW</span>
+              <h3>Try your first exploration.</h3>
               <p>
-                Follow the installation guide, set your key, then try a small run with investigation
-                disabled.
+                Run CheckQuest on your computer, choose a website to inspect, and review the results
+                it produces.
               </p>
-              <pre><code>npm start -- https://your-site.example/ --pages 1 --navigation-steps 1 --steps-per-page 0</code></pre>
-              <p class="command-note">
-                Replace the URL with an authorized target. Page analysis still uses Gemini.
+              <p>
+                The setup guide walks you through installation and a simple first run. You'll need
+                your own AI provider key; currently, Gemini is the only supported provider, and
+                usage may incur charges.
               </p>
               <a
                 class="button button-primary"
                 href="https://github.com/bootnihil/checkquest#install-from-source"
-                >Install and run the CLI <span aria-hidden="true">↗</span></a
-              >
+                >Get started
+                <svg class="icon cta-icon" aria-hidden="true">
+                  <use href="#icon-arrow-up-right"></use></svg
+              ></a>
             </article>
             <article class="try-card">
-              <span class="now-label development-label">Desktop GUI · in development</span>
-              <h3>A desktop view is on the roadmap.</h3>
+              <span class="now-label development-label">DESKTOP APP &middot; IN DEVELOPMENT</span>
+              <h3>A desktop experience is on its way.</h3>
               <p>
-                Electron components and core integration are in the repository, but no usable
-                desktop interface is available yet.
+                A desktop application is being developed to make CheckQuest easier to use without
+                typing commands.
               </p>
-              <p class="development-note">Work in progress. Use the CLI to run CheckQuest today.</p>
-              <p class="command-note">
-                G2 is not complete or accepted. Use the CLI while GUI work continues.
+              <p>
+                It's not available for everyday use yet. For now, you can explore with the
+                command-line version.
               </p>
               <a
                 class="button button-secondary"
                 href="https://github.com/bootnihil/checkquest/blob/main/docs/ROADMAP-V2.md#g2---local-gui-mvp"
-                >Follow GUI development <span aria-hidden="true">↗</span></a
-              >
+                >See development progress
+                <svg class="icon cta-icon" aria-hidden="true">
+                  <use href="#icon-arrow-up-right"></use></svg
+              ></a>
             </article>
           </div>
-          <p class="availability-note">
-            <strong>Experimental. CLI available; GUI in development.</strong> There is no packaged
-            installer or hosted scanning service. This website does not run scans.
-            <a
-              href="https://github.com/bootnihil/checkquest/blob/main/docs/ROADMAP-V2.md#g2---local-gui-mvp"
-              >See GUI development and acceptance requirements <span aria-hidden="true">↗</span></a
-            >
-          </p>
-          <p class="provider-note">
-            Current default: Gemini 3.5 Flash-Lite (<code>gemini-3.5-flash-lite</code>).
-            <a
-              href="https://github.com/bootnihil/checkquest/blob/main/docs/CONFIGURATION.md#gemini-byok"
-              >Key handling and model configuration <span aria-hidden="true">↗</span></a
-            >
-          </p>
         </div>
       </section>
     </main>
@@ -575,10 +598,12 @@
             <svg width="16" height="16" aria-hidden="true"><use href="#github-mark"></use></svg>
             <span>GitHub</span>
           </a>
-          <a href="https://github.com/bootnihil/checkquest/blob/main/docs/DEMO.md">Guided demo</a>
+          <a href="https://github.com/bootnihil/checkquest/blob/main/docs/DEMO.md"
+            >Guided example</a
+          >
           <a href="https://github.com/bootnihil/checkquest/blob/main/docs/ROADMAP-V2.md">Roadmap</a>
           <a href="https://github.com/bootnihil/checkquest#user-content-%EF%B8%8F-licensing"
-            >Source-visible · UNLICENSED</a
+            >Usage and licensing</a
           >
         </div>
       </div>
