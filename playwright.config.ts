@@ -2,6 +2,7 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
+  outputDir: './workdir/test-results',
 
   timeout: 30_000,
 
@@ -13,7 +14,7 @@ export default defineConfig({
 
   workers: process.env.CI ? 1 : undefined,
 
-  reporter: [['list'], ['html', { open: 'never' }]],
+  reporter: [['list'], ['html', { open: 'never', outputFolder: 'workdir/playwright-report' }]],
 
   use: {
     trace: 'on-first-retry',

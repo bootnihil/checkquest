@@ -36,5 +36,5 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: aidoc-playwright-report
-          path: playwright-report/
+          path: workdir/playwright-report/
           retention-days: 30

@@ -24,3 +24,6 @@ desktop/renderer/styles.css
 
 # Documentation remains governed by the existing Markdown lint workflow
 **/*.md
+
+# Project-local scratch work is not source
+/workdir/

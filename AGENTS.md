@@ -47,3 +47,21 @@
 
 - Update README or other documentation only when the change creates a meaningful project milestone or makes existing documentation inaccurate.
 - Keep detailed planning information in `docs/ROADMAP.md` and `docs/BACKLOG.md`.
+
+## Workspace hygiene - mandatory
+
+- Keep `C:\Dev` and this project root free of ad-hoc task output. Before a task
+  creates temporary files, establish `<project-root>\workdir\<task>\` and pass
+  it explicitly to tools for output, working, or temporary directories.
+- Put temporary scripts, screenshots, validation/review output, extracted files,
+  experimental checkouts, debugging logs, and document-processing intermediates
+  in `workdir/`. Never put them in sibling directories, the project root, source,
+  or documentation directories.
+- Keep genuine source, documentation, configuration, official tests, assets,
+  operational state, and intentional product deliverables in their proper places.
+- Workdir may contain valuable reference repositories, diagnostics, and retained
+  experiments. Never treat it as safe to delete. Preserve active files and workflows.
+- Use standard operating-system temp storage when a tool requires it. Do not
+  change system-wide `TEMP` or `TMP` settings.
+- Before finishing, inspect `C:\Dev` and this project root for newly created scratch
+  artifacts, verify workspace ignore rules, and report unresolved exceptions.

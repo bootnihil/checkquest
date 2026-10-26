@@ -11,6 +11,7 @@ const authoredTypeScriptFiles = [
 export default [
   {
     ignores: [
+      'workdir/**',
       'agent-results/**',
       '.desktop-dist/**',
       'node_modules/**',
