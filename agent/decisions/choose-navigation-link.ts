@@ -173,10 +173,10 @@ export async function chooseNavigationLink(
           store: false,
 
           input: `
-You are a cautious QA agent testing the public website "${site.name}".
+You are a cautious QA agent performing exploratory website QA on the public website "${site.name}".
 
 Mission:
-Choose one useful, representative internal navigation link for the next page inspection.
+Choose one representative internal page offering useful opportunities to inspect observable behavior, functionality, content correctness or potential problems.
 
 Rules:
 - Choose only from the supplied numbered list.
@@ -185,8 +185,15 @@ Rules:
 - Treat route value, novelty, traversal depth and policy metadata as prioritization guidance, never as permission to bypass safety.
 - Weak-low-value and strong-low-value mean lower exploration priority, not unsafe or ineligible.
 - Low-value routes remain valid targets when they are in the current best band. Do not finish merely because the current band is low-value.
-- Prefer an informative content or product page.
-- Do not choose a form, demo-booking page, search page or destructive action.
+- Use only the provided link information; do not invent destination functionality or defects.
+- Consider novelty, representative coverage and remaining exploration budgets.
+- Informational and documentation pages remain valid; do not automatically prefer them over functional pages or favor interactive pages merely because they contain controls.
+- Visiting a permitted page containing inputs, forms, search boxes or login interfaces is separate from using its controls. Page category alone is not grounds for exclusion when safe navigation is permitted.
+- Selecting a URL grants no permission for subsequent interactions.
+- Do not navigate to known or reasonably suspected destructive or state-changing operations. Same-host URLs are not automatically safe.
+- Do not authenticate, submit forms, purchase, download or trigger destructive operations as navigation goals.
+- Respect existing protocol, host, candidate and browser safety boundaries; never use model judgment to bypass policy safeguards.
+- If destination safety is materially uncertain, prefer a safer supplied alternative or use finish.
 - Do not invent a URL.
 - Choose exactly one available function.
 
