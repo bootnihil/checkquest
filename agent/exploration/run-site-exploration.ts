@@ -1,4 +1,5 @@
 import type { Page, Response } from '@playwright/test';
+import type { NavigationDiscoveryAudit } from '../diagnostics/navigation-discovery-audit';
 import type { InspectionDocument } from '../browser/inspection-document';
 
 import type { GeminiRequestEvent } from '../ai/run-gemini-request';
@@ -51,6 +52,7 @@ export interface RunSiteExplorationInput {
   homepageDocument: InspectionDocument;
   diagnosticsCollector: PageDiagnosticsCollector;
   dependencies?: SiteExplorationDependencies;
+  navigationAudit?: NavigationDiscoveryAudit;
   geminiApiKey?: string;
   model?: string;
   signal?: AbortSignal;
@@ -153,6 +155,7 @@ async function inspectExplorationPage(
     pageNoveltyState: state.pageNoveltyState,
     passiveSecurityRegistry: state.passiveSecurityRegistry,
     findingLifecycle: state.findingLifecycle,
+    navigationAudit: input.navigationAudit,
     dependencies: {
       analyzePageForQa: input.dependencies?.analyzePageForQa,
       planNextAction: input.dependencies?.planNextAction,
@@ -279,7 +282,8 @@ export async function runSiteExploration(
         model: input.model,
         signal: input.signal,
         onModelRequestEvent: input.onModelRequestEvent,
-        emit: input.emit
+        emit: input.emit,
+        navigationAudit: input.navigationAudit
       });
 
       navigationStepsUsed = nextPage.navigationStepsUsed;

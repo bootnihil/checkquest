@@ -1,4 +1,5 @@
 import type { NavigationLink } from '../browser/inspect-navigation';
+import type { NavigationDiscoveryAudit } from '../diagnostics/navigation-discovery-audit';
 
 import {
   buildNoveltyCandidateWindow,
@@ -81,6 +82,7 @@ export interface BuildNavigationPolicyWindowInput {
   pageNoveltyState: PageNoveltyState;
   budget: NavigationBudgetContext;
   maximumCandidates?: number;
+  diagnostic?: { audit: NavigationDiscoveryAudit; selection: number };
 }
 
 const navigationPolicyBandOrder: readonly NavigationPolicyBand[] = [
@@ -122,7 +124,8 @@ export function registerDiscoveredNavigationLinks(
   frontier: NavigationFrontier,
   links: NavigationLink[],
   discoveredFromUrl: string,
-  sourcePageDepth: number
+  sourcePageDepth: number,
+  diagnostic?: { audit: NavigationDiscoveryAudit; pageNumber: number }
 ): number {
   if (!Number.isInteger(sourcePageDepth) || sourcePageDepth < 0) {
     throw new Error(
@@ -148,6 +151,7 @@ export function registerDiscoveredNavigationLinks(
         existingEntry.minimumDepthDiscoveredFromUrl = normalizedSourceUrl;
       }
 
+      diagnostic?.audit.frontier(diagnostic.pageNumber, link.url, 'already-present');
       continue;
     }
 
@@ -162,6 +166,7 @@ export function registerDiscoveredNavigationLinks(
     frontier.nextDiscoveryOrder += 1;
 
     addedCount += 1;
+    diagnostic?.audit.frontier(diagnostic.pageNumber, link.url, 'added');
   }
 
   return addedCount;
@@ -325,12 +330,19 @@ export function buildNavigationPolicyWindow(
 
   const frontierEntries = getNavigationFrontierEntries(input.frontier);
 
-  const eligibleEntries = frontierEntries.filter(entry =>
-    isNavigationUrlEligible(input.urlState, entry.link.url)
-  );
+  const eligibleEntries = frontierEntries.filter(entry => {
+    const eligible = isNavigationUrlEligible(input.urlState, entry.link.url);
+    input.diagnostic?.audit.eligibility(
+      input.diagnostic.selection,
+      entry.link.url,
+      eligible,
+      input.urlState
+    );
+    return eligible;
+  });
 
   if (eligibleEntries.length === 0) {
-    return {
+    const window: NavigationPolicyWindow = {
       policyBand: null,
       candidates: [],
       budget: input.budget,
@@ -338,6 +350,8 @@ export function buildNavigationPolicyWindow(
       eligibleValueClassCounts: createEmptyRouteValueClassCounts(),
       deferredValueReasonCounts: {}
     };
+    input.diagnostic?.audit.policy(input.diagnostic.selection, [], window);
+    return window;
   }
 
   /*
@@ -471,7 +485,7 @@ export function buildNavigationPolicyWindow(
     areaOffset += 1;
   }
 
-  return {
+  const window: NavigationPolicyWindow = {
     policyBand,
     candidates: selected,
     budget: input.budget,
@@ -479,4 +493,6 @@ export function buildNavigationPolicyWindow(
     eligibleValueClassCounts,
     deferredValueReasonCounts
   };
+  input.diagnostic?.audit.policy(input.diagnostic.selection, policyCandidates, window);
+  return window;
 }

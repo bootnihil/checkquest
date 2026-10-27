@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import type { NavigationDiscoveryAudit } from '../diagnostics/navigation-discovery-audit';
 
 import type { GeminiRequestEvent } from '../ai/run-gemini-request';
 import type { PageDiagnosticsCollector } from '../browser/collect-page-diagnostics';
@@ -39,6 +40,7 @@ export interface SelectNextPageInput {
   signal?: AbortSignal;
   onModelRequestEvent?: (event: GeminiRequestEvent) => void;
   emit: RunEventEmitter;
+  navigationAudit?: NavigationDiscoveryAudit;
 }
 
 export type NextPageSelectionResult =
@@ -72,11 +74,18 @@ export async function selectNextPageForInspection(
       input.site.maxAgentSteps,
       navigationStepsUsed
     );
+    const auditSelection = input.navigationAudit?.beginSelection(
+      input.completedPageCount,
+      navigationBudget
+    );
 
     if (
       navigationBudget.remainingPageSlots === 0 ||
       navigationBudget.remainingNavigationDecisionSlots === 0
     ) {
+      if (auditSelection !== undefined) {
+        input.navigationAudit?.selection(auditSelection, 'budget-exhausted');
+      }
       return {
         type: 'exploration-stopped',
         outcome: null,
@@ -88,10 +97,17 @@ export async function selectNextPageForInspection(
       frontier: input.navigationFrontier,
       urlState: input.navigationUrlState,
       pageNoveltyState: input.pageNoveltyState,
-      budget: navigationBudget
+      budget: navigationBudget,
+      diagnostic:
+        input.navigationAudit && auditSelection !== undefined
+          ? { audit: input.navigationAudit, selection: auditSelection }
+          : undefined
     });
 
     if (policyWindow.candidates.length === 0) {
+      if (auditSelection !== undefined) {
+        input.navigationAudit?.selection(auditSelection, 'no-eligible-links');
+      }
       return {
         type: 'exploration-stopped',
         outcome: {
@@ -109,21 +125,35 @@ export async function selectNextPageForInspection(
      */
     navigationStepsUsed = consumeNavigationDecision(input.site.maxAgentSteps, navigationStepsUsed);
 
-    const decision = await (input.chooseNavigationLink ?? chooseNavigationLink)(
-      input.site,
-      policyWindow.candidates,
-      navigationBudget,
-      {
-        geminiApiKey: input.geminiApiKey,
-        model: input.model,
-        signal: input.signal,
-        onEvent: input.onModelRequestEvent
+    let decision: Awaited<ReturnType<typeof chooseNavigationLink>>;
+    try {
+      if (auditSelection !== undefined) {
+        input.navigationAudit?.plannerInput(auditSelection, policyWindow.candidates);
       }
-    );
+      decision = await (input.chooseNavigationLink ?? chooseNavigationLink)(
+        input.site,
+        policyWindow.candidates,
+        navigationBudget,
+        {
+          geminiApiKey: input.geminiApiKey,
+          model: input.model,
+          signal: input.signal,
+          onEvent: input.onModelRequestEvent
+        }
+      );
+    } catch (error) {
+      if (auditSelection !== undefined) {
+        input.navigationAudit?.selection(auditSelection, 'planner-failed');
+      }
+      throw error;
+    }
 
     throwIfRunCancelled(input.signal, input.runId, 'navigation-selection');
 
     if (decision.type === 'finish') {
+      if (auditSelection !== undefined) {
+        input.navigationAudit?.selection(auditSelection, 'finish');
+      }
       return {
         type: 'exploration-stopped',
         outcome: {
@@ -135,6 +165,9 @@ export async function selectNextPageForInspection(
     }
 
     markNavigationUrlAttempted(input.navigationUrlState, decision.link.url);
+    if (auditSelection !== undefined) {
+      input.navigationAudit?.selection(auditSelection, 'selected', decision.link.url);
+    }
     input.diagnosticsCollector.reset();
 
     const pageNumber = input.completedPageCount + 1;
@@ -158,6 +191,9 @@ export async function selectNextPageForInspection(
         input.signal
       );
     } catch (error: unknown) {
+      if (auditSelection !== undefined) {
+        input.navigationAudit?.selection(auditSelection, 'navigation-failed', decision.link.url);
+      }
       throw new CheckQuestError('NAVIGATION', 'Unable to open the selected navigation target.', {
         phase: 'agent-navigation',
         runId: input.runId,
@@ -176,6 +212,13 @@ export async function selectNextPageForInspection(
     );
 
     if (navigationResolution.finalUrlAlreadyInspected) {
+      if (auditSelection !== undefined) {
+        input.navigationAudit?.selection(
+          auditSelection,
+          'duplicate-final-url',
+          pageObservation.finalUrl
+        );
+      }
       await approvedPageVisit.document.dispose();
       input.emit({
         type: 'navigation-completed',
@@ -202,6 +245,13 @@ export async function selectNextPageForInspection(
       outcome: 'ready-for-inspection'
     });
 
+    if (auditSelection !== undefined) {
+      input.navigationAudit?.selection(
+        auditSelection,
+        'ready-for-inspection',
+        pageObservation.finalUrl
+      );
+    }
     return {
       type: 'ready-for-inspection',
       navigationStepsUsed,

@@ -1,4 +1,5 @@
 import { chromium } from '@playwright/test';
+import type { NavigationDiscoveryAudit } from '../diagnostics/navigation-discovery-audit';
 
 import { requireGeminiApiKey } from '../ai/resolve-gemini-api-key';
 import { collectPageDiagnostics } from '../browser/collect-page-diagnostics';
@@ -42,6 +43,7 @@ export interface RunSiteInput {
   model?: string;
   signal?: AbortSignal;
   dependencies?: RunSiteDependencies;
+  navigationAudit?: NavigationDiscoveryAudit;
 }
 
 export interface RunSiteCredentials {
@@ -293,6 +295,7 @@ async function executeRunSite(
         homepageDocument,
         diagnosticsCollector,
         dependencies: input.dependencies,
+        navigationAudit: input.navigationAudit,
         geminiApiKey: input.credentials?.geminiApiKey,
         model: input.model,
         signal: input.signal,

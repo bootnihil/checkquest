@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import type { NavigationDiscoveryAudit } from '../diagnostics/navigation-discovery-audit';
 
 import { analyzePageForQa } from '../analysis/analyze-page-for-qa';
 import { classifyDiagnostics } from '../analysis/classify-diagnostics';
@@ -81,6 +82,7 @@ export interface InspectPageInput {
   passiveSecurityRegistry: PassiveSecurityRegistry;
   findingLifecycle: RunFindingLifecycleState;
   dependencies?: InspectPageDependencies;
+  navigationAudit?: NavigationDiscoveryAudit;
 }
 
 export interface InspectPageResult {
@@ -139,7 +141,12 @@ async function inspectDocumentPage(input: InspectPageInput): Promise<InspectPage
 
   const discoveredLinks = await runPageOperationWithCancellation(
     page,
-    () => inspectNavigation(page, site.allowedHosts),
+    () =>
+      inspectNavigation(
+        page,
+        site.allowedHosts,
+        input.navigationAudit ? { audit: input.navigationAudit, pageNumber } : undefined
+      ),
     {
       signal: input.dependencies?.signal,
       runId,
@@ -383,7 +390,8 @@ async function inspectDocumentPage(input: InspectPageInput): Promise<InspectPage
     navigationFrontier,
     discoveredLinks,
     pageObservation.finalUrl,
-    traversalDepth
+    traversalDepth,
+    input.navigationAudit ? { audit: input.navigationAudit, pageNumber } : undefined
   );
 
   markFinalUrlInspected(navigationUrlState, pageObservation.finalUrl);

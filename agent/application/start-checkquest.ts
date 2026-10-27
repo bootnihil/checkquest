@@ -1,4 +1,8 @@
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
+import {
+  createNavigationDiscoveryAudit,
+  type NavigationDiscoveryAudit
+} from '../diagnostics/navigation-discovery-audit';
 
 import type { SiteAgentReport } from '../reporting/report-types';
 import { persistSiteAgentReport } from '../reporting/persist-site-agent-report';
@@ -34,6 +38,7 @@ export interface StartCheckQuestInput {
   developerDiagnostics?: {
     enabled: boolean;
   };
+  navigationAudit?: { enabled: boolean };
 
   /*
    * This remains the existing narrow collaborator seam used by local,
@@ -97,6 +102,8 @@ async function executeCheckQuestRun(
       >
     | undefined;
   const geminiApiKey = input.credentials?.geminiApiKey;
+  let navigationAudit: NavigationDiscoveryAudit | undefined;
+  let auditExecution: 'completed' | 'failed' = 'failed';
 
   try {
     throwIfRunCancelled(signal, runId, 'application-run-start');
@@ -110,6 +117,9 @@ async function executeCheckQuestRun(
       maxExploratoryStepsPerPage:
         input.budgets?.investigationStepsPerPage ?? baseSite.maxExploratoryStepsPerPage
     };
+    if (input.navigationAudit?.enabled === true) {
+      navigationAudit = createNavigationDiscoveryAudit(runId, site.allowedHosts, [geminiApiKey]);
+    }
 
     const report = await runSite({
       site,
@@ -119,6 +129,7 @@ async function executeCheckQuestRun(
       startedAt,
       runId,
       dependencies: input.dependencies,
+      navigationAudit,
       onEvent: event => {
         const sanitizedEvent = sanitizeApplicationValue(event, geminiApiKey);
 
@@ -144,6 +155,7 @@ async function executeCheckQuestRun(
     throwIfRunCancelled(signal, runId, 'application-run-completion');
 
     commitCompletion();
+    auditExecution = 'completed';
 
     if (completedEvent !== undefined) {
       emitCompletedEvent(completedEvent, input.onEvent);
@@ -176,6 +188,8 @@ async function executeCheckQuestRun(
     }
 
     throw sanitizedError;
+  } finally {
+    await navigationAudit?.persist(join('agent-results', runId), auditExecution);
   }
 }
 

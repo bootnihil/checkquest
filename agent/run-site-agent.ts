@@ -35,7 +35,8 @@ async function main(): Promise<void> {
     onEvent: renderRunEvent,
     developerDiagnostics: {
       enabled: isDeveloperDiagnosticsEnabled(process.env)
-    }
+    },
+    navigationAudit: { enabled: process.env.CHECKQUEST_NAV_AUDIT === '1' }
   });
 
   const cancelRun = (): void => {
