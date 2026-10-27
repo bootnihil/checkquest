@@ -225,7 +225,9 @@ img {
 }
 .hero-line-accent {
   padding-right: 0.16em;
-  padding-bottom: 0.13em;
+  /* Extend the gradient past the descender without changing line spacing. */
+  padding-bottom: 0.18em;
+  margin-bottom: -0.05em;
   background: linear-gradient(100deg, var(--cyan), #6ca3ff 45%, #6874ff 88%);
   -webkit-background-clip: text;
   background-clip: text;
@@ -988,6 +990,7 @@ a:focus-visible {
   }
   .hero-line-accent {
     padding-bottom: 0.13em;
+    margin-bottom: 0;
     padding-right: 0.18em;
   }
   .hero-lede {
