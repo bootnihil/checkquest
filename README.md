@@ -77,8 +77,9 @@ investigate further.
 You'll need Git, Node.js **22.13.0+**, npm **10+**, and network access for
 installation, the target website, and the AI provider.
 
-Gemini is currently the only supported AI provider. Bring your own Gemini API
-key; provider usage may incur charges.
+Gemini is currently the only supported AI provider. Create a Gemini API key using
+[Google's official setup guide](https://ai.google.dev/gemini-api/docs/api-key).
+A consumer Gemini account alone is not enough; provider usage may incur charges.
 
 ```sh
 git clone https://github.com/bootnihil/checkquest.git

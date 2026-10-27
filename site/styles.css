@@ -294,7 +294,7 @@ img {
   transform: translateY(-2px);
 }
 .button-primary {
-  background: linear-gradient(120deg, #3e98ee 0%, #4f7ffc 53%, #5966f3 100%);
+  background: linear-gradient(120deg, #3279be 0%, #4570dd 53%, #5966f3 100%);
   box-shadow: 0 14px 34px rgba(70, 106, 245, 0.24);
   color: #fff;
 }

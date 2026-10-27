@@ -9,11 +9,16 @@ need to write a test script or expect a particular finding to follow along.
 - Complete [installation](../README.md#install-from-source), including dependency
   installation and Chromium setup.
 - Open a terminal in the cloned `checkquest` directory.
-- Have your own Gemini API key ready. Gemini is currently the only supported AI
-  provider, and usage may incur charges.
+- Create a Gemini API key using
+  [Google's official setup guide](https://ai.google.dev/gemini-api/docs/api-key).
+  A consumer Gemini account alone is not enough. Gemini is currently the only
+  supported AI provider, and usage may incur charges.
 - Choose a website where automated testing is permitted: your own project, an
   approved client website, or a test environment. Review the
   [safety limits](ARCHITECTURE.md#browser-safety) before running it.
+
+CheckQuest sends website observations to Gemini for analysis. Choose targets
+whose content you are permitted to share with the provider.
 
 This walkthrough uses the command-line version. The
 [desktop application is in development](../README.md#desktop-gui-in-development).

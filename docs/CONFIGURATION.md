@@ -93,6 +93,10 @@ See [Browser safety](ARCHITECTURE.md#browser-safety).
 
 ## Gemini BYOK
 
+Create a Gemini API key using
+[Google's official setup guide](https://ai.google.dev/gemini-api/docs/api-key).
+A consumer Gemini account alone is not enough.
+
 The CLI adapts `GEMINI_API_KEY` from its process environment into explicit
 per-run credentials. There is no implicit `GOOGLE_API_KEY` fallback or automatic
 `.env` loader. Core `runSite(...)` does not read a process-global API key.
@@ -101,28 +105,20 @@ PowerShell:
 
 ```powershell
 $env:GEMINI_API_KEY = "replace-with-your-key"
-$env:GEMINI_MODEL = "your-model"
 ```
 
 Windows cmd:
 
 ```bat
 set GEMINI_API_KEY=replace-with-your-key
-set GEMINI_MODEL=your-model
 ```
 
 POSIX shell:
 
 ```sh
 export GEMINI_API_KEY="replace-with-your-key"
-export GEMINI_MODEL="your-model"
 ```
 
-`GEMINI_MODEL` is optional. The current default is **`gemini-3.5-flash-lite`**,
-not a stable model-name promise. Programmatic callers can pass `model` per run;
-`aiConfig` also reads `GEMINI_MODEL` at module load, so an inherited environment
-override can affect internal desktop defaults even though the development form
-has no selector.
 Gemini is the only production provider.
 
 Keys are execution context, never `SiteConfig`. CheckQuest must not persist
@@ -138,6 +134,35 @@ A missing required key fails with `MODEL`, phase `gemini-credential-resolution`.
 Fully injected reachable analysis/planner/navigation paths can run without a
 key; applicable report-narrative generation also needs injection to remain
 Gemini-free. See [Architecture](ARCHITECTURE.md#programmatic-runsite-api).
+
+### Optional model override
+
+`GEMINI_MODEL` is not required. Leave it unset to use the current default,
+**`gemini-3.5-flash-lite`**, which is not a stable model-name promise.
+To choose another model, replace `your-model` with its model ID and use the
+command for your shell:
+
+PowerShell:
+
+```powershell
+$env:GEMINI_MODEL = "your-model"
+```
+
+Windows cmd:
+
+```bat
+set GEMINI_MODEL=your-model
+```
+
+POSIX shell:
+
+```sh
+export GEMINI_MODEL="your-model"
+```
+
+Programmatic callers can pass `model` per run. `aiConfig` also reads
+`GEMINI_MODEL` at module load, so an inherited environment override can affect
+internal desktop defaults even though the development form has no selector.
 
 ## Programmatic configuration
 
