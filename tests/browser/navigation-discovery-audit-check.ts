@@ -101,6 +101,8 @@ async function main(): Promise<void> {
     response.end(`<!doctype html><html><head><title>Local audit fixture</title><link rel="icon" href="data:,"></head><body><h1>Local fixture</h1>
       <a href="/inputs?private=query-secret#fragment-secret" style="position:absolute;top:30px">Private customer jane@example.com</a>
       <a href="/dropdown" style="position:absolute;top:800px">Lower exercise</a>
+      <a href="/notes/action" data-method="delete">Declared action</a>
+      <a href="/notes/file" download>Declared download</a>
       <a href="/checkboxes" style="display:none">Hidden exercise</a>
       <a href="http://fixture-user:fixture-password@${request.headers.host}/inputs?token=query-secret" style="display:none">Private credentials</a>
       <nav style="position:absolute;top:1000px">
@@ -146,7 +148,8 @@ async function main(): Promise<void> {
     const reasons = collectors.map(record => record.reason);
     for (const reason of [
       'collected',
-      'outside-navigation-and-top-region',
+      'non-get-action-link',
+      'download-link',
       'not-visible',
       'disallowed-host',
       'non-http-protocol',
@@ -163,7 +166,11 @@ async function main(): Promise<void> {
       'Do not claim an unobserved later gate.'
     );
     assert.equal(hidden.nearTopOfViewport, undefined);
-    const lower = collectors.find(record => record.reason === 'outside-navigation-and-top-region')!;
+    assert.ok(!reasons.includes('outside-navigation-and-top-region'));
+    const lower = collectors.find(
+      record => (record.destination as { route?: string })?.route === '/dropdown'
+    )!;
+    assert.equal(lower.reason, 'collected');
     assert.deepEqual(lower.destination, {
       kind: 'allowed-host',
       route: '/dropdown',

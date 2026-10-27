@@ -70,18 +70,34 @@ export async function inspectNavigation(
     }
     facts.hasBoundingBox = true;
 
-    const insideNavigationContainer = await link.evaluate(element =>
-      Boolean(element.closest('nav, header, [role="navigation"], [aria-label*="navigation" i]'))
-    );
+    const context = await link.evaluate(element => ({
+      insideNavigationContainer: Boolean(
+        element.closest('nav, header, [role="navigation"], [aria-label*="navigation" i]')
+      ),
+      download: element.hasAttribute('download'),
+      nonGetAction: ['data-method', 'data-turbo-method'].some(attribute => {
+        const method = element.getAttribute(attribute);
+        return method !== null && method.trim().toUpperCase() !== 'GET';
+      })
+    }));
 
     const nearTopOfViewport =
       viewport !== null && box.y + box.height > 0 && box.y < Math.min(viewport.height * 0.35, 280);
-    facts.insideNavigationContainer = insideNavigationContainer;
+    // Location describes the observation; it does not determine content-link eligibility.
+    facts.insideNavigationContainer = context.insideNavigationContainer;
     facts.nearTopOfViewport = nearTopOfViewport;
+    facts.download = context.download;
+    facts.nonGetAction = context.nonGetAction;
 
-    if (!insideNavigationContainer && !nearTopOfViewport) {
+    if (context.nonGetAction) {
       if (diagnostic) {
-        await record('outside-navigation-and-top-region');
+        await record('non-get-action-link');
+      }
+      continue;
+    }
+    if (context.download) {
+      if (diagnostic) {
+        await record('download-link');
       }
       continue;
     }

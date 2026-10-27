@@ -67,7 +67,8 @@ export type CollectorReason =
   | 'collected'
   | 'not-visible'
   | 'no-bounding-box'
-  | 'outside-navigation-and-top-region'
+  | 'non-get-action-link'
+  | 'download-link'
   | 'missing-href'
   | 'invalid-url'
   | 'non-http-protocol'
@@ -79,6 +80,8 @@ export interface CollectorFacts {
   hasBoundingBox?: boolean;
   insideNavigationContainer?: boolean;
   nearTopOfViewport?: boolean;
+  download?: boolean;
+  nonGetAction?: boolean;
 }
 
 type AuditRecord = { stage: string; [key: string]: unknown };
