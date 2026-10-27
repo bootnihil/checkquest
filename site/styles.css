@@ -127,13 +127,19 @@ img {
   font-size: 0.92rem;
   font-weight: 650;
 }
-.nav > a {
+.nav-links {
+  display: contents;
+}
+.nav-toggle {
+  display: none;
+}
+.nav a {
   transition:
     color 160ms ease,
     border-color 160ms ease,
     background 160ms ease;
 }
-.nav > a:hover {
+.nav a:hover {
   color: var(--text);
 }
 .nav-github,
@@ -968,9 +974,65 @@ a:focus-visible {
     width: min(100% - 32px, var(--shell));
   }
   .header-inner {
+    position: relative;
     min-height: 68px;
   }
-  .nav > a:not(.nav-github):not(.nav-try) {
+  .nav-links {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    left: 0;
+    max-height: calc(100dvh - 92px);
+    overflow-y: auto;
+    padding: 8px;
+    border: 1px solid var(--surface-border);
+    border-radius: 16px;
+    background: #0b1b2c;
+    box-shadow: var(--shadow);
+  }
+  .nav-links.is-open {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .nav-links a {
+    display: flex;
+    min-height: 44px;
+    align-items: center;
+    border-radius: 8px;
+    padding: 10px 14px;
+  }
+  .nav-links a:hover {
+    background: rgba(153, 197, 255, 0.08);
+  }
+  .nav-toggle {
+    display: inline-flex;
+    width: 44px;
+    height: 44px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--surface-border);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.025);
+    color: var(--text-soft);
+    cursor: pointer;
+  }
+  .nav-toggle:hover {
+    color: var(--text);
+  }
+  .nav-toggle:focus-visible {
+    outline: 3px solid rgba(145, 190, 255, 0.7);
+    outline-offset: 4px;
+  }
+  .nav-toggle .menu-close,
+  .nav-toggle[aria-expanded='true'] .menu-open {
+    display: none;
+  }
+  .nav-toggle[aria-expanded='true'] .menu-close {
+    display: block;
+  }
+  .quest-illustration {
     display: none;
   }
   .brand {
