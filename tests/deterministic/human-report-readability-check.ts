@@ -659,7 +659,230 @@ async function checkSecurityProjection(base: SiteAgentReportV4): Promise<void> {
   }
 }
 
+function checkUnstructuredHttp404Presentation(): void {
+  const resourceUrl = 'https://media.example.net/catalog/reviews.json';
+  const observation = `A request to ${resourceUrl.replace('https://', '')} returned a 404 status.`;
+  const browserText = 'Failed to load resource: the server responded with a status of 404 ()';
+  const condition = 'A file required to display review content could not be found.';
+  const impact = 'The endpoint does not exist, which may affect the visible review scores.';
+  const report = createAcceptanceReport();
+  const finding = createFinding(27, {
+    title: 'Review content might be missing',
+    evidence: observation,
+    reasoning: impact,
+    category: 'technical'
+  });
+  report.findings = [finding];
+  report.humanNarratives = {
+    state: 'complete',
+    exploratory: [
+      {
+        findingReference: finding.findingReference,
+        plainTitle: 'Review content might be missing',
+        plainCondition: condition,
+        impactStatement: impact,
+        whatToCheck: 'Confirm whether the resource URL is correct and check the visible scores.'
+      }
+    ]
+  };
+  const page = report.inspectedPages[0]!;
+  const rawCandidate = exploratoryQaFindingSchema.parse(
+    finding.occurrences[0]!.evidence[0]!.rawSource!.value
+  );
+  page.exploratoryFindingResults = [
+    {
+      candidateReference: 'candidate-27',
+      finding: rawCandidate,
+      outcome: {
+        status: 'inconclusive',
+        summary: 'The visible impact was not established.',
+        evidence: []
+      }
+    }
+  ];
+  page.diagnostics = {
+    consoleErrors: [{ text: browserText, sourceUrl: resourceUrl, lineNumber: 0, columnNumber: 0 }],
+    failedRequests: []
+  };
+
+  const before = JSON.stringify(report);
+  const presentation = buildHumanReportPresentation(report).detailedFindings[0]!;
+  const markdown = renderHumanMarkdownReport(report);
+  assert.equal(
+    JSON.stringify(report),
+    before,
+    'Rendering must not mutate saved data or narratives.'
+  );
+  assert.equal(presentation.findingReference, finding.findingReference);
+  assert.equal(presentation.status, 'Needs review');
+  assert.equal(presentation.severity, 'low');
+  assert.ok(
+    presentation.whatHappened.startsWith('The browser recorded an HTTP 404 (Not Found) response')
+  );
+  assert.ok(presentation.whyItMayMatter.startsWith('If the page depends on this resource,'));
+  assert.ok(presentation.whyItMayMatter.includes('response alone does not establish'));
+  assert.ok(presentation.whatStillNeedsChecking.includes('repeat the request'));
+  assert.ok(presentation.whatStillNeedsChecking.includes('works as intended'));
+  const ordinaryReadingPath = visibleMarkdown(markdown);
+  assert.ok(!ordinaryReadingPath.includes(condition));
+  assert.ok(!ordinaryReadingPath.includes(impact));
+  assert.ok(!ordinaryReadingPath.includes('Original AI'));
+  const technicalDetails = markdown.match(/<details>[\s\S]*?<\/details>/)?.[0] ?? '';
+  assert.ok(technicalDetails.includes(`Recorded browser observation: ${browserText}`));
+  assert.ok(
+    technicalDetails.includes(
+      'Original AI title (unverified interpretation): Review content might be missing'
+    )
+  );
+  assert.ok(
+    technicalDetails.includes(`Original AI condition (unverified interpretation): ${condition}`)
+  );
+  assert.ok(technicalDetails.includes(`Original AI impact (unverified interpretation): ${impact}`));
+  assert.ok(
+    technicalDetails.includes(
+      `Original AI suggested check: ${report.humanNarratives.exploratory[0]!.whatToCheck}`
+    )
+  );
+  assert.ok(markdown.includes(`Resource URL: ${resourceUrl}`));
+  assert.ok(markdown.includes(`Candidate observation (AI analysis): ${observation}`));
+  assert.ok(markdown.includes('https://example.com/settings'));
+
+  function changeObservation(copy: SiteAgentReportV4, value: string): void {
+    const candidate = copy.inspectedPages[0]!.exploratoryFindingResults[0]!.finding;
+    candidate.evidence = value;
+    copy.findings[0]!.occurrences[0]!.evidence[0]!.rawSource!.value = structuredClone(candidate);
+  }
+
+  const rejectedAssociations: [string, (copy: SiteAgentReportV4) => void][] = [
+    [
+      'missing browser evidence',
+      copy => {
+        copy.inspectedPages[0]!.diagnostics.consoleErrors = [];
+      }
+    ],
+    [
+      'missing candidate evidence',
+      copy => {
+        copy.findings[0]!.occurrences[0]!.evidence = [];
+      }
+    ],
+    [
+      'missing provenance',
+      copy => {
+        delete copy.findings[0]!.occurrences[0]!.evidence[0]!.rawReference;
+      }
+    ],
+    [
+      'wrong page',
+      copy => {
+        copy.inspectedPages[0]!.observation.finalUrl = 'https://example.com/other';
+      }
+    ],
+    [
+      'wrong candidate',
+      copy => {
+        copy.inspectedPages[0]!.exploratoryFindingResults[0]!.candidateReference = 'candidate-28';
+      }
+    ],
+    [
+      'different candidate observation',
+      copy => {
+        copy.inspectedPages[0]!.exploratoryFindingResults[0]!.finding.evidence =
+          'Another request failed.';
+      }
+    ],
+    [
+      'multiple possible resources',
+      copy => {
+        changeObservation(
+          copy,
+          `A request to ${resourceUrl} or https://other.example.net/data.json returned HTTP 404.`
+        );
+      }
+    ],
+    [
+      'unidentified resource',
+      copy => {
+        changeObservation(copy, 'A resource request returned HTTP 404.');
+      }
+    ],
+    [
+      'unrelated 404',
+      copy => {
+        copy.inspectedPages[0]!.diagnostics.consoleErrors[0]!.sourceUrl =
+          'https://other.example.net/data.json';
+      }
+    ],
+    [
+      'different browser status',
+      copy => {
+        copy.inspectedPages[0]!.diagnostics.consoleErrors[0]!.text =
+          'Failed to load resource: HTTP 500';
+      }
+    ],
+    [
+      'ambiguous protocol',
+      copy => {
+        copy.inspectedPages[0]!.diagnostics.consoleErrors.push({
+          ...page.diagnostics.consoleErrors[0]!,
+          sourceUrl: resourceUrl.replace('https:', 'http:')
+        });
+      }
+    ],
+    [
+      '404 in resource name only',
+      copy => {
+        changeObservation(copy, `A request to ${resourceUrl}/404 is pending.`);
+      }
+    ]
+  ];
+
+  for (const [label, modify] of rejectedAssociations) {
+    const copy = structuredClone(report);
+    modify(copy);
+    const unchanged = JSON.stringify(copy);
+    const item = buildHumanReportPresentation(copy).detailedFindings[0]!;
+    assert.ok(!item.technicalDetails.some(detail => detail.startsWith('Resource URL:')), label);
+    assert.ok(!item.whatHappened.includes('Recorded browser observation:'), label);
+    assert.ok(!item.whatHappened.startsWith('The browser recorded an HTTP 404'), label);
+    assert.equal(
+      item.whatStillNeedsChecking,
+      report.humanNarratives.exploratory[0]!.whatToCheck,
+      label
+    );
+    if (
+      item.whatHappened.startsWith(
+        'Candidate observation (AI analysis; not independently confirmed):'
+      )
+    ) {
+      assert.ok(
+        item.whatHappened.endsWith(`Original AI interpretation (unverified): ${condition}`),
+        label
+      );
+      assert.ok(
+        item.whyItMayMatter.startsWith(`Original AI interpretation (unverified): ${impact}`),
+        label
+      );
+    }
+    assert.equal(JSON.stringify(copy), unchanged, label);
+  }
+
+  const fullUrl = structuredClone(report);
+  changeObservation(fullUrl, `A request to ${resourceUrl} returned HTTP 404.`);
+  fullUrl.inspectedPages[0]!.diagnostics.consoleErrors.push({
+    ...page.diagnostics.consoleErrors[0]!,
+    sourceUrl: 'https://unrelated.example.net/404.json'
+  });
+  const fullUrlItem = buildHumanReportPresentation(fullUrl).detailedFindings[0]!;
+  assert.ok(fullUrlItem.technicalDetails.includes(`Resource URL: ${resourceUrl}`));
+  assert.ok(!fullUrlItem.technicalDetails.join('\n').includes('unrelated.example.net'));
+  console.log(
+    'Unstructured HTTP 404 presentation and conservative evidence association checks passed.'
+  );
+}
+
 async function main(): Promise<void> {
+  checkUnstructuredHttp404Presentation();
   assert.equal(getHumanReaderStatus('Observed directly', 'Confirmed issue'), 'Confirmed issue');
   assert.equal(getHumanReaderStatus('Seen in browser data', 'Confirmed issue'), 'Confirmed issue');
   assert.equal(getHumanReaderStatus('Observed directly', 'Needs human review'), 'Needs review');

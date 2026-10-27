@@ -978,6 +978,81 @@ function hasUsableNarrativeStatement(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+function getUnstructuredHttp404Evidence(report: SiteAgentReport, finding: UnifiedFinding) {
+  if (
+    finding.category !== 'technical' ||
+    finding.verification.state !== 'inconclusive' ||
+    getRuntimeTechnicalIdentity(finding) !== null ||
+    finding.occurrences.length !== 1
+  ) {
+    return null;
+  }
+
+  const occurrence = finding.occurrences[0]!;
+  const candidates = occurrence.evidence.filter(
+    evidence => evidence.source === 'model' && evidence.rawSource?.type === 'exploratory-qa-finding'
+  );
+
+  if (candidates.length !== 1) {
+    return null;
+  }
+
+  const evidence = candidates[0]!;
+  const parsed = exploratoryQaFindingSchema.safeParse(evidence.rawSource!.value);
+  const http404ResponsePattern =
+    /\b(?:HTTP(?:\s+status)?|status(?:\s+(?:code|of))?)\s*:?\s*404\b|\b404\s+(?:status|response|error)\b/i;
+
+  if (!parsed.success || !http404ResponsePattern.test(parsed.data.evidence)) {
+    return null;
+  }
+
+  const observation = parsed.data.evidence;
+  const pageNumber = evidence.rawReference?.pageNumber;
+  const page = pageNumber === undefined ? undefined : report.inspectedPages[pageNumber - 1];
+  const candidateMatches = page?.exploratoryFindingResults?.filter(
+    result =>
+      result.candidateReference === evidence.rawReference?.candidateReference &&
+      result.finding.category === 'technical' &&
+      result.finding.evidence === observation
+  );
+  const resourceHints = observation
+    .split(/\s+/)
+    .map(token => token.replace(/^[([<"']+|[.,;:!?\]})>"']+$/g, ''))
+    .filter(token =>
+      /^(?:https?:\/\/)?(?:[a-z0-9-]+\.)+[a-z][a-z0-9-]*(?::\d+)?(?:[/?#][^\s<>"']*)?$/i.test(token)
+    );
+  const resourceHint = resourceHints[0];
+  const statuses = observation.match(/\b[1-5]\d{2}\b/g) ?? [];
+  // Prose is only an association hint; never select a page's sole 404 without an exact resource match.
+  const matchingDiagnostics =
+    page?.observation.finalUrl === occurrence.pageUrl &&
+    candidateMatches?.length === 1 &&
+    resourceHints.length === 1 &&
+    statuses.length === 1 &&
+    statuses[0] === '404'
+      ? (page.diagnostics?.consoleErrors ?? []).filter(error => {
+          if (error.sourceUrl === null || !/^https?:\/\//i.test(error.sourceUrl)) {
+            return false;
+          }
+
+          const resourceMatches = /^https?:\/\//i.test(resourceHint ?? '')
+            ? error.sourceUrl === resourceHint
+            : error.sourceUrl.replace(/^https?:\/\//i, '') === resourceHint;
+          const browserStatuses = error.text.match(/\b[1-5]\d{2}\b/g) ?? [];
+
+          return (
+            resourceMatches &&
+            http404ResponsePattern.test(error.text) &&
+            browserStatuses.length === 1 &&
+            browserStatuses[0] === '404'
+          );
+        })
+      : [];
+  const browserObservation = matchingDiagnostics.length === 1 ? matchingDiagnostics[0]! : null;
+
+  return { observation, browserObservation };
+}
+
 function createNeedsReviewExploratoryNarrative(
   finding: UnifiedFinding,
   title: string,
@@ -1113,13 +1188,30 @@ function buildHumanFinding(
         )
       : null;
   const readerTitle = readerSafeNarrative?.title ?? plainTitle;
-  const readerCondition = readerSafeNarrative?.condition ?? plainCondition;
-  const readerImpact = readerSafeNarrative?.impact ?? impactStatement;
+  const http404Evidence =
+    persistedNarrative !== null && status === 'Needs human review'
+      ? getUnstructuredHttp404Evidence(report, finding)
+      : null;
+  const matchedHttp404 = http404Evidence?.browserObservation ?? null;
+  const readerCondition =
+    matchedHttp404 !== null
+      ? 'The browser recorded an HTTP 404 (Not Found) response for a resource requested by this page. The resource URL is in Technical details.'
+      : http404Evidence === null
+        ? (readerSafeNarrative?.condition ?? plainCondition)
+        : `Candidate observation (AI analysis; not independently confirmed): ${http404Evidence.observation}\n\nOriginal AI interpretation (unverified): ${plainCondition}`;
+  const readerImpact =
+    matchedHttp404 !== null
+      ? 'If the page depends on this resource, some content or functionality may be affected. The 404 response alone does not establish that visible content is missing, that visitors experienced a problem, or that the endpoint no longer exists.'
+      : http404Evidence === null
+        ? (readerSafeNarrative?.impact ?? impactStatement)
+        : `Original AI interpretation (unverified): ${impactStatement}\n\nAn HTTP 404 response alone does not establish that the endpoint no longer exists or that visible page content is missing. Check the affected page to determine whether the suspected impact occurred.`;
   const readerCheck =
-    readerSafeNarrative?.check ??
-    (status === 'Needs human review'
-      ? createNeedsReviewStructuredCheck(finding, checkStatement)
-      : checkStatement);
+    matchedHttp404 !== null
+      ? 'Check whether the resource URL in Technical details is correct and repeat the request. On the affected page, check whether the content or functionality that depends on this resource works as intended.'
+      : (readerSafeNarrative?.check ??
+        (status === 'Needs human review'
+          ? createNeedsReviewStructuredCheck(finding, checkStatement)
+          : checkStatement));
   const modelCandidateProvenance =
     finding.category === 'technical' &&
     finding.verification.state === 'inconclusive' &&
@@ -1145,6 +1237,17 @@ function buildHumanFinding(
     technicalDetails: [
       ...(deterministicNarrative?.technicalDetails ?? []),
       ...getExploratoryFindingTechnicalDetails(finding),
+      ...(matchedHttp404 === null
+        ? []
+        : [
+            `Resource URL: ${matchedHttp404.sourceUrl}`,
+            `Recorded browser observation: ${matchedHttp404.text}`,
+            `Candidate observation (AI analysis): ${http404Evidence!.observation}`,
+            `Original AI title (unverified interpretation): ${plainTitle}`,
+            `Original AI condition (unverified interpretation): ${plainCondition}`,
+            `Original AI impact (unverified interpretation): ${impactStatement}`,
+            `Original AI suggested check: ${checkStatement}`
+          ]),
       `Verification state: ${finding.verification.state}`
     ],
     focusedEvidence,
